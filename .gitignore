@@ -18,3 +18,6 @@ __pycache__/
 /docs/book/book/
 /market_analysis/
 /examples/TOOL_FAULTS.md
+
+# The worked benchmark cases keep the part files of their multi-item drawings
+!/cad-vs-cad-bench/**/*.parts/

@@ -1,0 +1,1708 @@
+{
+  "program": [
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": "Fixed",
+            "distance": null,
+            "flip": false
+          },
+          "part": "box.shapecraft",
+          "variant": null
+        },
+        "id": "box"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": "Fixed",
+            "distance": null,
+            "flip": false
+          },
+          "part": "divider.shapecraft",
+          "variant": null
+        },
+        "id": "divider1"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": "Fixed",
+            "distance": null,
+            "flip": false
+          },
+          "part": "divider.shapecraft",
+          "variant": null
+        },
+        "id": "divider2"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/side/e13"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/side/e11"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "length"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/side/e12"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/side/e14"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "width"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/start"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/end"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "height"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/end"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/start"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "div_wide"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e14"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e16"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "div_thick"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/end"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/start"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "div_wide_p"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e14"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e16"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "div_thick_p"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/start"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e15"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "below_rim"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/end"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e13"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "above_bottom"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e16"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider2",
+                "source": {
+                  "Topology": "divider/side/e16"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "between"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Radius",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "corners/e3/side/e0"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "r_corner"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Radius",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "thick/f9/far"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "Reference"
+        },
+        "id": "r_inner"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/side/e12"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "thick/f1/far#2#2"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "Reference"
+        },
+        "id": "wall_top"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/end"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "thick/f4/far"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "Reference"
+        },
+        "id": "floor_front"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/end"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "thick/f4/far"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "Reference"
+        },
+        "id": "floor_right"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Radius",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "rim/e0/side/e0"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "Reference"
+        },
+        "id": "rim_front"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Radius",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "bottom/e0/side/e0"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "bottom_front"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Radius",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "rim/e1/side/e0"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "rim_right"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Radius",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "bottom/e1/side/e0"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "bottom_right"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/start"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "slots/side/e15"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "slot_depth"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "slots/side/e15"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "slots/side/e16"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "slot_width"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": true,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "slots/side/e17"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "slots/side/e18"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "slot_length"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "groove2/groove_cut/side/e22"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider2",
+                "source": {
+                  "Topology": "divider/side/e14"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "clear_a"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "groove2/groove_cut/side/e20#2"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider2",
+                "source": {
+                  "Topology": "divider/side/e16"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "clear_b"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "groove_cut/side/e23"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider2",
+                "source": {
+                  "Topology": "divider/end"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "clear_end"
+      }
+    },
+    {
+      "AddPlane": {
+        "args": {
+          "angle": 45.0,
+          "distance": 0.0,
+          "mode": "Offset",
+          "other": false,
+          "references": [
+            {
+              "FrameAxis": {
+                "axis": "Y",
+                "frame": "origin"
+              }
+            }
+          ]
+        },
+        "id": "midY"
+      }
+    },
+    {
+      "AddPlane": {
+        "args": {
+          "angle": 45.0,
+          "distance": 0.0,
+          "mode": "Offset",
+          "other": false,
+          "references": [
+            {
+              "FrameAxis": {
+                "axis": "X",
+                "frame": "origin"
+              }
+            }
+          ]
+        },
+        "id": "midX"
+      }
+    },
+    {
+      "Section": {
+        "args": {
+          "along": "Plane",
+          "flip": false,
+          "offset": 0.0,
+          "plane": {
+            "FrameAxis": {
+              "axis": "X",
+              "frame": "origin"
+            }
+          },
+          "sketch": null
+        },
+        "id": "A"
+      }
+    },
+    {
+      "Drawing": {
+        "args": {
+          "balloons": [
+            {
+              "at": [
+                -52.0,
+                34.0
+              ],
+              "part": "box",
+              "view": "iso"
+            },
+            {
+              "at": [
+                6.0,
+                44.0
+              ],
+              "part": "divider1",
+              "view": "iso"
+            }
+          ],
+          "block": [
+            {
+              "at": [
+                0.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Projection"
+              },
+              "height": 2.5,
+              "label": "Projection",
+              "size": [
+                26.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                26.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Scale"
+              },
+              "height": 3.5,
+              "label": "Scale",
+              "size": [
+                22.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                36.0
+              ],
+              "content": {
+                "Text": "ISO 2768-mK"
+              },
+              "height": 3.5,
+              "label": "General tolerances",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Material"
+              },
+              "height": 3.5,
+              "label": "Material",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Mass"
+              },
+              "height": 3.5,
+              "label": "Mass",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Responsible dept.",
+              "size": [
+                48.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Technical reference",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Document type"
+              },
+              "height": 3.5,
+              "label": "Document type",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Status"
+              },
+              "height": 2.5,
+              "label": "Document status",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 3.5,
+              "label": "Legal owner",
+              "size": [
+                48.0,
+                27.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                13.5
+              ],
+              "content": {
+                "Property": "Author"
+              },
+              "height": 3.5,
+              "label": "Created by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Approved by"
+              },
+              "height": 3.5,
+              "label": "Approved by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Title"
+              },
+              "height": 5.0,
+              "label": "Title",
+              "size": [
+                52.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Part number"
+              },
+              "height": 3.5,
+              "label": "Identification number",
+              "size": [
+                28.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Revision"
+              },
+              "height": 3.5,
+              "label": "Rev.",
+              "size": [
+                13.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                113.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Date"
+              },
+              "height": 3.5,
+              "label": "Date of issue",
+              "size": [
+                27.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                140.0,
+                0.0
+              ],
+              "content": {
+                "Text": "en"
+              },
+              "height": 3.5,
+              "label": "Lang.",
+              "size": [
+                12.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Format"
+              },
+              "height": 3.5,
+              "label": "Size",
+              "size": [
+                14.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                166.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Sheet"
+              },
+              "height": 3.5,
+              "label": "Sheet",
+              "size": [
+                14.0,
+                9.0
+              ]
+            }
+          ],
+          "centres": "None",
+          "drafting": {
+            "letter": 3.5,
+            "past": 3.0,
+            "small": 12.0,
+            "wide": null
+          },
+          "format": "A3",
+          "lines": [
+            {
+              "label": "CL SYM",
+              "of": {
+                "Datum": "midY"
+              },
+              "symmetry": true,
+              "view": "top"
+            },
+            {
+              "label": "CL SYM",
+              "of": {
+                "Datum": "midY"
+              },
+              "symmetry": true,
+              "view": "front"
+            },
+            {
+              "label": "CL SYM",
+              "of": {
+                "Datum": "midX"
+              },
+              "symmetry": true,
+              "view": "right"
+            }
+          ],
+          "name": "drawing1",
+          "notes": [
+            {
+              "at": [
+                -7.0,
+                -14.0
+              ],
+              "note": "above_bottom",
+              "view": "front"
+            },
+            {
+              "at": [
+                -7.0,
+                12.0
+              ],
+              "note": "below_rim",
+              "view": "front"
+            },
+            {
+              "at": [
+                0.0,
+                9.0
+              ],
+              "note": "between",
+              "view": "top"
+            },
+            {
+              "at": [
+                -60.802319534428676,
+                -25.873327461459013
+              ],
+              "note": "bottom_front",
+              "view": "front"
+            },
+            {
+              "at": [
+                -26.0,
+                -46.0
+              ],
+              "note": "bottom_right",
+              "view": "right"
+            },
+            {
+              "at": [
+                24.0,
+                20.0
+              ],
+              "note": "clear_a",
+              "view": "detail"
+            },
+            {
+              "at": [
+                26.0,
+                39.0
+              ],
+              "note": "clear_b",
+              "view": "detail"
+            },
+            {
+              "at": [
+                -24.0,
+                -30.0
+              ],
+              "note": "clear_end",
+              "view": "detail"
+            },
+            {
+              "at": [
+                30.0,
+                -34.0
+              ],
+              "note": "div_thick",
+              "view": "top"
+            },
+            {
+              "at": [
+                -20.114407447862277,
+                -34.83917566383971
+              ],
+              "note": "div_thick_p",
+              "view": "iso3"
+            },
+            {
+              "at": [
+                27.0,
+                14.0
+              ],
+              "note": "div_wide",
+              "view": "top"
+            },
+            {
+              "at": [
+                20.114407447862476,
+                -34.8391756638396
+              ],
+              "note": "div_wide_p",
+              "view": "iso3"
+            },
+            {
+              "at": [
+                -74.0,
+                -20.749999999999986
+              ],
+              "note": "floor_front",
+              "view": "front"
+            },
+            {
+              "at": [
+                -35.0,
+                -20.749999999999986
+              ],
+              "note": "floor_right",
+              "view": "right"
+            },
+            {
+              "at": [
+                60.0,
+                0.0
+              ],
+              "note": "height",
+              "view": "front"
+            },
+            {
+              "at": [
+                -30.0,
+                -45.0
+              ],
+              "note": "length",
+              "view": "top"
+            },
+            {
+              "at": [
+                70.0,
+                30.0
+              ],
+              "note": "r_corner",
+              "view": "top"
+            },
+            {
+              "at": [
+                42.0,
+                42.0
+              ],
+              "note": "r_inner",
+              "view": "top"
+            },
+            {
+              "at": [
+                -60.84169702041643,
+                26.971061565751597
+              ],
+              "note": "rim_front",
+              "view": "front"
+            },
+            {
+              "at": [
+                -30.0,
+                44.0
+              ],
+              "note": "rim_right",
+              "view": "right"
+            },
+            {
+              "at": [
+                -34.0,
+                18.0
+              ],
+              "note": "slot_depth",
+              "view": "right"
+            },
+            {
+              "at": [
+                8.0,
+                -32.0
+              ],
+              "note": "slot_length",
+              "view": "right"
+            },
+            {
+              "at": [
+                -46.0,
+                -9.0
+              ],
+              "note": "slot_width",
+              "view": "right"
+            },
+            {
+              "at": [
+                -70.0,
+                -22.0
+              ],
+              "note": "wall_top",
+              "view": "top"
+            },
+            {
+              "at": [
+                74.0,
+                0.0
+              ],
+              "note": "width",
+              "view": "top"
+            }
+          ],
+          "numbers": {
+            "bare": false,
+            "decimals": null,
+            "point": true
+          },
+          "own": [],
+          "parts_columns": [
+            "Item",
+            "Qty",
+            "Name",
+            "Material",
+            "Density"
+          ],
+          "parts_list": true,
+          "projection": "ThirdAngle",
+          "scale": [
+            1,
+            2
+          ],
+          "spacing": {
+            "gap": 1.0,
+            "pitch": 8.0
+          },
+          "tangent_edges": "Thin",
+          "template": "ISO A3",
+          "upright": false,
+          "views": [
+            {
+              "at": [
+                190.0,
+                215.0
+              ],
+              "id": "top",
+              "kind": {
+                "Base": {
+                  "side": "Top"
+                }
+              },
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                190.0,
+                135.0
+              ],
+              "id": "front",
+              "kind": {
+                "Projected": {
+                  "beside": "Below",
+                  "of": "top"
+                }
+              },
+              "style": "HiddenDashed"
+            },
+            {
+              "at": [
+                310.0,
+                135.0
+              ],
+              "id": "right",
+              "kind": {
+                "Projected": {
+                  "beside": "Right",
+                  "of": "front"
+                }
+              },
+              "style": "HiddenDashed"
+            },
+            {
+              "at": [
+                342.0,
+                236.0
+              ],
+              "id": "iso",
+              "kind": {
+                "Base": {
+                  "side": "Isometric"
+                }
+              },
+              "scale": [
+                1,
+                2
+              ],
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                372.0,
+                112.0
+              ],
+              "id": "iso2",
+              "kind": {
+                "Base": {
+                  "side": "IsometricBackLeft"
+                }
+              },
+              "scale": [
+                1,
+                5
+              ],
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                60.0,
+                150.0
+              ],
+              "bodies": [
+                "divider1"
+              ],
+              "id": "iso3",
+              "kind": {
+                "Base": {
+                  "side": "Isometric"
+                }
+              },
+              "scale": [
+                1,
+                2
+              ],
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                75.0,
+                225.0
+              ],
+              "id": "detail",
+              "kind": {
+                "Detail": {
+                  "centre": [
+                    -32.0,
+                    44.0
+                  ],
+                  "letter": "B",
+                  "of": "top",
+                  "radius": 4.0
+                }
+              },
+              "scale": [
+                10,
+                1
+              ],
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                85.0,
+                60.0
+              ],
+              "id": "secA",
+              "kind": {
+                "Section": {
+                  "letter": "A",
+                  "of": "top",
+                  "section": "A",
+                  "turn": 0.0
+                }
+              },
+              "style": "HiddenRemoved"
+            }
+          ],
+          "words": [
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "div_wide",
+              "height": 3.5,
+              "text": "WIDE",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "div_thick",
+              "height": 3.5,
+              "text": "THICK",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "r_corner",
+              "height": 3.5,
+              "text": "(4) PLACES",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "wall_top",
+              "height": 3.5,
+              "text": "WALL TYP",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "rim_right",
+              "height": 3.5,
+              "text": "OUTER\nTOP EDGE",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "bottom_right",
+              "height": 3.5,
+              "text": "OUTER\nBOTTOM EDGE",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "div_wide_p",
+              "height": 3.5,
+              "text": "WIDE",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "div_thick_p",
+              "height": 3.5,
+              "text": "THICK",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "slot_width",
+              "height": 3.5,
+              "text": "(2) PLACES",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                -3.0
+              ],
+              "dimension": "slot_length",
+              "height": 3.5,
+              "text": "(2) PLACES",
+              "view": null
+            }
+          ]
+        },
+        "id": "drawing1"
+      }
+    }
+  ],
+  "cache": {
+    "divider2/pose": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0,
+      6.123233995736766e-17
+    ]
+  }
+}

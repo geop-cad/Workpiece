@@ -1,0 +1,279 @@
+{
+  "materials": [
+    {
+      "name": "Steel",
+      "density": 7850.0,
+      "colour": [
+        150,
+        154,
+        160
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.35,
+      "metallic": 1.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Stainless steel",
+      "density": 8000.0,
+      "colour": [
+        188,
+        190,
+        194
+      ],
+      "texture": "Brushed",
+      "scale": 1.0,
+      "roughness": 0.3,
+      "metallic": 1.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Polished steel",
+      "density": 7850.0,
+      "colour": [
+        200,
+        202,
+        206
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.06,
+      "metallic": 1.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Cast iron",
+      "density": 7200.0,
+      "colour": [
+        92,
+        94,
+        98
+      ],
+      "texture": "Speckle",
+      "scale": 0.5,
+      "roughness": 0.7,
+      "metallic": 1.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Aluminium",
+      "density": 2700.0,
+      "colour": [
+        202,
+        205,
+        210
+      ],
+      "texture": "Brushed",
+      "scale": 1.0,
+      "roughness": 0.3,
+      "metallic": 1.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Brass",
+      "density": 8500.0,
+      "colour": [
+        201,
+        170,
+        92
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.25,
+      "metallic": 1.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Copper",
+      "density": 8960.0,
+      "colour": [
+        196,
+        118,
+        82
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.25,
+      "metallic": 1.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Gold",
+      "density": 19300.0,
+      "colour": [
+        230,
+        190,
+        95
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.12,
+      "metallic": 1.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Titanium",
+      "density": 4500.0,
+      "colour": [
+        140,
+        138,
+        134
+      ],
+      "texture": "Brushed",
+      "scale": 1.0,
+      "roughness": 0.4,
+      "metallic": 1.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "ABS",
+      "density": 1050.0,
+      "colour": [
+        228,
+        226,
+        218
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.45,
+      "metallic": 0.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "ABS, black",
+      "density": 1050.0,
+      "colour": [
+        28,
+        28,
+        30
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.4,
+      "metallic": 0.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "ABS, red",
+      "density": 1050.0,
+      "colour": [
+        190,
+        32,
+        30
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.3,
+      "metallic": 0.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Nylon (PA6)",
+      "density": 1140.0,
+      "colour": [
+        236,
+        232,
+        220
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.6,
+      "metallic": 0.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Polycarbonate",
+      "density": 1200.0,
+      "colour": [
+        214,
+        228,
+        236
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.05,
+      "metallic": 0.0,
+      "transparency": 0.85
+    },
+    {
+      "name": "Glass",
+      "density": 2500.0,
+      "colour": [
+        236,
+        244,
+        240
+      ],
+      "texture": "Plain",
+      "scale": 1.0,
+      "roughness": 0.0,
+      "metallic": 0.0,
+      "transparency": 0.95
+    },
+    {
+      "name": "Rubber",
+      "density": 1100.0,
+      "colour": [
+        38,
+        38,
+        40
+      ],
+      "texture": "Ribbed",
+      "scale": 2.0,
+      "roughness": 0.9,
+      "metallic": 0.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Oak",
+      "density": 750.0,
+      "colour": [
+        170,
+        126,
+        76
+      ],
+      "texture": "Wood",
+      "scale": 20.0,
+      "roughness": 0.6,
+      "metallic": 0.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Carbon fibre",
+      "density": 1600.0,
+      "colour": [
+        36,
+        38,
+        42
+      ],
+      "texture": "Weave",
+      "scale": 4.0,
+      "roughness": 0.25,
+      "metallic": 0.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Concrete",
+      "density": 2400.0,
+      "colour": [
+        158,
+        156,
+        150
+      ],
+      "texture": "Speckle",
+      "scale": 2.0,
+      "roughness": 0.95,
+      "metallic": 0.0,
+      "transparency": 0.0
+    },
+    {
+      "name": "Plain carbon steel",
+      "density": 7800.0,
+      "colour": [
+        180,
+        180,
+        186
+      ]
+    }
+  ]
+}
