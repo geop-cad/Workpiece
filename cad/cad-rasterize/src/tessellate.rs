@@ -15,10 +15,18 @@ use workpiece_core::world::topo::{BodyId, CoedgeKind, FaceId, NurbsSurface, Orie
 /// The parameters to sample a direction of `surface` at (`along_v`: its
 /// v, else its u): every distinct knot, and between two of them as many
 /// evenly spaced ones as the surface turns there — a step for every
-/// 48th of a turn, as a circle of four spans gets twelve to a span, and
-/// never more than that. (A sweep along a helix has dozens of spans to
-/// a turn: a few steps in each are as round as twelve in a quarter
-/// circle's.)
+/// 192nd of a turn, and never more than [`FINEST`] to a span (a circle
+/// of four spans gets 96). That is finer than outlines need: the light mirrored in a face
+/// (and the stripes of a zebra analysis) follows the normals, which run
+/// straight between the corners. (A sweep along a helix has dozens of
+/// spans to a turn: a few steps in each are as round as many in a
+/// quarter circle's.)
+/// The most steps a knot span is sampled in.
+const FINEST: usize = 2 * SEGMENTS_PER_SPAN;
+/// The fewest steps a direction that bends is sampled in from side to
+/// side, shared among its spans (each gets two at least).
+const GENTLEST: usize = 48;
+
 fn samples(surface: &NurbsSurface, along_v: bool) -> Vec<f64> {
     let (du, dv) = surface.degrees();
     let (ku, kv) = surface.knots();
@@ -58,8 +66,16 @@ fn samples(surface: &NurbsSurface, along_v: bool) -> Vec<f64> {
                     turned = turned.max(all);
                 }
             }
-            let step = std::f64::consts::TAU / (4 * SEGMENTS_PER_SPAN) as f64;
-            ((turned / step).ceil() as usize).clamp(1, SEGMENTS_PER_SPAN)
+            let step = std::f64::consts::TAU / (8 * FINEST) as f64;
+            // A span that bends at all gets a few steps however little
+            // it turns: mirrored stripes show every corner of a nearly
+            // flat face.
+            let least = if turned > 1e-9 {
+                (GENTLEST / (distinct.len() - 1)).max(2)
+            } else {
+                1
+            };
+            ((turned / step).ceil() as usize).clamp(least, FINEST.max(least))
         };
         for k in 0..per_span {
             out.push(pair[0] + (pair[1] - pair[0]) * k as f64 / per_span as f64);
@@ -862,7 +878,7 @@ mod tests {
         )?;
         assert_eq!(samples(&surface, true), [0.0, 1.0]);
         let round = samples(&surface, false);
-        assert_eq!(round.len(), 2 * SEGMENTS_PER_SPAN + 1);
+        assert_eq!(round.len(), 2 * FINEST + 1);
         assert_eq!(round.first(), Some(&0.0));
         assert_eq!(round.last(), Some(&1.0));
         Ok(())

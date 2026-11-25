@@ -269,7 +269,11 @@ void main() {
     if (u_analysis > 0.5 && u_analysis < 1.5) {
         // Stripes of a room mirrored in the face.
         vec3 r = reflect(-v, n);
-        float stripe = step(0.5, fract(atan(r.y, r.x) * 2.5 + r.z * 3.0));
+        // Sixteen stripes around (a whole number, so none breaks where
+        // the angle starts over), their borders a pixel soft.
+        float along = atan(r.y, r.x) * 2.5464790895 + r.z * 3.0;
+        float soft = clamp(fwidth(along), 1e-4, 0.25);
+        float stripe = smoothstep(-soft, soft, 0.25 - abs(fract(along) - 0.75));
         rgb = mix(vec3(0.02), vec3(0.9), stripe) * (0.55 + 0.45 * diffuse);
     } else if (u_analysis > 1.5 && u_analysis < 2.5) {
         // How fast the normal turns across the face, beside the size
@@ -668,6 +672,11 @@ impl Renderer {
 
     /// Draws `frame` into the callback's viewport.
     pub fn paint(&mut self, gl: &glow::Context, info: &egui::PaintCallbackInfo, frame: &Frame) {
+        let prof = std::time::Instant::now(); // PROF
+        self.paint_(gl, info, frame);
+        if std::env::var_os("WP_PROF").is_some() { eprintln!("PROF paint {:>7.2} ms", prof.elapsed().as_secs_f64()*1e3); } // PROF
+    }
+    fn paint_(&mut self, gl: &glow::Context, info: &egui::PaintCallbackInfo, frame: &Frame) { // PROF
         // What is drawn is uploaded unless it is there; what is no longer
         // drawn is let go.
         for layer in frame.scene.iter().chain(&frame.ghosts) {
