@@ -889,7 +889,7 @@ mod tests {
     fn features_are_repeated_by_what_their_steps_did() -> anyhow::Result<()> {
         use workpiece_core::math::Axis;
         use workpiece_core::{Source, world::topo::BodyId};
-        use workpiece_ops_bodies::{Along, FeaturePattern, FeaturePatternArgs};
+        use workpiece_ops_bodies::{Along, Pattern, PatternArgs};
         use workpiece_ops_features::{Hole, HoleArgs, HolePlace};
         // A block 4 wide with a hole ⌀0.5 through it, 1 in from two of
         // its sides.
@@ -934,9 +934,9 @@ mod tests {
                     .is_some()
             })
             .expect("a face of the hole");
-        let pattern = FeaturePattern {
+        let pattern = Pattern {
             id: "around".into(),
-            args: FeaturePatternArgs {
+            args: PatternArgs {
                 features: vec![Source::Topology(face).into()],
                 along: Along::Circle,
                 axis: Some(Reference::frame_axis(ORIGIN, Axis::Z)),
@@ -952,11 +952,143 @@ mod tests {
         Ok(())
     }
 
+    /// A block 4 wide (`body`) with a hole ⌀0.5 through it 1 in from
+    /// two of its sides, and the name of a face of the hole; and the
+    /// volume of the hole.
+    fn drilled_block(
+        engine: &Engine,
+    ) -> anyhow::Result<(Vec<AnyOperation>, String, workpiece_core::math::Point3, f64)> {
+        use workpiece_core::Source;
+        use workpiece_ops_features::{Hole, HoleArgs, HolePlace};
+        let hole = Hole {
+            id: "hole".into(),
+            args: HoleArgs {
+                place: HolePlace::Offsets,
+                face: Some(Source::Topology("body/top".into()).into()),
+                first: Some(Source::Topology("body/right".into()).into()),
+                first_offset: Measure::new(1.0),
+                second: Some(Source::Topology("body/back".into()).into()),
+                second_offset: Measure::new(1.0),
+                diameter: Measure::new(0.5),
+                extent: workpiece_ops_sweep::Extent::ThroughAll,
+                ..Default::default()
+            },
+        };
+        let program = vec![block("body", 4.0), hole.into()];
+        let ws = Workspace::new(BTreeMap::from([(
+            "plate".to_owned(),
+            Part::new(program.clone()),
+        )]));
+        let built = build(engine, &ws, "plate")?;
+        let topo = &built.world.topo;
+        let body = topo
+            .resolve::<workpiece_core::world::topo::BodyId>("body")
+            .expect("the body");
+        let solid = workpiece_boolean::read(topo, body)?;
+        let wall = solid
+            .faces
+            .iter()
+            .find(|f| f.name.as_deref().is_some_and(|n| n.starts_with("hole")))
+            .expect("the hole's wall");
+        // (Where its axis is: the middle of its wall's points.)
+        let points = wall.surface.control_points();
+        let middle =
+            points.iter().copied().sum::<workpiece_core::math::Point3>() / points.len() as f64;
+        let name = wall.name.clone().expect("named");
+        Ok((
+            program,
+            name,
+            middle,
+            std::f64::consts::PI * 0.25 * 0.25 * 4.0,
+        ))
+    }
+
+    #[test]
+    fn a_feature_goes_to_each_point_of_a_sketch_wherever_it_is() -> anyhow::Result<()> {
+        // In practic1, a pattern of a hole at the one point of a sketch
+        // failed ("fewer than two points"), and one at four points, none
+        // of them at the hole, put the copies off the part: the hole was
+        // taken to be at the point nearest it. It is moved to each point
+        // from where it is, unless it is at one already.
+        use workpiece_core::math::{Axis, Point2};
+        use workpiece_core::{Source, world::topo::BodyId};
+        use workpiece_ops_bodies::{Along, Pattern, PatternArgs};
+        let engine = Engine::inline();
+        let (program, wall, at, one) = drilled_block(&engine)?;
+        let volume = |points: &[[f64; 2]]| -> anyhow::Result<f64> {
+            let mut sketch = workpiece_ops_sketch::Sketch::new("spots");
+            sketch.args.plane = Some(Reference::frame_axis(ORIGIN, Axis::Z));
+            for p in points {
+                let p = sketch.args.add_point(Point2::from_array(*p));
+                sketch.args.add(workpiece_ops_sketch::Shape::Point(p));
+            }
+            let pattern = Pattern {
+                id: "spread".into(),
+                args: PatternArgs {
+                    features: vec![Source::Topology(wall.clone()).into()],
+                    along: Along::Points,
+                    sketch: Some(Source::Profile("spots".into()).into()),
+                    ..Default::default()
+                },
+            };
+            let mut all = program.clone();
+            all.extend([sketch.into(), pattern.into()]);
+            let ws = Workspace::new(BTreeMap::from([("plate".to_owned(), Part::new(all))]));
+            let built = build(&engine, &ws, "plate")?;
+            assert_eq!(built.world.topo.validate(), Ok(()));
+            let topo = &built.world.topo;
+            let body = topo.resolve::<BodyId>("body").expect("the body");
+            Ok(workpiece_boolean::measure(&workpiece_boolean::read(topo, body)?).volume)
+        };
+        // One point, away from the hole: a second hole there.
+        assert!((volume(&[[-1.0, -1.0]])? - (64.0 - 2.0 * one)).abs() < 1e-6);
+        // Three, none at the hole: three more.
+        let three = volume(&[[-1.0, -1.0], [0.0, 0.0], [0.0, -1.0]])?;
+        assert!((three - (64.0 - 4.0 * one)).abs() < 1e-6, "{three}");
+        // Two, one of them at the hole: one more.
+        let two = volume(&[[at.x, at.y], [-1.0, -1.0]])?;
+        assert!((two - (64.0 - 2.0 * one)).abs() < 1e-6, "{two}");
+        Ok(())
+    }
+
+    #[test]
+    fn a_hole_fills_a_face_as_far_as_the_margin() -> anyhow::Result<()> {
+        use workpiece_core::{Source, world::topo::BodyId};
+        use workpiece_ops_bodies::{Along, Grid, Pattern, PatternArgs};
+        let engine = Engine::inline();
+        let (mut program, wall, _, one) = drilled_block(&engine)?;
+        // A square grid 1 apart from the hole at (1, 1) over the top,
+        // each copy a margin of 0.25 in from the edges besides its own
+        // radius: x and y of −1, 0 and 1.
+        program.push(
+            Pattern {
+                id: "grid".into(),
+                args: PatternArgs {
+                    features: vec![Source::Topology(wall).into()],
+                    along: Along::Fill,
+                    face: Some(Source::Topology("body/top".into()).into()),
+                    grid: Grid::Square,
+                    spacing: Measure::new(1.0),
+                    margin: Measure::new(0.25),
+                    ..Default::default()
+                },
+            }
+            .into(),
+        );
+        let ws = Workspace::new(BTreeMap::from([("plate".to_owned(), Part::new(program))]));
+        let built = build(&engine, &ws, "plate")?;
+        let topo = &built.world.topo;
+        let body = topo.resolve::<BodyId>("body").expect("the body");
+        let volume = workpiece_boolean::measure(&workpiece_boolean::read(topo, body)?).volume;
+        assert!((volume - (64.0 - 9.0 * one)).abs() < 1e-6, "{volume}");
+        Ok(())
+    }
+
     #[test]
     fn a_cut_repeated_cuts_what_its_tool_meets_there() -> anyhow::Result<()> {
         use workpiece_core::math::{Axis, Point2};
         use workpiece_core::{Source, world::topo::BodyId};
-        use workpiece_ops_bodies::{Along, FeaturePattern, FeaturePatternArgs};
+        use workpiece_ops_bodies::{Along, Pattern, PatternArgs};
         use workpiece_ops_sweep::{Extent, Extrude};
         // A block 4 across around the origin, and a slot 1 wide cut
         // through it from x = 1 to x = 3: half of the slot's outline is
@@ -973,9 +1105,9 @@ mod tests {
         slot.args.extent = Extent::ThroughBoth;
         // Again 2 to the left: all of its outline is in the block
         // there, and all of it is cut — not a copy of the half.
-        let pattern = FeaturePattern {
+        let pattern = Pattern {
             id: "again".into(),
-            args: FeaturePatternArgs {
+            args: PatternArgs {
                 features: vec![Source::Topology("slot/side/e7".into()).into()],
                 along: Along::Line,
                 axis: Some(Reference::frame_axis(ORIGIN, Axis::X)),
@@ -1104,15 +1236,16 @@ mod tests {
         faces: &[&str],
         plane: Reference<workpiece_core::world::DatumPlane>,
     ) -> AnyOperation {
-        use workpiece_ops_bodies::{FeatureMirror, FeatureMirrorArgs};
-        FeatureMirror {
+        use workpiece_ops_bodies::{Mirror, MirrorArgs};
+        Mirror {
             id: id.into(),
-            args: FeatureMirrorArgs {
+            args: MirrorArgs {
                 features: faces
                     .iter()
                     .map(|f| workpiece_core::Source::Topology((*f).to_owned()).into())
                     .collect(),
                 plane: Some(plane),
+                ..Default::default()
             },
         }
         .into()

@@ -26,6 +26,7 @@ workpiece-ops-sketch.workspace = true
 workpiece-ops-annotate.workspace = true
 workpiece-ops-blend.workspace = true
 workpiece-ops-faces.workspace = true
+workpiece-ops-features.workspace = true
 workpiece-ops-bodies.workspace = true
 workpiece-ops-standard.workspace = true
 workpiece-ops-sweep.workspace = true

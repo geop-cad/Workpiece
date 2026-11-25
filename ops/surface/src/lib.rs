@@ -1,9 +1,15 @@
 //! Operations on surfaces and curves in space.
 
+mod boundary;
 mod curve;
 mod surface;
 
-pub use curve::{Curve, CurveArgs, CurveWay, crossing, through, write_wire};
+pub use boundary::{Boundary, BoundaryArgs, BoundarySide, Continuity};
+pub use curve::{
+    CurveEnd, CurveIntersection, CurveIntersectionArgs, CurveProjection, CurveProjectionArgs,
+    CurveThrough, CurveThroughArgs, EndHeld, EndWay, Helix, HelixArgs, crossing, through,
+    write_wire,
+};
 pub use surface::{Surface, SurfaceArgs, SurfaceWay};
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
@@ -12,283 +18,154 @@ pub fn register(r: &mut workpiece_core::Registry) {
     use workpiece_core::Tool;
     r.kind_by::<Surface>(workpiece_core::IconOf::By(|op| {
         match op.downcast_ref::<Surface>().map(|s| s.args.way) {
-            Some(SurfaceWay::Copy) => "copyfaces",
+            Some(SurfaceWay::Copy) | None => "copyfaces",
             Some(SurfaceWay::Stitch) => "stitch",
             Some(SurfaceWay::Unstitch) => "unstitch",
-            Some(SurfaceWay::Reverse) => "reverse",
             Some(SurfaceWay::Delete) => "deletesurface",
             Some(SurfaceWay::Offset) => "offsetsurface",
             Some(SurfaceWay::Fill) => "fill",
-            Some(SurfaceWay::Ruled) => "ruled",
             Some(SurfaceWay::Trim) => "trimsurface",
             Some(SurfaceWay::Split) => "splitsurface",
-            Some(SurfaceWay::Fillet) => "fillet",
-            Some(SurfaceWay::Boundary) => "boundary",
             Some(SurfaceWay::Untrim) => "untrim",
             Some(SurfaceWay::Extend) => "extendsurface",
-            None => "copyfaces",
         }
     }));
+    // Each way of Surface its tool: what it does, where it stands.
+    let ways: [(Make, &str, &str, &str, char, &str); 10] = [
+        (
+            |cx| made(cx, "copyfaces", SurfaceWay::Copy),
+            "Surfaces",
+            "Copy faces",
+            "copyfaces",
+            'C',
+            "Copy faces of a body (or all of it) into a surface of their own",
+        ),
+        (
+            |cx| made(cx, "offsetsurface", SurfaceWay::Offset),
+            "Surfaces",
+            "Offset",
+            "offsetsurface",
+            'O',
+            "A surface a distance off faces of a body, or off a whole surface: along the faces' normals, or flipped against them",
+        ),
+        (
+            |cx| made(cx, "fill", SurfaceWay::Fill),
+            "Surfaces",
+            "Fill",
+            "fill",
+            'L',
+            "Fill the flat holes of a surface with faces; closed all around by that, it becomes a solid",
+        ),
+        (
+            |cx| made(cx, "extendsurface", SurfaceWay::Extend),
+            "Surfaces",
+            "Extend",
+            "extendsurface",
+            'e',
+            "Run a surface on past its free edges, by a distance, as its faces go",
+        ),
+        (
+            |cx| made(cx, "trimsurface", SurfaceWay::Trim),
+            "Edit",
+            "Trim",
+            "trimsurface",
+            't',
+            "Cut a surface back to a plane: what is in front of the plane goes",
+        ),
+        (
+            |cx| made(cx, "splitsurface", SurfaceWay::Split),
+            "Edit",
+            "Split",
+            "splitsurface",
+            'p',
+            "Cut a surface in two by a plane",
+        ),
+        (
+            |cx| made(cx, "untrim", SurfaceWay::Untrim),
+            "Edit",
+            "Untrim",
+            "untrim",
+            'u',
+            "Every face of a surface back to all of its own surface: what it was before anything was cut from it",
+        ),
+        (
+            |cx| made(cx, "deletesurface", SurfaceWay::Delete),
+            "Edit",
+            "Delete",
+            "deletesurface",
+            'D',
+            "Delete faces or whole surfaces; faces of a solid — a hole, a pocket, a boss — are taken off and the faces around closed over where they were",
+        ),
+        (
+            |cx| made(cx, "stitch", SurfaceWay::Stitch),
+            "Surfaces",
+            "Stitch",
+            "stitch",
+            'S',
+            "Sew surfaces into one where their edges lie on each other, all turned one way; closed all around, they become a solid, facing out",
+        ),
+        (
+            |cx| made(cx, "unstitch", SurfaceWay::Unstitch),
+            "Surfaces",
+            "Unstitch",
+            "unstitch",
+            'U',
+            "Take a surface apart: every face a surface of its own",
+        ),
+    ];
+    for (make, group, label, icon, key, hint) in ways {
+        r.tool(Tool {
+            tab: "Surfacing",
+            group,
+            label,
+            icon,
+            key,
+            hint,
+            small: true,
+            make,
+        });
+    }
+    r.kind::<Boundary>("boundary");
     r.tool(Tool {
         tab: "Surfacing",
-        group: "Surfaces",
-        label: "Copy faces",
-        icon: "copyfaces",
-        key: 'C',
-        hint: "Copy faces of a body (or all of it) into a surface of their own",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("copyfaces"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Copy,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Sew",
-        label: "Stitch",
-        icon: "stitch",
-        key: 'S',
-        hint: "Sew surfaces into one where their edges lie on each other; closed all around, they become a solid",
-        small: true,
-        make: |cx| Surface { id: (cx.fresh_id)("stitch"), args: SurfaceArgs { way: SurfaceWay::Stitch, ..Default::default() } }.into(),
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Sew",
-        label: "Unstitch",
-        icon: "unstitch",
-        key: 'U',
-        hint: "Take a surface apart: every face a surface of its own",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("unstitch"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Unstitch,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Sew",
-        label: "Reverse",
-        icon: "reverse",
-        key: 'V',
-        hint: "Turn a surface around: its back becomes its front",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("reverse"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Reverse,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Edit",
-        label: "Delete",
-        icon: "deletesurface",
-        key: 'D',
-        hint: "Remove faces from a surface, or a surface altogether",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("deletesurface"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Delete,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Surfaces",
-        label: "Offset",
-        icon: "offsetsurface",
-        key: 'O',
-        hint: "A surface a distance off faces of a body, or off a whole surface",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("offsetsurface"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Offset,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Surfaces",
-        label: "Fill",
-        icon: "fill",
-        key: 'L',
-        hint: "Fill the flat holes of a surface with faces; closed all around by that, it becomes a solid",
-        small: true,
-        make: |cx| Surface { id: (cx.fresh_id)("fill"), args: SurfaceArgs { way: SurfaceWay::Fill, ..Default::default() } }.into(),
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Surfaces",
-        label: "Ruled",
-        icon: "ruled",
-        key: 'r',
-        hint: "A surface from edges straight along an axis, a distance",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("ruled"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Ruled,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Edit",
-        label: "Trim",
-        icon: "trimsurface",
-        key: 't',
-        hint: "Cut a surface back to a plane: what is in front of the plane goes",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("trimsurface"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Trim,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Edit",
-        label: "Split",
-        icon: "splitsurface",
-        key: 'p',
-        hint: "Cut a surface in two by a plane",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("splitsurface"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Split,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Edit",
-        label: "Surface fillet",
-        icon: "fillet",
-        key: 'f',
-        hint: "Round edges between two faces of a surface, to the distance as a radius",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("fillet"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Fillet,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Surfaces",
+        group: "Create",
         label: "Boundary",
         icon: "boundary",
         key: 'B',
-        hint: "A surface between four edges that meet end to end around it, running along each",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("boundary"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Boundary,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
+        hint: "A surface over a hole of any number of sides: pick the edges around it, each free or running on smoothly (G1, G2) from the face beside it",
+        small: false,
+        make: |cx| Boundary { id: (cx.fresh_id)("boundary"), args: Default::default() }.into(),
     });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Edit",
-        label: "Untrim",
-        icon: "untrim",
-        key: 'u',
-        hint: "Every face of a surface back to all of its own surface: what it was before anything was cut from it",
-        small: true,
-        make: |cx| Surface { id: (cx.fresh_id)("untrim"), args: SurfaceArgs { way: SurfaceWay::Untrim, ..Default::default() } }.into(),
-    });
-    r.tool(Tool {
-        tab: "Surfacing",
-        group: "Surfaces",
-        label: "Extend",
-        icon: "extendsurface",
-        key: 'e',
-        hint: "Run a surface on past its free edges, by a distance, as its faces go",
-        small: true,
-        make: |cx| {
-            Surface {
-                id: (cx.fresh_id)("extendsurface"),
-                args: SurfaceArgs {
-                    way: SurfaceWay::Extend,
-                    ..Default::default()
-                },
-            }
-            .into()
-        },
-    });
-    r.kind::<Curve>("curve");
-    r.tool(Tool {
-        tab: "Modeling",
-        group: "Construct",
-        label: "Curve",
-        icon: "curve",
-        key: 'j',
-        hint: "A curve in space as a body: through points, a helix about an axis, or where two faces cross; a sweep can follow it",
-        small: true,
-        make: |cx| Curve { id: (cx.fresh_id)("curve"), args: Default::default() }.into(),
-    });
+    r.kind::<CurveThrough>("curve-through");
+    r.kind::<Helix>("helix");
+    r.kind::<CurveIntersection>("curve-crossing");
+    r.kind::<CurveProjection>("curve-projection");
+    // The curves: each way its own step, offered in one menu.
+    for tab in ["Modeling", "Surfacing"] {
+        curve_tools(r, tab);
+    }
+    // In surfacing, the curve through points is a button of its own as
+    // well: a curve to build surfaces on, held at its ends.
     r.tool(Tool {
         tab: "Surfacing",
         group: "Construct",
-        label: "Curve",
-        icon: "curve",
-        key: 'j',
-        hint: "A curve in space as a body: through points, a helix about an axis, or where two faces cross; a sweep can follow it",
-        small: true,
-        make: |cx| Curve { id: (cx.fresh_id)("curve"), args: Default::default() }.into(),
+        label: THROUGH,
+        icon: "curve-through",
+        key: 'J',
+        hint: "A smooth curve through points picked one after another, each end free or held: tangent (G1) or curvature (G2) to an edge or an axis, lying in or square to a face or a plane",
+        small: false,
+        make: |cx| CurveThrough { id: (cx.fresh_id)("curve"), args: Default::default() }.into(),
     });
+    r.icon("curve-through", include_str!("../icons/curve-through.svg"));
+    r.icon("helix", include_str!("../icons/helix.svg"));
+    r.icon(
+        "curve-crossing",
+        include_str!("../icons/curve-crossing.svg"),
+    );
+    r.icon(
+        "curve-projection",
+        include_str!("../icons/curve-projection.svg"),
+    );
     r.icon("boundary", include_str!("../icons/boundary.svg"));
     r.icon("copyfaces", include_str!("../icons/copyfaces.svg"));
     r.icon("curve", include_str!("../icons/curve.svg"));
@@ -296,12 +173,107 @@ pub fn register(r: &mut workpiece_core::Registry) {
     r.icon("extendsurface", include_str!("../icons/extendsurface.svg"));
     r.icon("fill", include_str!("../icons/fill.svg"));
     r.icon("offsetsurface", include_str!("../icons/offsetsurface.svg"));
-    r.icon("reverse", include_str!("../icons/reverse.svg"));
-    r.icon("ruled", include_str!("../icons/ruled.svg"));
     r.icon("splitsurface", include_str!("../icons/splitsurface.svg"));
     r.icon("stitch", include_str!("../icons/stitch.svg"));
     r.icon("trim", include_str!("../icons/trim.svg"));
     r.icon("trimsurface", include_str!("../icons/trimsurface.svg"));
     r.icon("unstitch", include_str!("../icons/unstitch.svg"));
     r.icon("untrim", include_str!("../icons/untrim.svg"));
+    // How a curve, a section or a side runs on at an end (the sweep's
+    // sections take them too).
+    for (name, svg) in [
+        ("end-free", include_str!("../icons/end-free.svg")),
+        ("end-tangent", include_str!("../icons/end-tangent.svg")),
+        ("end-curvature", include_str!("../icons/end-curvature.svg")),
+        ("end-in-face", include_str!("../icons/end-in-face.svg")),
+        ("end-normal", include_str!("../icons/end-normal.svg")),
+    ] {
+        r.icon(name, svg);
+    }
+}
+
+/// What a tool calls to make its step.
+type Make = fn(&workpiece_core::ToolContext<'_>) -> workpiece_core::AnyOperation;
+
+/// A new surface step of `way`, with an id from `stem`.
+fn made(
+    cx: &workpiece_core::ToolContext<'_>,
+    stem: &str,
+    way: SurfaceWay,
+) -> workpiece_core::AnyOperation {
+    Surface {
+        id: (cx.fresh_id)(stem),
+        args: SurfaceArgs {
+            way,
+            ..Default::default()
+        },
+    }
+    .into()
+}
+
+/// The label of the curve through points.
+const THROUGH: &str = "Curve through points";
+
+/// The tools that make curves in space, on `tab`, and the menu that
+/// offers them.
+fn curve_tools(r: &mut workpiece_core::Registry, tab: &'static str) {
+    use workpiece_core::Tool;
+    const HELIX: &str = "Helix or spiral";
+    const CROSSING: &str = "Where faces cross";
+    const PROJECTION: &str = "Curve onto faces";
+    r.tool(Tool {
+        tab,
+        group: "Construct",
+        label: THROUGH,
+        icon: "curve-through",
+        key: 'j',
+        hint: "A smooth curve through points picked one after another — vertices, frames, places on faces — open or closed; a sweep can follow it",
+        small: true,
+        make: |cx| CurveThrough { id: (cx.fresh_id)("curve"), args: Default::default() }.into(),
+    });
+    r.tool(Tool {
+        tab,
+        group: "Construct",
+        label: HELIX,
+        icon: "helix",
+        key: 'y',
+        hint: "A helix about an axis, or a spiral that grows as it turns: its radius, height, turns and start dragged in the view",
+        small: true,
+        make: |cx| Helix { id: (cx.fresh_id)("helix"), args: Default::default() }.into(),
+    });
+    r.tool(Tool {
+        tab,
+        group: "Construct",
+        label: CROSSING,
+        icon: "curve-crossing",
+        key: 'q',
+        hint: "The curve where two faces cross",
+        small: true,
+        make: |cx| {
+            CurveIntersection {
+                id: (cx.fresh_id)("crossing"),
+                args: Default::default(),
+            }
+            .into()
+        },
+    });
+    r.tool(Tool {
+        tab,
+        group: "Construct",
+        label: PROJECTION,
+        icon: "curve-projection",
+        key: 'o',
+        hint: "Edges, curves or whole sketches thrown onto faces along a direction (a sketch along its normal unless one is picked)",
+        small: true,
+        make: |cx| CurveProjection { id: (cx.fresh_id)("projection"), args: Default::default() }.into(),
+    });
+    r.menu(workpiece_core::Menu {
+        tab,
+        group: "Construct",
+        label: "Curve",
+        icon: "curve",
+        hint: "A curve in space as a body of its own, to sweep along or build on: through points, a helix, where faces cross, or thrown onto faces",
+        small: true,
+        tools: &[THROUGH, HELIX, CROSSING, PROJECTION],
+    });
 }

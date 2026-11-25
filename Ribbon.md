@@ -70,12 +70,12 @@ button a way.
 - Curve (project onto a face) ✓ (a curve body thrown onto a face along an axis)
 - Curve (intersection of two faces) ✓ (where two picked faces cross, as far as both reach)
 - Curve (helix / spiral) ✓ (a helix about an axis, or a spiral whose radius grows each turn — flat, without a pitch)
-- Curve (3D spline through points) ✓ (a smooth cubic through picked vertices and frames; Sweep can follow any curve body)
+- Curve (3D spline through points) ✓ (a smooth cubic spline through picked vertices, frames and places on faces; each end free, tangent (G1) or curvature (G2) continuous to an edge or axis, lying in or normal to a face or plane; Sweep can follow any curve body)
 
 ### Create
 - Extrude ✓
 - Revolve ✓
-- SweptLoft ✓ (sweep along a path, mitered at its corners, with twist and scale; coil around an axis: springs; loft through sections; guide rails not implemented)
+- SweptLoft ✓ (sections as a list — sketches, faces' outlines; curves as a list, each a path or a guide: sweep one section along a path, mitered at its corners, with twist and scale; coil around an axis: springs; loft through sections, following guide rails, leaving its first and arriving at its last section free, normal to it, or tangent (G1) / curvature (G2) continuous to a face)
 - Thicken Surface ✓ (faces or a whole surface, to one side or both; rounded or sharp corners)
 - Solidify Surface Patch ✓ (Stitch on the Surfacing tab: surfaces that close become a solid)
 - Primitives: none on the ribbon (box, cylinder, sphere, cone and torus steps of older parts still build)
@@ -104,7 +104,7 @@ button a way.
 
 ### Direct Edit
 - Move / Offset Face ✓ (press-pull: off themselves or along an axis; neighbours that lie along the move run on, others are left with a step)
-- Delete Face ✓ (a hole, pocket or boss whose rims each lie in one face; not implemented: rounds, or what runs into a face's edge)
+- Delete Face ✓ (Delete on the Surfacing tab: a hole, pocket or boss whose rims each lie in one face; not implemented: rounds, or what runs into a face's edge)
 - Replace Face ✓ (by a plane: a way of Move Face; not implemented: by another surface)
 
 ### Inspect
@@ -118,29 +118,28 @@ button a way.
 ## Surface
 
 ### Construct
-(same as Solid)
+(same as Solid; Curve through points is a large button of its own here as well)
 
 ### Create
 - Extrude ✓
 - Revolve ✓
-- SweptLoft ✓ (as the solid's, without its flat ends)
+- SweptLoft ✓ (as the solid's, without its flat ends; also through edges and curves left open — a loft between two curves is a ruled surface)
+- BoundarySurface ✓ (over a hole of any number of sides — edges or curves end to end — each side free, tangent (G1) or curvature (G2) to the face beside it; four free sides: the Coons patch through them exactly; others fitted, within a stated tolerance of the sides)
+- SubD ✓ (a subdivision surface from a patch: a surface body, not a solid, even when it closes)
 - FromSolid (copy faces) ✓
 
 - FillHole ✓ (flat holes: rings of free edges in a plane; closed all around, the surface becomes a solid)
-- BoundarySurface (UV Surface) ✓ (between four edges that meet end to end)
-- Ruled Surface ✓ (from edges, along an axis; not implemented: along the normal)
-- OffsetSurface ✓ (each face its offset, sewn where they still meet; they do not run on to each other)
+- OffsetSurface ✓ (each face its offset, sewn where they still meet; they do not run on to each other; to the side the faces' normals point, or flipped)
 
 ### Modify
 - Split ✓ (a surface in two by a plane; not implemented: by a curve or another surface)
 - Trim ✓ (a surface back to a plane; not implemented: to another surface)
 - Untrim ✓ (faces on surfaces with four sides of their own)
 - Extend ✓ (past its free edges, by a distance)
-- Stitch (sew surfaces into one, or into a solid) ✓
+- Stitch (sew surfaces into one, or into a solid) ✓ (turns them all one way; closed, a solid facing out: a surface has no front or back to set by hand)
 - Unstitch ✓
-- Surface Fillet ✓ (a round along an edge between two faces of a sewn surface; not implemented: between surfaces that do not meet in an edge)
-- Reverse Normal ✓
-- Delete ✓
+- Fillet, Chamfer ✓ (the solid's steps: edges of a surface between two of its faces too; not implemented: between surfaces that do not meet in an edge)
+- Delete ✓ (faces of a surface or whole surfaces; faces of a solid — a hole, a pocket, a boss — taken off and closed over: Delete Face is this button)
 
 - Transform (Move, Copy, Rotate, Scale, Mirror) ✓ (the solid tab's Transform takes surfaces too)
 

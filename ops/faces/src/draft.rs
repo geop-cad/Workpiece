@@ -29,7 +29,11 @@ pub struct DraftArgs {
     pub flip: bool,
     /// Whether the faces lean the same way on both sides of the plane
     /// (a part made in two halves of a mould, parted there).
-    #[arg(label = "Sides", options = "One way|Both ways from the plane")]
+    #[arg(
+        label = "Sides",
+        options = "One way|Both ways from the plane",
+        icons = "draft-one|draft-both"
+    )]
     pub both: bool,
 }
 

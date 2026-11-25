@@ -762,9 +762,9 @@ impl Session {
         if self.args.smooth {
             let args = self.args.clone();
             surface.push(
-                NumericInput::new("Finer", self.args.finer as f64, move |x: f64| {
+                NumericInput::integer("Finer", self.args.finer as i64, move |x: i64| {
                     Edit::args(MeshArgs {
-                        finer: x.round().clamp(0.0, 3.0) as usize,
+                        finer: x.clamp(0, 3) as usize,
                         ..(*args).clone()
                     })
                 })
@@ -784,7 +784,8 @@ impl Session {
                 next.gizmo = None;
                 Edit::state(next)
             },
-        );
+        )
+        .with_icons(vec![Some("gizmo-world"), Some("gizmo-normal")]);
         let state = self.state.clone();
         let snap = NumericInput::new("Step", self.state.snap, move |x: f64| {
             let mut next = (*state).clone();

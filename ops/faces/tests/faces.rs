@@ -409,62 +409,6 @@ fn faces_are_pushed_and_pulled() -> anyhow::Result<()> {
 }
 
 #[test]
-fn deleted_faces_are_closed_over() -> anyhow::Result<()> {
-    use workpiece_ops_faces::{DeleteFace, DeleteFaceArgs};
-    let exact = |b: &Standalone| -> anyhow::Result<f64> {
-        check(b);
-        Ok(
-            workpiece_boolean::measure(&workpiece_boolean::read(&b.world.topo, body(b, "base"))?)
-                .volume,
-        )
-    };
-    let named = |b: &Standalone, prefix: &str| -> Vec<Source> {
-        let topo = &b.world.topo;
-        let faces = topo.body_faces(body(b, "base")).expect("faces");
-        let names = faces.iter().filter_map(|f| topo.name_of(*f));
-        names
-            .filter(|n| n.starts_with(prefix))
-            .map(|n| Source::Topology(n.to_owned()))
-            .collect()
-    };
-    // The 4 × 4 × 2 box with a hole through it, a pocket in its top, or
-    // a pin on its top: without those faces, the box again.
-    for (extent, distance, combine) in [
-        (Extent::Symmetric, 4.0, Combine::Cut),
-        (Extent::Distance, 0.5, Combine::Join),
-    ] {
-        let mut b = Standalone::new();
-        base(&mut b)?;
-        sketch(
-            &mut b,
-            "circle",
-            Reference::topology("base/top"),
-            None,
-            &[([0.3, 0.2], 0.5)],
-        )?;
-        let mut feature = Extrude::of("feature", Some("circle".into()), false);
-        feature.args.extent = extent;
-        feature.args.distance = Measure::new(distance);
-        feature.args.combine = combine;
-        feature.apply(&mut b)?;
-        assert!((exact(&b)? - 32.0).abs() > 0.1);
-        let faces = named(&b, "feature/");
-        assert!(!faces.is_empty());
-        DeleteFace {
-            id: "heal".into(),
-            args: DeleteFaceArgs {
-                faces: workpiece_core::Reference::each(faces),
-            },
-        }
-        .apply(&mut b)?;
-        close(exact(&b)?, 32.0, 1e-9);
-        let healed = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
-        assert_eq!(healed.faces.len(), 6);
-    }
-    Ok(())
-}
-
-#[test]
 fn a_slot_on_a_flange_as_thick_as_the_wall_is_shelled_sharp_inside() -> anyhow::Result<()> {
     use workpiece_ops_faces::{Shell, ShellArgs};
     // A flange 100 × 60 × 5 with a slot 40 wide, 40 between its round

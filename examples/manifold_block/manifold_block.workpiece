@@ -402,6 +402,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -575,6 +579,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -748,6 +756,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -1019,6 +1031,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,

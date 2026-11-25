@@ -26,7 +26,7 @@ first = p.cut(h, through=True)
 report = p.build(out)
 # ...patterned six times about z, by the hole's own wall.
 wall = report.faces(near=(37.5, 0, 6), where=lambda f: not f["flat"])
-p.op("FeaturePattern", along="Circle", count=6, angle=360.0, axis=axis("Z"),
+p.op("Pattern", along="Circle", count=6, angle=360.0, axis=axis("Z"),
      features=[{"Topology": wall[0]}])
 report = p.build(out)
 # The outer top rim, rounded.

@@ -19,8 +19,16 @@ pub struct Choice<M> {
     pub shown: Shown,
     /// The caption.
     pub label: String,
+    /// The small icon beside the caption, by name: what the caption's
+    /// words say ([`super::label_icon`]) unless set.
+    pub icon: Option<&'static str>,
     /// The options' labels.
     pub options: Vec<String>,
+    /// The options' icons, by name, where they have one: a choice whose
+    /// options all have one shows them as buttons with their pictures,
+    /// a few side by side; in a drop-down list they stand before the
+    /// labels.
+    pub icons: Vec<Option<&'static str>>,
     /// Which options can be chosen now; the others show greyed out.
     pub enabled: Vec<bool>,
     /// Why each option that cannot be chosen cannot (empty for the ones
@@ -41,15 +49,40 @@ impl<M: 'static> Choice<M> {
         selected: usize,
         on_change: impl Fn(usize) -> M + 'static,
     ) -> Self {
+        let label = label.into();
         Self {
             shown: Shown::Auto,
-            label: label.into(),
+            icon: super::label_icon(&label),
+            label,
+            icons: vec![None; options.len()],
             enabled: vec![true; options.len()],
             reasons: vec![String::new(); options.len()],
             options,
             selected,
             on_change: Box::new(on_change),
         }
+    }
+
+    /// The same choice, showing the icon `icon` (by name; none for
+    /// `None`) beside its caption.
+    #[must_use]
+    pub fn with_icon(mut self, icon: impl Into<Option<&'static str>>) -> Self {
+        self.icon = icon.into();
+        self
+    }
+
+    /// The same choice, its options shown with the icons `icons` (by
+    /// name; in the order of the options).
+    #[must_use]
+    pub fn with_icons(mut self, icons: Vec<Option<&'static str>>) -> Self {
+        self.icons = icons;
+        self.icons.resize(self.options.len(), None);
+        self
+    }
+
+    /// Whether every option has an icon: then they show as pictures.
+    pub fn pictured(&self) -> bool {
+        !self.icons.is_empty() && self.icons.iter().all(Option::is_some)
     }
 
     /// The same choice, as a drop-down list.
@@ -103,7 +136,9 @@ impl<M: 'static> Choice<M> {
         Choice {
             shown: self.shown,
             label: self.label,
+            icon: self.icon,
             options: self.options,
+            icons: self.icons,
             enabled: self.enabled,
             reasons: self.reasons,
             selected: self.selected,

@@ -47,6 +47,19 @@ def profile(sketch) -> dict:
     return {"Profile": sketch.id if isinstance(sketch, Sketch) else sketch}
 
 
+def _section(s) -> dict:
+    """A section of a sweep or a loft: a sketch (by itself or by id), or a reference."""
+    if isinstance(s, dict) and "of" in s:
+        return s
+    ref = s if isinstance(s, dict) else profile(s)
+    return {"of": ref}
+
+
+def _curve(c) -> dict:
+    """A curve a sweep or a loft goes along: a sketch's curves, or a reference (a curve body)."""
+    return c if isinstance(c, dict) else profile(c)
+
+
 def _area(a):
     """An area of a sketch as a step takes it: a (u, v) point inside it becomes
     {"inside": [u, v]}; anchors (a list of {"entity", "left", "at"}) stay as they are."""
@@ -362,7 +375,7 @@ class Sketch:
         (u, v). Constrain it like a line (`vertical(axis)`, `point_on(p, axis)`, `angle`, ...).
         A dimension from a point or a line to it, placed across it, is a diameter (in the app;
         here `diameter_about(point, axis, value)`), and `Part.revolve` with no axis given turns
-        the sketch about it."""
+        the sketch about it (it is a datum axis of the sketch's: `datum(f"{sketch.id}/{name}")`)."""
         name = self._name(name, "axis")
         towards = [float(towards[0]), float(towards[1])] if isinstance(towards, (tuple, list)) else towards
         self._rotation_axes[name] = {"through": point, "towards": towards}
@@ -611,26 +624,63 @@ class Part:
         return self.extrude(sketch, distance, "Cut", through=through, flip=flip, symmetric=symmetric, **more)
 
     def revolve(self, sketch, about=None, angle: float = 360.0, combine: str = "Join", id: str | None = None, **more) -> str:
-        """Revolve a sketch about its plane's "SketchU" or "SketchV" axis, or about the rotation
-        axis drawn in it ("Drawn"). With no axis given: about the sketch's rotation axis if it
-        has one (`Sketch.rotation_axis`), else about "SketchU"."""
-        if about is None:
-            drawn = isinstance(sketch, Sketch) and sketch._rotation_axes
-            about = "Drawn" if drawn else "SketchU"
+        """Revolve a sketch about an axis. `about`: the name of a rotation axis drawn in the sketch
+        (`Sketch.rotation_axis`); "u" or "v", the sketch plane's own axes (drawn into the sketch as
+        a rotation axis along that one); or a reference to any line — `axis("Z")`, `datum(axis_id)`,
+        `topo(straight_edge)`. Left out: the sketch's one rotation axis if it has one, else "u"."""
+        if isinstance(sketch, Sketch):
+            drawn = list(sketch._rotation_axes)
+            if about is None:
+                if len(drawn) > 1:
+                    raise ValueError(f"sketch {sketch.id!r} has rotation axes {drawn}: say which with about=")
+                about = drawn[0] if drawn else "u"
+            if about in ("u", "v"):
+                name = f"{about}_turn"
+                if name not in sketch._rotation_axes:
+                    sketch.rotation_axis(sketch.origin, (1.0, 0.0) if about == "u" else (0.0, 1.0), name)
+                    sketch.parallel(name, about)
+                about = name
+            if isinstance(about, str):
+                if about not in sketch._rotation_axes:
+                    raise ValueError(f"about={about!r}: a rotation axis of sketch {sketch.id!r} "
+                                     f"({list(sketch._rotation_axes)}), \"u\", \"v\" or a reference such as axis(\"Z\")")
+                about = {"Datum": f"{sketch.id}/{about}"}
+        if not isinstance(about, dict):
+            raise ValueError("about= is a reference (axis(\"Z\"), datum(id), topo(edge)) for a sketch given by its id")
         return self.op("Revolve", id, sketch=profile(sketch), axis=about, angle=float(angle), combine=combine, **more)
 
-    def hole(self, sketch, diameter: float, depth: float | None = None, kind: str = "Simple", id: str | None = None,
-             up_to=None, head_up_to=None, next: bool = False, **more) -> str:
-        """Holes at the dots of a sketch (`sketch.dot(...)`), drilled towards the body. How far it
-        goes: `depth` (blind); no depth, through everything that way; `next=True`, through the
-        wall it starts in; `up_to=topo(face)` or `up_to=datum(plane_id)`, to that face's or plane's
-        plane, and `offset=` further in (negative: short of it). kind: "Simple", "Counterbore"
-        (head=diameter, head_depth=... or `head_up_to=topo(face)` / `datum(plane_id)` for its floor,
-        `head_offset=`), "Countersink" (head=diameter, head_angle=...), "Tapped". `hexagon` only
-        sizes a standard counterbore for a hexagon head; a hexagonal pocket is a cut of
-        `sketch.polygon(...)`. The drawing's callout gives a depth that comes of a face in
-        brackets, as a reference."""
-        args = dict(sketch=profile(sketch), diameter=float(diameter), kind=kind, **more)
+    def hole(self, sketch=None, diameter: float = 6.0, depth: float | None = None, kind: str = "Simple",
+             id: str | None = None, up_to=None, head_up_to=None, next: bool = False, on=None, at=None,
+             off=None, around=None, radius: float | None = None, angle: float = 0.0, **more) -> str:
+        """Holes, drilled into the body. Where — one of four placements:
+        `sketch` (its dots, `sketch.dot(...)`: a hole at each, on the sketch's plane or on `on`);
+        `on=topo(face), at=(x, y)` (a point of the face's plane, in its own x and y from its origin);
+        `on=topo(face), off=[(topo(side_or_edge), 10), (topo(other), 15)]` (a distance from each of
+        two planes or straight edges, inward from a face of the body or an edge of the face);
+        `on=topo(face), around=axis("Z"), radius=20, angle=30` (from an axis, at an angle from the
+        face's x). How far it goes: `depth` (blind); no depth, through everything that way;
+        `next=True`, through the wall it starts in; `up_to=topo(face)` or `up_to=datum(plane_id)`,
+        to that face's or plane's plane, and `offset=` further in (negative: short of it). kind:
+        "Simple", "Counterbore" (head=diameter, head_depth=... or `head_up_to=topo(face)` /
+        `datum(plane_id)` for its floor, `head_offset=`), "Countersink" (head=diameter,
+        head_angle=...), "Tapped". `hexagon` only sizes a standard counterbore for a hexagon head;
+        a hexagonal pocket is a cut of `sketch.polygon(...)`. The drawing's callout gives a depth
+        that comes of a face in brackets, as a reference."""
+        args = dict(diameter=float(diameter), kind=kind, **more)
+        if on is not None:
+            args.update(face=on)
+        if sketch is not None:
+            args.update(place="Sketch", sketch=profile(sketch))
+        elif off is not None:
+            (first, d1), (second, d2) = off
+            args.update(place="Offsets", first=first, first_offset=float(d1), second=second,
+                        second_offset=float(d2))
+        elif around is not None:
+            args.update(place="Polar", axis=around, radius=float(radius), angle=float(angle))
+        elif at is not None:
+            args.update(place="Point", at=[float(at[0]), float(at[1])])
+        else:
+            raise ValueError("a hole needs a sketch, or on= with at=, off= or around=")
         if up_to is not None:
             args.update(extent="ToFace", up_to=up_to)
         elif next:
@@ -643,38 +693,87 @@ class Part:
             args.update(head_extent="ToFace", head_up_to=head_up_to)
         return self.op("Hole", id, **args)
 
-    def feature_pattern(self, faces, count: int, about=None, angle: float = 360.0, spacing: float | None = None,
-                        along=None, id: str | None = None, **more) -> str:
+    @staticmethod
+    def _spread(count, about, angle, spacing, along, points, fill, grid, across, turned, margin, sides) -> dict:
+        """Where the copies of a pattern go, as the step's arguments."""
+        if about is not None:
+            return dict(along="Circle", axis=about, count=int(count), angle=float(angle))
+        if points is not None:
+            return dict(along="Points", sketch=profile(points))
+        if fill is not None:
+            out = dict(along="Fill", face=fill, grid=grid, spacing=float(spacing), margin=float(margin),
+                       turned=float(turned), axis=along)
+            if across is not None:
+                out["across"] = float(across)
+            if sides is not None:
+                out["sides"] = int(sides)
+            return out
+        return dict(along="Line", axis=along, count=int(count), spacing=float(spacing))
+
+    def feature_pattern(self, faces, count: int = 2, about=None, angle: float = 360.0, spacing: float | None = None,
+                        along=None, points=None, fill=None, grid: str = "Square", across: float | None = None,
+                        turned: float = 0.0, margin: float = 0.0, sides: int | None = None,
+                        id: str | None = None, **more) -> str:
         """Repeat features — told by one face each of what the feature made (a hole's wall, a
         boss's side). Around an axis: `about=axis("Z")`, `count` in all over `angle` (a full
         turn is shared out evenly; less than a full turn has the first and the last at its
-        ends, so 3 over 180 are 90 apart). Along a line: `along=axis("X")`, `spacing` apart."""
-        if about is not None:
-            return self.op("FeaturePattern", id, along="Circle", axis=about, count=int(count), angle=float(angle),
-                           features=[topo(f) for f in faces], **more)
-        return self.op("FeaturePattern", id, along="Line", axis=along, count=int(count), spacing=float(spacing),
-                       features=[topo(f) for f in faces], **more)
+        ends, so 3 over 180 are 90 apart). Along a line: `along=axis("X")`, `spacing` apart. At
+        the dots of a sketch: `points=sketch` (moved from where the feature is to each dot; none
+        at a dot where it is already). Filling a flat face: `fill=topo(face)`, `grid=` "Square",
+        "Rectangular", "Staggered", "Hexagonal", "Rings" or "Polygon", `spacing` (and `across`,
+        the rows' or rings' spacing, `sides` of a polygon), `turned` degrees from the face's x
+        (or from `along`), `margin` kept in from its edges; what would cross it is left out."""
+        where = self._spread(count, about, angle, spacing, along, points, fill, grid, across, turned, margin, sides)
+        return self.op("Pattern", id, of="Features", features=[topo(f) for f in faces], **where, **more)
 
     def feature_mirror(self, faces, plane, id: str | None = None, **more) -> str:
         """Mirror features — told by one face each of what the feature made — in a plane: "X",
         "Y", "Z" (the origin's plane square to that axis), a datum plane (`datum(id)`) or a
         flat face (`topo(face)`). Steps between the picked ones are mirrored with them."""
         ref = axis(plane) if isinstance(plane, str) and len(plane) == 1 else plane
-        return self.op("FeatureMirror", id, features=[topo(f) for f in faces], plane=ref, **more)
+        return self.op("Mirror", id, of="Features", features=[topo(f) for f in faces], plane=ref, **more)
 
-    def pattern(self, body: str, count: int, about=None, angle: float = 360.0, spacing: float | None = None,
-                along=None, combine: str = "NewBody", id: str | None = None, **more) -> str:
-        """Repeat a whole body (by its name) around an axis or along a line; as bodies of their
-        own ("NewBody") or joined into one ("Join")."""
-        if about is not None:
-            return self.op("Pattern", id, along="Circle", axis=about, count=int(count), angle=float(angle),
-                           body=topo(body), combine=combine, **more)
-        return self.op("Pattern", id, along="Line", axis=along, count=int(count), spacing=float(spacing),
-                       body=topo(body), combine=combine, **more)
+    def pattern(self, body, count: int = 2, about=None, angle: float = 360.0, spacing: float | None = None,
+                along=None, combine: str = "NewBody", points=None, fill=None, grid: str = "Square",
+                across: float | None = None, turned: float = 0.0, margin: float = 0.0, sides: int | None = None,
+                id: str | None = None, **more) -> str:
+        """Repeat whole bodies (a name, or a list of names) — where they go as for
+        `feature_pattern`; as bodies of their own ("NewBody"), joined into one ("Join"), or cut
+        out of `target=topo(body)` ("Cut")."""
+        bodies = [body] if isinstance(body, str) else list(body)
+        where = self._spread(count, about, angle, spacing, along, points, fill, grid, across, turned, margin, sides)
+        return self.op("Pattern", id, of="Bodies", bodies=[topo(b) for b in bodies], combine=combine,
+                       **where, **more)
+
+    def mirror(self, body, plane, join: bool = False, id: str | None = None, **more) -> str:
+        """Mirror whole bodies (a name, or a list of names) in a plane, as for `feature_mirror`:
+        a body of its own, or (`join=True`) one with the body."""
+        bodies = [body] if isinstance(body, str) else list(body)
+        ref = axis(plane) if isinstance(plane, str) and len(plane) == 1 else plane
+        return self.op("Mirror", id, of="Bodies", bodies=[topo(b) for b in bodies], plane=ref,
+                       combine="Join" if join else "NewBody", **more)
 
     def sweep(self, section, path, combine: str = "Join", id: str | None = None, **more) -> str:
-        """Sweep a section sketch along a path sketch."""
-        return self.op("SweptLoft", id, sections=[profile(section)], path=profile(path), combine=combine, **more)
+        """Sweep a section (a sketch, or `topo(face)` for a face's outline) along a path: a
+        sketch's curves, or a curve body `topo(name)`. `twist=` degrees, `scale=` at its end."""
+        return self.op("SweptLoft", id, sections=[_section(section)],
+                       rails=[{"of": _curve(path), "role": "Path"}], combine=combine, **more)
+
+    def loft(self, sections, guides=(), start: str = "Free", end: str = "Free", start_face=None,
+             end_face=None, surface: bool = False, combine: str = "Join", id: str | None = None,
+             **more) -> str:
+        """Loft through `sections` in order: sketches, faces (`topo(face)`: its outline) or, for
+        `surface=True`, edges and curves left open. `guides`: curves (sketches or curve bodies)
+        the loft runs along, each touching every section. How it leaves the first section and
+        arrives at the last: "Free", "Normal" (square to the section's plane), "Tangent" (G1)
+        or "Curvature" (G2) to a face — `start_face=topo(face)` (none: the section's own face)."""
+        secs = [_section(s) for s in sections]
+        for k, way, face in ((0, start, start_face), (-1, end, end_face)):
+            secs[k]["end"] = way
+            if face is not None:
+                secs[k]["face"] = face
+        return self.op("SweptLoft", id, sections=secs, rails=[{"of": _curve(g), "role": "Guide"} for g in guides],
+                       surface=surface, combine=combine, **more)
 
     def fillet(self, edges, radius: float, id: str | None = None, **more) -> str:
         return self.op("Fillet", id, edges=[topo(e) for e in edges], size=float(radius), **more)
@@ -818,7 +917,8 @@ class Part:
         # With every centre line, the paths sweeps run along (a bent pipe's centre line).
         if centres == "All":
             for step in self._steps:
-                path = isinstance(step, dict) and step.get("op") == "SweptLoft" and step["args"].get("path")
+                rails = step["args"].get("rails", []) if isinstance(step, dict) and step.get("op") == "SweptLoft" else []
+                path = next((r["of"] for r in rails if r.get("role", "Path") == "Path"), None)
                 if isinstance(path, dict) and "Profile" in path and not any(
                         l["of"] == {"Path": path["Profile"]} for l in lines):
                     lines.append({"of": {"Path": path["Profile"]}})

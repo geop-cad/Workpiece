@@ -25,6 +25,25 @@ pub trait Arguments: Clone + 'static {
     fn fields(&self, context: &EditContext<'_>) -> Vec<Widget<Self>>;
 }
 
+/// A list of arguments, each with references of its own (a loft's
+/// sections): what they all refer to. Its fields are made by what
+/// holds it.
+impl<T: Arguments> Arguments for Vec<T> {
+    fn references(&self) -> Vec<Source> {
+        self.iter().flat_map(Arguments::references).collect()
+    }
+
+    fn references_mut(&mut self) -> Vec<&mut Source> {
+        self.iter_mut()
+            .flat_map(Arguments::references_mut)
+            .collect()
+    }
+
+    fn fields(&self, _: &EditContext<'_>) -> Vec<Widget<Self>> {
+        Vec::new()
+    }
+}
+
 /// How a field shows in the dialog.
 #[derive(Debug, Clone, Copy)]
 pub struct FieldOptions {
@@ -39,6 +58,28 @@ pub struct FieldOptions {
     /// Whether a yes-or-no shows as the small button that turns
     /// something the other way.
     pub flip: bool,
+    /// The icon beside its caption, where it is not what the caption's
+    /// words say (see [`crate::widgets::label_icon`]).
+    pub icon: Option<&'static str>,
+    /// The icons of the two states of a yes-or-no: not so, and so.
+    pub icons: Option<(&'static str, &'static str)>,
+}
+
+impl FieldOptions {
+    /// `widget` with the icon these options say beside its caption, if
+    /// they say one.
+    fn iconed<A: 'static>(&self, widget: Widget<A>) -> Widget<A> {
+        let Some(icon) = self.icon else {
+            return widget;
+        };
+        match widget {
+            Widget::NumericInput(w) => w.with_icon(icon).into(),
+            Widget::Choice(w) => w.with_icon(icon).into(),
+            Widget::ReferenceInput(w) => w.with_icon(icon).into(),
+            Widget::ReferenceList(w) => w.with_icon(icon).into(),
+            other => other,
+        }
+    }
 }
 
 /// The fields, one below the other, those that stand beside the one
@@ -58,6 +99,31 @@ pub fn rows<A: 'static>(fields: Vec<(bool, Widget<A>)>) -> Vec<Widget<A>> {
     rows.into_iter().map(one).collect()
 }
 
+/// The fields in their [`rows`], those one after another of the same
+/// group (named; the empty name is none) in a [`Group`](crate::widgets::Group)
+/// headed by its name: the parts of a dialog.
+pub fn grouped<A: 'static>(fields: Vec<(&'static str, bool, Widget<A>)>) -> Vec<Widget<A>> {
+    // (Each part: its name, and its fields, each beside the one before
+    // or not.)
+    type Part<A> = (&'static str, Vec<(bool, Widget<A>)>);
+    let mut parts: Vec<Part<A>> = Vec::new();
+    for (group, beside, field) in fields {
+        match parts.last_mut() {
+            Some((g, part)) if *g == group => part.push((beside, field)),
+            _ => parts.push((group, vec![(beside, field)])),
+        }
+    }
+    let mut out = Vec::new();
+    for (group, part) in parts {
+        if group.is_empty() {
+            out.extend(rows(part));
+        } else {
+            out.push(crate::widgets::Group::new(group, rows(part)).into());
+        }
+    }
+    out
+}
+
 /// A value that is one of a few, to choose among: a kind, a way.
 pub trait Choices: Copy + PartialEq + 'static {
     /// All of them, in the order they are offered.
@@ -65,6 +131,17 @@ pub trait Choices: Copy + PartialEq + 'static {
 
     /// What this one is called.
     fn label(self) -> &'static str;
+
+    /// The icon it shows as, by name, if it has one: a choice whose
+    /// options all have one shows them as pictures.
+    fn icon(self) -> Option<&'static str> {
+        None
+    }
+}
+
+/// The icons of `of`, for a choice among them.
+fn icons_of<T: Choices>(of: &[T]) -> Vec<Option<&'static str>> {
+    of.iter().map(|c| c.icon()).collect()
 }
 
 /// A type an argument can be of: what it refers to, and the widget
@@ -109,10 +186,11 @@ impl<V: Refers + 'static> Field for Reference<V> {
         put: impl Fn(Self) -> A + Clone + 'static,
     ) -> Widget<A> {
         let value = Some(self.source.clone());
-        ReferenceInput::of_kind(options.label, kind_of::<V>(), value, move |s| {
+        let field = ReferenceInput::of_kind(options.label, kind_of::<V>(), value, move |s| {
             put(Reference::new(s))
         })
-        .into()
+        .taking(V::KINDS);
+        options.iconed(field.into())
     }
 }
 
@@ -135,11 +213,12 @@ impl<V: Refers + 'static> Field for Option<Reference<V>> {
         let pick = put.clone();
         let field = ReferenceInput::of_kind(options.label, kind_of::<V>(), value, move |s| {
             pick(Some(Reference::new(s)))
-        });
-        match options.empty {
+        })
+        .taking(V::KINDS);
+        options.iconed(match options.empty {
             Some(empty) => field.optional(empty, move || put(None)).into(),
             None => field.into(),
-        }
+        })
     }
 }
 
@@ -162,11 +241,11 @@ impl<V: Refers + 'static> Field for Vec<Reference<V>> {
         let list = ReferenceList::new(options.label, V::KINDS.to_vec(), values, move |all| {
             put(all.into_iter().map(Reference::new).collect())
         });
-        if options.required {
+        options.iconed(if options.required {
             list.required().into()
         } else {
             list.into()
-        }
+        })
     }
 }
 
@@ -177,7 +256,7 @@ impl Field for Measure {
         context: &EditContext<'_>,
         put: impl Fn(Self) -> A + Clone + 'static,
     ) -> Widget<A> {
-        NumericInput::measure(options.label, self, context.parameters, put).into()
+        options.iconed(NumericInput::measure(options.label, self, context.parameters, put).into())
     }
 }
 
@@ -188,7 +267,7 @@ impl Field for f64 {
         _: &EditContext<'_>,
         put: impl Fn(Self) -> A + Clone + 'static,
     ) -> Widget<A> {
-        NumericInput::new(options.label, *self, put).into()
+        options.iconed(NumericInput::new(options.label, *self, put).into())
     }
 }
 
@@ -199,11 +278,10 @@ impl Field for usize {
         _: &EditContext<'_>,
         put: impl Fn(Self) -> A + Clone + 'static,
     ) -> Widget<A> {
-        // (A count: what is entered, rounded, and not below nothing.)
-        NumericInput::new(options.label, *self as f64, move |x| {
-            put(x.round().max(0.0) as usize)
-        })
-        .into()
+        // (A count: what is entered, not below nothing.)
+        let field =
+            NumericInput::integer(options.label, *self as i64, move |x| put(x.max(0) as usize));
+        options.iconed(field.into())
     }
 }
 
@@ -223,10 +301,14 @@ impl Field for bool {
         }
         let (no, yes) = options.options.unwrap_or(("No", "Yes"));
         let options_of = vec![no.to_owned(), yes.to_owned()];
-        Choice::new(options.label, options_of, usize::from(*self), move |i| {
+        let choice = Choice::new(options.label, options_of, usize::from(*self), move |i| {
             put(i == 1)
-        })
-        .into()
+        });
+        let choice = match options.icons {
+            Some((no, yes)) => choice.with_icons(vec![Some(no), Some(yes)]),
+            None => choice,
+        };
+        options.iconed(choice.into())
     }
 }
 
@@ -240,15 +322,16 @@ impl<T: Choices + Clone> Field for T {
         let labels = T::ALL.iter().map(|c| c.label().to_owned()).collect();
         let chosen = T::ALL.iter().position(|c| c == self).unwrap_or(0);
         let first = *self;
-        Choice::new(options.label, labels, chosen, move |i| {
+        let choice = Choice::new(options.label, labels, chosen, move |i| {
             put(T::ALL.get(i).copied().unwrap_or(first))
         })
-        .into()
+        .with_icons(icons_of(T::ALL));
+        options.iconed(choice.into())
     }
 }
 
-/// Three measures: along x, y and z, in a row.
-impl Field for [Measure; 3] {
+/// Measures in a row: along x, y and z (as many of those as there are).
+impl<const N: usize> Field for [Measure; N] {
     fn widget<A: 'static>(
         &self,
         options: &FieldOptions,
@@ -256,17 +339,21 @@ impl Field for [Measure; 3] {
         put: impl Fn(Self) -> A + Clone + 'static,
     ) -> Widget<A> {
         // (Called as the label says, `Width|Depth|Height`, if it names
-        // three.)
+        // as many.)
         let said: Vec<&str> = options.label.split('|').collect();
-        let labels = <[&str; 3]>::try_from(said).unwrap_or(["X", "Y", "Z"]);
+        let labels = if said.len() == N {
+            said
+        } else {
+            ["X", "Y", "Z", "W"].into_iter().cycle().take(N).collect()
+        };
         let fields = labels.into_iter().enumerate().map(|(k, label)| {
             let (all, put) = (self.clone(), put.clone());
-            NumericInput::measure(label, &self[k], context.parameters, move |x| {
+            let field = NumericInput::measure(label, &self[k], context.parameters, move |x| {
                 let mut new = all.clone();
                 new[k] = x;
                 put(new)
-            })
-            .into()
+            });
+            options.iconed(field.into())
         });
         crate::widgets::HBox::new(fields.collect()).into()
     }
@@ -283,11 +370,13 @@ pub fn among<T: Choices, A: 'static>(
 ) -> Widget<A> {
     let labels = of.iter().map(|c| c.label().to_owned()).collect();
     let chosen = of.iter().position(|c| c == value).unwrap_or(0);
+    let icons = icons_of(of);
     let (of, first) = (of.to_vec(), *value);
-    Choice::new(options.label, labels, chosen, move |i| {
+    let choice = Choice::new(options.label, labels, chosen, move |i| {
         put(of.get(i).copied().unwrap_or(first))
     })
-    .into()
+    .with_icons(icons);
+    options.iconed(choice.into())
 }
 
 /// A text: a path, a name.
@@ -329,11 +418,11 @@ pub fn one_of<A: 'static>(
         .and_then(|v| names.iter().position(|n| n == v));
     let mut labels: Vec<String> = options.empty.iter().map(|e| (*e).to_owned()).collect();
     labels.extend(names.iter().cloned());
-    Choice::new(
+    let choice = Choice::new(
         options.label,
         labels,
         chosen.map_or(0, |i| i + none),
         move |i| put(i.checked_sub(none).and_then(|i| names.get(i).cloned())),
-    )
-    .into()
+    );
+    options.iconed(choice.into())
 }

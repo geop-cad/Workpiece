@@ -16,6 +16,7 @@ workpiece-boolean.workspace = true
 workpiece-core.workspace = true
 workpiece-shape.workspace = true
 serde.workspace = true
+glam.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
@@ -25,6 +26,7 @@ workpiece-ops-sketch.workspace = true
 workpiece-ops-testing.workspace = true
 workpiece-ops-sweep.workspace = true
 workpiece-ops-bodies.workspace = true
+workpiece-ops-blend.workspace = true
 
 [lints]
 workspace = true

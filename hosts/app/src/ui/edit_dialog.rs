@@ -136,7 +136,9 @@ pub fn inspector(
 }
 
 /// The window every dialog of a step shows in: at the top right of
-/// `area`, below the orientation cube.
+/// `area`, below the orientation cube — inside `area` always, and as
+/// wide as a dialog is: what is longer than its field (a reference's
+/// name) is cut short in it, said whole when the pointer is on it.
 pub fn window(ctx: &egui::Context, area: egui::Rect, contents: impl FnOnce(&mut egui::Ui)) {
     egui::Window::new("edit-step")
         .title_bar(false)
@@ -144,8 +146,10 @@ pub fn window(ctx: &egui::Context, area: egui::Rect, contents: impl FnOnce(&mut 
         .collapsible(false)
         .fixed_pos(area.right_top() + egui::vec2(-12.0, 150.0))
         .pivot(egui::Align2::RIGHT_TOP)
+        .constrain_to(area)
         .show(ctx, |ui| {
             ui.set_min_width(DIALOG_WIDTH);
+            ui.set_max_width(DIALOG_WIDTH);
             contents(ui);
         });
 }
@@ -213,9 +217,6 @@ impl Fields<'_> {
 
     /// Draws `w` (at widget path `path`) and its children.
     fn widget(&mut self, ui: &mut egui::Ui, w: &Widget<Message>, path: &mut Vec<usize>) {
-        let caption = |ui: &mut egui::Ui, text: &str| {
-            ui.label(egui::RichText::new(text).color(color::TEXT_WEAK));
-        };
         match w {
             Widget::Button(b) => {
                 if ui.button(&b.label).clicked() {
@@ -224,7 +225,7 @@ impl Fields<'_> {
             }
             Widget::NumericInput(input) => {
                 ui.horizontal(|ui| {
-                    caption(ui, &input.label);
+                    caption(ui, &input.label, input.icon);
                     // (A field that takes the keyboard is typed into,
                     // what it shows selected.)
                     let focus_id = ui.id().with(("focus", path.clone()));
@@ -286,7 +287,12 @@ impl Fields<'_> {
                     // the field takes formulas makes it one.
                     let mut value = input.value;
                     let typed = std::cell::RefCell::new(None);
-                    let mut field = egui::DragValue::new(&mut value).speed(0.01).max_decimals(4);
+                    // (A whole number — a count — shows and drags as one.)
+                    let mut field = if input.integer {
+                        egui::DragValue::new(&mut value).speed(0.05).fixed_decimals(0)
+                    } else {
+                        egui::DragValue::new(&mut value).speed(0.01).max_decimals(4)
+                    };
                     if input.on_text.is_some() {
                         field = field.custom_parser(|text| {
                             let number = text.trim().parse::<f64>().ok();
@@ -329,11 +335,19 @@ impl Fields<'_> {
                 let letters: usize = choice.options.iter().map(|o| o.chars().count() + 3).sum();
                 let listed =
                     choice.shown == Shown::DropDown || choice.options.len() > 3 || letters > 40;
+                // (Options with pictures show as those, up to six; more
+                // are a list, their pictures in it.)
+                let pictured = choice.pictured()
+                    && choice.shown == Shown::Auto
+                    && choice.options.len() <= PICTURED;
+                let listed = listed && !pictured;
                 if !(row && listed) {
-                    caption(ui, &choice.label);
+                    caption(ui, &choice.label, choice.icon);
                 }
                 if choice.shown == Shown::Searched {
                     self.searched(ui, choice, path);
+                } else if pictured {
+                    self.pictured(ui, choice);
                 } else if listed {
                     let selected = choice
                         .options
@@ -345,23 +359,23 @@ impl Fields<'_> {
                     } else {
                         DIALOG_WIDTH - 16.0
                     };
-                    egui::ComboBox::from_id_salt(("dialog-choice", path.clone()))
-                        .selected_text(selected)
-                        .width(width)
-                        .height(320.0)
-                        .show_ui(ui, |ui| {
-                            for (i, option) in choice.options.iter().enumerate() {
-                                let enabled = choice.enabled.get(i).copied().unwrap_or(false);
-                                let item = egui::Button::selectable(i == choice.selected, option);
-                                let response = ui
-                                    .add_enabled(enabled, item)
-                                    .on_disabled_hover_text(choice.reason(i).unwrap_or_default());
-                                if response.clicked() && i != choice.selected {
-                                    self.out.extend(choice.set(i));
-                                    self.out.push(Message::EndEdit);
-                                }
+                    // (The chosen option's picture before it, where it has
+                    // one.)
+                    let icon = choice.icons.get(choice.selected).copied().flatten();
+                    ui.horizontal(|ui| {
+                        let width = match icon {
+                            Some(icon) => {
+                                ui.add(icons::widget(icons::named(icon), 16.0, color::TEXT));
+                                width - 22.0
                             }
-                        });
+                            None => width,
+                        };
+                        egui::ComboBox::from_id_salt(("dialog-choice", path.clone()))
+                            .selected_text(selected)
+                            .width(width)
+                            .height(320.0)
+                            .show_ui(ui, |ui| self.listed(ui, choice));
+                    });
                 } else {
                     egui::Frame::new()
                         .fill(color::HOVER)
@@ -402,7 +416,7 @@ impl Fields<'_> {
                 // The references as chips (× removes one) in a box; clicking
                 // anywhere in the box turns picking on or off.
                 let active = self.picking == Some(path.as_slice());
-                caption(ui, &list.label);
+                caption(ui, &list.label, list.icon);
                 let builder = egui::UiBuilder::new().sense(egui::Sense::click());
                 let boxed = ui.scope_builder(builder, |ui| {
                     let border = if active { color::ACCENT } else { color::BORDER };
@@ -418,6 +432,7 @@ impl Fields<'_> {
                         .inner_margin(6)
                         .show(ui, |ui| {
                             ui.set_min_width(240.0);
+                            ui.set_max_width(DIALOG_WIDTH - 20.0);
                             if list.values.is_empty() {
                                 ui.weak(if active {
                                     "Pick in the viewport…"
@@ -427,13 +442,13 @@ impl Fields<'_> {
                             }
                             ui.horizontal_wrapped(|ui| {
                                 for (i, source) in list.values.iter().enumerate() {
-                                    let chip = egui::Button::new(format!(
-                                        "{}  ×",
-                                        describe_source(source)
-                                    ))
-                                    .fill(color::HOVER)
-                                    .corner_radius(10);
-                                    if ui.add(chip).on_hover_text("Remove").clicked() {
+                                    let said = describe_source(source);
+                                    let chip = egui::Button::new(format!("{said}  ×"))
+                                        .truncate()
+                                        .fill(color::HOVER)
+                                        .corner_radius(10);
+                                    let hint = format!("{said}\nRemove");
+                                    if ui.add(chip).on_hover_text(hint).clicked() {
                                         self.out.push(list.remove(i));
                                     }
                                 }
@@ -457,7 +472,7 @@ impl Fields<'_> {
             Widget::PoseInput(input) => {
                 // Aligned columns: x, y, z; a row for the position, one for
                 // the rotation's Euler angles.
-                ui.label(egui::RichText::new(&input.label).color(color::TEXT_WEAK));
+                caption(ui, &input.label, Some("f-position"));
                 egui::Grid::new(("pose", path.clone()))
                     .num_columns(4)
                     .spacing([6.0, 4.0])
@@ -474,7 +489,8 @@ impl Fields<'_> {
                             ("Rotation", input.angles(), 0.5, "°"),
                         ];
                         for (row, (label, values, speed, suffix)) in rows.into_iter().enumerate() {
-                            caption(ui, label);
+                            let icon = if row == 0 { "f-position" } else { "f-angle" };
+                            caption(ui, label, Some(icon));
                             for (axis, value) in Axis::ALL.into_iter().zip(values) {
                                 let mut v = value;
                                 let field = egui::DragValue::new(&mut v)
@@ -500,32 +516,59 @@ impl Fields<'_> {
             }
             Widget::ReferenceInput(input) => {
                 ui.horizontal(|ui| {
-                    caption(ui, &input.label);
+                    caption(ui, &input.label, input.icon);
                     let active = self.picking == Some(path.as_slice());
+                    // (A plane or an axis, of a field taking both.)
+                    let kinds = input
+                        .kinds()
+                        .iter()
+                        .map(|k| k.name())
+                        .collect::<Vec<_>>()
+                        .join(" or ");
+                    let a = if kinds.starts_with(['a', 'e', 'i', 'o', 'u']) {
+                        "an"
+                    } else {
+                        "a"
+                    };
                     let text = if active {
-                        egui::RichText::new(format!("Pick a {}…", input.kind.name()))
-                            .color(color::ACCENT)
+                        // (What it holds stays shown while another may
+                        // be picked in its place.)
+                        let said = match &input.value {
+                            Some(source) => format!("{} (pick another…)", describe_source(source)),
+                            None => format!("Pick {a} {kinds}…"),
+                        };
+                        egui::RichText::new(said).color(color::ACCENT)
                     } else {
                         // Empty, it says what that means, or asks.
                         let empty = || match &input.optional {
                             Some((empty, _)) => empty.clone(),
-                            None => format!("Pick a {}", input.kind.name()),
+                            None => format!("Pick {a} {kinds}"),
                         };
                         match &input.value {
                             Some(source) => egui::RichText::new(describe_source(source)),
                             None => egui::RichText::new(empty()).color(color::TEXT_WEAK),
                         }
                     };
+                    let whole = text.text().to_owned();
                     let button = egui::Button::new(text)
                         .selected(active)
+                        .truncate()
                         .fill(color::HOVER)
                         .stroke(egui::Stroke::new(
                             1.0,
                             if active { color::ACCENT } else { color::BORDER },
                         ));
-                    if ui
-                        .add(button)
-                        .on_hover_text("Click, then pick in the viewport")
+                    // (Room left for its × beside it.)
+                    let room =
+                        ui.available_width() - if input.clear().is_some() { 22.0 } else { 0.0 };
+                    let response = ui
+                        .scope(|ui| {
+                            ui.set_max_width(room.max(40.0));
+                            ui.add(button)
+                        })
+                        .inner;
+                    if response
+                        .on_hover_text(format!("{whole}\nClick, then pick in the viewport"))
                         .clicked()
                     {
                         self.out
@@ -544,7 +587,7 @@ impl Fields<'_> {
             }
             Widget::ConnectorInput(input) => {
                 ui.horizontal(|ui| {
-                    caption(ui, &input.label);
+                    caption(ui, &input.label, Some("f-frame"));
                     let active = self.picking == Some(path.as_slice());
                     let text = match (&input.value, active) {
                         (_, true) => egui::RichText::new("Point at a part…").color(color::ACCENT),
@@ -570,14 +613,15 @@ impl Fields<'_> {
             }
             Widget::FileInput(input) => {
                 ui.horizontal(|ui| {
-                    caption(ui, &input.label);
+                    caption(ui, &input.label, None);
                     let text = if input.value.is_empty() {
                         "Choose…"
                     } else {
                         input.value.as_str()
                     };
                     let image = icons::widget(icons::FOLDER, 14.0, color::TEXT);
-                    if ui.add(egui::Button::image_and_text(image, text)).clicked() {
+                    let button = egui::Button::image_and_text(image, text).truncate();
+                    if ui.add(button).on_hover_text(text).clicked() {
                         *self.choose_file = Some(path.clone());
                     }
                 });
@@ -595,7 +639,17 @@ impl Fields<'_> {
                 }
             }
             Widget::Group(group) => {
-                caption(ui, &group.label);
+                // A group's name heads it: the parts of a dialog (where,
+                // what, how deep) read top to bottom.
+                if !group.label.is_empty() {
+                    ui.add_space(4.0);
+                    ui.label(
+                        egui::RichText::new(&group.label)
+                            .strong()
+                            .size(11.5)
+                            .color(color::TEXT),
+                    );
+                }
                 ui.vertical(|ui| self.children(ui, &group.children, path));
             }
             Widget::Label(label) if label.label.is_empty() => {
@@ -608,16 +662,24 @@ impl Fields<'_> {
             }
             Widget::Label(label) => {
                 ui.horizontal(|ui| {
-                    caption(ui, &label.label);
-                    ui.colored_label(mood_color(label.mood), &label.text);
+                    caption(ui, &label.label, None);
+                    let text = egui::RichText::new(&label.text).color(mood_color(label.mood));
+                    ui.add(egui::Label::new(text).truncate())
+                        .on_hover_text(&label.text);
                 });
             }
             Widget::TextInput(input) => {
                 ui.horizontal(|ui| {
-                    caption(ui, &input.label);
+                    caption(ui, &input.label, input.icon);
                     let mut text = input.value.clone();
-                    let response =
-                        ui.add(egui::TextEdit::singleline(&mut text).desired_width(64.0));
+                    let edit = if input.multiline {
+                        egui::TextEdit::multiline(&mut text)
+                            .desired_rows(2)
+                            .desired_width(140.0)
+                    } else {
+                        egui::TextEdit::singleline(&mut text).desired_width(64.0)
+                    };
+                    let response = ui.add(edit);
                     if response.changed() {
                         self.out.push(input.set(text));
                     }
@@ -655,7 +717,7 @@ impl Fields<'_> {
             }
             Widget::ColourInput(input) => {
                 ui.horizontal(|ui| {
-                    caption(ui, &input.label);
+                    caption(ui, &input.label, Some("f-colour"));
                     let was = input.value.unwrap_or([207, 210, 216]);
                     let mut colour = was;
                     ui.color_edit_button_srgb(&mut colour);
@@ -687,6 +749,143 @@ impl Fields<'_> {
                 });
             }
         }
+    }
+
+    /// The options of `choice` in a drop-down list, each with its icon
+    /// where it has one.
+    fn listed(&mut self, ui: &mut egui::Ui, choice: &workpiece_core::widgets::Choice<Message>) {
+        for (i, option) in choice.options.iter().enumerate() {
+            let enabled = choice.enabled.get(i).copied().unwrap_or(false);
+            let chosen = i == choice.selected;
+            let item = match choice.icons.get(i).copied().flatten() {
+                Some(icon) => {
+                    let image = icons::widget(icons::named(icon), 16.0, color::TEXT);
+                    egui::Button::image_and_text(image, option)
+                        .selected(chosen)
+                        .frame_when_inactive(chosen)
+                }
+                None => egui::Button::selectable(chosen, option),
+            };
+            let response = ui
+                .add_enabled(enabled, item)
+                .on_disabled_hover_text(choice.reason(i).unwrap_or_default());
+            if response.clicked() && !chosen {
+                self.out.extend(choice.set(i));
+                self.out.push(Message::EndEdit);
+            }
+        }
+    }
+
+    /// A choice whose options have pictures, as radio buttons: the
+    /// pictures side by side in one rounded track, the chosen one
+    /// raised; each with its name below where the names are short
+    /// enough to fit, else the name shows when the pointer rests on it.
+    fn pictured(&mut self, ui: &mut egui::Ui, choice: &workpiece_core::widgets::Choice<Message>) {
+        let n = choice.options.len().max(1);
+        let widest = |font: &egui::FontId| {
+            choice
+                .options
+                .iter()
+                .map(|o| {
+                    ui.painter()
+                        .layout_no_wrap(o.clone(), font.clone(), color::TEXT)
+                        .size()
+                        .x
+                })
+                .fold(0.0, f32::max)
+        };
+        // (Each as wide as the track allows, shared alike.)
+        let track = DIALOG_WIDTH - 16.0;
+        let wide = ((track - 2.0 * (n as f32 - 1.0)) / n as f32).min(72.0);
+        // (The names in the smaller of two sizes where that makes them
+        // fit; else they show when the pointer rests on one.)
+        let font = [10.5, 9.0]
+            .map(egui::FontId::proportional)
+            .into_iter()
+            .find(|font| widest(font) + 4.0 <= wide)
+            .unwrap_or_else(|| egui::FontId::proportional(10.5));
+        let named = widest(&font) + 4.0 <= wide;
+        let size = if named {
+            egui::vec2(wide, 42.0)
+        } else {
+            egui::vec2(wide.min(38.0), 30.0)
+        };
+        egui::Frame::new()
+            .fill(color::HOVER)
+            .stroke(egui::Stroke::new(1.0, color::BORDER))
+            .corner_radius(8)
+            .inner_margin(2)
+            .show(ui, |ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(2.0, 2.0);
+                ui.horizontal(|ui| {
+                    for (i, option) in choice.options.iter().enumerate() {
+                        let chosen = i == choice.selected;
+                        let enabled = choice.enabled.get(i).copied().unwrap_or(false);
+                        let sense = if enabled {
+                            egui::Sense::click()
+                        } else {
+                            egui::Sense::hover()
+                        };
+                        let (rect, response) = ui.allocate_exact_size(size, sense);
+                        if ui.is_rect_visible(rect) {
+                            let painter = ui.painter();
+                            if chosen {
+                                painter.rect(
+                                    rect,
+                                    6.0,
+                                    color::PANEL,
+                                    egui::Stroke::new(1.0, color::ACCENT),
+                                    egui::StrokeKind::Inside,
+                                );
+                            } else if response.hovered() && enabled {
+                                painter.rect_filled(rect, 6.0, color::ACTIVE);
+                            }
+                            let tint = if !enabled {
+                                color::TEXT_WEAK.gamma_multiply(0.45)
+                            } else if chosen {
+                                color::ACCENT
+                            } else {
+                                color::TEXT_WEAK
+                            };
+                            let icon = choice.icons.get(i).copied().flatten().unwrap_or("point");
+                            let at = if named {
+                                egui::pos2(rect.center().x, rect.top() + 14.0)
+                            } else {
+                                rect.center()
+                            };
+                            let image = icons::widget(icons::named(icon), 20.0, tint);
+                            image.paint_at(
+                                ui,
+                                egui::Rect::from_center_size(at, egui::vec2(20.0, 20.0)),
+                            );
+                            if named {
+                                let text = if chosen {
+                                    color::TEXT
+                                } else {
+                                    color::TEXT_WEAK
+                                };
+                                ui.painter().text(
+                                    egui::pos2(rect.center().x, rect.bottom() - 3.0),
+                                    egui::Align2::CENTER_BOTTOM,
+                                    option,
+                                    font.clone(),
+                                    text,
+                                );
+                            }
+                        }
+                        let why = choice.reason(i).unwrap_or("Not for these references");
+                        let response = if enabled {
+                            response.on_hover_text(option)
+                        } else {
+                            response.on_hover_text(format!("{option}\n\nNot now: {why}"))
+                        };
+                        if response.clicked() && !chosen && enabled {
+                            self.out.extend(choice.set(i));
+                            self.out.push(Message::EndEdit);
+                        }
+                    }
+                });
+            });
     }
 
     /// A choice as a list that is searched by typing: the options that
@@ -797,6 +996,27 @@ impl Fields<'_> {
             path.pop();
         }
     }
+}
+
+/// How many options with pictures show side by side; more are a list.
+const PICTURED: usize = 6;
+
+/// A field's caption: its icon, if it has one, and its name, in the
+/// weak text colour.
+fn caption(ui: &mut egui::Ui, text: &str, icon: Option<&'static str>) {
+    if icon.is_none() && text.is_empty() {
+        return;
+    }
+    // (Side by side, in a column as in a row.)
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 4.0;
+        if let Some(icon) = icon {
+            ui.add(icons::widget(icons::named(icon), 14.0, color::TEXT_WEAK));
+        }
+        if !text.is_empty() {
+            ui.label(egui::RichText::new(text).color(color::TEXT_WEAK));
+        }
+    });
 }
 
 fn mood_color(mood: Mood) -> egui::Color32 {
@@ -1102,7 +1322,7 @@ impl Fields<'_> {
         match field {
             Widget::Choice(choice) => {
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(&choice.label).color(color::TEXT_WEAK));
+                    caption(ui, &choice.label, choice.icon);
                     let selected = choice
                         .options
                         .get(choice.selected)
@@ -1111,19 +1331,7 @@ impl Fields<'_> {
                     egui::ComboBox::from_id_salt(("ribbon-choice", path.clone()))
                         .selected_text(selected)
                         .width(96.0)
-                        .show_ui(ui, |ui| {
-                            for (i, option) in choice.options.iter().enumerate() {
-                                let enabled = choice.enabled.get(i).copied().unwrap_or(false);
-                                let item = egui::Button::selectable(i == choice.selected, option);
-                                let response = ui
-                                    .add_enabled(enabled, item)
-                                    .on_disabled_hover_text(choice.reason(i).unwrap_or_default());
-                                if response.clicked() && i != choice.selected {
-                                    self.out.extend(choice.set(i));
-                                    self.out.push(Message::EndEdit);
-                                }
-                            }
-                        });
+                        .show_ui(ui, |ui| self.listed(ui, choice));
                 });
             }
             Widget::Label(label) if label.label.is_empty() => {

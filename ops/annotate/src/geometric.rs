@@ -33,6 +33,26 @@ impl workpiece_core::Choices for Of {
     fn label(self) -> &'static str {
         self.0.label()
     }
+
+    fn icon(self) -> Option<&'static str> {
+        use Characteristic as C;
+        Some(match self.0 {
+            C::Straightness => "gdt-straightness",
+            C::Flatness => "gdt-flatness",
+            C::Circularity => "gdt-roundness",
+            C::Cylindricity => "gdt-cylindricity",
+            C::LineProfile => "gdt-profile-line",
+            C::SurfaceProfile => "gdt-profile-surface",
+            C::Parallelism => "gdt-parallelism",
+            C::Perpendicularity => "gdt-perpendicularity",
+            C::Angularity => "gdt-angularity",
+            C::Position => "gdt-position",
+            C::Concentricity => "gdt-concentricity",
+            C::Symmetry => "gdt-symmetry",
+            C::CircularRunout => "gdt-runout",
+            C::TotalRunout => "gdt-total-runout",
+        })
+    }
 }
 
 /// The face, what of it is toleranced, and how closely.
@@ -50,7 +70,11 @@ pub struct GeometricToleranceArgs {
     pub value: Measure,
     /// Whether the zone is round: the tolerance is its diameter.
     #[serde(default)]
-    #[arg(label = "Zone", options = "Between planes|Round (⌀)")]
+    #[arg(
+        label = "Zone",
+        options = "Between planes|Round",
+        icons = "zone-planes|zone-round"
+    )]
     pub diametral: bool,
     /// The datums it is taken from, in order: their letters, apart.
     #[serde(default)]

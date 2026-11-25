@@ -331,8 +331,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Line",
           "angle": 360.0,
           "axis": {
@@ -341,22 +342,32 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 3,
+          "face": null,
           "features": [
             {
               "Topology": "bar/side/e12"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 12.5,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
-        "id": "featurepattern1"
+        "id": "pattern1"
       }
     },
     {
       "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 90.0,
           "axis": {
@@ -365,17 +376,26 @@
               "frame": "origin"
             }
           },
-          "body": {
-            "Topology": "bar"
-          },
+          "bodies": [
+            {
+              "Topology": "bar"
+            }
+          ],
           "combine": "Join",
           "count": 2,
+          "face": null,
+          "features": [],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Bodies",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
           "target": null,
+          "turned": 0.0,
           "upright": false
         },
-        "id": "pattern1"
+        "id": "pattern2"
       }
     },
     {
@@ -855,8 +875,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 360.0,
           "axis": {
@@ -865,17 +886,26 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 4,
+          "face": null,
           "features": [
             {
               "Topology": "node/side/e8#2"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
-        "id": "featurepattern2"
+        "id": "pattern3"
       }
     },
     {
@@ -1161,8 +1191,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 360.0,
           "axis": {
@@ -1171,17 +1202,26 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 8,
+          "face": null,
           "features": [
             {
               "Topology": "ridge/side/e10"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
-        "id": "featurepattern3"
+        "id": "pattern4"
       }
     },
     {
@@ -1196,7 +1236,7 @@
               "Topology": "ridge/along/p7"
             },
             {
-              "Topology": "featurepattern3/4/ridge/along/p7"
+              "Topology": "pattern4/4/ridge/along/p7"
             }
           ],
           "plain": false,
@@ -1219,7 +1259,7 @@
               "Topology": "bar/side/e15"
             },
             {
-              "Topology": "bar/side/e13"
+              "Topology": "bar/side/e13#2"
             }
           ],
           "plain": false,
@@ -1384,7 +1424,7 @@
           "kind": "Auto",
           "of": [
             {
-              "Topology": "bar/side/e13"
+              "Topology": "bar/side/e13#2"
             },
             {
               "Datum": "cx"

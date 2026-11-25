@@ -1301,13 +1301,16 @@
       }
     },
     {
-      "FeatureMirror": {
+      "Mirror": {
         "args": {
+          "bodies": [],
+          "combine": "NewBody",
           "features": [
             {
               "Topology": "groove_cut/side/e21"
             }
           ],
+          "of": "Features",
           "plane": {
             "FrameAxis": {
               "axis": "Y",

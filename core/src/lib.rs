@@ -46,10 +46,12 @@ pub use operation::{Made, Shape};
 pub use pose::Pose;
 pub use ray::{Projection, Ray};
 pub use reference::{
-    Anything, EdgesOf, FaceOrBody, Position, Reference, ReferenceKind, Refers, Resolve,
-    ResolveError, SketchOrBody, Sketched, Source,
+    Anything, EdgesOf, FaceOrBody, PlaneOrAxis, Position, Reference, ReferenceKind, Refers,
+    Resolve, ResolveError, SketchOrBody, Sketched, Source,
 };
-pub use registry::{AnyEdit, AnyEditState, AnyOperation, IconOf, Registry, Tool, ToolContext};
+pub use registry::{
+    AnyEdit, AnyEditState, AnyOperation, IconOf, Menu, Registry, Tool, ToolContext,
+};
 pub use unit::Unit;
 pub use widgets::{Widget, WidgetHandler};
 pub use workpiece_derive::Arguments;

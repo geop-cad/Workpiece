@@ -324,6 +324,72 @@ fn combine_here(op: Op, a: &Solid, b: &Solid) -> Result<Outcome, Refusal> {
     Err(refused)
 }
 
+/// A curve, and the part of it that counts.
+pub type Stretch = (Arc<Curve3>, (f64, f64));
+
+/// The curves where the faces of `a` and of `b` meet — where they
+/// cross, and where an edge of one lies in a face of the other — each
+/// with the part of it that counts. `a` and `b` may be sheets: what is
+/// found is where their faces meet, nothing is kept or thrown away.
+/// Nothing, where they do not meet in a curve.
+pub fn meeting_curves(a: &Solid, b: &Solid) -> Result<Vec<Stretch>, Refusal> {
+    // (About the origin, as [`combine`] does, and wider where they meet
+    // too closely as written.)
+    let by = crate::place::recentred(&[a, b]).unwrap_or(Point3::ZERO);
+    let (a, b) = match (a.moved(&|p| p - by), b.moved(&|p| p - by)) {
+        (Ok(a), Ok(b)) => (a, b),
+        _ => (a.clone(), b.clone()),
+    };
+    let found = |a: &Solid, b: &Solid| -> Result<Vec<Stretch>, Refusal> {
+        let mut fuse = Fuse::new([a, b]);
+        let pad = a.tolerance() + b.tolerance();
+        if !fuse.data[0].bounds.meets(&fuse.data[1].bounds, pad) {
+            return Ok(Vec::new());
+        }
+        fuse.vertices_on_edges()?;
+        fuse.edges_on_edges()?;
+        fuse.vertices_in_faces()?;
+        fuse.edges_through_faces()?;
+        fuse.walk_boundaries()?;
+        fuse.touching_points();
+        fuse.faces_through_faces()?;
+        fuse.closed_crossings()?;
+        Ok(fuse
+            .parts
+            .iter()
+            .filter(|p| p.alive && p.shared)
+            .map(|p| (p.curve.clone(), p.range))
+            .collect())
+    };
+    let mut refused = None;
+    for times in std::iter::once(None).chain(WIDEST.map(Some)) {
+        let (wa, wb) = match times {
+            None => (a.clone(), b.clone()),
+            Some(times) => {
+                let by = WIDER.map(|w| w * times);
+                (widened(&a, by), widened(&b, by))
+            }
+        };
+        match found(&wa, &wb) {
+            Ok(curves) => {
+                let back = |c: &Arc<Curve3>| {
+                    let points = c.control_points().iter().map(|p| *p + by).collect();
+                    let moved = Curve3::new(c.degree(), c.knots().to_vec(), points, {
+                        Some(c.weights().to_vec())
+                    });
+                    moved.map(Arc::new).unwrap_or_else(|_| c.clone())
+                };
+                return Ok(curves.iter().map(|(c, r)| (back(c), *r)).collect());
+            }
+            Err(why @ (Refusal::Degenerate(_) | Refusal::Open(_))) => {
+                refused.get_or_insert(why);
+            }
+            Err(other) => return Err(other),
+        }
+    }
+    Err(refused.unwrap_or_else(|| degenerate("the faces meet too closely to tell")))
+}
+
 /// [`combine`], with the tolerances the solids are written with.
 fn combine_as_written(op: Op, a: &Solid, b: &Solid) -> Result<Outcome, Refusal> {
     if a.is_empty() || b.is_empty() {

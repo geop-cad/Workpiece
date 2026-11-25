@@ -807,6 +807,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -1036,6 +1040,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -1078,8 +1086,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Line",
           "angle": 360.0,
           "axis": {
@@ -1088,7 +1097,10 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 3,
+          "face": null,
           "features": [
             {
               "Topology": "arm_ext/start"
@@ -1109,8 +1121,14 @@
               "Topology": "thru10/h1/side/e1"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 150.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "shelves"
@@ -1573,7 +1591,7 @@
           "notes": [
             {
               "at": [
-                -45.33333333333336,
+                -45.33333333333334,
                 -50.00000000000001
               ],
               "note": "arm/d17",
@@ -1597,7 +1615,7 @@
             },
             {
               "at": [
-                59.33333333333337,
+                59.33333333333334,
                 0.0
               ],
               "note": "arm_ext/distance",
@@ -1677,7 +1695,7 @@
             },
             {
               "at": [
-                -52.33333333333336,
+                -52.33333333333334,
                 -1.4210854715202004e-14
               ],
               "note": "wall/d21",
@@ -1685,7 +1703,7 @@
             },
             {
               "at": [
-                -38.33333333333336,
+                -38.33333333333334,
                 0.0
               ],
               "note": "wall/d22",

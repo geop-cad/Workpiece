@@ -31,7 +31,11 @@ pub struct FilletArgs {
     pub rho: Measure,
     /// Whether corners are left as the rounds cut each other off,
     /// rather than closed by a ball.
-    #[arg(label = "Corners", options = "Rounded|Mitered")]
+    #[arg(
+        label = "Corners",
+        options = "Rounded|Mitered",
+        icons = "corner-round|corner-miter"
+    )]
     pub mitered: bool,
 }
 
@@ -177,7 +181,11 @@ pub struct ChamferArgs {
     #[arg(required)]
     pub edges: Vec<workpiece_core::Reference<workpiece_core::EdgesOf>>,
     /// Whether it starts at another distance across the second face.
-    #[arg(label = "Distances", options = "Equal|Two")]
+    #[arg(
+        label = "Distances",
+        options = "Equal|Two",
+        icons = "chamfer-equal|chamfer-two"
+    )]
     pub two: bool,
     /// How far from the edge the cut starts, across each face.
     pub distance: Measure,
@@ -189,7 +197,11 @@ pub struct ChamferArgs {
     pub flip: bool,
     /// Whether corners are left as the chamfers cut each other off,
     /// rather than closed by a flat.
-    #[arg(label = "Corners", options = "Flat|Mitered")]
+    #[arg(
+        label = "Corners",
+        options = "Flat|Mitered",
+        icons = "corner-flat|corner-miter"
+    )]
     pub mitered: bool,
 }
 

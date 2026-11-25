@@ -737,15 +737,344 @@ pub fn area_along_path(
 /// through them all. Outlines of as many sides are joined side to side,
 /// from the corners nearest each other; others are first cut where
 /// another has a corner, as far around.
-pub fn through_sections(id: &str, sections: &[Vec<Curve3>]) -> anyhow::Result<Solid> {
-    lofted(id, sections, false)
+pub fn through_sections(
+    id: &str,
+    sections: &[Vec<Curve3>],
+    how: &Shaping<'_>,
+) -> anyhow::Result<Solid> {
+    lofted(id, sections, false, how)
+}
+
+/// How a loft leaves its first section or arrives at its last: at a
+/// place of the section, the way out of what it runs on from — into
+/// the loft — and how it bends there (the curvature vector the loft
+/// takes across the section, nothing for none asked).
+pub struct Held<'a> {
+    /// The way, and the bend, at a place of the section.
+    pub at: &'a dyn Fn(Point3) -> (Point3, Option<Point3>),
+}
+
+/// What shapes a loft besides its sections: how it is held at its
+/// first and last section, and the guide curves it runs along (each a
+/// chain of curves, from the first section to the last, touching each
+/// section on its way).
+#[derive(Default)]
+pub struct Shaping<'a> {
+    /// At the first section, and at the last.
+    pub ends: [Option<Held<'a>>; 2],
+    /// The guides.
+    pub guides: Vec<Vec<Curve3>>,
+}
+
+impl Shaping<'_> {
+    /// Whether it shapes nothing: a loft as its sections make it.
+    fn is_plain(&self) -> bool {
+        self.ends.iter().all(Option::is_none) && self.guides.is_empty()
+    }
+}
+
+/// The point of the side `k` of the ring `ring` (control points of the
+/// sides of a section, one after the other: `sides` say their degrees,
+/// knots and counts) at `t` (0 to 1 along it).
+fn ring_point(sides: &[(usize, Vec<f64>, usize)], ring: &[[f64; 4]], k: usize, t: f64) -> Point3 {
+    let offset: usize = sides[..k].iter().map(|s| s.2).sum();
+    let (degree, knots, _) = &sides[k];
+    let (first, values) = sweep::basis(*degree, knots, t.clamp(0.0, 1.0));
+    let mut sum = [0.0; 4];
+    for (value, c) in values.iter().zip(&ring[offset + first..]) {
+        for i in 0..4 {
+            sum[i] += value * c[i];
+        }
+    }
+    Point3::new(sum[0], sum[1], sum[2]) / sum[3]
+}
+
+/// Points along a chain of curves, evenly by parameter, and how far
+/// along it each is.
+fn along_chain(chain: &[Curve3]) -> Vec<(Point3, f64)> {
+    let mut out: Vec<(Point3, f64)> = Vec::new();
+    for curve in chain {
+        let (a, b) = curve.domain();
+        for k in 0..=256 {
+            let p = curve.point_at(a + (b - a) * f64::from(k) / 256.0);
+            let at = out.last().map_or(0.0, |(q, l)| l + q.distance(p));
+            out.push((p, at));
+        }
+    }
+    out
+}
+
+/// The point `at` along a chain sampled by [`along_chain`].
+fn chain_at(samples: &[(Point3, f64)], at: f64) -> Point3 {
+    let k = samples
+        .partition_point(|s| s.1 < at)
+        .clamp(1, samples.len() - 1);
+    let ((p, a), (q, b)) = (samples[k - 1], samples[k]);
+    if b <= a {
+        return q;
+    }
+    p + (q - p) * ((at - a) / (b - a)).clamp(0.0, 1.0)
+}
+
+/// The rings of a loft with `how` shaping it: the sections' rings at
+/// `places` (rising from 0 to 1) held at the ends, and — for guides —
+/// with rings put in between, each moved so that the loft runs through
+/// the guides there. The loft's degree, knots along, and rings.
+fn shaped(
+    sides: &[(usize, Vec<f64>, usize)],
+    rings: Vec<Vec<[f64; 4]>>,
+    places: &[f64],
+    centres: &[Point3],
+    how: &Shaping<'_>,
+) -> anyhow::Result<crate::interpolate::Spline> {
+    use crate::interpolate::{Held as Ends, interpolate};
+    let m = rings.len();
+    let whole: f64 = (1..m).map(|j| centres[j].distance(centres[j - 1])).sum();
+    // At each end, of each control point, the way the loft goes (as
+    // long as it is long) and its bend.
+    let ends: Vec<Ends> = (0..2)
+        .map(|e| {
+            let Some(held) = &how.ends[e] else {
+                return Ends::default();
+            };
+            let (j, onward) = if e == 0 {
+                (0, centres[1] - centres[0])
+            } else {
+                (m - 1, centres[m - 1] - centres[m - 2])
+            };
+            let mut first = Vec::new();
+            let mut second = Vec::new();
+            let mut bends = false;
+            for c in &rings[j] {
+                let p = Point3::new(c[0], c[1], c[2]) / c[3];
+                let (way, bend) = (held.at)(p);
+                // (Into the loft: on from the first, on into the last.)
+                let way = way.normalize_or_zero();
+                let way = if way.dot(onward) < 0.0 { -way } else { way };
+                let d = way * whole;
+                first.push([d.x * c[3], d.y * c[3], d.z * c[3], 0.0]);
+                if let Some(bend) = bend {
+                    bends = true;
+                    let k = bend * whole * whole;
+                    second.push([k.x * c[3], k.y * c[3], k.z * c[3], 0.0]);
+                } else {
+                    second.push([0.0; 4]);
+                }
+            }
+            Ends {
+                first: Some(first),
+                second: bends.then_some(second),
+            }
+        })
+        .collect();
+    let (degree, knots, control) = interpolate(places, rings.clone(), [&ends[0], &ends[1]])?;
+    if how.guides.is_empty() {
+        return Ok((degree, knots, control));
+    }
+    // The ring of the loft at `v`.
+    let ring_at = |v: f64| -> Vec<[f64; 4]> {
+        let (first, values) = sweep::basis(degree, &knots, v);
+        let mut out = vec![[0.0; 4]; control[0].len()];
+        for (value, row) in values.iter().zip(&control[first..]) {
+            for (o, c) in out.iter_mut().zip(row) {
+                for i in 0..4 {
+                    o[i] += value * c[i];
+                }
+            }
+        }
+        out
+    };
+    // Where each guide touches each section: the side and the place
+    // along it; and how far along the guide that is.
+    let guides: Vec<Vec<(Point3, f64)>> = how.guides.iter().map(|g| along_chain(g)).collect();
+    let mut anchors: Vec<Vec<(f64, f64)>> = Vec::new();
+    for samples in &guides {
+        let mut of_guide = Vec::new();
+        for ring in &rings {
+            let mut best = (f64::INFINITY, 0.0, 0.0);
+            for k in 0..sides.len() {
+                for q in 0..=48 {
+                    let t = f64::from(q) / 48.0;
+                    let p = ring_point(sides, ring, k, t);
+                    for (g, along) in samples {
+                        let far = p.distance(*g);
+                        if far < best.0 {
+                            best = (far, k as f64 + t, *along);
+                        }
+                    }
+                }
+            }
+            // Closer: the place on the section nearest the guide's
+            // place, and the guide's place nearest that, in turn.
+            let (mut place, mut along) = (best.1, best.2);
+            for _ in 0..4 {
+                let g = chain_at(samples, along);
+                let k = (place.floor() as usize).min(sides.len() - 1);
+                let (mut lo, mut hi) = (
+                    (place - k as f64 - 0.05).max(0.0),
+                    (place - k as f64 + 0.05).min(1.0),
+                );
+                for _ in 0..60 {
+                    let (x, y) = (lo + (hi - lo) / 3.0, hi - (hi - lo) / 3.0);
+                    if ring_point(sides, ring, k, x).distance(g)
+                        < ring_point(sides, ring, k, y).distance(g)
+                    {
+                        hi = y;
+                    } else {
+                        lo = x;
+                    }
+                }
+                place = k as f64 + (lo + hi) / 2.0;
+                let p = ring_point(sides, ring, k, place - k as f64);
+                along = samples
+                    .iter()
+                    .min_by(|x, y| x.0.distance(p).total_cmp(&y.0.distance(p)))
+                    .map_or(along, |s| s.1);
+            }
+            of_guide.push((place, along));
+        }
+        anchors.push(of_guide);
+    }
+    let size = centres
+        .iter()
+        .zip(&rings)
+        .map(|(c, ring)| {
+            ring.iter()
+                .map(|r| (Point3::new(r[0], r[1], r[2]) / r[3]).distance(*c))
+                .fold(0.0, f64::max)
+        })
+        .fold(whole, f64::max);
+    for (g, samples) in guides.iter().enumerate() {
+        let _ = samples;
+        for j in 0..m {
+            let (place, _) = anchors[g][j];
+            let k = (place.floor() as usize).min(sides.len() - 1);
+            let p = ring_point(sides, &rings[j], k, place - k as f64);
+            let g_point = chain_at(&guides[g], anchors[g][j].1);
+            anyhow::ensure!(
+                p.distance(g_point) <= size * 1e-3,
+                "guide {} does not touch section {}: a guide runs from the first section to the last through each",
+                g + 1,
+                j + 1
+            );
+        }
+    }
+    // Rings in between, a few in each span, moved onto the guides.
+    const BETWEEN: usize = 8;
+    let mut all_places = Vec::new();
+    let mut all_rings = Vec::new();
+    for j in 0..m {
+        all_places.push(places[j]);
+        all_rings.push(rings[j].clone());
+        if j + 1 == m {
+            break;
+        }
+        for q in 1..=BETWEEN {
+            let f = q as f64 / (BETWEEN + 1) as f64;
+            let v = places[j] + (places[j + 1] - places[j]) * f;
+            let mut ring = ring_at(v);
+            // Pulled onto the guides there: each place of the ring moved
+            // as the places of the guides near it are (by a bell of
+            // the ring's size about each), again until they are on them.
+            let centre = ring
+                .iter()
+                .map(|c| Point3::new(c[0], c[1], c[2]) / c[3])
+                .sum::<Point3>()
+                / ring.len() as f64;
+            let reach = ring
+                .iter()
+                .map(|c| (Point3::new(c[0], c[1], c[2]) / c[3]).distance(centre))
+                .sum::<f64>()
+                / ring.len() as f64;
+            let reach = reach.max(size * 1e-3);
+            let bell = |d: f64| (-(d / reach).powi(2)).exp();
+            for _ in 0..6 {
+                let pairs: Vec<(Point3, Point3)> = (0..guides.len())
+                    .map(|g| {
+                        let (a, b) = (anchors[g][j], anchors[g][j + 1]);
+                        // (The short way around the ring from one to
+                        // the other.)
+                        let n = sides.len() as f64;
+                        let mut d = b.0 - a.0;
+                        if d > n / 2.0 {
+                            d -= n;
+                        } else if d < -n / 2.0 {
+                            d += n;
+                        }
+                        let place = (a.0 + d * f).rem_euclid(n);
+                        let k = (place.floor() as usize).min(sides.len() - 1);
+                        let here = ring_point(sides, &ring, k, place - k as f64);
+                        let wanted = chain_at(&guides[g], a.1 + (b.1 - a.1) * f);
+                        (here, wanted)
+                    })
+                    .collect();
+                let off = pairs
+                    .iter()
+                    .map(|(h, w)| h.distance(*w))
+                    .fold(0.0, f64::max);
+                if off <= size * 1e-12 {
+                    break;
+                }
+                // The bells' heights: so that each guide's place is moved
+                // onto it.
+                let n = pairs.len();
+                let mut matrix: Vec<Vec<f64>> = (0..n)
+                    .map(|i| {
+                        (0..n)
+                            .map(|k| {
+                                bell(pairs[i].0.distance(pairs[k].0))
+                                    + if i == k { 1e-9 } else { 0.0 }
+                            })
+                            .collect()
+                    })
+                    .collect();
+                let mut heights: Vec<Point3> = pairs.iter().map(|(h, w)| *w - *h).collect();
+                for c in 0..n {
+                    let pivot = (c..n)
+                        .max_by(|x, y| matrix[*x][c].abs().total_cmp(&matrix[*y][c].abs()))
+                        .unwrap_or(c);
+                    matrix.swap(c, pivot);
+                    heights.swap(c, pivot);
+                    for r in 0..n {
+                        if r != c && matrix[c][c] != 0.0 {
+                            let m = matrix[r][c] / matrix[c][c];
+                            let top = matrix[c].clone();
+                            for (x, y) in matrix[r].iter_mut().zip(&top) {
+                                *x -= m * y;
+                            }
+                            let h = heights[c];
+                            heights[r] -= h * m;
+                        }
+                    }
+                }
+                let heights: Vec<Point3> = (0..n).map(|i| heights[i] / matrix[i][i]).collect();
+                for c in &mut ring {
+                    let p = Point3::new(c[0], c[1], c[2]) / c[3];
+                    let by: Point3 = pairs
+                        .iter()
+                        .zip(&heights)
+                        .map(|((h, _), height)| *height * bell(p.distance(*h)))
+                        .sum();
+                    let p = p + by;
+                    *c = [p.x * c[3], p.y * c[3], p.z * c[3], c[3]];
+                }
+            }
+            all_places.push(v);
+            all_rings.push(ring);
+        }
+    }
+    interpolate(&all_places, all_rings, [&ends[0], &ends[1]])
 }
 
 /// The surface through `runs`: outlines left open (the curves of each
 /// one after the other, and the normal of the plane they are in), one
 /// after the other. Each is taken from the end nearer where the one
 /// before starts.
-pub fn through_open_sections(id: &str, runs: &[(Vec<Curve3>, Point3)]) -> anyhow::Result<Solid> {
+pub fn through_open_sections(
+    id: &str,
+    runs: &[(Vec<Curve3>, Point3)],
+    how: &Shaping<'_>,
+) -> anyhow::Result<Solid> {
     anyhow::ensure!(runs.len() >= 2, "a loft goes through two sections or more");
     let ends = |run: &[Curve3]| {
         let last = &run[run.len() - 1];
@@ -826,7 +1155,7 @@ pub fn through_open_sections(id: &str, runs: &[(Vec<Curve3>, Point3)]) -> anyhow
         open[j].push(Curve3::line(end, apex)?);
         open[j].push(Curve3::line(apex, start)?);
     }
-    let solid = lofted(id, &open, true)?;
+    let solid = lofted(id, &open, true, how)?;
     // But the sides that closed it, and its flat ends.
     let faces: Vec<usize> = (0..solid.faces.len())
         .filter(|&f| {
@@ -842,7 +1171,12 @@ pub fn through_open_sections(id: &str, runs: &[(Vec<Curve3>, Point3)]) -> anyhow
 /// The solid through the closed outlines `sections`; `aligned` if they
 /// go around the same way already, each from where the one before
 /// starts.
-fn lofted(id: &str, sections: &[Vec<Curve3>], aligned: bool) -> anyhow::Result<Solid> {
+fn lofted(
+    id: &str,
+    sections: &[Vec<Curve3>],
+    aligned: bool,
+    how: &Shaping<'_>,
+) -> anyhow::Result<Solid> {
     let m = sections.len();
     anyhow::ensure!(m >= 2, "a loft goes through two sections or more");
     let mut loops = Vec::new();
@@ -1012,8 +1346,21 @@ fn lofted(id: &str, sections: &[Vec<Curve3>], aligned: bool) -> anyhow::Result<S
             ring.extend(fitted.iter().map(|row| row[j]));
         }
     }
-    // Along: straight between two, smoothly through more.
-    let (degree, knots, rings) = if m == 2 {
+    // Along: straight between two, smoothly through more — or as `how`
+    // shapes it.
+    let (degree, knots, rings) = if !how.is_plain() {
+        let mut places = vec![0.0];
+        for j in 1..m {
+            places.push(places[j - 1] + centres[j].distance(centres[j - 1]));
+        }
+        let whole = places[m - 1];
+        anyhow::ensure!(whole > 0.0, "the sections lie in one another");
+        for place in &mut places {
+            *place /= whole;
+        }
+        let shape: Vec<(usize, Vec<f64>, usize)> = sides.clone();
+        shaped(&shape, rings, &places, &centres, how)?
+    } else if m == 2 {
         (1, vec![0.0, 0.0, 1.0, 1.0], rings)
     } else {
         let degree = (m - 1).min(3);

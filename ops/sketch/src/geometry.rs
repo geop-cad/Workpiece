@@ -125,7 +125,7 @@ impl SketchArgs {
     /// `None` for a point entity, or one too degenerate to be a curve.
     pub fn curve(&self, id: Id) -> Option<Curve2> {
         match &self.entities.get(&id)?.shape {
-            Shape::Point(_) | Shape::Axis { .. } => None,
+            Shape::Point(_) | Shape::Axis { .. } | Shape::Text(_) => None,
             Shape::Line(a, b) => Curve2::line(self.at(*a), self.at(*b)).ok(),
             Shape::Circle { center, radius } => {
                 let c = self.at(*center);
@@ -179,6 +179,10 @@ impl SketchArgs {
                     .map(|k| c + unit(from + total * k as f64 / n as f64) * r)
                     .collect()
             }
+            // A text by its box.
+            Some(Shape::Text(_)) => self
+                .text_frame(id)
+                .map_or_else(Vec::new, |frame| frame.outline()),
             Some(Shape::Spline { .. }) => self.curve(id).map_or_else(Vec::new, |curve| {
                 let (t0, t1) = curve.domain();
                 curve.polyline(t0, t1)
@@ -197,6 +201,8 @@ impl SketchArgs {
         match self.entities.get(&id).map(|e| &e.shape) {
             Some(Shape::Point(q)) => self.at(*q).distance(p),
             Some(Shape::Circle { center, radius }) => (self.at(*center).distance(p) - radius).abs(),
+            // Anywhere in its box is on a text.
+            Some(Shape::Text(_)) if self.text_frame(id).is_some_and(|f| f.contains(p)) => 0.0,
             Some(_) => self
                 .polyline(id)
                 .windows(2)

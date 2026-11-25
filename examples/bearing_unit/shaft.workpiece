@@ -487,7 +487,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "Drawn",
+          "axis": {
+            "Datum": "shaft_profile/e23"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,

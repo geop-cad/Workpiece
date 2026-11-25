@@ -178,7 +178,7 @@ impl Pieces<'_> {
             Shape::Line(a, b) => Some((*a, *b)),
             Shape::Arc { start, end, .. } => Some((*start, *end)),
             Shape::Spline { control, .. } => control.first().copied().zip(control.last().copied()),
-            Shape::Circle { .. } | Shape::Axis { .. } => None,
+            Shape::Circle { .. } | Shape::Axis { .. } | Shape::Text(_) => None,
         };
         let Some(own) = carrier(args, id) else {
             // A spline: one edge.
@@ -299,7 +299,7 @@ impl Pieces<'_> {
 /// The ends of a curve: none for a point or a circle.
 fn curve_ends(shape: &Shape) -> Vec<Id> {
     match shape {
-        Shape::Point(_) | Shape::Circle { .. } | Shape::Axis { .. } => Vec::new(),
+        Shape::Point(_) | Shape::Circle { .. } | Shape::Axis { .. } | Shape::Text(_) => Vec::new(),
         Shape::Line(a, b) => vec![*a, *b],
         Shape::Arc { start, end, .. } => vec![*start, *end],
         Shape::Spline { control, .. } => control
@@ -506,6 +506,50 @@ fn regions(profile: &Profile, scale: f64) -> Vec<ProfileRegion> {
 /// one also after the vertices it runs between. A vertex's tolerance
 /// covers the ends of its edges, with their tolerances.
 pub(crate) fn profile(args: &SketchArgs, plane: DatumPlane) -> Profile {
+    // A text is the outlines of its letters: written out as curves of
+    // their own, then named after the text (`e7/c12`: its 12th piece).
+    let (written, names) = crate::text::written(args);
+    let mut profile = profile_of(&written, plane);
+    if !names.is_empty() {
+        for edge in &mut profile.edges {
+            edge.entity = renamed(&edge.entity, &names);
+            edge.name = renamed(&edge.name, &names);
+        }
+        for vertex in &mut profile.vertices {
+            vertex.name = renamed(&vertex.name, &names);
+        }
+    }
+    profile
+}
+
+/// `name` with each `e{id}` or `p{id}` in it that `names` has (by the
+/// letter and the id) called as it says.
+fn renamed(name: &str, names: &BTreeMap<(char, Id), String>) -> String {
+    let mut out = String::new();
+    let mut rest = name;
+    while let Some(c) = rest.chars().next() {
+        let after = &rest[c.len_utf8()..];
+        let digits = after.len() - after.trim_start_matches(|d: char| d.is_ascii_digit()).len();
+        let said = (matches!(c, 'e' | 'p') && digits > 0)
+            .then(|| after[..digits].parse::<Id>().ok())
+            .flatten()
+            .and_then(|id| names.get(&(c, id)));
+        match said {
+            Some(said) => {
+                out.push_str(said);
+                rest = &after[digits..];
+            }
+            None => {
+                out.push(c);
+                rest = after;
+            }
+        }
+    }
+    out
+}
+
+/// [`profile`] of a sketch without texts.
+fn profile_of(args: &SketchArgs, plane: DatumPlane) -> Profile {
     // Points tied by coincidences are one vertex.
     let mut same: BTreeMap<Id, Id> = args.points.keys().map(|&p| (p, p)).collect();
     for constraint in args.constraints.values() {
@@ -583,11 +627,6 @@ pub(crate) fn profile(args: &SketchArgs, plane: DatumPlane) -> Profile {
     }
     let mut profile = pieces.profile;
     profile.regions = regions(&profile, args.scale());
-    // The rotation axis drawn, for what turns the sketch about it.
-    profile.axis = args.entities.values().find_map(|e| match e.shape {
-        Shape::Axis { through, direction } => Some((args.at(through), direction)),
-        _ => None,
-    });
     profile
 }
 

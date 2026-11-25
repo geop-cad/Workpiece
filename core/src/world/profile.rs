@@ -166,10 +166,6 @@ pub struct Profile {
     pub edges: Vec<ProfileEdge>,
     /// The bounded regions the edges enclose.
     pub regions: Vec<ProfileRegion>,
-    /// The axis the sketch is turned about, if it has one drawn: a point
-    /// it passes through and its direction (one long), in the plane's
-    /// coordinates.
-    pub axis: Option<(Point2, Point2)>,
 }
 
 impl Profile {
@@ -180,7 +176,6 @@ impl Profile {
             vertices: Vec::new(),
             edges: Vec::new(),
             regions: Vec::new(),
-            axis: None,
         }
     }
 

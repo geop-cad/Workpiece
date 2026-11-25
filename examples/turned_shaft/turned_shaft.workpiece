@@ -805,7 +805,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "Drawn",
+          "axis": {
+            "Datum": "profile/e35"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,

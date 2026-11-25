@@ -108,4 +108,41 @@ pub fn register(r: &mut workpiece_core::Registry) {
     r.icon("datumfeature", include_str!("../icons/datumfeature.svg"));
     r.icon("dimension3", include_str!("../icons/dimension3.svg"));
     r.icon("tolerance", include_str!("../icons/tolerance.svg"));
+    for (name, svg) in OPTION_ICONS {
+        r.icon(name, svg);
+    }
 }
+
+macro_rules! icons {
+    ($($name:literal),* $(,)?) => {
+        &[$(($name, include_str!(concat!("../icons/", $name, ".svg")))),*]
+    };
+}
+
+/// The icons of the options of these operations' choices.
+const OPTION_ICONS: &[(&str, &str)] = icons!(
+    "dim-auto",
+    "dim-distance",
+    "gdt-angularity",
+    "gdt-concentricity",
+    "gdt-cylindricity",
+    "gdt-flatness",
+    "gdt-parallelism",
+    "gdt-perpendicularity",
+    "gdt-position",
+    "gdt-profile-line",
+    "gdt-profile-surface",
+    "gdt-roundness",
+    "gdt-runout",
+    "gdt-straightness",
+    "gdt-symmetry",
+    "gdt-total-runout",
+    "tol-deviations",
+    "tol-fit",
+    "tol-general",
+    "tol-limits",
+    "tol-reference",
+    "tol-symmetric",
+    "zone-planes",
+    "zone-round",
+);

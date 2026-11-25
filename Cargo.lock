@@ -4061,11 +4061,13 @@ name = "workpiece-ops-surface"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "glam",
  "serde",
  "serde_json",
  "workpiece-boolean",
  "workpiece-core",
  "workpiece-ops-basic-shapes",
+ "workpiece-ops-blend",
  "workpiece-ops-bodies",
  "workpiece-ops-sketch",
  "workpiece-ops-sweep",
@@ -4179,6 +4181,7 @@ dependencies = [
  "workpiece-ops-datum",
  "workpiece-ops-drawing",
  "workpiece-ops-faces",
+ "workpiece-ops-features",
  "workpiece-ops-instances",
  "workpiece-ops-mesh",
  "workpiece-ops-sketch",

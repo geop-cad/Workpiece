@@ -11,7 +11,7 @@ use workpiece_ops_basic_shapes::{
     AddBox, AddBoxArgs, AddCylinder, AddCylinderArgs, AddSphere, AddSphereArgs,
 };
 use workpiece_ops_sketch::{Shape, Sketch};
-use workpiece_ops_sweep::{Revolve, RevolveAxis};
+use workpiece_ops_sweep::Revolve;
 
 use crate::Grade;
 
@@ -166,9 +166,14 @@ impl Scene {
             sketch.args.add_line(control[2], control[3]);
             sketch.args.add_line(control[3], control[0]);
         }
+        // (Turned about the plane's v axis: drawn in it as its rotation
+        // axis.)
+        let origin = sketch.args.add_point(Point2::ZERO);
+        let v_axis = sketch.args.add_rotation_axis(origin, Point2::Y);
         sketch.apply(&mut self.b)?;
         let mut revolve = Revolve::of(id.clone(), Some(format!("{id}-sketch")), false);
-        revolve.args.axis = RevolveAxis::SketchV;
+        revolve.args.axis =
+            Some(workpiece_core::Source::Datum(format!("{id}-sketch/e{v_axis}")).into());
         revolve.args.combine = workpiece_shape::Combine::NewBody;
         revolve.apply(&mut self.b)?;
         self.take(&id)
@@ -259,9 +264,14 @@ impl Scene {
             }
             from = to;
         }
+        // (Turned about the plane's v axis: drawn in it as its rotation
+        // axis.)
+        let origin = sketch.args.add_point(Point2::ZERO);
+        let v_axis = sketch.args.add_rotation_axis(origin, Point2::Y);
         sketch.apply(&mut self.b)?;
         let mut revolve = Revolve::of(id.clone(), Some(format!("{id}-sketch")), false);
-        revolve.args.axis = RevolveAxis::SketchV;
+        revolve.args.axis =
+            Some(workpiece_core::Source::Datum(format!("{id}-sketch/e{v_axis}")).into());
         revolve.args.combine = workpiece_shape::Combine::NewBody;
         revolve.apply(&mut self.b)?;
         self.take(&id)

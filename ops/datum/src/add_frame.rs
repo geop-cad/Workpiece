@@ -56,6 +56,17 @@ impl Mode for FrameMode {
             FrameMode::AtPoint => "At point",
         }
     }
+
+    fn icon(self) -> &'static str {
+        match self {
+            FrameMode::AtPose => "frame-pose",
+            FrameMode::OnPlane => "frame-plane",
+            FrameMode::PlanePoint => "frame-plane-point",
+            FrameMode::ThreePoints => "frame-3points",
+            FrameMode::AxisPoint => "frame-axis-point",
+            FrameMode::AtPoint => "frame-point",
+        }
+    }
 }
 
 /// The construction, its references, and the pose moving the frame from

@@ -26,6 +26,7 @@ fn a_cosmetic_thread_is_drawn_from_the_side_along_its_axis_and_cut_open() -> any
     Hole {
         id: "hole".into(),
         args: HoleArgs {
+            place: workpiece_ops_features::HolePlace::Sketch,
             sketch: Some(Source::Profile("points".into()).into()),
             kind: HoleKind::Tapped,
             size: Some("M6".into()),

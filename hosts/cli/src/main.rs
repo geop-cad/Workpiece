@@ -251,6 +251,7 @@ fn made(recipe: &Value, path: &str) -> anyhow::Result<(Part, Names)> {
             if let Some(args) = step.get("args") {
                 overlaid(&mut value["args"], args);
             }
+            by_sketch_names(&mut value["args"], &names);
             let load = registry()
                 .kinds()
                 .find(|k| k.name == kind)
@@ -300,6 +301,34 @@ fn made(recipe: &Value, path: &str) -> anyhow::Result<(Part, Names)> {
             .replace(&id, workpiece_ops_instances::assembly::kept(&pose));
     }
     Ok((part, names))
+}
+
+/// `value` with each datum a recipe names by a sketch's name for one of
+/// its curves (`{"Datum": "sketch1/axis"}`, a rotation axis drawn in it)
+/// named as the sketch names the datum it makes of it (`sketch1/e7`).
+fn by_sketch_names(value: &mut Value, names: &Names) {
+    match value {
+        Value::Object(map) => {
+            if let (1, Some(Value::String(name))) = (map.len(), map.get_mut("Datum"))
+                && let Some((sketch, curve)) = name.split_once('/')
+                && let Some(id) = names
+                    .get(sketch)
+                    .and_then(|named| named.1.iter().find(|(_, n)| *n == curve))
+                    .map(|(id, _)| *id)
+            {
+                *name = format!("{sketch}/e{id}");
+            }
+            for inner in map.values_mut() {
+                by_sketch_names(inner, names);
+            }
+        }
+        Value::Array(all) => {
+            for inner in all {
+                by_sketch_names(inner, names);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// A pose a recipe says: `{"at": [x, y, z], "euler": [x, y, z]}` — where
@@ -385,17 +414,17 @@ fn sketched(said: &Value, world: Option<&World>) -> anyhow::Result<(Sketch, Name
     // with its points as `name_a`, `name_b` (a line's ends), `name_center`,
     // `name_start`, `name_end` (an arc's, a circle's).
     for (name, id) in projected {
-        let ends: Vec<(&str, u32)> = match args.entities[&id].shape {
+        let ends: Vec<(&str, u32)> = match &args.entities[&id].shape {
             Shape::Point(p) => {
-                points.insert(name.clone(), p);
+                points.insert(name.clone(), *p);
                 Vec::new()
             }
-            Shape::Line(a, b) => vec![("a", a), ("b", b)],
-            Shape::Circle { center, .. } => vec![("center", center)],
+            Shape::Line(a, b) => vec![("a", *a), ("b", *b)],
+            Shape::Circle { center, .. } => vec![("center", *center)],
             Shape::Arc { center, start, end } => {
-                vec![("center", center), ("start", start), ("end", end)]
+                vec![("center", *center), ("start", *start), ("end", *end)]
             }
-            Shape::Spline { .. } | Shape::Axis { .. } => Vec::new(),
+            Shape::Spline { .. } | Shape::Axis { .. } | Shape::Text(_) => Vec::new(),
         };
         if !matches!(args.entities[&id].shape, Shape::Point(_)) {
             curves.insert(name.clone(), id);

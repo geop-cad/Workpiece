@@ -52,7 +52,11 @@ pub struct ThickenArgs {
     /// Whether, where two faces part as they are thickened, they run on
     /// to a sharp corner (else the gap is rounded).
     #[serde(default)]
-    #[arg(label = "Corners", options = "Rounded|Sharp")]
+    #[arg(
+        label = "Corners",
+        options = "Rounded|Sharp",
+        icons = "corner-round|corner-sharp"
+    )]
     pub sharp: bool,
     /// What the solid does to the bodies there are.
     #[serde(default)]
@@ -220,5 +224,13 @@ impl workpiece_core::Choices for ThickenSide {
 
     fn label(self) -> &'static str {
         Self::label(self)
+    }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            ThickenSide::Front => "side-front",
+            ThickenSide::Back => "side-back",
+            ThickenSide::Both => "side-both",
+        })
     }
 }

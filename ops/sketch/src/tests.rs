@@ -2106,10 +2106,56 @@ fn text_is_written_as_closed_outlines() -> anyhow::Result<()> {
     assert_eq!(outlines("I")?, 1);
     assert_eq!(outlines("O")?, 2);
     assert!(crate::text::outlines("I", 0.0, Point2::ZERO).is_err());
-    // Written into a sketch, the letters are areas: the "I", and the
-    // "O" with the hole in it.
+    Ok(())
+}
+
+/// The height of what `args`' text `id` writes: from its lowest
+/// outline to its highest, along the box's up.
+fn text_rows(args: &SketchArgs, id: crate::Id) -> (f64, f64) {
+    use workpiece_core::world::topo::nurbs::Recognized;
+    let frame = args.text_frame(id).expect("a box");
+    let ys = args.text_outlines(id).into_iter().flat_map(|s| match s {
+        Recognized::Line(a, b) => vec![a, b],
+        Recognized::Spline(c) => c.control_points().to_vec(),
+        _ => Vec::new(),
+    });
+    ys.map(|p| (p - frame.origin).dot(frame.up))
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), y| {
+            (lo.min(y), hi.max(y))
+        })
+}
+
+#[test]
+fn text_is_written_in_a_box_that_turns_wraps_and_aligns() -> anyhow::Result<()> {
+    // Three clicks: along its baseline from (1, 1) to (9, 1), then 3
+    // up. The box's corners are points with its sides between them; the
+    // text is selected.
     let mut b = Bench::new();
-    crate::text::write(&mut b.args, "IO", 2.0, Point2::new(1.0, 1.0))?;
+    b.state.text = "IO".into();
+    b.tool(Tool::Text);
+    b.click(1.0, 1.0);
+    b.click(9.0, 1.0);
+    b.click(5.0, 4.0);
+    let [Item::Entity(text)] = b.state.selection[..] else {
+        panic!("the text is selected: {:?}", b.state.selection);
+    };
+    let Some(Shape::Text(boxed)) = b.args.entities.get(&text).map(|e| e.shape.clone()) else {
+        panic!("a text");
+    };
+    assert_eq!(boxed.text, "IO");
+    // Its capitals half as high as the box, to begin with; here 1.
+    assert!((boxed.size - 1.5).abs() < 1e-12, "{}", boxed.size);
+    if let Some(Shape::Text(t)) = b.args.entities.get_mut(&text).map(|e| &mut e.shape) {
+        t.size = 1.0;
+    }
+    let frame = b.args.text_frame(text).expect("its box");
+    assert!(frame.origin.abs_diff_eq(Point2::new(1.0, 1.0), 1e-9));
+    assert!((frame.width - 8.0).abs() < 1e-9 && (frame.height - 3.0).abs() < 1e-9);
+    // At the top of the box: the capitals' tops a little under it.
+    let (_, top) = text_rows(&b.args, text);
+    assert!(top < 3.0 && top > 2.0, "{top}");
+    // The letters are areas of the profile: the "I", and the "O" with
+    // the hole in it; the box is not.
     let sketch = Sketch {
         id: "s".into(),
         args: b.args.clone(),
@@ -2119,7 +2165,123 @@ fn text_is_written_as_closed_outlines() -> anyhow::Result<()> {
     let profile = &builder.world.profiles["s"];
     assert!(profile.is_closed_within_tolerance());
     assert_eq!(profile.regions.len(), 3);
+    assert!(
+        profile
+            .edges
+            .iter()
+            .all(|e| e.entity.starts_with(&format!("e{text}/c")))
+    );
+    // Drawn level, it is held level; let go of that, its corner
+    // dragged turns the box, and the letters with it.
+    let level: Vec<crate::Id> = b
+        .args
+        .constraints
+        .iter()
+        .filter(|(_, c)| matches!(c.kind, Kind::Along { .. }))
+        .map(|(&id, _)| id)
+        .collect();
+    assert_eq!(level.len(), 1);
+    b.args.constraints.remove(&level[0]);
+    let corner = boxed.corners[1];
+    b.tool(Tool::Select);
+    b.drag((9.0, 1.0), (1.0 + 8.0 * 0.8, 1.0 + 8.0 * 0.6));
+    let frame = b.args.text_frame(text).expect("its box");
+    assert!(b.args.at(corner).distance(Point2::new(7.4, 5.8)) < 1e-3);
+    assert!(frame.along.y > 0.3, "turned: {:?}", frame.along);
+    assert!((frame.up.dot(frame.along)).abs() < 1e-9, "still square");
+    // Words that do not fit the box's width break onto lines of their
+    // own; without breaking, they stand on one line, past the box.
+    let set = |b: &mut Bench, f: &dyn Fn(&mut crate::TextBox)| {
+        if let Some(Shape::Text(t)) = b.args.entities.get_mut(&text).map(|e| &mut e.shape) {
+            f(t);
+        }
+    };
+    set(&mut b, &|t| t.text = "IIIII IIIII IIIII IIIII".into());
+    let (low, high) = text_rows(&b.args, text);
+    assert!(high - low > 2.0, "on lines of their own: {low} {high}");
+    set(&mut b, &|t| t.wrap = false);
+    let (low, high) = text_rows(&b.args, text);
+    assert!((high - low - 1.0).abs() < 0.05, "one line: {low} {high}");
+    // A typed line break breaks it all the same; at the bottom of the
+    // box, the last line stands on it.
+    set(&mut b, &|t| {
+        t.text = "I\nI".into();
+        t.valign = crate::Align::End;
+    });
+    let (low, high) = text_rows(&b.args, text);
+    assert!(low > 0.0 && low < 0.5 && high - low > 2.0, "{low} {high}");
+    // Centred, a letter stands in the middle of the line.
+    set(&mut b, &|t| {
+        t.text = "I".into();
+        t.align = crate::Align::Middle;
+    });
+    let frame = b.args.text_frame(text).expect("its box");
+    use workpiece_core::world::topo::nurbs::Recognized;
+    let xs: Vec<f64> = b
+        .args
+        .text_outlines(text)
+        .into_iter()
+        .flat_map(|s| match s {
+            Recognized::Line(p, q) => vec![p, q],
+            _ => Vec::new(),
+        })
+        .map(|p| (p - frame.origin).dot(frame.along))
+        .collect();
+    let middle = (xs.iter().copied().fold(f64::INFINITY, f64::min)
+        + xs.iter().copied().fold(f64::NEG_INFINITY, f64::max))
+        / 2.0;
+    assert!((middle - frame.width / 2.0).abs() < 0.1, "{middle}");
+    // Deleted, its box goes with it.
+    b.state.selection = vec![Item::Entity(text)];
+    let (gone, _) = modify::apply(&b.args, &b.state, Action::Delete).expect("deleted");
+    b.args = gone;
+    assert!(
+        b.args
+            .entities
+            .values()
+            .all(|e| e.axis.is_some() || matches!(e.shape, Shape::Point(_)))
+    );
     Ok(())
+}
+
+#[test]
+fn a_turned_rectangle_is_four_square_sides_by_three_clicks() {
+    let mut b = Bench::new();
+    b.tool(Tool::RotatedRectangle);
+    b.click(1.0, 1.0);
+    b.click(4.0, 5.0);
+    assert!(
+        b.state.selection.is_empty(),
+        "two clicks are no rectangle yet"
+    );
+    // To the left of the first side, 2 across.
+    b.click(1.0 - 1.6, 1.0 + 1.2);
+    let lines: Vec<crate::Id> = b
+        .state
+        .selection
+        .iter()
+        .map(|i| match i {
+            Item::Entity(e) => *e,
+            _ => panic!("lines"),
+        })
+        .collect();
+    assert_eq!(lines.len(), 4);
+    let length = |b: &Bench, k: usize| {
+        let (p, q) = b.args.line(lines[k]).expect("a line");
+        p.distance(q)
+    };
+    assert!((length(&b, 0) - 5.0).abs() < 1e-9 && (length(&b, 1) - 2.0).abs() < 1e-9);
+    // Held square: one corner dragged, it stays a rectangle.
+    b.tool(Tool::Select);
+    let (_, far) = b.args.line(lines[1]).expect("a line");
+    b.drag((far.x, far.y), (far.x - 1.0, far.y + 0.5));
+    for k in 0..4 {
+        let (a, c) = b.args.line(lines[k]).expect("a line");
+        let (_, d) = b.args.line(lines[(k + 1) % 4]).expect("a line");
+        assert!((c - a).dot(d - c).abs() < 1e-6, "square at corner {k}");
+    }
+    // Five degrees of freedom: where, how turned, how long, how wide.
+    assert_eq!(b.args.diagnose().dof, 5);
 }
 
 #[test]
@@ -2465,28 +2627,4 @@ fn the_canvas_draws_a_dimension_as_the_shared_layout_has_it() {
             assert!(all.contains(shape), "{shape:?} is not on the canvas");
         }
     }
-}
-
-#[test]
-fn the_text_tool_writes_where_it_is_clicked() {
-    let mut b = Bench::new();
-    b.tool(Tool::Text);
-    b.state.text = "I".into();
-    b.state.height = 2.0;
-    let before = b.args.entities.len();
-    b.click(5.0, 5.0);
-    assert!(b.args.entities.len() > before);
-    assert!(!b.state.selection.is_empty());
-    let lowest = b
-        .state
-        .selection
-        .iter()
-        .filter_map(|i| match i {
-            Item::Entity(e) => Some(b.args.points_of(*e)),
-            _ => None,
-        })
-        .flatten()
-        .map(|p| b.args.at(p).y)
-        .fold(f64::INFINITY, f64::min);
-    assert!((lowest - 5.0).abs() < 1e-6, "{lowest}");
 }

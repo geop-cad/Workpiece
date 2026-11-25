@@ -1,15 +1,16 @@
-//! Transform and Pattern: a body moved, turned, mirrored or scaled (or a
-//! copy of it), and a body repeated along a line or around an axis.
+//! Transform: a body moved, turned, mirrored or scaled (or a copy of
+//! it); and where the copies of a pattern go.
 
 use anyhow::{Context, ensure};
-use workpiece_boolean::{Op, Solid, combine, read};
-use workpiece_core::math::Point3;
-use workpiece_core::world::topo::{BodyId, Curve3, Topo};
+use workpiece_boolean::{Solid, read};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{BodyId, Curve3, FaceId, Topo};
 use workpiece_core::world::{DatumAxis, DatumPlane};
 use workpiece_core::{Builder, Measure, Operation, Reference};
 
-use workpiece_shape::bodies::Combine;
 use workpiece_shape::ui;
+
+use crate::fill::Grid;
 
 /// The body `source` names in `topo`, and its name.
 fn body_of(
@@ -90,7 +91,11 @@ pub struct TransformArgs {
     #[arg(when = "self.motion == Motion::Scale")]
     pub factor: Measure,
     /// Whether the body stays and a copy of it is transformed.
-    #[arg(label = "Keep", options = "Move the body|Make a copy")]
+    #[arg(
+        label = "Keep",
+        options = "Move the body|Make a copy",
+        icons = "keep-move|keep-copy"
+    )]
     pub copy: bool,
 }
 
@@ -210,7 +215,7 @@ impl Operation for Transform {
     }
 }
 
-/// What a body is repeated along.
+/// What is repeated along.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum Along {
     /// A line: one copy every so far along an axis.
@@ -221,88 +226,12 @@ pub enum Along {
     /// A path: the copies spread evenly along the curves of a sketch,
     /// from the end the body is at.
     Path,
-    /// The points of a sketch: a copy at each, as the body is at the
-    /// one nearest it.
+    /// The points of a sketch: a copy at each, moved there from where
+    /// what is repeated is (no copy at a point where it is already).
     Points,
-}
-
-/// The body, what it is repeated along, and what becomes of the copies.
-#[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
-)]
-pub struct PatternArgs {
-    /// The body that is repeated.
-    pub body: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
-    /// Along a line or around a circle.
-    #[arg(choice)]
-    pub along: Along,
-    /// The axis: the line's direction, or what the circle is around.
-    #[arg(when = "matches!(self.along, Along::Line | Along::Circle)")]
-    pub axis: Option<Reference<DatumAxis>>,
-    /// The sketch whose curves are the path, or whose points are the
-    /// places.
-    #[serde(default)]
-    #[arg(when = "matches!(self.along, Along::Path | Along::Points)")]
-    pub sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>,
-    /// How many there are in the end, the body itself counted.
-    #[serde(deserialize_with = "whole")]
-    #[arg(when = "self.along != Along::Points")]
-    pub count: usize,
-    /// Along a line: how far each is from the one before.
-    #[arg(when = "self.along == Along::Line")]
-    pub spacing: Measure,
-    /// Around a circle: the angle they are spread over, in degrees (360
-    /// or more: all the way around).
-    #[arg(label = "Angle °", when = "self.along == Along::Circle")]
-    pub angle: Measure,
-    /// Along a path: whether the copies keep facing the way the body
-    /// does (else each is turned as the path has turned).
-    #[serde(default)]
-    #[arg(
-        label = "Copies",
-        options = "Turn with the path|Stay as the body is",
-        when = "self.along == Along::Path"
-    )]
-    pub upright: bool,
-    /// What becomes of them: bodies of their own, one body with the one
-    /// repeated, or cut out of (or kept in common with) the target.
-    #[arg(choice, label = "Operation")]
-    pub combine: Combine,
-    /// The body they are cut out of.
-    #[arg(
-        label = "Of",
-        when = "matches!(self.combine, Combine::Cut | Combine::Intersect)"
-    )]
-    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
-}
-
-impl Default for PatternArgs {
-    fn default() -> Self {
-        Self {
-            body: None,
-            along: Along::Line,
-            axis: None,
-            count: 3,
-            spacing: Measure::new(10.0),
-            angle: Measure::new(360.0),
-            sketch: None,
-            upright: false,
-            combine: Combine::NewBody,
-            target: None,
-        }
-    }
-}
-
-/// Repeats a body along a line, around an axis, along the curves of a
-/// sketch or at its points. The copies are bodies
-/// of their own (`{id}/1`, `{id}/2`, …), or joined with the body into
-/// one, or — all of them, the body too — cut out of another body.
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Pattern {
-    /// The operation's id.
-    pub id: String,
-    /// What is repeated, and how.
-    pub args: PatternArgs,
+    /// A face, filled: a copy at each place of a grid or of rings laid
+    /// out from where what is repeated is, as many as fit inside it.
+    Fill,
 }
 
 /// `solid` at each place of a pattern after the first: `count − 1`
@@ -330,7 +259,9 @@ pub fn repeated(
                 let turn = angle.min(std::f64::consts::TAU) * k as f64 / shares as f64;
                 solid.moved(&|p| turned(axis, turn, p))?
             }
-            Along::Path | Along::Points => anyhow::bail!("a sketch says where these go"),
+            Along::Path | Along::Points | Along::Fill => {
+                anyhow::bail!("a sketch or a face says where these go")
+            }
         };
         out.push(made);
     }
@@ -338,7 +269,7 @@ pub fn repeated(
 }
 
 /// Where the copies of a pattern go: along a line, around an axis,
-/// along a path or at the points of a sketch.
+/// along a path, at the points of a sketch or filling a face.
 pub(crate) struct Places<'a> {
     pub(crate) along: Along,
     pub(crate) axis: &'a Option<Reference<DatumAxis>>,
@@ -347,20 +278,14 @@ pub(crate) struct Places<'a> {
     pub(crate) spacing: &'a Measure,
     pub(crate) angle: &'a Measure,
     pub(crate) upright: bool,
-}
-
-impl<'a> Places<'a> {
-    fn of(args: &'a PatternArgs) -> Self {
-        Self {
-            along: args.along,
-            axis: &args.axis,
-            sketch: &args.sketch,
-            count: args.count,
-            spacing: &args.spacing,
-            angle: &args.angle,
-            upright: args.upright,
-        }
-    }
+    /// Filling: the face, how, the rows' spacing, their angle, the
+    /// polygon's sides and the margin.
+    pub(crate) face: &'a Option<Reference<FaceId>>,
+    pub(crate) grid: Grid,
+    pub(crate) across: &'a Measure,
+    pub(crate) turned: &'a Measure,
+    pub(crate) sides: usize,
+    pub(crate) margin: &'a Measure,
 }
 
 impl Places<'_> {
@@ -415,25 +340,32 @@ impl Places<'_> {
                 let held = Annotation::held(measured, angle, self.angle, reach);
                 vec![(format!("{id}/angle"), held)]
             }
-            Along::Path | Along::Points => Vec::new(),
+            Along::Path | Along::Points | Along::Fill => Vec::new(),
         }
     }
 }
 
 /// `solid` at each place of the pattern `args` after the first (where
-/// it is, about `near`).
+/// what is repeated is about `near`; `sized` is what is repeated, which
+/// says how far it reaches: of a fill, how far in from the face's edges
+/// it has to be).
 pub(crate) fn places(
     args: &Places<'_>,
     builder: &dyn Builder,
     solid: &Solid,
     near: Point3,
+    sized: &Solid,
 ) -> anyhow::Result<Vec<Solid>> {
     let count = args.count;
-    ensure!((2..=10_000).contains(&count), "a pattern is of two or more");
+    let counted = || -> anyhow::Result<()> {
+        ensure!((2..=10_000).contains(&count), "a pattern is of two or more");
+        Ok(())
+    };
     let spacing = (*builder).measure(args.spacing, "the spacing")?;
     let angle = (*builder).measure(args.angle, "the angle")?.to_radians();
     Ok(match args.along {
         Along::Line | Along::Circle => {
+            counted()?;
             let axis = args.axis.as_ref().context("pick an axis")?;
             let axis = builder.tracked().resolve(axis)?;
             match args.along {
@@ -443,6 +375,7 @@ pub(crate) fn places(
             repeated(solid, args.along, &axis, count, spacing, angle)?
         }
         Along::Path => {
+            counted()?;
             let sketch = args
                 .sketch
                 .as_ref()
@@ -458,60 +391,134 @@ pub(crate) fn places(
                 .as_ref()
                 .context("pick the sketch of the points")?;
             let name = sketch.name();
-            let world = builder.tracked();
-            let profile = world
+            let profile = builder
+                .tracked()
                 .profiles
                 .get(name)
                 .with_context(|| format!("there is no sketch {name:?}"))?;
-            // The points that are no curve's end; the body is at the
-            // one nearest it.
-            let mut used = vec![false; profile.vertices.len()];
-            for edge in &profile.edges {
-                used[edge.start] = true;
-                used[edge.end] = true;
-            }
-            let plane = profile.plane;
-            let place = |p: workpiece_core::math::Point2| {
-                plane.origin() + plane.x_dir() * p.x + plane.y_dir() * p.y
-            };
-            let mut places: Vec<Point3> = (0..used.len())
-                .filter(|v| !used[*v])
-                .map(|v| place(profile.vertices[v].point))
-                .collect();
+            let moves = to_points(profile, near, reach(sized, near, profile.plane.normal()));
             ensure!(
-                places.len() >= 2,
-                "the sketch {name:?} has fewer than two points: one where the body is, one for each copy"
+                !moves.is_empty(),
+                "the sketch {name:?} has no points but where what is repeated is: put one where each copy goes"
             );
-
-            let first = (0..places.len())
-                .min_by(|a, b| {
-                    places[*a]
-                        .distance(near)
-                        .total_cmp(&places[*b].distance(near))
-                })
-                .unwrap_or(0);
-            let from = places.remove(first);
             let mut copies = Vec::new();
-            for to in places {
-                copies.push(solid.moved(&|p| p + (to - from))?);
+            for by in moves {
+                copies.push(solid.moved(&|p| p + by)?);
+            }
+            copies
+        }
+        Along::Fill => {
+            let face = args.face.as_ref().context("pick the face to fill")?;
+            let world = builder.tracked();
+            let plane = <DatumPlane as workpiece_core::Resolve>::resolve(world, &face.source)
+                .map_err(|e| anyhow::anyhow!("{e}: the face filled is flat"))?;
+            let id = world
+                .topo
+                .resolve::<FaceId>(face.name())
+                .with_context(|| format!("there is no face {:?}", face.name()))?;
+            let outline = crate::fill::outline(&world.topo, id, &plane)?;
+            let local = |p: Point3| {
+                let d = p - plane.origin();
+                Point2::new(d.dot(plane.x_dir()), d.dot(plane.y_dir()))
+            };
+            // The rows run along the direction picked, as it lies in
+            // the face, or along the face's own x; turned by the angle.
+            let base = match args.axis.as_ref() {
+                Some(axis) => {
+                    let d = builder.tracked().resolve(axis)?.direction();
+                    let (x, y) = (d.dot(plane.x_dir()), d.dot(plane.y_dir()));
+                    ensure!(
+                        x.hypot(y) > 1e-9,
+                        "the direction stands across the face: pick one along it"
+                    );
+                    y.atan2(x)
+                }
+                None => 0.0,
+            };
+            let layout = crate::fill::Layout {
+                grid: args.grid,
+                spacing,
+                across: (*builder).measure(args.across, "the rows' spacing")?,
+                angle: base
+                    + (*builder)
+                        .measure(args.turned, "the rows' angle")?
+                        .to_radians(),
+                sides: args.sides,
+                margin: (*builder).measure(args.margin, "the margin")?,
+                reach: reach(sized, near, plane.normal()),
+            };
+            let seed = local(near);
+            let mut copies = Vec::new();
+            for q in crate::fill::places(&layout, &outline, seed)? {
+                let by = plane.x_dir() * (q.x - seed.x) + plane.y_dir() * (q.y - seed.y);
+                copies.push(solid.moved(&|p| p + by)?);
             }
             copies
         }
     })
 }
 
-/// About where `solid` is: the middle of its corners (or, of a body
-/// without any, of what its faces are made of).
-pub(crate) fn whereabouts(solid: &Solid) -> Point3 {
-    let corners: Vec<Point3> = if solid.vertices.is_empty() {
-        let faces = solid.faces.iter();
-        faces
-            .flat_map(|f| f.surface.control_points().to_vec())
-            .collect()
-    } else {
-        solid.vertices.iter().map(|v| v.point).collect()
+/// How far `solid` reaches from `near` across `normal`: from the line
+/// through `near` along it, the furthest of its corners.
+fn reach(solid: &Solid, near: Point3, normal: Point3) -> f64 {
+    let n = normal.try_normalize().unwrap_or(Point3::Z);
+    solid
+        .vertices
+        .iter()
+        .map(|v| (v.point - near).reject_from_normalized(n).length())
+        .fold(0.0, f64::max)
+}
+
+/// The moves that take what is repeated (about `near`, reaching
+/// `reach` across the sketch's plane) to the points of `profile` that
+/// are no curve's end. Where it is at one of them already (one within
+/// its reach), it is moved from that point exactly and none goes
+/// there; else it is moved from where it is, seen square onto the
+/// sketch's plane.
+pub(crate) fn to_points(
+    profile: &workpiece_core::world::Profile,
+    near: Point3,
+    reach: f64,
+) -> Vec<Point3> {
+    let mut used = vec![false; profile.vertices.len()];
+    for edge in &profile.edges {
+        used[edge.start] = true;
+        used[edge.end] = true;
+    }
+    let plane = profile.plane;
+    let place = |p: workpiece_core::math::Point2| {
+        plane.origin() + plane.x_dir() * p.x + plane.y_dir() * p.y
     };
-    corners.iter().sum::<Point3>() / corners.len().max(1) as f64
+    let points: Vec<Point3> = (0..used.len())
+        .filter(|v| !used[*v])
+        .map(|v| place(profile.vertices[v].point))
+        .collect();
+    let n = plane.normal();
+    let foot = near - n * (near - plane.origin()).dot(n);
+    let nearest = (0..points.len()).min_by(|a, b| {
+        points[*a]
+            .distance(foot)
+            .total_cmp(&points[*b].distance(foot))
+    });
+    let close = reach.max(1e-6 * (1.0 + foot.length()));
+    let at = nearest.filter(|k| points[*k].distance(foot) <= close);
+    let from = at.map_or(foot, |k| points[k]);
+    points
+        .iter()
+        .enumerate()
+        .filter(|(k, _)| Some(*k) != at)
+        .map(|(_, p)| *p - from)
+        .collect()
+}
+
+/// About where `solid` is: the middle of the box around it — on the
+/// axis of a bore, the middle of a boss.
+pub(crate) fn whereabouts(solid: &Solid) -> Point3 {
+    if solid.faces.is_empty() {
+        return Point3::ZERO;
+    }
+    let (lo, hi) = solid.extent();
+    (lo + hi) / 2.0
 }
 
 /// `solid` at `count − 1` more places spread evenly along `path` (curves
@@ -578,106 +585,6 @@ pub fn along_curves(
     Ok(out)
 }
 
-impl Operation for Pattern {
-    type Args = PatternArgs;
-    type EditState = ();
-
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn id_mut(&mut self) -> &mut String {
-        &mut self.id
-    }
-
-    fn args(&self) -> &PatternArgs {
-        &self.args
-    }
-
-    fn args_mut(&mut self) -> &mut PatternArgs {
-        &mut self.args
-    }
-
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
-        // (Nothing is changed here: the bodies it makes are written by
-        // the builder.)
-        let mut out = workpiece_shape::bodies::Out::default();
-        let args = &self.args;
-        let (body, name) = body_of(&builder.tracked().topo, &args.body, "the body to repeat")?;
-        let solid = read(&builder.tracked().topo, body)?;
-        let near = whereabouts(&solid);
-        let copies = places(&Places::of(args), builder, &solid, near)?;
-        // Each copy's faces, edges and vertices are called after the
-        // copy (`pattern1/2/…`): what refers to one of an instance
-        // finds it again, whatever the other instances are.
-        let copies: Vec<Solid> = copies
-            .into_iter()
-            .enumerate()
-            .map(|(k, copy)| instance(copy, &format!("{}/{}", self.id, k + 1)))
-            .collect();
-        let topo = &builder.tracked().topo;
-        match args.combine {
-            Combine::NewBody => {
-                for (k, copy) in copies.iter().enumerate() {
-                    out.write(copy, &format!("{}/{}", self.id, k + 1));
-                }
-            }
-            Combine::Join => {
-                let mut all = solid;
-                for (k, copy) in copies.iter().enumerate() {
-                    all = combine(Op::Union, &all, copy)
-                        .with_context(|| format!("joining copy {}", k + 1))?
-                        .solid;
-                }
-                out.remove(topo, body);
-                out.write(&all, &name);
-            }
-            Combine::Cut | Combine::Intersect => {
-                let (target, target_name) = body_of(topo, &args.target, "the body to cut")?;
-                ensure!(target != body, "a body is not cut out of itself");
-                let mut result = read(topo, target)?;
-                if args.combine == Combine::Cut {
-                    for (k, tool) in std::iter::once(&solid).chain(&copies).enumerate() {
-                        result = combine(Op::Cut, &result, tool)
-                            .with_context(|| format!("cutting out number {}", k + 1))?
-                            .solid;
-                    }
-                } else {
-                    // What the target shares with any of them.
-                    let mut all = solid;
-                    for copy in &copies {
-                        all = combine(Op::Union, &all, copy)?.solid;
-                    }
-                    result = combine(Op::Intersect, &result, &all)?.solid;
-                }
-                out.remove(topo, target);
-                out.remove(topo, body);
-                if !result.is_empty() {
-                    out.write(&result, &target_name);
-                }
-            }
-        }
-        out.made.annotations = Places::of(args).said(builder, &self.id, near);
-        Ok(out.made)
-    }
-
-    fn summary(&self) -> String {
-        let args = &self.args;
-        let of = args.body.as_ref().map_or("(not picked)", |s| s.name());
-        let how = match args.along {
-            Along::Line => format!("{} apart", args.spacing),
-            Along::Circle => format!("around {}°", args.angle),
-            Along::Path => "along a path".to_owned(),
-            Along::Points => "at the points of a sketch".to_owned(),
-        };
-        format!(
-            "{} of {of}, {how}, {}",
-            args.count,
-            args.combine.label().to_lowercase()
-        )
-    }
-}
-
 /// `solid` as the instance `called` of a pattern: all that has a name
 /// in it named under the instance's.
 pub(crate) fn instance(mut solid: Solid, called: &str) -> Solid {
@@ -704,18 +611,44 @@ impl workpiece_core::Choices for Motion {
     fn label(self) -> &'static str {
         Self::label(self)
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Motion::Move => "motion-move",
+            Motion::Rotate => "motion-rotate",
+            Motion::Mirror => "motion-mirror",
+            Motion::Scale => "motion-scale",
+        })
+    }
 }
 
 impl workpiece_core::Choices for Along {
-    const ALL: &'static [Self] = &[Along::Line, Along::Circle, Along::Path, Along::Points];
+    const ALL: &'static [Self] = &[
+        Along::Line,
+        Along::Circle,
+        Along::Path,
+        Along::Points,
+        Along::Fill,
+    ];
 
     fn label(self) -> &'static str {
         match self {
-            Along::Line => "A line",
-            Along::Circle => "A circle",
-            Along::Path => "A path",
+            Along::Line => "Line",
+            Along::Circle => "Circle",
+            Along::Path => "Path",
             Along::Points => "Points",
+            Along::Fill => "Fill",
         }
+    }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Along::Line => "along-line",
+            Along::Circle => "along-circle",
+            Along::Path => "along-path",
+            Along::Points => "along-points",
+            Along::Fill => "along-fill",
+        })
     }
 }
 

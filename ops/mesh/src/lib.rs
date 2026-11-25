@@ -56,6 +56,10 @@ pub struct MeshArgs {
     /// x, y and z. What is edited is the one side; the body is whole.
     #[serde(default)]
     pub mirror: [bool; 3],
+    /// Whether what it makes is a surface even where the mesh closes
+    /// (made on the Surfacing tab); else a closed mesh makes a solid.
+    #[serde(default)]
+    pub surface: bool,
 }
 
 impl MeshArgs {
@@ -105,6 +109,23 @@ impl Mesh {
                 smooth,
                 finer: 0,
                 mirror: [false; 3],
+                surface: false,
+            },
+        }
+    }
+
+    /// A surface to start from: a flat patch `size` across of three by
+    /// three faces about the origin, smooth or of flat faces. It stays
+    /// a surface (a sheet body) whatever it is made into.
+    pub fn patch(id: impl Into<String>, size: f64, smooth: bool) -> Self {
+        Self {
+            id: id.into(),
+            args: MeshArgs {
+                mesh: Primitive::Grid.mesh(size, 3, Point3::ZERO),
+                smooth,
+                finer: 0,
+                mirror: [false; 3],
+                surface: true,
             },
         }
     }
@@ -144,7 +165,7 @@ impl Operation for Mesh {
             } else {
                 format!("{}/body{}", self.id, k + 1)
             };
-            if piece.closed {
+            if piece.closed && !self.args.surface {
                 out.write(&piece.solid, &name);
             } else {
                 out.write_sheet(&piece.solid, &name);
@@ -278,12 +299,22 @@ pub fn register(r: &mut workpiece_core::Registry) {
     r.tool(Tool {
         tab: "Surfacing",
         group: "Create",
+        label: "SubD",
+        icon: "subd",
+        key: 'V',
+        hint: "A subdivision surface: a patch of a few faces, edited by its points, edges and faces, that controls a smooth surface — a surface body (not a solid, even closed) every other tool works on",
+        small: true,
+        make: |cx| Mesh::patch((cx.fresh_id)("subd"), 20.0, true).into(),
+    });
+    r.tool(Tool {
+        tab: "Surfacing",
+        group: "Create",
         label: "Mesh",
         icon: "mesh",
         key: 'M',
-        hint: "A polygon mesh, edited by its points, edges and faces: made a body of flat faces",
+        hint: "A polygon mesh, edited by its points, edges and faces: a surface body of flat faces",
         small: true,
-        make: |cx| Mesh::starting((cx.fresh_id)("mesh"), 20.0, false).into(),
+        make: |cx| Mesh::patch((cx.fresh_id)("mesh"), 20.0, false).into(),
     });
     ui::icons(r);
 }

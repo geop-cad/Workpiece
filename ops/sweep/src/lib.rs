@@ -6,9 +6,9 @@ mod rib;
 mod swept_loft;
 
 pub use extrude::{Extent, Extrude, ExtrudeArgs};
-pub use revolve::{Revolve, RevolveArgs, RevolveAxis};
+pub use revolve::{Revolve, RevolveArgs, drawn_axes};
 pub use rib::{Rib, RibArgs};
-pub use swept_loft::{SweptLoft, SweptLoftArgs};
+pub use swept_loft::{Rail, Role, Section, SectionEnd, SweptLoft, SweptLoftArgs};
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
 /// add them, and their icons.
@@ -73,7 +73,7 @@ pub fn register(r: &mut workpiece_core::Registry) {
         label: "Sweep / Loft",
         icon: "sweep",
         key: 'G',
-        hint: "Sweep the areas of a sketch along the curves of another, or loft a solid through the areas of several sketches",
+        hint: "Sweep one section along a path (or coil it about an axis), or loft a solid through several sections — held at its ends (normal, tangent, curvature) and following guide curves",
         small: false,
         make: |cx| SweptLoft { id: (cx.fresh_id)("sweep"), args: Default::default() }.into(),
     });
@@ -83,7 +83,7 @@ pub fn register(r: &mut workpiece_core::Registry) {
         label: "Sweep / Loft",
         icon: "sweep",
         key: 'G',
-        hint: "Sweep the outlines of a sketch along a path, or loft through several sketches, into a surface — of sketches whose curves are left open, too",
+        hint: "Sweep a section along a path, or loft through several — sketches, faces' outlines, edges, curves left open — into a surface, held at its ends (G1, G2 to faces) and following guide curves",
         small: false,
         make: |cx| SweptLoft { id: (cx.fresh_id)("sweep"), args: SweptLoftArgs { surface: true, ..Default::default() } }.into(),
     });
@@ -103,4 +103,6 @@ pub fn register(r: &mut workpiece_core::Registry) {
     r.icon("revolve", include_str!("../icons/revolve.svg"));
     r.icon("rib", include_str!("../icons/rib.svg"));
     r.icon("sweep", include_str!("../icons/sweep.svg"));
+    r.icon("rail-path", include_str!("../icons/rail-path.svg"));
+    r.icon("rail-guide", include_str!("../icons/rail-guide.svg"));
 }

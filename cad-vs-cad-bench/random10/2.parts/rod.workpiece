@@ -4,7 +4,7 @@
       "Sketch": {
         "args": {
           "constraints": {
-            "17": {
+            "18": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -14,7 +14,7 @@
                 }
               }
             },
-            "18": {
+            "19": {
               "dimension": null,
               "kind": {
                 "PointOn": {
@@ -23,7 +23,7 @@
                 }
               }
             },
-            "19": {
+            "20": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -43,7 +43,7 @@
                 }
               }
             },
-            "20": {
+            "21": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -53,7 +53,7 @@
                 }
               }
             },
-            "21": {
+            "22": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -63,7 +63,7 @@
                 }
               }
             },
-            "22": {
+            "23": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -73,7 +73,7 @@
                 }
               }
             },
-            "23": {
+            "24": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -83,7 +83,7 @@
                 }
               }
             },
-            "24": {
+            "25": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -103,7 +103,7 @@
                 }
               }
             },
-            "25": {
+            "26": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -123,7 +123,7 @@
                 }
               }
             },
-            "26": {
+            "27": {
               "dimension": {
                 "diameter": true,
                 "driven": false,
@@ -140,6 +140,15 @@
                   "line": 12,
                   "point": 7
                 }
+              }
+            },
+            "28": {
+              "dimension": null,
+              "kind": {
+                "Parallel": [
+                  17,
+                  6
+                ]
               }
             }
           },
@@ -214,6 +223,23 @@
               },
               "tolerance": 1e-7
             },
+            "17": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Axis": {
+                  "direction": [
+                    0.0,
+                    1.0
+                  ],
+                  "through": 1
+                }
+              },
+              "tolerance": 1e-7
+            },
             "2": {
               "auto": false,
               "axis": null,
@@ -254,7 +280,7 @@
               "tolerance": 1e-7
             }
           },
-          "next": 26,
+          "next": 28,
           "plane": {
             "FrameAxis": {
               "axis": "X",
@@ -336,7 +362,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "SketchV",
+          "axis": {
+            "Datum": "rod_profile/e17"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,

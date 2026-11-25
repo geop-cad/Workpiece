@@ -615,6 +615,17 @@ fn filter_fields(filter: &Filter) -> Vec<Widget<Filter>> {
     vec![
         HBox::new(vec![
             Choice::new("Show", families, family, with_family)
+                .with_icons(
+                    [
+                        "std-all",
+                        "std-screw",
+                        "std-nut",
+                        "std-washer",
+                        "std-bearing",
+                    ]
+                    .map(Some)
+                    .to_vec(),
+                )
                 .drop_down()
                 .into(),
             Choice::new("Size", labels, size, with_size)

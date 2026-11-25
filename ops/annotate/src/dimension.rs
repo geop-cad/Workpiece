@@ -50,6 +50,16 @@ impl workpiece_core::Choices for DimensionKind {
             DimensionKind::Angle => "Angle",
         }
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            DimensionKind::Auto => "dim-auto",
+            DimensionKind::Distance => "dim-distance",
+            DimensionKind::Diameter => "f-diameter",
+            DimensionKind::Radius => "f-radius",
+            DimensionKind::Angle => "f-angle",
+        })
+    }
 }
 
 /// Which radius of something that bends two ways is meant.
@@ -1197,7 +1207,20 @@ pub(crate) fn tolerance_fields(
                 _ => Tolerance::General,
             }))
         }
-    });
+    })
+    .with_icons(
+        [
+            "tol-general",
+            "tol-symmetric",
+            "tol-deviations",
+            "tol-limits",
+            "tol-fit",
+            "tol-reference",
+        ]
+        .map(Some)
+        .to_vec(),
+    )
+    .drop_down();
     let mut fields: Vec<Widget<DimensionArgs>> = vec![kind.into()];
     match args.tolerance.clone() {
         Tolerance::General | Tolerance::Reference => {}

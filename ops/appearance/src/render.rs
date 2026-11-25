@@ -28,6 +28,14 @@ impl Choices for Sky {
             Sky::Dark => "Dark room",
         }
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Sky::Studio => "sky-studio",
+            Sky::Outdoor => "sky-outdoor",
+            Sky::Dark => "sky-dark",
+        })
+    }
 }
 
 /// From where the picture is taken.
@@ -70,7 +78,7 @@ pub struct Shot {
     pub sky: Sky,
     /// Where the key light stands around the model: in degrees from
     /// the x axis towards y.
-    #[arg(label = "Light from")]
+    #[arg(label = "Light from", icon = "f-direction")]
     pub sun_turn: f64,
     /// How high the key light stands, in degrees above the ground.
     #[arg(row, label = "Height")]
@@ -79,7 +87,11 @@ pub struct Shot {
     /// stops: each doubles the light.
     pub exposure: f64,
     /// Whether the model stands on a floor that catches its shadow.
-    #[arg(label = "Floor", options = "None|Shadow")]
+    #[arg(
+        label = "Floor",
+        options = "None|Shadow",
+        icons = "floor-none|floor-shadow"
+    )]
     pub ground: bool,
     /// The colour behind the model; none is a light grey.
     #[serde(default)]

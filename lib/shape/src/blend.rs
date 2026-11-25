@@ -650,8 +650,11 @@ fn sharp(solid: &Solid, edge: usize) -> bool {
     normals.len() == 2 && d.length() > 0.0 && normals[0].cross(normals[1]).length() > 1e-4
 }
 
-/// Blends what is `picked` of the solid bodies of `topo` to `shape`:
-/// edges by their names, every edge of a face or of a body by its name.
+/// Blends what is `picked` of the bodies of `topo` to `shape`: edges by
+/// their names, every edge of a face or of a body by its name. Of a
+/// solid as a solid's edges are blended; of a surface, its edges
+/// between two of its faces, the same way (see
+/// [`crate::surface::blended_sheet`]).
 /// With `corners`, a corner where every edge is blended is closed (by a
 /// ball between rounds, a flat between chamfers); without, the blends
 /// run on until they cut each other off. What was blended: each body
@@ -666,9 +669,19 @@ pub fn blend(
 ) -> anyhow::Result<Vec<(Solid, Vec<usize>)>> {
     let mut was = Vec::new();
     for (body, name, solid, edges) in blended(topo, picked)? {
-        let made = blend_solid(&solid, id, &edges, shape, corners)?;
-        out.remove(topo, body);
-        out.write(&made, &name);
+        let sheet = topo
+            .body(body)
+            .is_some_and(|b| b.kind == workpiece_core::world::topo::BodyKind::Sheet);
+        if sheet {
+            let made = crate::surface::blended_sheet(&solid, &edges, shape, id)
+                .with_context(|| format!("blending edges of {name}"))?;
+            out.remove(topo, body);
+            out.write_sheet(&made, &name);
+        } else {
+            let made = blend_solid(&solid, id, &edges, shape, corners)?;
+            out.remove(topo, body);
+            out.write(&made, &name);
+        }
         was.push((solid, edges));
     }
     Ok(was)
@@ -684,8 +697,26 @@ fn blended(topo: &Topo, picked: &[String]) -> anyhow::Result<Vec<Blended>> {
     ensure!(!picked.is_empty(), "pick the edges to blend");
     let mut found: BTreeSet<&str> = BTreeSet::new();
     let mut all = Vec::new();
-    for (body, name) in crate::bodies::solids_with(topo, picked) {
-        let solid = read(topo, body)?;
+    for (body, name) in crate::bodies::bodies_with(topo, picked) {
+        let sheet = topo
+            .body(body)
+            .is_some_and(|b| b.kind == workpiece_core::world::topo::BodyKind::Sheet);
+        let solid = if sheet {
+            workpiece_boolean::read_sheet(topo, body)?
+        } else {
+            read(topo, body)?
+        };
+        // (Of a surface, only edges between two of its faces blend.)
+        let inner = |edge: usize| {
+            !sheet
+                || solid
+                    .faces
+                    .iter()
+                    .flat_map(|f| f.loops.iter().flatten())
+                    .filter(|u| matches!(u.walk, Walk::Edge { edge: e, .. } if e == edge))
+                    .count()
+                    == 2
+        };
         let mut edges: BTreeSet<usize> = BTreeSet::new();
         let is = |name: &Option<String>| {
             picked
@@ -713,6 +744,7 @@ fn blended(topo: &Topo, picked: &[String]) -> anyhow::Result<Vec<Blended>> {
             }
             for step in face.loops.iter().flatten() {
                 if let Walk::Edge { edge, .. } = step.walk
+                    && inner(edge)
                     && sharp(&solid, edge)
                 {
                     edges.insert(edge);
@@ -2519,6 +2551,14 @@ impl workpiece_core::Choices for By {
     fn label(self) -> &'static str {
         Self::label(self)
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            By::Radius => "blend-radius",
+            By::Width => "blend-width",
+            By::Distance => "blend-distance",
+        })
+    }
 }
 
 impl workpiece_core::Choices for Section {
@@ -2526,6 +2566,14 @@ impl workpiece_core::Choices for Section {
 
     fn label(self) -> &'static str {
         Self::label(self)
+    }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Section::Circular => "section-circular",
+            Section::Conic => "section-conic",
+            Section::Curvature | Section::Centred => "section-curvature",
+        })
     }
 }
 

@@ -310,7 +310,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "Drawn",
+          "axis": {
+            "Datum": "hub_profile/e15"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,
@@ -635,7 +637,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "Drawn",
+          "axis": {
+            "Datum": "tyre_profile/e18"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,

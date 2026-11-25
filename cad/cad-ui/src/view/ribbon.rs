@@ -4,7 +4,8 @@ use workpiece_core::widgets::Button;
 use super::Icon;
 use crate::{Message, Model, Tab};
 
-/// One button of the ribbon. Its button has a hotkey.
+/// One button of the ribbon. Its button has a hotkey, but for a menu's:
+/// that only opens the menu, whose tools have their own.
 pub struct Tool {
     /// What it shows.
     pub icon: Icon,
@@ -20,11 +21,14 @@ pub struct Tool {
     pub group: &'static str,
     /// Whether it is shown small, stacked with the others of its group.
     pub small: bool,
+    /// The tools it offers, if it is a menu of them: clicked, it opens
+    /// the menu; its own message is then the first tool's.
+    pub menu: Vec<Tool>,
 }
 
 /// The tools with their groups, those of a group together: what is
 /// built on first, then what creates bodies, what bends and changes
-/// them, and what arranges them; the tools that stand alone stay where
+/// them, what repeats it (pattern, mirror), and what arranges them; the tools that stand alone stay where
 /// they are, after those.
 fn grouped(mut tools: Vec<Tool>) -> Vec<Tool> {
     const ORDER: [&str; 17] = [
@@ -36,8 +40,8 @@ fn grouped(mut tools: Vec<Tool>) -> Vec<Tool> {
         "Create",
         "Bend",
         "Modify",
+        "Repeat",
         "Bodies",
-        "Direct",
         "Define",
         "Drawing",
         "Views",
@@ -83,6 +87,7 @@ impl Ribbon {
             button: Button::new(label, move || message.clone()).with_hotkey(hotkey),
             group: "",
             small: false,
+            menu: Vec::new(),
         };
         let mut tools = vec![
             tool(
@@ -243,6 +248,37 @@ impl Ribbon {
             made.group = "Drawing";
             made.small = true;
             of_tab.push(made);
+        }
+        // The tools a menu offers, in its place: where the first of them
+        // was.
+        for menu in workpiece_part::registry().menus() {
+            if menu.tab != model.tab.label() {
+                continue;
+            }
+            let mut place = of_tab.len();
+            let offered: Vec<Tool> = menu
+                .tools
+                .iter()
+                .filter_map(|label| {
+                    let at = of_tab.iter().position(|t| t.button.label == *label)?;
+                    place = place.min(at);
+                    Some(of_tab.remove(at))
+                })
+                .collect();
+            let Some(first) = offered.first() else {
+                continue;
+            };
+            let message = first.button.click();
+            let head = Tool {
+                icon: Icon::Named(menu.icon),
+                hint: menu.hint,
+                enabled: true,
+                button: Button::new(menu.label, move || message.clone()),
+                group: menu.group,
+                small: menu.small,
+                menu: offered,
+            };
+            of_tab.insert(place.min(of_tab.len()), head);
         }
         tools.extend(grouped(of_tab));
         Self { tabs, tools }

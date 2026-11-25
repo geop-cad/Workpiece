@@ -99,7 +99,8 @@ impl<'a> SolidBuilder<'a> {
     pub(crate) fn vertex(&mut self, p: Point3, name: &str) -> anyhow::Result<VertexId> {
         let id = self.topo.add_vertex(Vertex {
             point: p,
-            tolerance: TOLERANCE,
+            // (Its edges' ends, rounded a little off it, lie within it.)
+            tolerance: 2.0 * TOLERANCE,
         })?;
         self.name(id, name)?;
         Ok(id)

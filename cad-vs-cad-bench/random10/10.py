@@ -51,7 +51,7 @@ for name, x, dia in (("left", 1, 30), ("right", -1, 18)):
     d = h.dot(0, 60)
     h.point_on(d, "v")
     h.distance_v(h.origin, d, 60)
-    p.op("Hole", id=name + "_hole", sketch=profile(h), diameter=float(dia), kind="Simple", extent="ToNext", flip=(x < 0))
+    p.op("Hole", id=name + "_hole", place="Sketch", sketch=profile(h), diameter=float(dia), kind="Simple", extent="ToNext", flip=(x < 0))
     p.on_sheet(name + "_hole", show_in=name, at=(-40, 38) if x > 0 else (40, 38))
 rep = p.build(out)
 for n in ("left_eye", "right_eye"): print(n, rep.sketch(n)["points"])

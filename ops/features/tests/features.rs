@@ -22,6 +22,7 @@ fn holes_are_drilled_at_the_points_of_a_sketch() -> anyhow::Result<()> {
         let mut hole = Hole {
             id: "hole".into(),
             args: HoleArgs {
+                place: workpiece_ops_features::HolePlace::Sketch,
                 sketch: Some(Source::Profile("points".into()).into()),
                 diameter: Measure::new(0.5),
                 depth: Measure::new(0.6),
@@ -159,6 +160,65 @@ fn holes_are_placed_off_planes_and_around_axes() -> anyhow::Result<()> {
     let at = hole_at(&b);
     close(at.x.hypot(at.y), 1.2, 1e-9);
     close(at.x * at.y, 0.0, 1e-9);
+    // Where the face was clicked: 1 along its plane's x, −0.5 along its y.
+    let mut b = Standalone::new();
+    base(&mut b)?;
+    Hole {
+        id: "hole".into(),
+        args: through(HoleArgs {
+            place: HolePlace::Point,
+            at: [Measure::new(1.0), Measure::new(-0.5)],
+            ..Default::default()
+        }),
+    }
+    .apply(&mut b)?;
+    check(&b);
+    let top: workpiece_core::world::DatumPlane =
+        b.world
+            .resolve(&workpiece_core::Reference::new(Source::Topology(
+                "base/top".into(),
+            )))?;
+    let at = hole_at(&b);
+    let d = at - top.origin();
+    close(d.dot(top.x_dir()), 1.0, 1e-9);
+    close(d.dot(top.y_dir()), -0.5, 1e-9);
+    // Off an edge of the face and a side: 0.8 in from the edge
+    // of the top at +x, 1 in from the right side.
+    let mut b = Standalone::new();
+    base(&mut b)?;
+    let edge = {
+        let solid = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
+        solid
+            .edges
+            .iter()
+            .filter_map(|e| {
+                let (a, c) = e.range;
+                let (p, q) = (e.curve.point_at(a), e.curve.point_at(c));
+                // (Along y, at the top, on the side of x > 0.)
+                let along_y = (p.x - q.x).abs() < 1e-9 && (p.z - q.z).abs() < 1e-9;
+                (along_y && p.z > 0.5 && p.x > 1.0)
+                    .then(|| e.name.clone())
+                    .flatten()
+            })
+            .next()
+            .expect("the top's edge at +x")
+    };
+    Hole {
+        id: "hole".into(),
+        args: through(HoleArgs {
+            place: HolePlace::Offsets,
+            first: Some(Source::Topology(edge).into()),
+            first_offset: Measure::new(0.8),
+            second: Some(Source::Topology("base/right".into()).into()),
+            second_offset: Measure::new(1.0),
+            ..Default::default()
+        }),
+    }
+    .apply(&mut b)?;
+    check(&b);
+    let at = hole_at(&b);
+    close(at.x, 1.2, 1e-9);
+    close(at.y.abs(), 1.0, 1e-9);
     Ok(())
 }
 
@@ -258,49 +318,78 @@ fn dialogs_are_made_from_the_arguments() {
     let world = std::sync::Arc::new(workpiece_core::World::new());
     let cache = Cache::default();
     let context = EditContext::standalone(&world, &cache);
+    // The dialog's three parts, top to bottom, and how many rows each.
+    let parts = |args: &HoleArgs| -> Vec<(String, usize)> {
+        args.fields(&context)
+            .iter()
+            .map(|w| match w {
+                Widget::Group(g) => (g.label.clone(), g.children.len()),
+                _ => panic!("every field is in a part"),
+            })
+            .collect()
+    };
+    let counts = |args: &HoleArgs| -> Vec<usize> { parts(args).into_iter().map(|p| p.1).collect() };
     let mut args = HoleArgs::default();
-    // Placement, sketch, kind, size, diameter, fit, extent, depth
-    // beside its flip, point, deburring, body.
+    let names: Vec<String> = parts(&args).into_iter().map(|p| p.0).collect();
+    assert_eq!(names, ["Where", "What", "How deep"]);
+    // Where: the face, the placement, x beside y, the body. What: the
+    // kind, size, diameter, fit, deburring. How deep: the extent, the
+    // depth beside its flip, the point.
+    assert_eq!(counts(&args), [4, 5, 3]);
     let fields = args.fields(&context);
-    assert_eq!(fields.len(), 11);
-    assert!(matches!(&fields[7], Widget::HBox(row) if row.children.len() == 2));
-    // A counterbore has a head, of a diameter and a depth, in a row,
-    // and no fit.
+    let Widget::Group(deep) = &fields[2] else {
+        panic!("expected how deep");
+    };
+    assert!(matches!(&deep.children[1], Widget::HBox(row) if row.children.len() == 2));
+    // The placement and the kind are icon radio buttons.
+    let Widget::Group(at) = &fields[0] else {
+        panic!("expected where");
+    };
+    let Widget::Choice(place) = &at.children[1] else {
+        panic!("expected the placement");
+    };
+    assert!(place.pictured());
+    // A counterbore has a head, of a diameter, how its floor ends and
+    // its depth; and no fit.
     args.kind = HoleKind::Counterbore;
-    let fields = args.fields(&context);
-    assert_eq!(fields.len(), 12);
-    assert!(matches!(&fields[6], Widget::HBox(row) if row.children.len() == 2));
+    assert_eq!(counts(&args), [4, 7, 3]);
     // Through all, there is no depth and no point (the flip stands
-    // beside the extent), and how far through it goes: everything, or
-    // to where it first comes out.
+    // beside the extent).
+    args.kind = HoleKind::Simple;
     args.extent = Extent::ThroughAll;
-    assert_eq!(args.fields(&context).len(), 10);
+    assert_eq!(counts(&args), [4, 5, 1]);
     // For a screw size, the sizes are the standard's: in their place,
-    // how close the hole is and which head it is for.
+    // how close the hole is.
     args.size = Some("M6".into());
-    assert_eq!(args.fields(&context).len(), 10);
+    assert_eq!(counts(&args), [4, 4, 1]);
     args.size = None;
     // A chamfer has a width and an angle, in a row.
     args.deburr = workpiece_ops_features::Deburr::Both;
-    assert_eq!(args.fields(&context).len(), 11);
+    assert_eq!(counts(&args), [4, 6, 1]);
     args.deburr = workpiece_ops_features::Deburr::None;
     // What the arguments refer to is what their reference fields hold.
-    args.sketch = Some(Source::Profile("s".into()).into());
+    args.face = Some(Source::Topology("b/top".into()).into());
     args.target = Some(Source::Topology("b".into()).into());
     assert_eq!(args.references().len(), 2);
     // A choice sets its field.
-    let Widget::Choice(kind) = &args.fields(&context)[2] else {
+    let fields = args.fields(&context);
+    let Widget::Group(what) = &fields[1] else {
+        panic!("expected what");
+    };
+    let Widget::Choice(kind) = &what.children[0] else {
         panic!("expected the kind");
     };
     assert_eq!(kind.set(3).map(|a| a.kind), Some(HoleKind::Tapped));
-    // Off two planes: the face, and each plane with its distance, in
-    // place of the sketch.
+    // Off two planes: the face, the placement, each plane with its
+    // distance beside it, the body.
     args.place = HolePlace::Offsets;
-    assert_eq!(args.fields(&context).len(), 10 - 1 + 5);
-    // Around an axis: the face, the axis, and the distance beside the
-    // angle.
+    assert_eq!(counts(&args)[0], 5);
+    // Around an axis: the axis, and the radius beside the angle.
     args.place = HolePlace::Polar;
-    assert_eq!(args.fields(&context).len(), 10 - 1 + 3);
+    assert_eq!(counts(&args)[0], 5);
+    // At a sketch's points: the sketch.
+    args.place = HolePlace::Sketch;
+    assert_eq!(counts(&args)[0], 4);
 }
 
 #[test]
@@ -371,6 +460,7 @@ fn holes_take_their_sizes_from_the_standards_and_are_chamfered() -> anyhow::Resu
         let mut hole = Hole {
             id: "hole".into(),
             args: HoleArgs {
+                place: workpiece_ops_features::HolePlace::Sketch,
                 sketch: Some(Source::Profile("points".into()).into()),
                 size: Some("M6".into()),
                 point: Measure::new(180.0),
@@ -458,6 +548,7 @@ fn a_counterbore_says_its_head() -> anyhow::Result<()> {
     Hole {
         id: "hole".into(),
         args: HoleArgs {
+            place: workpiece_ops_features::HolePlace::Sketch,
             sketch: Some(Source::Profile("points".into()).into()),
             kind: HoleKind::Counterbore,
             diameter: Measure::new(0.4),
@@ -505,6 +596,7 @@ fn holes_end_up_to_a_face_or_a_datum_plane() -> anyhow::Result<()> {
         let mut hole = Hole {
             id: "hole".into(),
             args: HoleArgs {
+                place: workpiece_ops_features::HolePlace::Sketch,
                 sketch: Some(Source::Profile("points".into()).into()),
                 diameter: Measure::new(0.5),
                 kind: HoleKind::Counterbore,

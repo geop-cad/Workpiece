@@ -60,6 +60,7 @@ leaf.hole(h, 4.5, kind="Countersink", head=9, head_angle=90, id="screw")
 rep = leaf.build(at("leaf.workpiece"))
 leaf.feature_pattern([rep.faces(where=lambda f: f["name"].startswith("screw/") and not f["flat"] and f["area"] < 60)[0]],
                      2, along=axis("Y"), spacing=30, id="screws")
+leaf.on_sheet("screws/spacing", at=(0, -30))
 leaf.on_sheet("knuckles", on_drawing=False)
 leaf.on_sheet("knuckle", on_drawing=False)           # (as long as the relief starts in)
 leaf.on_sheet("notches", on_drawing=False)

@@ -159,9 +159,8 @@ pub fn show(ui: &mut egui::Ui, ribbon: &Ribbon, out: &mut Vec<Message>) {
                     group = Some(tool.group);
                     if !tool.small {
                         let hint = tip(&tool.button.label, tool.button.hotkey, tool.hint);
-                        if tool_button(ui, tool).on_hover_text(hint).clicked() {
-                            out.push(tool.button.click());
-                        }
+                        let response = tool_button(ui, tool).on_hover_text(hint);
+                        clicked(tool, &response, out);
                         k += 1;
                         continue;
                     }
@@ -179,14 +178,55 @@ pub fn show(ui: &mut egui::Ui, ribbon: &Ribbon, out: &mut Vec<Message>) {
                         ui.spacing_mut().item_spacing.y = 0.0;
                         for tool in column {
                             let hint = tip(&tool.button.label, tool.button.hotkey, tool.hint);
-                            if small_button(ui, tool).on_hover_text(hint).clicked() {
-                                out.push(tool.button.click());
-                            }
+                            let response = small_button(ui, tool).on_hover_text(hint);
+                            clicked(tool, &response, out);
                         }
                     });
                 }
             });
         });
+}
+
+/// What a click on `tool`'s button does: adds its step; of a menu, opens
+/// the menu of its tools, each with its icon, name and key.
+fn clicked(tool: &Tool, response: &egui::Response, out: &mut Vec<Message>) {
+    if tool.menu.is_empty() {
+        if response.clicked() {
+            out.push(tool.button.click());
+        }
+        return;
+    }
+    egui::Popup::menu(response).show(|ui| {
+        ui.set_min_width(190.0);
+        for item in &tool.menu {
+            let image = icons::widget(icons::image(item.icon), 16.0, color::TEXT);
+            let mut button = egui::Button::image_and_text(image, &item.button.label);
+            if let Some(key) = item.button.hotkey {
+                button = button.shortcut_text(key.to_string());
+            }
+            let hint = tip(&item.button.label, item.button.hotkey, item.hint);
+            if ui.add(button).on_hover_text(hint).clicked() {
+                out.push(item.button.click());
+                ui.close();
+            }
+        }
+    });
+}
+
+/// The small triangle that says a button opens a menu, at the right of
+/// `rect`.
+fn menu_mark(painter: &egui::Painter, rect: egui::Rect, tint: egui::Color32) {
+    let c = egui::pos2(rect.right() - 7.0, rect.center().y);
+    let points = vec![
+        c + egui::vec2(-3.0, -1.5),
+        c + egui::vec2(3.0, -1.5),
+        c + egui::vec2(0.0, 2.0),
+    ];
+    painter.add(egui::Shape::convex_polygon(
+        points,
+        tint,
+        egui::Stroke::NONE,
+    ));
 }
 
 /// One small tool: its icon and its name beside it, a third of the
@@ -226,6 +266,9 @@ fn small_button(ui: &mut egui::Ui, tool: &Tool) -> egui::Response {
             egui::FontId::proportional(11.5),
             tint,
         );
+        if !tool.menu.is_empty() {
+            menu_mark(&painter, rect, tint);
+        }
     }
     response
 }

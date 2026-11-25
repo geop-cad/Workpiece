@@ -63,6 +63,19 @@ impl Mode for PlaneMode {
             PlaneMode::Tangent => "Tangent to face at point",
         }
     }
+
+    fn icon(self) -> &'static str {
+        match self {
+            PlaneMode::Offset => "plane-offset",
+            PlaneMode::Midplane => "plane-midplane",
+            PlaneMode::Angle => "plane-angle",
+            PlaneMode::ThreePoints => "plane-3points",
+            PlaneMode::AxisPoint => "plane-axis-point",
+            PlaneMode::NormalToAxis => "plane-normal-axis",
+            PlaneMode::ParallelThroughPoint => "plane-parallel-point",
+            PlaneMode::Tangent => "plane-tangent",
+        }
+    }
 }
 
 /// The construction and its references.

@@ -1574,14 +1574,23 @@
           "coil": null,
           "combine": "NewBody",
           "left": false,
-          "path": {
-            "Profile": "path"
-          },
           "pitch": 1.0,
+          "rails": [
+            {
+              "of": {
+                "Profile": "path"
+              },
+              "role": "Path"
+            }
+          ],
           "scale": 1.0,
           "sections": [
             {
-              "Profile": "section"
+              "end": "Free",
+              "face": null,
+              "of": {
+                "Profile": "section"
+              }
             }
           ],
           "surface": false,
@@ -1754,7 +1763,7 @@
       "Sketch": {
         "args": {
           "constraints": {
-            "10": {
+            "11": {
               "dimension": {
                 "diameter": true,
                 "driven": true,
@@ -1770,7 +1779,7 @@
                 "Size": 9
               }
             },
-            "11": {
+            "12": {
               "dimension": {
                 "diameter": true,
                 "driven": false,
@@ -1786,7 +1795,7 @@
                 "Size": 8
               }
             },
-            "12": {
+            "13": {
               "dimension": null,
               "kind": {
                 "Tangent": {
@@ -1796,7 +1805,7 @@
                 }
               }
             },
-            "13": {
+            "14": {
               "dimension": null,
               "kind": {
                 "Tangent": {
@@ -1806,7 +1815,7 @@
                 }
               }
             },
-            "14": {
+            "15": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -1825,9 +1834,35 @@
                   "b": 7
                 }
               }
+            },
+            "16": {
+              "dimension": null,
+              "kind": {
+                "Parallel": [
+                  10,
+                  6
+                ]
+              }
             }
           },
           "entities": {
+            "10": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Axis": {
+                  "direction": [
+                    0.0,
+                    1.0
+                  ],
+                  "through": 1
+                }
+              },
+              "tolerance": 1e-7
+            },
             "2": {
               "auto": false,
               "axis": null,
@@ -1896,7 +1931,7 @@
               "tolerance": 1e-7
             }
           },
-          "next": 14,
+          "next": 16,
           "plane": {
             "FrameAxis": {
               "axis": "X",
@@ -1946,7 +1981,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "SketchV",
+          "axis": {
+            "Datum": "sketch3/e10"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,
@@ -2742,7 +2779,7 @@
                 61.481546140484454,
                 -72.98170459575758
               ],
-              "note": "sketch3/d10",
+              "note": "sketch3/d11",
               "view": "top"
             },
             {
@@ -2750,7 +2787,7 @@
                 -66.0,
                 66.0
               ],
-              "note": "sketch3/d11",
+              "note": "sketch3/d12",
               "view": "top"
             },
             {

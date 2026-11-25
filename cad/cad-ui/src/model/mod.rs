@@ -435,15 +435,68 @@ impl Model {
                 let back = self.viewport.shown.pose.inverse();
                 let at = back.transform_point(workpiece_core::math::Point3::from_array(at));
                 let key = (part.clone(), format!("note {name}"));
-                self.change(Some(key), |ws| {
-                    let places = &mut ws.part_mut(&part)?.note_places;
-                    places.insert(name, at.to_array());
-                    Ok(())
-                })?;
-                if settled {
-                    self.history.seal();
+                // A sketch's dimension stands where its sketch says: its
+                // text is moved there, in the sketch's plane.
+                let of = self
+                    .viewport
+                    .shown
+                    .world
+                    .annotations
+                    .get(&name)
+                    .and_then(|note| note.sketch.clone());
+                if let Some(of) = of {
+                    // (Where the line of sight through where it is
+                    // dropped meets the sketch's plane.)
+                    let camera = &self.viewport.camera;
+                    let seen = self.viewport.shown.pose.transform_point(at);
+                    let sight = if camera.orthographic {
+                        camera.back().as_dvec3()
+                    } else {
+                        seen - camera.eye().as_dvec3()
+                    };
+                    let sight = back.transform_vector(sight);
+                    let normal = of.x.cross(of.y);
+                    let across = sight.dot(normal);
+                    let at = if across.abs() > 1e-9 * sight.length() {
+                        at - sight * ((at - of.origin).dot(normal) / across)
+                    } else {
+                        at
+                    };
+                    let label = workpiece_core::math::Point2::new(
+                        (at - of.origin).dot(of.x),
+                        (at - of.origin).dot(of.y),
+                    );
+                    self.change(Some(key), |ws| {
+                        let sketch = ws
+                            .part_mut(&part)?
+                            .operation_mut(&of.id)
+                            .and_then(|op| op.downcast_mut::<workpiece_ops_sketch::Sketch>())
+                            .with_context(|| format!("there is no sketch {:?}", of.id))?;
+                        let dimension = sketch
+                            .args
+                            .constraints
+                            .get_mut(&of.constraint)
+                            .and_then(|c| c.dimension.as_mut())
+                            .context("the sketch has no such dimension")?;
+                        dimension.label = label;
+                        Ok(())
+                    })?;
+                    if settled {
+                        self.history.seal();
+                    }
+                    // (The sketch is built again, its dimension there.)
+                    true
+                } else {
+                    self.change(Some(key), |ws| {
+                        let places = &mut ws.part_mut(&part)?.note_places;
+                        places.insert(name, at.to_array());
+                        Ok(())
+                    })?;
+                    if settled {
+                        self.history.seal();
+                    }
+                    false
                 }
-                false
             }
             Message::SetPartMaterial(material) => {
                 let part = self.focused_part().context("no active part")?;
@@ -600,6 +653,7 @@ impl Model {
                     // The selection went into the step.
                     self.selection.clear();
                     self.pick_next();
+                    self.take_last_sketch(&part)?;
                 }
                 true
             }
@@ -1077,7 +1131,7 @@ impl Model {
             return Vec::new();
         };
         match edit::widget_at(&session.visualization.dialog, path) {
-            Some(Widget::ReferenceInput(input)) => with_planes(&[input.kind]),
+            Some(Widget::ReferenceInput(input)) => with_planes(&input.kinds()),
             Some(Widget::ReferenceList(list)) => with_planes(&list.kinds),
             _ => Vec::new(),
         }
@@ -1226,6 +1280,59 @@ impl Model {
             densities: &densities,
         };
         Some(with(&subject))
+    }
+
+    /// An extrusion or a revolution just added without a sketch takes the
+    /// sketch drawn last, if no step uses it yet; its field still picks
+    /// (unless another has to be picked first), so a click takes another.
+    fn take_last_sketch(&mut self, part: &str) -> anyhow::Result<()> {
+        let Ok(program) = self.workspace.part(part).map(|p| &p.program) else {
+            return Ok(());
+        };
+        let Some((added, before)) = program.split_last() else {
+            return Ok(());
+        };
+        if !matches!(added.kind(), "Extrude" | "Revolve") {
+            return Ok(());
+        }
+        let Some(sketch) = before.iter().rev().find(|op| op.kind() == "Sketch") else {
+            return Ok(());
+        };
+        let id = sketch.id().to_owned();
+        let within = format!("{id}/");
+        let used = before
+            .iter()
+            .flat_map(|op| op.references())
+            .any(|s| match s {
+                Source::Profile(name) => name == id,
+                Source::Datum(name) => name.starts_with(&within),
+                _ => false,
+            });
+        if used {
+            return Ok(());
+        }
+        let Some(session) = self.session() else {
+            return Ok(());
+        };
+        let dialog = &session.visualization.dialog;
+        let Some(field) = edit::sketch_field(dialog) else {
+            return Ok(());
+        };
+        let message = match edit::widget_at(dialog, &field) {
+            // (Not over one the selection gave.)
+            Some(Widget::ReferenceInput(input)) if input.value.is_none() => {
+                input.set(Source::Profile(id))
+            }
+            _ => return Ok(()),
+        };
+        self.update(message)?;
+        // (Taken, not chosen: the step is as new.)
+        self.edit_untouched = true;
+        self.pick_next();
+        if self.picking.is_none() {
+            self.picking = Some(field);
+        }
+        Ok(())
     }
 
     /// Starts picking the edited step's first reference with nothing
@@ -2211,7 +2318,7 @@ impl Model {
                         shown.pose,
                         &shown.visibility,
                         &ray,
-                        &with_planes(&[input.kind]),
+                        &with_planes(&input.kinds()),
                     ),
                     // A connector sits on anything, of the placed
                     // parts its field takes: in the world with the
@@ -2339,14 +2446,19 @@ impl Model {
                 return self.sketch_first(&field, source);
             }
             let message = match edit::widget_at(&session.visualization.dialog, &field) {
-                Some(Widget::ReferenceInput(input)) => input.set(source),
+                // (Where on it the pointer was, for a field that asks.)
+                Some(Widget::ReferenceInput(input)) => {
+                    let at = picked.as_ref().filter(|p| p.instance.is_empty());
+                    input.set_at(source, at.map(|p| p.at))
+                }
                 Some(Widget::ConnectorInput(input)) => match picked {
                     Some(picked) => input.set(picked),
                     None => return Ok(()),
                 },
                 // A box adds (or removes) the reference and keeps picking.
                 Some(Widget::ReferenceList(list)) => {
-                    let message = list.toggle(source);
+                    let at = picked.as_ref().filter(|p| p.instance.is_empty());
+                    let message = list.pick_at(source, at.map(|p| p.at));
                     self.viewport.candidates.clear();
                     self.update(message)?;
                     self.history.seal();

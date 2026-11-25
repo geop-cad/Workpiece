@@ -32,7 +32,7 @@ use workpiece_ops_basic_shapes::{
     AddBox, AddBoxArgs, AddCone, AddConeArgs, AddCylinder, AddCylinderArgs, AddSphere,
     AddSphereArgs, AddTorus, AddTorusArgs,
 };
-use workpiece_ops_sweep::{Extrude, Revolve, RevolveAxis, SweptLoft, SweptLoftArgs};
+use workpiece_ops_sweep::{Extrude, Revolve, SweptLoft, SweptLoftArgs};
 use workpiece_shape::roll::Rolled;
 use workpiece_shape::swept::{area_along_path, through_sections};
 use workpiece_shape::{BlendShape, By, Combine, Section, blend_chains, blend_solid};
@@ -820,6 +820,11 @@ fn sketched(cmd: &str, v: &Value) -> Answer<Solid> {
     let mut sketch = workpiece_ops_sketch::Sketch::new("sketch");
     sketch.args.plane = Some(Reference::frame_axis("frame", Axis::Z));
     profile::draw(&loops, &mut sketch.args)?;
+    // (Turned about the plane's v axis: drawn in it as its rotation axis.)
+    let origin = sketch.args.add_point(workpiece_core::math::Point2::ZERO);
+    let v_axis = sketch
+        .args
+        .add_rotation_axis(origin, workpiece_core::math::Point2::Y);
     sketch.apply(&mut b)?;
     // The suite's profile is one area: its first loop, the others holes
     // in it. A sketch may hold several areas; one that is not the
@@ -844,7 +849,7 @@ fn sketched(cmd: &str, v: &Value) -> Answer<Solid> {
         }
         "revolve" => {
             let mut op = Revolve::of(cmd, Some("sketch".into()), false);
-            op.args.axis = RevolveAxis::SketchV;
+            op.args.axis = Some(workpiece_core::Source::Datum(format!("sketch/e{v_axis}")).into());
             op.args.angle = Measure::new(number(v, "angle")?.to_degrees());
             op.args.combine = Combine::NewBody;
             op.apply(&mut b)?;
@@ -853,7 +858,9 @@ fn sketched(cmd: &str, v: &Value) -> Answer<Solid> {
             let rise = number(v, "rise")?;
             let angle = number(v, "angle")?;
             let args = SweptLoftArgs {
-                sections: vec![workpiece_core::Source::Profile("sketch".into()).into()],
+                sections: vec![workpiece_ops_sweep::Section::of(
+                    workpiece_core::Source::Profile("sketch".into()),
+                )],
                 coil: Some(Reference::frame_axis("frame", Axis::Y)),
                 pitch: Measure::new(rise.abs() * std::f64::consts::TAU),
                 turns: Measure::new(angle / std::f64::consts::TAU),
@@ -899,7 +906,7 @@ fn swept(cmd: &str, v: &Value) -> Answer<Solid> {
                 one(field("profile")?, 0.0)?,
                 one(field("top")?, number(v, "height")?)?,
             ];
-            Ok(through_sections(cmd, &sections)?)
+            Ok(through_sections(cmd, &sections, &Default::default())?)
         }
         "loft_through" => {
             let profiles = field("profiles")?.as_array();
@@ -913,7 +920,7 @@ fn swept(cmd: &str, v: &Value) -> Answer<Solid> {
             for (p, h) in profiles.iter().zip(heights) {
                 sections.push(one(p, h.as_f64().ok_or_else(|| malformed("heights"))?)?);
             }
-            Ok(through_sections(cmd, &sections)?)
+            Ok(through_sections(cmd, &sections, &Default::default())?)
         }
         "sweep" => {
             let outline = area(field("profile")?)?;

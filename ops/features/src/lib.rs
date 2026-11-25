@@ -51,5 +51,35 @@ pub fn register(r: &mut workpiece_core::Registry) {
         },
     });
     r.icon("hole", include_str!("../icons/hole.svg"));
+    for (name, svg) in OPTION_ICONS {
+        r.icon(name, svg);
+    }
     r.icon("thread", include_str!("../icons/thread.svg"));
 }
+
+macro_rules! icons {
+    ($($name:literal),* $(,)?) => {
+        &[$(($name, include_str!(concat!("../icons/", $name, ".svg")))),*]
+    };
+}
+
+/// The icons of the options of a hole's choices.
+const OPTION_ICONS: &[(&str, &str)] = icons!(
+    "deburr-both",
+    "deburr-entry",
+    "deburr-exit",
+    "deburr-none",
+    "fit-coarse",
+    "fit-fine",
+    "fit-medium",
+    "hole-at-point",
+    "hole-counterbore",
+    "hole-countersink",
+    "hole-offsets",
+    "hole-polar",
+    "hole-simple",
+    "hole-sketch",
+    "hole-tapped",
+    "thread-cosmetic",
+    "thread-modelled",
+);

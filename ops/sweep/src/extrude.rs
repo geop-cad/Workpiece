@@ -114,7 +114,12 @@ pub struct ExtrudeArgs {
     pub surface: bool,
     /// Whether a surface's ends are closed with flat faces.
     #[serde(default)]
-    #[arg(label = "Ends", options = "Open|Closed", when = "self.surface")]
+    #[arg(
+        label = "Ends",
+        options = "Open|Closed",
+        icons = "ends-open|ends-closed",
+        when = "self.surface"
+    )]
     pub caps: bool,
 }
 
@@ -518,6 +523,17 @@ impl workpiece_core::Choices for Extent {
 
     fn label(self) -> &'static str {
         Self::label(self)
+    }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Extent::Distance => "extent-distance",
+            Extent::Symmetric => "extent-symmetric",
+            Extent::ThroughAll => "extent-through",
+            Extent::ThroughBoth => "extent-through-both",
+            Extent::ToNext => "extent-next",
+            Extent::ToFace => "extent-face",
+        })
     }
 }
 

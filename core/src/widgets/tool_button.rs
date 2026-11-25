@@ -162,8 +162,12 @@ impl Label {
 pub struct TextInput<M> {
     /// The caption.
     pub label: String,
+    /// The small icon beside the caption, by name.
+    pub icon: Option<&'static str>,
     /// The current text.
     pub value: String,
+    /// Whether it takes several lines: Enter breaks the line.
+    pub multiline: bool,
     /// The message for entered text.
     pub on_change: WidgetHandler<String, M>,
 }
@@ -175,11 +179,21 @@ impl<M: 'static> TextInput<M> {
         value: impl Into<String>,
         on_change: impl Fn(String) -> M + 'static,
     ) -> Self {
+        let label = label.into();
         Self {
-            label: label.into(),
+            icon: super::label_icon(&label),
+            label,
             value: value.into(),
+            multiline: false,
             on_change: Box::new(on_change),
         }
+    }
+
+    /// The same field, of several lines.
+    #[must_use]
+    pub fn multiline(mut self) -> Self {
+        self.multiline = true;
+        self
     }
 
     /// Enters `text`.
@@ -190,7 +204,9 @@ impl<M: 'static> TextInput<M> {
     pub(crate) fn map_rc<N: 'static>(self, f: &MapFn<M, N>) -> TextInput<N> {
         TextInput {
             label: self.label,
+            icon: self.icon,
             value: self.value,
+            multiline: self.multiline,
             on_change: map_handler(self.on_change, f),
         }
     }

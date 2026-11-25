@@ -254,7 +254,9 @@ impl View {
                 );
             }
         }
-        for tool in &self.ribbon.tools {
+        // (A menu's tools by their own keys.)
+        let offered = self.ribbon.tools.iter().flat_map(|t| &t.menu);
+        for tool in self.ribbon.tools.iter().chain(offered) {
             // Undo and redo always show.
             let history = matches!(tool.icon, Icon::Undo | Icon::Redo);
             if tool.enabled && (ribbon_shows || history) {

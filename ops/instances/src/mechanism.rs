@@ -153,6 +153,11 @@ fn fields_of(
                 }
             },
         )
+        .with_icons(
+            ["mech-gear", "mech-rack", "mech-screw", "mech-linear"]
+                .map(Some)
+                .to_vec(),
+        )
         .into(),
     ];
     // The joints of the assembly so far that can be its first, and

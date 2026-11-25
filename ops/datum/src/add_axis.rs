@@ -44,6 +44,16 @@ impl Mode for AxisMode {
             AxisMode::ParallelThroughPoint => "Parallel through point",
         }
     }
+
+    fn icon(self) -> &'static str {
+        match self {
+            AxisMode::TwoPoints => "axis-2points",
+            AxisMode::Along => "axis-edge",
+            AxisMode::PlanePlane => "axis-planes",
+            AxisMode::NormalToPlane => "axis-normal",
+            AxisMode::ParallelThroughPoint => "axis-parallel-point",
+        }
+    }
 }
 
 /// The construction and its references.

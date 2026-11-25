@@ -609,7 +609,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "Drawn",
+          "axis": {
+            "Datum": "housing_profile/e27"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,
@@ -754,6 +756,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -796,8 +802,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 360.0,
           "axis": {
@@ -806,14 +813,23 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 4,
+          "face": null,
           "features": [
             {
               "Topology": "tap/side/e1"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "taps"
@@ -1153,7 +1169,7 @@
             {
               "at": [
                 -40.00000000000003,
-                -0.003212957240009473
+                -0.0032129572399810513
               ],
               "note": "housing_profile/d41",
               "view": "secA"
@@ -1161,7 +1177,7 @@
             {
               "at": [
                 -47.00000000000003,
-                -0.003212957240009473
+                -0.0032129572399810513
               ],
               "note": "housing_profile/d42",
               "view": "secA"
@@ -1169,7 +1185,7 @@
             {
               "at": [
                 -54.00000000000003,
-                -0.003212957240009473
+                -0.0032129572399810513
               ],
               "note": "housing_profile/d43",
               "view": "secA"
@@ -1177,7 +1193,7 @@
             {
               "at": [
                 40.00000000000003,
-                -0.003212957240009473
+                -0.0032129572399810513
               ],
               "note": "housing_profile/d44",
               "view": "secA"
@@ -1216,7 +1232,7 @@
             },
             {
               "at": [
-                33.65605363209691,
+                33.6560536320969,
                 77.65284067485692
               ],
               "note": "tap/callout",
@@ -1225,7 +1241,7 @@
             {
               "at": [
                 59.99839876520906,
-                -0.003212957240009473
+                -0.0032129572399810513
               ],
               "note": "tap_place/d10",
               "view": "left"

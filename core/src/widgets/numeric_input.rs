@@ -8,6 +8,9 @@ use crate::world::Tolerance;
 pub struct NumericInput<M> {
     /// The caption.
     pub label: String,
+    /// The small icon beside the caption, by name: what the caption's
+    /// words say ([`super::label_icon`]) unless set.
+    pub icon: Option<&'static str>,
     /// The current value.
     pub value: f64,
     /// The formula the value comes from, if it does.
@@ -21,6 +24,9 @@ pub struct NumericInput<M> {
     /// typed replaces it) once for each new key it is given: as a
     /// dimension just placed has its value typed next.
     pub focus: Option<String>,
+    /// Whether it holds a whole number (a count): shown and entered
+    /// without decimals.
+    pub integer: bool,
     /// The message for a value the user entered.
     pub on_change: WidgetHandler<f64, M>,
     /// The message for what the user entered that is no number alone
@@ -35,16 +41,31 @@ impl<M: 'static> NumericInput<M> {
         value: f64,
         on_change: impl Fn(f64) -> M + 'static,
     ) -> Self {
+        let label = label.into();
         Self {
-            label: label.into(),
+            icon: super::label_icon(&label),
+            label,
             value,
             formula: None,
             tolerance: None,
             written: None,
             focus: None,
+            integer: false,
             on_change: Box::new(on_change),
             on_text: None,
         }
+    }
+
+    /// A field holding a whole number (a count) `value`: shown and
+    /// entered without decimals; entering `n` produces `on_change(n)`.
+    pub fn integer(
+        label: impl Into<String>,
+        value: i64,
+        on_change: impl Fn(i64) -> M + 'static,
+    ) -> Self {
+        let mut field = Self::new(label, value as f64, move |x| on_change(x.round() as i64));
+        field.integer = true;
+        field
     }
 
     /// A field showing `measure`; entering a number or a formula (valued
@@ -59,13 +80,16 @@ impl<M: 'static> NumericInput<M> {
     ) -> Self {
         let (number, parameters) = (on_change.clone(), parameters.clone());
         let was = measure.clone();
+        let label = label.into();
         Self {
-            label: label.into(),
+            icon: super::label_icon(&label),
+            label,
             value: measure.value,
             formula: measure.formula.clone(),
             tolerance: Some(measure.tolerance.clone()),
             written: measure.is_written().then(|| measure.to_string()),
             focus: None,
+            integer: false,
             on_change: Box::new(move |x| number(was.valued(x))),
             on_text: Some(Box::new(move |text: String| {
                 on_change(Measure::parse(&text, &parameters))
@@ -78,6 +102,14 @@ impl<M: 'static> NumericInput<M> {
     #[must_use]
     pub fn focused(mut self, key: impl Into<String>) -> Self {
         self.focus = Some(key.into());
+        self
+    }
+
+    /// The same field, showing the icon `icon` (by name; none for
+    /// `None`) beside its caption.
+    #[must_use]
+    pub fn with_icon(mut self, icon: impl Into<Option<&'static str>>) -> Self {
+        self.icon = icon.into();
         self
     }
 
@@ -98,6 +130,7 @@ impl<M: 'static> NumericInput<M> {
     /// Enters `value`. Non-finite values (NaN, infinity) are ignored: no
     /// message.
     pub fn set(&self, value: f64) -> Option<M> {
+        let value = if self.integer { value.round() } else { value };
         value.is_finite().then(|| (self.on_change)(value))
     }
 
@@ -116,11 +149,13 @@ impl<M: 'static> NumericInput<M> {
     pub(crate) fn map_rc<N: 'static>(self, f: &MapFn<M, N>) -> NumericInput<N> {
         NumericInput {
             label: self.label,
+            icon: self.icon,
             value: self.value,
             formula: self.formula,
             tolerance: self.tolerance,
             written: self.written,
             focus: self.focus,
+            integer: self.integer,
             on_change: map_handler(self.on_change, f),
             on_text: self.on_text.map(|h| map_handler(h, f)),
         }

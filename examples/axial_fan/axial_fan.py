@@ -53,7 +53,7 @@ def blade_section(id, offset, length, pitch):
 # One blade, lofted from its root (inside the hub) to its tip, twisted from 40° to 22°.
 root = blade_section("root", 20, 26, 40)
 tip = blade_section("tip", 80, 34, 22)
-p.op("SweptLoft", id="blade", sections=[profile(root), profile(tip)], combine="Join")
+p.loft([root, tip], id="blade", combine="Join")
 rep = p.build(OUT)
 side = rep.faces(where=lambda f: f["name"].startswith("blade/") and f["area"] > 500)[0]
 p.feature_pattern([side], 5, about=axis("Z"), id="blades")

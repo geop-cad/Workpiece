@@ -225,6 +225,15 @@ impl Refers for SketchOrBody {
     const KINDS: &'static [ReferenceKind] = &[ReferenceKind::Profile, ReferenceKind::Body];
 }
 
+/// A plane or a line: a datum plane or a flat face, or a datum axis
+/// or a straight edge — what a distance is measured from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlaneOrAxis;
+
+impl Refers for PlaneOrAxis {
+    const KINDS: &'static [ReferenceKind] = &[ReferenceKind::Plane, ReferenceKind::Axis];
+}
+
 /// Edges: an edge, or a face or a body for all of its edges.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EdgesOf;

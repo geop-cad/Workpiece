@@ -57,7 +57,7 @@ p.dimension(*tips, show_in="top", at=(0, -64))
 b_side = "bar/side/e13"; node_cyl = "node/side/e8#2"
 sides = [r.faces(near=(x, 0, 3), where=lambda f: f["flat"] and abs(f["normal"][0]) > .99)[0] for x in (-13.25, -11.75)]
 p.dimension(*sides, show_in="node", reference=True, at=(2, -38))
-p.on_sheet("featurepattern1", on_drawing=False)
+p.on_sheet("pattern1", on_drawing=False)
 # the centre lines the original dimensions from: the grid's middle and the bar 12.5 off it, each way
 for pid, ax, d in (("mid_x", "X", 0), ("cx", "X", -12.5), ("mid_y", "Y", 0), ("cy", "Y", -12.5)):
     p.plane(ax, d, id=pid); p.on_sheet(pid, on_drawing=False)

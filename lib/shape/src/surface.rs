@@ -565,12 +565,37 @@ pub fn inside(solid: &Solid, face: usize) -> Option<workpiece_core::math::Point3
 /// them, the round between them. Its faces are called `{id}/…`.
 pub fn rounded(sheet: &Solid, edges: &[usize], radius: f64, id: &str) -> anyhow::Result<Solid> {
     ensure!(radius > 0.0, "a round has some radius");
+    let shape = crate::BlendShape::Fillet {
+        by: crate::By::Radius,
+        size: radius,
+        until: None,
+        section: crate::Section::Circular,
+        rho: 0.5,
+    };
+    blended_sheet(sheet, edges, &shape, id)
+}
+
+/// `sheet` with its edges `edges` (each between two of its faces)
+/// blended as `shape` says — rounded or cut off — as a solid's edges
+/// are: the faces cut back to where the blend leaves them, the blend
+/// between them. Its faces are called `{id}/…`.
+pub fn blended_sheet(
+    sheet: &Solid,
+    edges: &[usize],
+    shape: &crate::BlendShape,
+    id: &str,
+) -> anyhow::Result<Solid> {
+    let size = match *shape {
+        crate::BlendShape::Fillet { size, until, .. } => size.max(until.unwrap_or(0.0)),
+        crate::BlendShape::Chamfer { first, second } => first.max(second),
+    };
+    ensure!(size > 0.0, "a blend has some size");
     // The sheet as a solid behind its faces, thick enough to hold the
-    // round; its edges rounded as a solid's are; of what is left, the
-    // sheet's own faces and the rounds.
+    // blend; its edges blended as a solid's are; of what is left, the
+    // sheet's own faces and the blends.
     let all: Vec<usize> = (0..sheet.faces.len()).collect();
-    let thin = crate::thick::thicken(sheet, &all, -radius * 2.0, false, true)
-        .context("the surface is too tight for a round this big")?;
+    let thin = crate::thick::thicken(sheet, &all, -size * 2.0, false, true)
+        .context("the surface is too tight for a blend this big")?;
     // Which of the sheet's faces a face of a solid is a piece of: by
     // the name the sheet's face was given for this, which stays with
     // it through the thickening and the round (faces in one plane,
@@ -592,7 +617,7 @@ pub fn rounded(sheet: &Solid, edges: &[usize], radius: f64, id: &str) -> anyhow:
         let pair = beside(sheet, edge);
         ensure!(
             pair.len() == 2,
-            "a round is between two faces: pick an edge inside the surface"
+            "a blend is between two faces: pick an edge inside the surface"
         );
         let same = (0..thin.edges.len()).find(|&e| {
             let mut faces: Vec<Option<usize>> =
@@ -602,14 +627,7 @@ pub fn rounded(sheet: &Solid, edges: &[usize], radius: f64, id: &str) -> anyhow:
         });
         found.push(same.context("the edge is lost in the surface's thickness")?);
     }
-    let shape = crate::BlendShape::Fillet {
-        by: crate::By::Radius,
-        size: radius,
-        until: None,
-        section: crate::Section::Circular,
-        rho: 0.5,
-    };
-    let made = crate::blend_solid(&thin, id, &found, &shape, false)?;
+    let made = crate::blend_solid(&thin, id, &found, shape, false)?;
     // (What the thickening made is called after it; the rounds, after
     // this.)
     let known = |f: &Face| f.name.as_deref().is_some_and(|n| n.starts_with("thick/"));

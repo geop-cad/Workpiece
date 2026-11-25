@@ -298,14 +298,23 @@
           "coil": null,
           "combine": "NewBody",
           "left": false,
-          "path": {
-            "Profile": "bend"
-          },
           "pitch": 1.0,
+          "rails": [
+            {
+              "of": {
+                "Profile": "bend"
+              },
+              "role": "Path"
+            }
+          ],
           "scale": 1.0,
           "sections": [
             {
-              "Profile": "section"
+              "end": "Free",
+              "face": null,
+              "of": {
+                "Profile": "section"
+              }
             }
           ],
           "surface": false,
@@ -687,6 +696,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -729,8 +742,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 360.0,
           "axis": {
@@ -739,14 +753,23 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 4,
+          "face": null,
           "features": [
             {
               "Topology": "bolt/side/e1"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "bolts"
@@ -794,8 +817,10 @@
       }
     },
     {
-      "FeatureMirror": {
+      "Mirror": {
         "args": {
+          "bodies": [],
+          "combine": "NewBody",
           "features": [
             {
               "Topology": "flange/side/e12"
@@ -813,6 +838,7 @@
               "Topology": "bolts/3/bolt/side/e1"
             }
           ],
+          "of": "Features",
           "plane": {
             "Datum": "bisector"
           }

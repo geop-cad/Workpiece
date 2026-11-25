@@ -651,8 +651,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Line",
           "angle": 360.0,
           "axis": {
@@ -661,14 +662,23 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 7,
+          "face": null,
           "features": [
             {
               "Topology": "slot/side/e18"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 16.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "vents"
@@ -966,6 +976,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,

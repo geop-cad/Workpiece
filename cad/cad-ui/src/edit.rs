@@ -201,6 +201,14 @@ pub(crate) fn first_empty_reference<M: 'static>(root: &Widget<M>) -> Option<Vec<
         .or_else(|| find(root, &wanting))
 }
 
+/// The path of the field in `root` that picks a sketch, if it has one.
+pub(crate) fn sketch_field<M: 'static>(root: &Widget<M>) -> Option<Vec<usize>> {
+    find(
+        root,
+        &|w| matches!(w, Widget::ReferenceInput(input) if input.kind == workpiece_core::ReferenceKind::Profile),
+    )
+}
+
 /// The path of the first widget in `root` that `wanted` takes.
 fn find<M: 'static>(root: &Widget<M>, wanted: &dyn Fn(&Widget<M>) -> bool) -> Option<Vec<usize>> {
     if wanted(root) {

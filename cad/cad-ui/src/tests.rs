@@ -116,6 +116,9 @@ fn scaled(message: Message) -> Message {
         fillet.args.size = workpiece_core::Measure::new(0.1);
     } else if let Some(extrude) = op.downcast_mut::<workpiece_ops_sweep::Extrude>() {
         extrude.args.distance = workpiece_core::Measure::new(1.0);
+    } else if let Some(hole) = op.downcast_mut::<workpiece_ops_features::Hole>() {
+        hole.args.diameter = workpiece_core::Measure::new(0.2);
+        hole.args.depth = workpiece_core::Measure::new(0.3);
     }
     Message::AddOperation { part, op }
 }
@@ -579,6 +582,22 @@ fn hovering_finds_candidates_and_clicking_selects_or_picks() -> anyhow::Result<(
     };
     assert_eq!(op.args.references, [Source::Topology("box1/top".into())]);
     assert_eq!(op.args.mode, workpiece_ops_datum::PlaneMode::Offset);
+    // A frame, though it can stand at a pose alone, starts picking its
+    // references as well.
+    m.update(Message::FinishEdit)?;
+    m.update(Message::ClearSelection)?;
+    click(&mut m, "Frame")?;
+    assert_eq!(m.picking, Some(vec![0]), "the frame's reference box");
+    hover(&mut m, Vec3::new(0.2, 0.15, 0.5))?;
+    m.update(Message::Pointer(Pointer::Click { add: false }))?;
+    let Some(op) =
+        m.workspace.parts["bolt"].program[2].downcast_ref::<workpiece_ops_datum::AddFrame>()
+    else {
+        anyhow::bail!("expected the frame");
+    };
+    // (On the plane just made there.)
+    assert_eq!(op.args.references, [Source::Datum("plane1".into())]);
+    assert_eq!(op.args.mode, workpiece_ops_datum::FrameMode::OnPlane);
     Ok(())
 }
 
@@ -781,6 +800,128 @@ fn the_selection_becomes_the_references_and_picks_the_mode() -> anyhow::Result<(
 }
 
 #[test]
+fn a_hole_goes_where_its_face_is_clicked_and_is_then_placed() -> anyhow::Result<()> {
+    use workpiece_ops_features::{Hole, HolePlace};
+    let mut m = with_box()?;
+    let hole = |m: &Model| -> Hole {
+        m.workspace.parts["bolt"].program[1]
+            .downcast_ref::<Hole>()
+            .expect("the hole")
+            .clone()
+    };
+    // The dialog opens picking the face, the first field of "Where".
+    click(&mut m, "Hole")?;
+    assert_eq!(m.picking, Some(vec![0, 0]), "picking the face");
+    // The top clicked: the hole is there at once, where it was clicked.
+    let at = Vec3::new(0.2, 0.15, 0.5);
+    select(&mut m, at, false)?;
+    let args = hole(&m).args;
+    assert_eq!(args.face, Some(Source::Topology("box1/top".into()).into()));
+    assert_eq!(args.place, HolePlace::Point);
+    let on: workpiece_core::world::DatumPlane =
+        m.viewport
+            .shown
+            .world
+            .resolve(&workpiece_core::Reference::new(Source::Topology(
+                "box1/top".into(),
+            )))?;
+    let clicked = on.origin() + on.x_dir() * args.at[0].value + on.y_dir() * args.at[1].value;
+    assert!(
+        (clicked - Point3::new(0.2, 0.15, 0.5)).length() < 0.02,
+        "{clicked:?}"
+    );
+    m.update(Message::Tick(1.0))?;
+    let shown = &m.viewport.shown;
+    assert!(shown.error.is_none(), "{:?}", shown.error);
+    assert!(
+        shown.world.annotations.contains_key("hole1/callout"),
+        "the hole previews"
+    );
+    // Then how it is placed, by the placement's pictures: off two
+    // edges, whose fields come in its place.
+    let dialog = View::new(&m)
+        .edit_dialog
+        .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
+    let Widget::VBox(fields) = dialog.fields else {
+        anyhow::bail!("expected fields");
+    };
+    let Some(Widget::Group(where_)) = fields.children.first() else {
+        anyhow::bail!("expected where");
+    };
+    assert_eq!(where_.label, "Where");
+    let Some(Widget::Choice(place)) = where_.children.get(1) else {
+        anyhow::bail!("expected the placement");
+    };
+    assert!(place.pictured(), "radio buttons with icons");
+    assert_eq!(place.options, ["Point", "Two edges", "Axis", "Sketch"]);
+    if let Some(message) = place.set(1) {
+        m.update(message)?;
+    }
+    assert_eq!(hole(&m).args.place, HolePlace::Offsets);
+    let dialog = View::new(&m)
+        .edit_dialog
+        .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
+    let Widget::VBox(fields) = dialog.fields else {
+        anyhow::bail!("expected fields");
+    };
+    let Some(Widget::Group(where_)) = fields.children.first() else {
+        anyhow::bail!("expected where");
+    };
+    let labels: Vec<String> = where_
+        .children
+        .iter()
+        .filter_map(|w| match w {
+            Widget::ReferenceInput(r) => Some(r.label.clone()),
+            Widget::HBox(row) => match row.children.first() {
+                Some(Widget::ReferenceInput(r)) => Some(r.label.clone()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+    assert_eq!(labels, ["On", "From", "And", "In"]);
+    // Until they are picked, the hole stays where the face was clicked;
+    // picked, their distances are where it is: it stays there.
+    let centre = |m: &mut Model| -> anyhow::Result<Point3> {
+        m.update(Message::Tick(1.0))?;
+        let shown = &m.viewport.shown;
+        anyhow::ensure!(shown.error.is_none(), "{:?}", shown.error);
+        match shown
+            .world
+            .annotations
+            .get("hole1/callout")
+            .map(|a| &a.note)
+        {
+            Some(workpiece_core::world::Note::Hole { centre, .. }) => Ok(*centre),
+            _ => anyhow::bail!("no hole"),
+        }
+    };
+    assert!((centre(&mut m)? - clicked).length() < 1e-9);
+    for (k, side) in [(0, "box1/right"), (1, "box1/back")] {
+        let dialog = View::new(&m)
+            .edit_dialog
+            .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
+        let Widget::VBox(fields) = dialog.fields else {
+            anyhow::bail!("expected fields");
+        };
+        let Some(Widget::Group(where_)) = fields.children.first() else {
+            anyhow::bail!("expected where");
+        };
+        let Some(Widget::HBox(row)) = where_.children.get(2 + k) else {
+            anyhow::bail!("expected a plane and its distance");
+        };
+        let Some(Widget::ReferenceInput(input)) = row.children.first() else {
+            anyhow::bail!("expected the plane");
+        };
+        m.update(input.set(Source::Topology(side.into())))?;
+    }
+    let args = hole(&m).args;
+    assert!(args.first.is_some() && args.second.is_some());
+    assert!((centre(&mut m)? - clicked).length() < 1e-3);
+    Ok(())
+}
+
+#[test]
 fn ctrl_clicks_toggle_the_selection_set() -> anyhow::Result<()> {
     let mut m = with_box()?;
     let top = Vec3::new(0.2, 0.15, 0.5);
@@ -820,7 +961,10 @@ fn the_context_menu_offers_what_fits() -> anyhow::Result<()> {
     assert!(!offered.iter().any(|l| l == "Axis"), "{offered:?}");
     // Nothing selected: what one starts with, several of them.
     m.update(Message::ClearSelection)?;
-    assert_eq!(labels(&m), ["Sketch", "Plane", "Axis", "Frame", "Curve"]);
+    assert_eq!(
+        labels(&m),
+        ["Sketch", "Plane", "Axis", "Frame", "Curve through points"]
+    );
     // While editing: closing the dialog.
     click(&mut m, "Frame")?;
     m.update(Message::ContextMenu(Some([10.0, 10.0])))?;
@@ -1105,13 +1249,21 @@ fn every_tool_has_a_hotkey_of_its_own() -> anyhow::Result<()> {
     let mut m = model();
     m.update(Message::Open("bolt".into()))?;
     let view = View::new(&m);
-    assert!(view.ribbon.tools.iter().all(|t| t.button.hotkey.is_some()));
-    let mut keys: Vec<_> = view
+    // (A menu's button only opens it: its tools have the keys.)
+    let tools: Vec<&crate::view::Tool> = view
         .ribbon
         .tools
         .iter()
-        .filter_map(|t| t.button.hotkey)
+        .flat_map(|t| {
+            if t.menu.is_empty() {
+                vec![t]
+            } else {
+                t.menu.iter().collect()
+            }
+        })
         .collect();
+    assert!(tools.iter().all(|t| t.button.hotkey.is_some()));
+    let mut keys: Vec<_> = tools.iter().filter_map(|t| t.button.hotkey).collect();
     keys.extend(
         [view.viewport.home.hotkey, view.viewport.projection.hotkey]
             .into_iter()
@@ -1503,11 +1655,13 @@ fn tabs_hold_the_tools_and_sketches_extrude_into_bodies() -> anyhow::Result<()> 
     assert!(!has(&m, "Import STEP"));
     press_key(&mut m, workpiece_core::Hotkey::ctrl('1'))?;
 
-    // Extrude asks for its sketch, and makes a body of the one picked.
+    // Extrude takes the sketch just drawn and still picks: a click on
+    // it (off the arrow in its middle) takes it for good, and it makes a
+    // body of it.
     press_key(&mut m, workpiece_core::Hotkey::key('E'))?;
     assert_eq!(m.editing, ["extrude1"]);
     assert_eq!(m.picking, Some(vec![0]));
-    click_at(&mut m, 1.0, 0.75)?;
+    click_at(&mut m, 0.7, 0.6)?;
     assert_eq!(m.picking, None);
     assert!(m.error().is_none(), "{:?}", m.error());
     m.update(Message::FinishEdit)?;
@@ -1555,10 +1709,15 @@ fn sweeps_pick_sketches_and_bodies_and_drag_their_distance() -> anyhow::Result<(
         Some(extrude) => extrude.args.clone(),
         None => panic!("expected an extrusion, found another step"),
     };
-    // No sketch is taken by itself: the field asks for one, and picks
-    // sketches, by a curve or inside an area.
-    assert_eq!(extrude(&m).sketch, None);
+    // The sketch just drawn, which nothing uses yet, is taken; the field
+    // still picks sketches (by a curve or inside an area), so a click
+    // takes another.
+    assert_eq!(
+        extrude(&m).sketch,
+        Some(Source::Profile("sketch1".into()).into())
+    );
     assert_eq!(m.picking, Some(vec![0]));
+    assert!(m.error().is_none(), "{:?}", m.error());
     hover(&mut m, Vec3::new(1.0, 0.75, 0.0))?;
     let sketch = Candidate::Reference {
         instance: Vec::new(),
@@ -1628,6 +1787,58 @@ fn sweeps_pick_sketches_and_bodies_and_drag_their_distance() -> anyhow::Result<(
     );
     // Next, the body to combine it with.
     assert_eq!(m.picking, Some(vec![2]));
+    Ok(())
+}
+
+#[test]
+fn a_revolve_takes_the_last_sketch_and_its_rotation_axis() -> anyhow::Result<()> {
+    let revolve = |m: &Model| match m.workspace.parts["bolt"]
+        .program
+        .last()
+        .and_then(|op| op.downcast_ref::<workpiece_ops_sweep::Revolve>())
+    {
+        Some(revolve) => revolve.args.clone(),
+        None => panic!("expected a revolution, found another step"),
+    };
+    // A rectangle beside a rotation axis, both drawn in the sketch.
+    let mut m = sketching()?;
+    m.update(Message::Tick(1.0))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('R'))?;
+    click_at(&mut m, 0.5, 0.5)?;
+    click_at(&mut m, 1.5, 1.0)?;
+    press_key(&mut m, workpiece_core::Hotkey::shift('Z'))?;
+    click_at(&mut m, 2.0, 0.0)?;
+    click_at(&mut m, 2.0, 1.0)?;
+    m.update(Message::FinishEdit)?;
+    // Revolve takes the sketch and its one rotation axis (a datum of the
+    // sketch's), and still picks the sketch.
+    click(&mut m, "Revolve")?;
+    let args = revolve(&m);
+    assert_eq!(args.sketch, Some(Source::Profile("sketch1".into()).into()));
+    let axes = workpiece_ops_sweep::drawn_axes(&m.viewport.shown.world, "sketch1");
+    assert_eq!(axes.len(), 1);
+    assert_eq!(args.axis, Some(Source::Datum(axes[0].clone()).into()));
+    assert_eq!(m.picking, Some(vec![0]), "still picking the sketch");
+    assert!(m.error().is_none(), "{:?}", m.error());
+    // Another axis may be picked in its place: the field takes axes,
+    // datum axes and straight edges, in the view.
+    let view = View::new(&m);
+    let dialog = view.edit_dialog.as_ref().expect("the dialog");
+    let mut takes = None;
+    dialog.fields.visit(&mut |w| {
+        if let Widget::ReferenceInput(input) = w
+            && input.label == "Rotation axis"
+        {
+            takes = Some(input.kind);
+        }
+    });
+    assert_eq!(takes, Some(workpiece_core::ReferenceKind::Axis));
+    m.update(Message::FinishEdit)?;
+    // Used now, the sketch is not taken again: the next revolution asks
+    // for one.
+    click(&mut m, "Revolve")?;
+    assert_eq!(revolve(&m).sketch, None);
+    assert_eq!(m.picking, Some(vec![0]));
     Ok(())
 }
 
@@ -3596,7 +3807,8 @@ fn sketch_dimensions_are_in_their_plane_and_bounded_from_every_camera() -> anyho
                         "{who} reaches {c:?}, the sketch {reach}"
                     );
                 }
-                assert!(!note.movable);
+                // (Dragged, it moves in its sketch.)
+                assert!(note.movable);
             }
         }
     }
@@ -3745,5 +3957,68 @@ fn what_is_selected_in_a_sketch_shows_in_its_panel_and_its_keys_win() -> anyhow:
         .iter()
         .filter(|(e, _)| sketch(&m).is_line(**e) && !sketch(&m).is_axis(**e));
     assert!(drawn.into_iter().all(|(_, e)| e.construction));
+    Ok(())
+}
+
+#[test]
+fn a_sketch_dimension_dragged_on_the_annotate_tab_moves_in_its_sketch() -> anyhow::Result<()> {
+    use workpiece_core::math::Point2;
+    // The sketch's dimensions show on the Annotate tab, and are dragged
+    // there as well: where their text stands is the sketch's own.
+    let mut m = dimensioned_from([0.0, 0.0, 1.0], false)?;
+    let notes = View::new(&m).viewport.notes;
+    let first = notes
+        .iter()
+        .find(|n| n.name.starts_with("sk/"))
+        .expect("one");
+    assert!(first.movable);
+    let name = first.name.clone();
+    // (Dropped a little off the sketch's plane: it lands in it.)
+    m.update(Message::MoveNote {
+        name: name.clone(),
+        at: [2.5, -2.25, 0.3],
+        settled: true,
+    })?;
+    let part = &m.workspace.parts["bolt"];
+    let sketch = part
+        .operation("sk")
+        .and_then(|op| op.downcast_ref::<workpiece_ops_sketch::Sketch>())
+        .expect("the sketch");
+    let labels: Vec<Point2> = sketch
+        .args
+        .constraints
+        .values()
+        .filter_map(|c| c.dimension.as_ref().map(|d| d.label))
+        .collect();
+    assert!(
+        labels
+            .iter()
+            .any(|l| l.distance(Point2::new(2.5, -2.25)) < 1e-9),
+        "{labels:?}"
+    );
+    assert!(!part.note_places.contains_key(&name));
+    // The view shows it there: drawn by the sketch, rebuilt.
+    let notes = View::new(&m).viewport.notes;
+    let moved = notes.iter().find(|n| n.name == name).expect("it");
+    assert!(
+        moved.at.distance(glam::Vec3::new(2.5, -2.25, 0.0)) < 1e-4,
+        "{}",
+        moved.at
+    );
+    // Undone in one step.
+    m.update(Message::Undo)?;
+    let part = &m.workspace.parts["bolt"];
+    let sketch = part
+        .operation("sk")
+        .and_then(|op| op.downcast_ref::<workpiece_ops_sketch::Sketch>())
+        .expect("the sketch");
+    assert!(
+        sketch
+            .args
+            .constraints
+            .values()
+            .filter_map(|c| c.dimension.as_ref())
+            .all(|d| d.label.distance(Point2::new(2.5, -2.25)) > 1e-9)
+    );
     Ok(())
 }

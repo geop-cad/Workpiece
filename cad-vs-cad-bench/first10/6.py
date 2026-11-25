@@ -31,7 +31,7 @@ def plate(D, T):
     s.distance_u(P[4], P[5], 4, at=(-8, -42))
     s.distance_v(P[5], P[6], 18, at=(8, -48))
     s.diameter_about(P[6], "u", D, on_drawing=False)
-    p.op("Revolve", "plate", id="plate", sketch=profile(s), axis="SketchU", combine="NewBody")
+    p.revolve(s, "u", combine="NewBody", id="plate")
     r = p.build(path)
     top_ring = lambda rad: r.edges(where=lambda e: e["name"].startswith("plate/ring") and abs(e["from"][2] - h) < 0.01
                                    and abs(math.hypot(e["from"][0], e["from"][1]) - rad) < 0.01 and math.dist(e["from"], e["to"]) < 1e-6)[0]

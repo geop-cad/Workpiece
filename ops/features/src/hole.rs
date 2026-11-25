@@ -4,9 +4,12 @@
 use anyhow::{Context, ensure};
 use workpiece_boolean::{Solid, read};
 use workpiece_core::math::{Point2, Point3};
+use workpiece_core::widgets::ReferenceInput;
 use workpiece_core::world::topo::{Curve2, Topo};
-use workpiece_core::world::{DatumPlane, Profile, ProfileEdge, ProfileRegion, ProfileVertex};
-use workpiece_core::{Builder, Measure, Operation};
+use workpiece_core::world::{
+    DatumAxis, DatumPlane, Profile, ProfileEdge, ProfileRegion, ProfileVertex,
+};
+use workpiece_core::{Builder, EditContext, Measure, Operation, Reference, Resolve, Widget, World};
 use workpiece_ops_sweep::Extent;
 
 use workpiece_shape::bodies::{self};
@@ -49,29 +52,46 @@ impl HoleKind {
     }
 }
 
-/// How a hole is placed.
+/// How a hole is placed on the face it is drilled into.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
 )]
 pub enum HolePlace {
-    /// At every point of a sketch.
+    /// Where the face was clicked: a point on its plane.
     #[default]
-    Sketch,
-    /// On a face, a distance from each of two planes.
+    Point,
+    /// A distance from each of two planes or straight edges.
     Offsets,
-    /// On a face, a distance from an axis, at an angle around it.
+    /// A distance from an axis, at an angle around it.
     Polar,
+    /// At every point of a sketch: as many holes as it has points.
+    Sketch,
 }
 
 impl workpiece_core::Choices for HolePlace {
-    const ALL: &'static [Self] = &[HolePlace::Sketch, HolePlace::Offsets, HolePlace::Polar];
+    const ALL: &'static [Self] = &[
+        HolePlace::Point,
+        HolePlace::Offsets,
+        HolePlace::Polar,
+        HolePlace::Sketch,
+    ];
 
     fn label(self) -> &'static str {
         match self {
-            HolePlace::Sketch => "At a sketch's points",
-            HolePlace::Offsets => "Off two planes",
-            HolePlace::Polar => "Around an axis",
+            HolePlace::Point => "Point",
+            HolePlace::Offsets => "Two edges",
+            HolePlace::Polar => "Axis",
+            HolePlace::Sketch => "Sketch",
         }
+    }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            HolePlace::Point => "hole-at-point",
+            HolePlace::Offsets => "hole-offsets",
+            HolePlace::Polar => "hole-polar",
+            HolePlace::Sketch => "hole-sketch",
+        })
     }
 }
 
@@ -110,6 +130,14 @@ impl workpiece_core::Choices for Clearance {
             Clearance::Coarse => "Coarse",
         }
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Clearance::Fine => "fit-fine",
+            Clearance::Medium => "fit-medium",
+            Clearance::Coarse => "fit-coarse",
+        })
+    }
 }
 
 /// Which ends of a hole are chamfered, to take the burr off.
@@ -139,60 +167,125 @@ impl workpiece_core::Choices for Deburr {
             Deburr::Both => "Both",
         }
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Deburr::None => "deburr-none",
+            Deburr::Entry => "deburr-entry",
+            Deburr::Exit => "deburr-exit",
+            Deburr::Both => "deburr-both",
+        })
+    }
 }
 
-/// Where the holes are, and what they are like.
+/// Where the holes are — on a face, placed one of four ways — what they
+/// are like, and how deep they go: the dialog's three parts, top to
+/// bottom.
 #[derive(
     Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 #[serde(default)]
 pub struct HoleArgs {
-    /// How it is placed.
-    #[arg(choice, label = "Placement")]
-    pub place: HolePlace,
-    /// The sketch: a hole goes at each of its points, into what is
-    /// behind its plane.
-    #[arg(when = "self.place == HolePlace::Sketch")]
-    pub sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>,
-    /// The flat face (or plane) the hole is drilled into, where it is
-    /// not placed by a sketch.
-    #[arg(label = "On", when = "self.place != HolePlace::Sketch")]
+    /// The flat face (or plane) the holes are drilled into: picked
+    /// first, where it is clicked is where the hole is. Placed by a
+    /// sketch, it may be left empty: the sketch's plane is then the
+    /// face's.
+    #[arg(with = "face_field", group = "Where")]
     pub face: Option<workpiece_core::Reference<DatumPlane>>,
-    /// The first plane (or flat face) it is a distance from.
-    #[arg(label = "From", when = "self.place == HolePlace::Offsets")]
-    pub first: Option<workpiece_core::Reference<DatumPlane>>,
-    /// How far from the first: into the body from a face of it, to the
-    /// front of a plane.
-    #[arg(label = "Distance", when = "self.place == HolePlace::Offsets")]
+    /// How it is placed on the face.
+    #[arg(choice, label = "", group = "Where")]
+    pub place: HolePlace,
+    /// At a point: where on the face's plane, in the plane's own
+    /// directions from its origin.
+    #[arg(
+        field,
+        label = "X|Y",
+        icon = "f-position",
+        when = "self.place == HolePlace::Point",
+        group = "Where"
+    )]
+    pub at: [Measure; 2],
+    /// The first plane or straight edge it is a distance from.
+    #[arg(
+        with = "first_field",
+        when = "self.place == HolePlace::Offsets",
+        group = "Where"
+    )]
+    pub first: Option<workpiece_core::Reference<workpiece_core::PlaneOrAxis>>,
+    /// How far from the first: from a face of the body or an edge of
+    /// the face drilled, into it; from a datum plane, to its front.
+    #[arg(
+        label = "",
+        icon = "f-distance",
+        row,
+        when = "self.place == HolePlace::Offsets",
+        group = "Where"
+    )]
     pub first_offset: Measure,
-    /// The second plane (or flat face) it is a distance from.
-    #[arg(label = "And from", when = "self.place == HolePlace::Offsets")]
-    pub second: Option<workpiece_core::Reference<DatumPlane>>,
+    /// The second plane or straight edge it is a distance from.
+    #[arg(
+        with = "second_field",
+        when = "self.place == HolePlace::Offsets",
+        group = "Where"
+    )]
+    pub second: Option<workpiece_core::Reference<workpiece_core::PlaneOrAxis>>,
     /// How far from the second.
-    #[arg(label = "Distance", when = "self.place == HolePlace::Offsets")]
+    #[arg(
+        label = "",
+        icon = "f-distance",
+        row,
+        when = "self.place == HolePlace::Offsets",
+        group = "Where"
+    )]
     pub second_offset: Measure,
     /// The axis it is a distance from.
-    #[arg(label = "Around", when = "self.place == HolePlace::Polar")]
+    #[arg(
+        with = "axis_field",
+        when = "self.place == HolePlace::Polar",
+        group = "Where"
+    )]
     pub axis: Option<workpiece_core::Reference<workpiece_core::world::DatumAxis>>,
     /// How far from the axis.
-    #[arg(label = "Distance", when = "self.place == HolePlace::Polar")]
+    #[arg(
+        label = "Radius",
+        when = "self.place == HolePlace::Polar",
+        group = "Where"
+    )]
     pub radius: Measure,
-    /// The angle around the axis, in degrees, from the face's u
-    /// direction (a side face's u runs to the right seen from outside).
-    #[arg(label = "Angle", row, when = "self.place == HolePlace::Polar")]
+    /// The angle around the axis, in degrees, from the face's x
+    /// direction.
+    #[arg(
+        label = "Angle",
+        row,
+        when = "self.place == HolePlace::Polar",
+        group = "Where"
+    )]
     pub angle: Measure,
+    /// The sketch: a hole goes at each of its points (those that are no
+    /// curve's end), on the face's plane.
+    #[arg(when = "self.place == HolePlace::Sketch", group = "Where")]
+    pub sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>,
+    /// The body drilled; `None` for every solid body.
+    #[arg(label = "In", empty = "All bodies", group = "Where")]
+    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
     /// What the mouth is like.
-    #[arg(choice)]
+    #[arg(choice, label = "", group = "What")]
     pub kind: HoleKind,
     /// The screw it is for, by its thread's size: its sizes are what
     /// the standards say. None for sizes of its own.
-    #[arg(label = "Size", one_of = "crate::norm::size_names()", empty = "Custom")]
+    #[arg(
+        label = "Size",
+        one_of = "crate::norm::size_names()",
+        empty = "Custom",
+        group = "What"
+    )]
     pub size: Option<String>,
     /// How easily the screw goes through (ISO 273).
     #[arg(
         choice,
         label = "Clearance",
-        when = "self.size.is_some() && self.kind != HoleKind::Tapped"
+        when = "self.size.is_some() && self.kind != HoleKind::Tapped",
+        group = "What"
     )]
     pub clearance: Clearance,
     /// Whether a counterbore is for a hexagon head, not a socket head
@@ -200,7 +293,8 @@ pub struct HoleArgs {
     #[arg(
         label = "For",
         options = "Socket head (ISO 4762)|Hexagon head (ISO 4017)",
-        when = "self.size.is_some() && self.kind == HoleKind::Counterbore"
+        when = "self.size.is_some() && self.kind == HoleKind::Counterbore",
+        group = "What"
     )]
     pub hexagon: bool,
     /// Whether a countersink is for a slotted or cross recessed screw,
@@ -208,7 +302,8 @@ pub struct HoleArgs {
     #[arg(
         label = "For",
         options = "Socket (ISO 10642)|Slotted, cross (ISO 2009)",
-        when = "self.size.is_some() && self.kind == HoleKind::Countersink"
+        when = "self.size.is_some() && self.kind == HoleKind::Countersink",
+        group = "What"
     )]
     pub slotted: bool,
     /// The fine pitch of a standard tapped hole's thread; none for the
@@ -217,122 +312,147 @@ pub struct HoleArgs {
         label = "Pitch",
         one_of = "crate::norm::fine_names(self.size.as_deref())",
         empty = "Coarse",
-        when = "self.size.is_some() && self.kind == HoleKind::Tapped"
+        when = "self.size.is_some() && self.kind == HoleKind::Tapped",
+        group = "What"
     )]
     pub fine: Option<String>,
     /// The bore's diameter (for a tapped hole, the thread's).
-    #[arg(when = "self.size.is_none()")]
+    #[arg(when = "self.size.is_none()", group = "What")]
     pub diameter: Measure,
     /// The tolerance class a plain bore is made to (ISO 286).
     #[arg(
         label = "Fit",
         one_of = "crate::norm::class_names()",
         empty = "None",
-        when = "self.size.is_none() && self.kind == HoleKind::Simple"
+        when = "self.size.is_none() && self.kind == HoleKind::Simple",
+        group = "What"
     )]
     pub class: Option<String>,
-    /// Where the counterbore's floor is: a depth from the mouth, or
-    /// at a face or datum plane.
-    #[serde(default)]
-    #[arg(
-        label = "Head ends",
-        among = "[Extent::Distance, Extent::ToFace]",
-        when = "self.kind == HoleKind::Counterbore"
-    )]
-    pub head_extent: Extent,
-    /// The diameter of the counterbore, or of the countersink at the
-    /// mouth.
-    #[arg(
-        label = "Head diameter",
-        when = "self.size.is_none() && matches!(self.kind, HoleKind::Counterbore | HoleKind::Countersink)"
-    )]
-    pub head: Measure,
-    /// How deep the counterbore is.
-    #[arg(
-        row,
-        when = "self.size.is_none() && self.kind == HoleKind::Counterbore && self.head_extent == Extent::Distance"
-    )]
-    pub head_depth: Measure,
-    /// The face or plane the counterbore's floor is at.
-    #[serde(default)]
-    #[arg(
-        label = "Head up to",
-        when = "self.kind == HoleKind::Counterbore && self.head_extent == Extent::ToFace"
-    )]
-    pub head_up_to: Option<workpiece_core::Reference<DatumPlane>>,
-    /// How much deeper than that face or plane the floor is (less
-    /// than nothing: short of it).
-    #[arg(
-        label = "Head offset",
-        when = "self.kind == HoleKind::Counterbore && self.head_extent == Extent::ToFace"
-    )]
-    pub head_offset: Measure,
-    /// The angle of the countersink's cone, in degrees.
-    #[arg(
-        row,
-        when = "self.size.is_none() && self.kind == HoleKind::Countersink"
-    )]
-    pub head_angle: Measure,
     /// The pitch of a tapped hole's thread.
-    #[arg(when = "self.size.is_none() && self.kind == HoleKind::Tapped")]
+    #[arg(
+        row,
+        when = "self.size.is_none() && self.kind == HoleKind::Tapped",
+        group = "What"
+    )]
     pub pitch: Measure,
     /// Whether a tapped hole's thread is cut into its wall, not only
     /// said of it.
     #[arg(
         label = "Thread",
         options = "Cosmetic|Modelled",
-        when = "self.kind == HoleKind::Tapped"
+        icons = "thread-cosmetic|thread-modelled",
+        when = "self.kind == HoleKind::Tapped",
+        group = "What"
     )]
     pub modelled: bool,
+    /// The diameter of the counterbore, or of the countersink at the
+    /// mouth.
+    #[arg(
+        label = "Head diameter",
+        when = "self.size.is_none() && matches!(self.kind, HoleKind::Counterbore | HoleKind::Countersink)",
+        group = "What"
+    )]
+    pub head: Measure,
+    /// The angle of the countersink's cone, in degrees.
+    #[arg(
+        label = "Angle",
+        row,
+        when = "self.size.is_none() && self.kind == HoleKind::Countersink",
+        group = "What"
+    )]
+    pub head_angle: Measure,
+    /// Where the counterbore's floor is: a depth from the mouth, or
+    /// at a face or datum plane.
+    #[arg(
+        label = "Head ends",
+        among = "[Extent::Distance, Extent::ToFace]",
+        when = "self.kind == HoleKind::Counterbore",
+        group = "What"
+    )]
+    pub head_extent: Extent,
+    /// How deep the counterbore is.
+    #[arg(
+        label = "Head depth",
+        when = "self.size.is_none() && self.kind == HoleKind::Counterbore && self.head_extent == Extent::Distance",
+        group = "What"
+    )]
+    pub head_depth: Measure,
+    /// The face or plane the counterbore's floor is at.
+    #[arg(
+        label = "Head up to",
+        when = "self.kind == HoleKind::Counterbore && self.head_extent == Extent::ToFace",
+        group = "What"
+    )]
+    pub head_up_to: Option<workpiece_core::Reference<DatumPlane>>,
+    /// How much deeper than that face or plane the floor is (less
+    /// than nothing: short of it).
+    #[arg(
+        label = "Head offset",
+        when = "self.kind == HoleKind::Counterbore && self.head_extent == Extent::ToFace",
+        group = "What"
+    )]
+    pub head_offset: Measure,
+    /// Which of its ends are chamfered, to take the burr off.
+    #[arg(choice, label = "Deburr", group = "What")]
+    pub deburr: Deburr,
+    /// How wide the chamfer is: how much wider than the hole its
+    /// mouth is, on each side.
+    #[arg(
+        label = "Chamfer",
+        when = "self.deburr != Deburr::None",
+        group = "What"
+    )]
+    pub chamfer: Measure,
+    /// The angle of the chamfer's cone, in degrees.
+    #[arg(
+        label = "Angle",
+        row,
+        when = "self.deburr != Deburr::None",
+        group = "What"
+    )]
+    pub chamfer_angle: Measure,
     /// Where the bore ends: at a depth, through everything, through
     /// the wall it starts in (where it first comes out), or at a face
     /// or datum plane.
-    #[serde(default)]
-    #[arg(label = "Extent", among = "Extent::ONE_WAY")]
+    #[arg(label = "", among = "Extent::ONE_WAY", group = "How deep")]
     pub extent: Extent,
     /// How deep the bore is, to where its full width ends.
-    #[arg(when = "self.extent == Extent::Distance")]
+    #[arg(when = "self.extent == Extent::Distance", group = "How deep")]
     pub depth: Measure,
+    /// Whether it is drilled the other way: out of the face's front.
+    #[arg(flip, row, group = "How deep")]
+    pub flip: bool,
     /// The face or plane the bore's full width ends at.
-    #[serde(default)]
-    #[arg(label = "Up to", when = "self.extent == Extent::ToFace")]
+    #[arg(
+        label = "Up to",
+        when = "self.extent == Extent::ToFace",
+        group = "How deep"
+    )]
     pub up_to: Option<workpiece_core::Reference<DatumPlane>>,
     /// How much deeper than that face or plane it goes (less than
     /// nothing: short of it).
-    #[arg(label = "Offset", when = "self.extent == Extent::ToFace")]
+    #[arg(
+        label = "Offset",
+        when = "self.extent == Extent::ToFace",
+        group = "How deep"
+    )]
     pub offset: Measure,
-    /// Whether it is drilled the other way: out of the sketch plane's
-    /// front.
-    #[arg(flip, row)]
-    pub flip: bool,
     /// The angle of the drill's point at the bottom of a hole with a
     /// depth, in degrees; 180 for a flat bottom.
     #[arg(
         label = "Point angle",
-        when = "matches!(self.extent, Extent::Distance | Extent::ToFace)"
+        when = "matches!(self.extent, Extent::Distance | Extent::ToFace)",
+        group = "How deep"
     )]
     pub point: Measure,
-    /// Which of its ends are chamfered, to take the burr off.
-    #[arg(choice, label = "Deburr")]
-    pub deburr: Deburr,
-    /// How wide the chamfer is: how much wider than the hole its
-    /// mouth is, on each side.
-    #[arg(label = "Chamfer", when = "self.deburr != Deburr::None")]
-    pub chamfer: Measure,
-    /// The angle of the chamfer's cone, in degrees.
-    #[arg(label = "Chamfer angle", row, when = "self.deburr != Deburr::None")]
-    pub chamfer_angle: Measure,
-    /// The body drilled; `None` for every solid body.
-    #[arg(label = "In", empty = "All bodies")]
-    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
 }
 
 impl Default for HoleArgs {
     fn default() -> Self {
         Self {
-            place: HolePlace::Sketch,
-            sketch: None,
             face: None,
+            place: HolePlace::Point,
+            at: [Measure::new(0.0), Measure::new(0.0)],
             first: None,
             first_offset: Measure::new(10.0),
             second: None,
@@ -340,6 +460,8 @@ impl Default for HoleArgs {
             axis: None,
             radius: Measure::new(10.0),
             angle: Measure::new(0.0),
+            sketch: None,
+            target: None,
             kind: HoleKind::Simple,
             size: None,
             clearance: Clearance::Medium,
@@ -348,26 +470,306 @@ impl Default for HoleArgs {
             fine: None,
             diameter: Measure::new(6.0),
             class: None,
-            extent: Extent::Distance,
-            depth: Measure::new(10.0),
-            up_to: None,
-            offset: Measure::new(0.0),
-            point: Measure::new(118.0),
+            pitch: Measure::new(1.0),
+            modelled: false,
             head: Measure::new(11.0),
+            head_angle: Measure::new(90.0),
             head_extent: Extent::Distance,
             head_depth: Measure::new(6.4),
             head_up_to: None,
             head_offset: Measure::new(0.0),
-            head_angle: Measure::new(90.0),
-            pitch: Measure::new(1.0),
-            modelled: false,
-            flip: false,
             deburr: Deburr::None,
             chamfer: Measure::new(0.5),
             chamfer_angle: Measure::new(90.0),
-            target: None,
+            extent: Extent::Distance,
+            depth: Measure::new(10.0),
+            flip: false,
+            up_to: None,
+            offset: Measure::new(0.0),
+            point: Measure::new(118.0),
         }
     }
+}
+
+/// The field of the face the holes are drilled into: picked, the hole
+/// goes where the face was clicked (placed at a point; placed another
+/// way, the click only picks the face).
+fn face_field(args: &HoleArgs, context: &EditContext<'_>) -> Vec<Widget<HoleArgs>> {
+    let value = args.face.as_ref().map(|r| r.source.clone());
+    let kind = workpiece_core::ReferenceKind::Plane;
+    let (put, at) = (args.clone(), args.clone());
+    let world = context.world.clone();
+    let field = ReferenceInput::of_kind("On", kind, value, move |source| {
+        let mut new = put.clone();
+        new.face = Some(Reference::new(source));
+        new
+    })
+    .picked_at(move |source, point| {
+        let mut new = at.clone();
+        let face = Reference::<DatumPlane>::new(source);
+        if let Ok(plane) = world.resolve(&face) {
+            let d = point - plane.origin();
+            new.at = [d.dot(plane.x_dir()), d.dot(plane.y_dir())].map(round);
+        }
+        new.face = Some(face);
+        new
+    });
+    let field = if args.place == HolePlace::Sketch {
+        let clear = args.clone();
+        field.optional("The sketch's plane", move || {
+            let mut new = clear.clone();
+            new.face = None;
+            new
+        })
+    } else {
+        field
+    };
+    vec![field.into()]
+}
+
+/// Where the (first) hole is now, by `args` in `world`, if that is known.
+fn hole_now(args: &HoleArgs, world: &World) -> Option<Point3> {
+    let measure = |m: &Measure, _: &str| Ok(m.value);
+    placed(args, world, &measure)
+        .ok()
+        .map(|(places, _, _)| places[0])
+}
+
+/// The field of a plane or straight edge the hole is off (`second`, or
+/// the first): picked, its distance is set to how far the hole is from
+/// it now, so the hole stays where it is.
+fn offset_field(args: &HoleArgs, context: &EditContext<'_>, second: bool) -> Vec<Widget<HoleArgs>> {
+    let (label, value) = if second {
+        ("And", &args.second)
+    } else {
+        ("From", &args.first)
+    };
+    let value = value.as_ref().map(|r| r.source.clone());
+    let (args, world) = (args.clone(), context.world.clone());
+    let field = ReferenceInput::new(
+        label,
+        value.map(Reference::new),
+        move |picked: Reference<workpiece_core::PlaneOrAxis>| {
+            let mut new = args.clone();
+            let source = &picked.source;
+            let on = args.face.as_ref().and_then(|f| world.resolve(f).ok());
+            if let (Some(p), Some(on)) = (hole_now(&args, &world), on) {
+                // (From a plane square to it; from a line across it, seen
+                // square onto the face, as the hole is placed.)
+                let away = match DatumPlane::resolve(&world, source) {
+                    Ok(plane) => Some((p - plane.origin()).dot(plane.normal()).abs()),
+                    Err(_) => DatumAxis::resolve(&world, source).ok().and_then(|line| {
+                        let across = line.direction().cross(on.normal()).try_normalize()?;
+                        Some((p - line.origin()).dot(across).abs())
+                    }),
+                };
+                if let Some(away) = away {
+                    let offset = if second {
+                        &mut new.second_offset
+                    } else {
+                        &mut new.first_offset
+                    };
+                    *offset = round(away);
+                }
+            }
+            if second {
+                new.second = Some(picked);
+            } else {
+                new.first = Some(picked);
+            }
+            new
+        },
+    );
+    vec![field.into()]
+}
+
+fn first_field(args: &HoleArgs, context: &EditContext<'_>) -> Vec<Widget<HoleArgs>> {
+    offset_field(args, context, false)
+}
+
+fn second_field(args: &HoleArgs, context: &EditContext<'_>) -> Vec<Widget<HoleArgs>> {
+    offset_field(args, context, true)
+}
+
+/// The field of the axis the hole is around: picked, the radius and
+/// the angle are set to where the hole is now, so it stays there.
+fn axis_field(args: &HoleArgs, context: &EditContext<'_>) -> Vec<Widget<HoleArgs>> {
+    let value = args.axis.as_ref().map(|r| r.source.clone());
+    let (args, world) = (args.clone(), context.world.clone());
+    let field = ReferenceInput::new(
+        "Around",
+        value.map(Reference::new),
+        move |axis: Reference<DatumAxis>| {
+            let mut new = args.clone();
+            let now = hole_now(&args, &world);
+            let on = args.face.as_ref().and_then(|f| world.resolve(f).ok());
+            if let (Some(p), Some(on), Ok(line)) = (now, on, world.resolve(&axis)) {
+                let across = line.direction().dot(on.normal());
+                if across.abs() > 1e-9 {
+                    let along = (on.origin() - line.origin()).dot(on.normal()) / across;
+                    let centre = line.origin() + line.direction() * along;
+                    let d = p - centre;
+                    let (x, y) = (d.dot(on.x_dir()), d.dot(on.y_dir()));
+                    new.radius = round(x.hypot(y));
+                    new.angle = round(y.atan2(x).to_degrees());
+                }
+            }
+            new.axis = Some(axis);
+            new
+        },
+    );
+    vec![field.into()]
+}
+
+/// `x` to a thousandth: a click is no more precise than that.
+fn round(x: f64) -> Measure {
+    Measure::new((x * 1000.0).round() / 1000.0)
+}
+
+/// Where the holes are: their centres on the face, the way out of what
+/// they are drilled into (the face's normal), and the face's plane.
+fn placed(
+    args: &HoleArgs,
+    world: &World,
+    measure: &dyn Fn(&Measure, &str) -> anyhow::Result<f64>,
+) -> anyhow::Result<(Vec<Point3>, Point3, DatumPlane)> {
+    let face = |what: &str| -> anyhow::Result<DatumPlane> {
+        Ok(world.resolve(args.face.as_ref().context(what.to_owned())?)?)
+    };
+    // At the point of the face's plane `at` says.
+    let point = |on: DatumPlane| -> anyhow::Result<(Vec<Point3>, Point3, DatumPlane)> {
+        let (x, y) = (measure(&args.at[0], "x")?, measure(&args.at[1], "y")?);
+        let at = on.origin() + on.x_dir() * x + on.y_dir() * y;
+        Ok((vec![at], on.normal(), on))
+    };
+    match args.place {
+        HolePlace::Point => point(face("pick the face to drill into")?),
+        HolePlace::Sketch => {
+            let sketch = args.sketch.as_ref().context("pick a sketch")?.name();
+            let profile = world
+                .profiles
+                .get(sketch)
+                .with_context(|| format!("there is no sketch {sketch:?}"))?;
+            // A hole at every point of the sketch that is no curve's
+            // end: on the face's plane, if one is picked.
+            let mut used = vec![false; profile.vertices.len()];
+            for edge in &profile.edges {
+                used[edge.start] = true;
+                used[edge.end] = true;
+            }
+            let frame = Frame::of(profile);
+            let on = match &args.face {
+                Some(_) => face("")?,
+                None => profile.plane,
+            };
+            let (o, n) = (on.origin(), on.normal());
+            let places: Vec<Point3> = (0..used.len())
+                .filter(|v| !used[*v])
+                .map(|v| {
+                    let p = frame.place(profile.vertices[v].point);
+                    p - n * (p - o).dot(n)
+                })
+                .collect();
+            ensure!(
+                !places.is_empty(),
+                "the sketch {sketch:?} has no points: put one where each hole goes"
+            );
+            Ok((places, n, on))
+        }
+        // Until what it is placed by is picked, it stays where the face
+        // was clicked.
+        HolePlace::Offsets if args.first.is_none() || args.second.is_none() => {
+            point(face("pick the face to drill into")?)
+        }
+        HolePlace::Polar if args.axis.is_none() => point(face("pick the face to drill into")?),
+        HolePlace::Offsets => {
+            let on = face("pick the face to drill into")?;
+            let n0 = on.normal();
+            // The planes it is a distance from: a face of the body is
+            // measured from into the body, a plane to its front; an
+            // edge of the face drilled, into the face.
+            let mut rows = vec![(n0, n0.dot(on.origin()))];
+            let inside = face_middle(world, args.face.as_ref());
+            for (reference, offset, what) in [
+                (&args.first, &args.first_offset, "the first distance"),
+                (&args.second, &args.second_offset, "the second distance"),
+            ] {
+                let reference = reference
+                    .as_ref()
+                    .context("pick the two planes or edges it is off")?;
+                let offset = measure(offset, what)?;
+                let source = &reference.source;
+                let plane = DatumPlane::resolve(world, source);
+                let row = match plane {
+                    Ok(plane) => {
+                        let inward = matches!(source, workpiece_core::Source::Topology(_));
+                        let offset = if inward { -offset } else { offset };
+                        (plane.normal(), plane.normal().dot(plane.origin()) + offset)
+                    }
+                    Err(_) => {
+                        let line = DatumAxis::resolve(world, source)?;
+                        let across = line
+                            .direction()
+                            .cross(n0)
+                            .try_normalize()
+                            .context("the line goes through the face: pick one along it")?;
+                        // (Towards the middle of the face, where that is
+                        // known.)
+                        let towards = match inside {
+                            Some(c) if (c - line.origin()).dot(across) < 0.0 => -across,
+                            _ => across,
+                        };
+                        (towards, towards.dot(line.origin()) + offset)
+                    }
+                };
+                rows.push(row);
+            }
+            // Where the three planes meet.
+            let (n, d): (Vec<Point3>, Vec<f64>) = rows.into_iter().unzip();
+            let volume = n[0].dot(n[1].cross(n[2]));
+            ensure!(
+                volume.abs() > 1e-9,
+                "the face and the two planes or edges meet in no one point: two of them are parallel"
+            );
+            let at = (n[1].cross(n[2]) * d[0] + n[2].cross(n[0]) * d[1] + n[0].cross(n[1]) * d[2])
+                / volume;
+            Ok((vec![at], n0, on))
+        }
+        HolePlace::Polar => {
+            let on = face("pick the face to drill into")?;
+            let axis = world.resolve(args.axis.as_ref().context("pick the axis it is around")?)?;
+            let radius = measure(&args.radius, "the distance from the axis")?;
+            let angle = measure(&args.angle, "the angle")?.to_radians();
+            let across = axis.direction().dot(on.normal());
+            ensure!(
+                across.abs() > 1e-9,
+                "the axis lies along the face: it has to come through it"
+            );
+            let along = (on.origin() - axis.origin()).dot(on.normal()) / across;
+            let centre = axis.origin() + axis.direction() * along;
+            let at = centre + (on.x_dir() * angle.cos() + on.y_dir() * angle.sin()) * radius;
+            Ok((vec![at], on.normal(), on))
+        }
+    }
+}
+
+/// About the middle of the face `face` names, if it names a face of a
+/// body: the middle of its corners.
+fn face_middle(world: &World, face: Option<&Reference<DatumPlane>>) -> Option<Point3> {
+    let workpiece_core::Source::Topology(name) = &face?.source else {
+        return None;
+    };
+    let topo = &world.topo;
+    let id = topo.resolve::<workpiece_core::world::topo::FaceId>(name)?;
+    let points: Vec<Point3> = topo
+        .face(id)?
+        .loops
+        .iter()
+        .filter_map(|l| topo.loop_vertices(*l))
+        .flatten()
+        .filter_map(|v| topo.vertex(v).map(|v| v.point))
+        .collect();
+    (!points.is_empty()).then(|| points.iter().sum::<Point3>() / points.len() as f64)
 }
 
 /// Drills holes at the points of a sketch.
@@ -814,78 +1216,7 @@ impl Operation for Hole {
         let world = builder.tracked();
         // Where the holes go, and which way is out of what they are
         // drilled into.
-        let (places, out_of) = match args.place {
-            HolePlace::Sketch => {
-                let sketch = args.sketch.as_ref().context("pick a sketch")?.name();
-                let profile = world
-                    .profiles
-                    .get(sketch)
-                    .with_context(|| format!("there is no sketch {sketch:?}"))?;
-                // A hole at every point of the sketch that is no curve's
-                // end.
-                let mut used = vec![false; profile.vertices.len()];
-                for edge in &profile.edges {
-                    used[edge.start] = true;
-                    used[edge.end] = true;
-                }
-                let frame = Frame::of(profile);
-                let places: Vec<Point3> = (0..used.len())
-                    .filter(|v| !used[*v])
-                    .map(|v| frame.place(profile.vertices[v].point))
-                    .collect();
-                ensure!(
-                    !places.is_empty(),
-                    "the sketch {sketch:?} has no points: put one where each hole goes"
-                );
-                (places, frame.normal())
-            }
-            HolePlace::Offsets => {
-                let on = (*builder)
-                    .resolve(args.face.as_ref().context("pick the face to drill into")?)?;
-                // The planes it is a distance from: a face of the body
-                // is measured from into the body, a plane to its front.
-                let mut rows = vec![(on.normal(), on.normal().dot(on.origin()))];
-                for (plane, offset, what) in [
-                    (&args.first, &args.first_offset, "the first distance"),
-                    (&args.second, &args.second_offset, "the second distance"),
-                ] {
-                    let plane = plane.as_ref().context("pick the two planes it is off")?;
-                    let offset = measure(offset, what)?;
-                    let inward = matches!(plane.source, workpiece_core::Source::Topology(_));
-                    let plane = (*builder).resolve(plane)?;
-                    let offset = if inward { -offset } else { offset };
-                    rows.push((plane.normal(), plane.normal().dot(plane.origin()) + offset));
-                }
-                // Where the three planes meet.
-                let (n, d): (Vec<Point3>, Vec<f64>) = rows.into_iter().unzip();
-                let volume = n[0].dot(n[1].cross(n[2]));
-                ensure!(
-                    volume.abs() > 1e-9,
-                    "the face and the two planes meet in no one point: two of them are parallel"
-                );
-                let at =
-                    (n[1].cross(n[2]) * d[0] + n[2].cross(n[0]) * d[1] + n[0].cross(n[1]) * d[2])
-                        / volume;
-                (vec![at], on.normal())
-            }
-            HolePlace::Polar => {
-                let on = (*builder)
-                    .resolve(args.face.as_ref().context("pick the face to drill into")?)?;
-                let axis = (*builder)
-                    .resolve(args.axis.as_ref().context("pick the axis it is around")?)?;
-                let radius = measure(&args.radius, "the distance from the axis")?;
-                let angle = measure(&args.angle, "the angle")?.to_radians();
-                let across = axis.direction().dot(on.normal());
-                ensure!(
-                    across.abs() > 1e-9,
-                    "the axis lies along the face: it has to come through it"
-                );
-                let along = (on.origin() - axis.origin()).dot(on.normal()) / across;
-                let centre = axis.origin() + axis.direction() * along;
-                let at = centre + (on.x_dir() * angle.cos() + on.y_dir() * angle.sin()) * radius;
-                (vec![at], on.normal())
-            }
-        };
+        let (places, out_of, _) = placed(args, world, &measure)?;
         let direction = out_of * if args.flip { 1.0 } else { -1.0 };
         let topo = &world.topo;
         // The bodies drilled, as each hole leaves them for the next.
@@ -1128,6 +1459,78 @@ impl Operation for Hole {
         Ok(out.made)
     }
 
+    fn visualize_edit(
+        &self,
+        context: &EditContext<'_>,
+        (): &(),
+    ) -> workpiece_core::EditVisualization<workpiece_core::Edit<HoleArgs, ()>> {
+        use workpiece_core::handles::{AngularHandle, Handle, LinearHandle};
+        let args = &self.args;
+        let fields = workpiece_core::Arguments::fields(args, context);
+        let mut handles: std::collections::BTreeMap<String, Handle<HoleArgs>> =
+            std::collections::BTreeMap::new();
+        let measure = |m: &Measure, what: &str| {
+            m.resolve(context.parameters)
+                .with_context(|| what.to_owned())
+        };
+        let value = |m: &Measure| m.resolve(context.parameters).unwrap_or(m.value);
+        let where_ = |a: &HoleArgs| placed(a, context.world, &measure).ok();
+        if let Some((places, normal, plane)) = where_(args) {
+            let at = places[0];
+            // An arrow for each distance that places it: along the way
+            // the hole moves as the distance grows, its tip at the hole.
+            type Get = fn(&mut HoleArgs) -> &mut Measure;
+            let moved: Vec<(&str, Get)> = match args.place {
+                HolePlace::Point => vec![("x", |a| &mut a.at[0]), ("y", |a| &mut a.at[1])],
+                HolePlace::Offsets => vec![
+                    ("first", |a| &mut a.first_offset),
+                    ("second", |a| &mut a.second_offset),
+                ],
+                HolePlace::Polar => vec![("radius", |a| &mut a.radius)],
+                HolePlace::Sketch => Vec::new(),
+            };
+            for (name, get) in moved {
+                let mut probe = args.clone();
+                let now = value(get(&mut probe));
+                *get(&mut probe) = Measure::new(now + 1.0);
+                let Some((further, _, _)) = where_(&probe) else {
+                    continue;
+                };
+                let way = further[0] - at;
+                let drag = workpiece_shape::ui::set(args, move |a, x: f64| *get(a) = round(x));
+                if let Some(arrow) = LinearHandle::new(at - way * now, way, now, drag) {
+                    handles.insert(name.to_owned(), arrow.into());
+                }
+            }
+            if args.place == HolePlace::Polar
+                && let Some(Ok(axis)) = args.axis.as_ref().map(|a| context.world.resolve(a))
+            {
+                let across = axis.direction().dot(normal);
+                if across.abs() > 1e-9 {
+                    let along = (plane.origin() - axis.origin()).dot(normal) / across;
+                    let centre = axis.origin() + axis.direction() * along;
+                    let drag = workpiece_shape::ui::set(args, |a, x: f64| a.angle = round(x));
+                    let knob =
+                        AngularHandle::new(centre, normal, plane.x_dir(), value(&args.angle), drag);
+                    if let Some(knob) = knob {
+                        handles.insert("angle".to_owned(), knob.into());
+                    }
+                }
+            }
+            // The depth: an arrow down the bore of the first hole.
+            if args.extent == Extent::Distance {
+                let down = normal * if args.flip { 1.0 } else { -1.0 };
+                let drag =
+                    workpiece_shape::ui::set(args, |a, x: f64| a.depth = round(x.abs().max(0.01)));
+                if let Some(arrow) = LinearHandle::new(at, down, value(&args.depth), drag) {
+                    handles.insert("depth".to_owned(), arrow.into());
+                }
+            }
+        }
+        workpiece_core::EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles)
+            .map(workpiece_core::Edit::args)
+    }
+
     fn summary(&self) -> String {
         let a = &self.args;
         let size = match (a.standard().ok().flatten(), a.kind) {
@@ -1151,8 +1554,9 @@ impl Operation for Hole {
             (None, HoleKind::Countersink) => format!("⌀{}, countersink ⌀{}", a.diameter, a.head),
         };
         let placed = match a.place {
-            HolePlace::Sketch => "",
-            HolePlace::Offsets => ", off two planes",
+            HolePlace::Point => "",
+            HolePlace::Sketch => ", at a sketch's points",
+            HolePlace::Offsets => ", off two edges",
             HolePlace::Polar => ", around an axis",
         };
         let deburred = match a.deburr {
@@ -1177,6 +1581,15 @@ impl workpiece_core::Choices for HoleKind {
 
     fn label(self) -> &'static str {
         Self::label(self)
+    }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            HoleKind::Simple => "hole-simple",
+            HoleKind::Counterbore => "hole-counterbore",
+            HoleKind::Countersink => "hole-countersink",
+            HoleKind::Tapped => "hole-tapped",
+        })
     }
 }
 

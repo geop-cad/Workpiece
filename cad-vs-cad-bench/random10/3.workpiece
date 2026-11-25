@@ -1094,14 +1094,23 @@
           "coil": null,
           "combine": "NewBody",
           "left": false,
-          "path": {
-            "Profile": "path"
-          },
           "pitch": 1.0,
+          "rails": [
+            {
+              "of": {
+                "Profile": "path"
+              },
+              "role": "Path"
+            }
+          ],
           "scale": 1.0,
           "sections": [
             {
-              "Profile": "section"
+              "end": "Free",
+              "face": null,
+              "of": {
+                "Profile": "section"
+              }
             }
           ],
           "surface": false,
@@ -1333,6 +1342,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -1995,9 +2008,7 @@
           "angle": 360.0,
           "areas": [],
           "axis": {
-            "Picked": {
-              "Datum": "boss_axis"
-            }
+            "Datum": "boss_axis"
           },
           "caps": false,
           "combine": "Join",
@@ -2569,6 +2580,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,

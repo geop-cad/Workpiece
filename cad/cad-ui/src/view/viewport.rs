@@ -309,7 +309,8 @@ fn sketch_note(
         name: name.to_owned(),
         at: place(note.at),
         text: note.text(),
-        movable: false,
+        // (Dragged, it moves in its sketch.)
+        movable: true,
         strokes: Vec::new(),
         fills: Vec::new(),
         texts: Vec::new(),
@@ -442,7 +443,10 @@ fn masses(
             strokes.push((place(w.centre - arm), place(w.centre + arm)));
         }
         let number = |x: f64| {
-            let digits = (3 - x.abs().log10().floor() as i32).clamp(0, 9) as usize;
+            // (Of nothing the logarithm is no number: no digits.)
+            let digits = 3i32
+                .saturating_sub(x.abs().log10().floor() as i32)
+                .clamp(0, 9) as usize;
             if x == 0.0 {
                 "0".to_owned()
             } else {
@@ -549,8 +553,8 @@ pub struct NoteShown {
     pub at: glam::Vec3,
     /// What it says, in a line.
     pub text: String,
-    /// Whether it is dragged to stand elsewhere: not a sketch's
-    /// dimension, which stands where the sketch has it.
+    /// Whether it is dragged to stand elsewhere (a sketch's dimension
+    /// is moved in its sketch, where the sketch has it).
     pub movable: bool,
     /// Its lines: dimension and extension lines, leaders, frames.
     pub strokes: Vec<(glam::Vec3, glam::Vec3)>,

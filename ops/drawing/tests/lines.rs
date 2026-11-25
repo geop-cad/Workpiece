@@ -23,6 +23,7 @@ fn drilled_block() -> anyhow::Result<Standalone> {
     Hole {
         id: "hole".into(),
         args: HoleArgs {
+            place: workpiece_ops_features::HolePlace::Sketch,
             sketch: Some(Source::Profile("points".into()).into()),
             diameter: Measure::new(0.5),
             extent: workpiece_ops_sweep::Extent::ThroughAll,

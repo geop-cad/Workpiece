@@ -120,4 +120,28 @@ pub fn register(r: &mut workpiece_core::Registry) {
     r.icon("slot", include_str!("../icons/slot.svg"));
     r.icon("thread", include_str!("../icons/thread.svg"));
     r.icon("weld", include_str!("../icons/weld.svg"));
+    for (name, svg) in OPTION_ICONS {
+        r.icon(name, svg);
+    }
 }
+
+macro_rules! icons {
+    ($($name:literal),* $(,)?) => {
+        &[$(($name, include_str!(concat!("../icons/", $name, ".svg")))),*]
+    };
+}
+
+/// The icons of the options of these operations' choices.
+const OPTION_ICONS: &[(&str, &str)] = icons!(
+    "constraint-fixed",
+    "constraint-free",
+    "mech-gear",
+    "mech-linear",
+    "mech-rack",
+    "mech-screw",
+    "std-all",
+    "std-bearing",
+    "std-nut",
+    "std-screw",
+    "std-washer",
+);

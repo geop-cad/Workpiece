@@ -62,7 +62,7 @@ mod tests;
 
 pub use apart::{Meeting, distance, interference};
 pub use drawn::{Drawn, project};
-pub use fuse::{Outcome, combine};
+pub use fuse::{Outcome, combine, meeting_curves};
 pub use inertia::{Spread, spread};
 pub use io::{Out, Sheet, read, read_sheet, remove, write, write_sheet};
 pub use measure::{Measures, face_area, measure};

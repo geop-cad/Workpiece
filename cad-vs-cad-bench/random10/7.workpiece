@@ -4,7 +4,7 @@
       "Sketch": {
         "args": {
           "constraints": {
-            "22": {
+            "23": {
               "dimension": null,
               "kind": {
                 "Coincident": [
@@ -13,7 +13,7 @@
                 ]
               }
             },
-            "23": {
+            "24": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -23,7 +23,7 @@
                 }
               }
             },
-            "24": {
+            "25": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -33,7 +33,7 @@
                 }
               }
             },
-            "25": {
+            "26": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -43,7 +43,7 @@
                 }
               }
             },
-            "26": {
+            "27": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -53,7 +53,7 @@
                 }
               }
             },
-            "27": {
+            "28": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -63,7 +63,7 @@
                 }
               }
             },
-            "28": {
+            "29": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -83,7 +83,7 @@
                 }
               }
             },
-            "29": {
+            "30": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -102,7 +102,7 @@
                 ]
               }
             },
-            "30": {
+            "31": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -122,7 +122,7 @@
                 }
               }
             },
-            "31": {
+            "32": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -142,7 +142,7 @@
                 }
               }
             },
-            "32": {
+            "33": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -162,7 +162,7 @@
                 }
               }
             },
-            "33": {
+            "34": {
               "dimension": null,
               "kind": {
                 "Tangent": {
@@ -172,7 +172,7 @@
                 }
               }
             },
-            "34": {
+            "35": {
               "dimension": null,
               "kind": {
                 "Tangent": {
@@ -182,7 +182,7 @@
                 }
               }
             },
-            "35": {
+            "36": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -196,6 +196,15 @@
               },
               "kind": {
                 "Size": 21
+              }
+            },
+            "37": {
+              "dimension": null,
+              "kind": {
+                "Parallel": [
+                  22,
+                  4
+                ]
               }
             }
           },
@@ -310,6 +319,23 @@
               },
               "tolerance": 1e-7
             },
+            "22": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Axis": {
+                  "direction": [
+                    1.0,
+                    0.0
+                  ],
+                  "through": 1
+                }
+              },
+              "tolerance": 1e-7
+            },
             "4": {
               "auto": false,
               "axis": "U",
@@ -339,7 +365,7 @@
               "tolerance": 1e-7
             }
           },
-          "next": 35,
+          "next": 37,
           "plane": {
             "FrameAxis": {
               "axis": "Y",
@@ -445,7 +471,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "SketchU",
+          "axis": {
+            "Datum": "sketch1/e22"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,
@@ -590,6 +618,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -1262,8 +1294,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 360.0,
           "axis": {
@@ -1272,7 +1305,10 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 3,
+          "face": null,
           "features": [
             {
               "Topology": "scallop/side/e22"
@@ -1281,11 +1317,17 @@
               "Topology": "padscallop/side/e8"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
-        "id": "featurepattern1"
+        "id": "pattern1"
       }
     },
     {
@@ -1357,7 +1399,7 @@
           "kind": "Diameter",
           "of": [
             {
-              "Topology": "featurepattern1/1/scallop/side/e22"
+              "Topology": "pattern1/1/scallop/side/e22"
             }
           ],
           "plain": false,
@@ -1383,7 +1425,7 @@
           "kind": "Auto",
           "of": [
             {
-              "Topology": "featurepattern1/2/scallop/start/e17"
+              "Topology": "pattern1/2/scallop/start/e17"
             },
             {
               "Topology": "body/edge[scallop/side/e17+side/e16#2#3]"
@@ -1765,9 +1807,9 @@
             {
               "at": [
                 -30.302235706153823,
-                -36.52703644666224
+                -36.52703644666269
               ],
-              "note": "sketch1/d29",
+              "note": "sketch1/d30",
               "view": "secA"
             },
             {
@@ -1775,7 +1817,7 @@
                 -62.0,
                 0.0
               ],
-              "note": "sketch1/d30",
+              "note": "sketch1/d31",
               "view": "front"
             },
             {
@@ -1783,15 +1825,15 @@
                 80.0,
                 0.0
               ],
-              "note": "sketch1/d32",
+              "note": "sketch1/d33",
               "view": "front"
             },
             {
               "at": [
                 -16.727922061357845,
-                -46.7279220613587
+                -46.72792206135915
               ],
-              "note": "sketch1/d35",
+              "note": "sketch1/d36",
               "view": "secA"
             },
             {

@@ -12,6 +12,7 @@ pub fn registry() -> &'static workpiece_core::Registry {
     static BUILT: OnceLock<&'static workpiece_core::Registry> = OnceLock::new();
     BUILT.get_or_init(|| {
         let mut all = workpiece_core::Registry::default();
+        workpiece_core::widgets::register_icons(&mut all);
         workpiece_ops_sketch::register(&mut all);
         workpiece_ops_datum::register(&mut all);
         workpiece_ops_basic_shapes::register(&mut all);

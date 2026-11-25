@@ -81,7 +81,7 @@ ring = s.circle(s.point(123, 3, "rc"), 3, "ringwire"); s.diameter(ring, 6, refer
 od = s.circle(s.origin, 126, "od", construction=True); s.diameter(od, 252, at=(-66, 66))
 s.tangent(ring, od, True); s.tangent(ring, "u")
 s.distance_v(s.origin, "rc", 3, on_drawing=False)
-p.revolve(s, about="SketchV", combine="NewBody", id="ring")
+p.revolve(s, about="v", combine="NewBody", id="ring")
 
 p.on_sheet("pl25", on_drawing=False); p.on_sheet("pl50", on_drawing=False); p.on_sheet("trim", on_drawing=False); p.on_sheet("bent2", on_drawing=False)
 p.dimension("wires/side/e13", "wires/side/e14", same_side=True, show_in="top", id="pitch", at=(9, -84))

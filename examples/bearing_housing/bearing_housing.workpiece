@@ -412,7 +412,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "Drawn",
+          "axis": {
+            "Datum": "hub_profile/e19"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,
@@ -966,6 +968,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -1008,8 +1014,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 360.0,
           "axis": {
@@ -1018,14 +1025,23 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 4,
+          "face": null,
           "features": [
             {
               "Topology": "bolt/side/e1"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "bolts"
@@ -1374,7 +1390,7 @@
             },
             {
               "at": [
-                65.0,
+                -65.00000000000001,
                 -15.500000000000028
               ],
               "note": "flange/distance",
@@ -1382,7 +1398,7 @@
             },
             {
               "at": [
-                -72.00000000000001,
+                -72.0,
                 0.0
               ],
               "note": "flange_outline/d24",
@@ -1438,7 +1454,7 @@
             },
             {
               "at": [
-                72.0,
+                65.0,
                 -2.842170943040401e-14
               ],
               "note": "hub_profile/d31",
@@ -1446,7 +1462,7 @@
             },
             {
               "at": [
-                65.0,
+                72.0,
                 14.999999999999972
               ],
               "note": "hub_profile/d32",

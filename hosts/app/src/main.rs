@@ -83,7 +83,11 @@ fn main() -> anyhow::Result<()> {
     }
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Workpiece")
-        .with_inner_size([1600.0, 960.0]);
+        // (As large as the screen; where nothing makes it so, small
+        // enough to fit on most: what is at its right edge — the
+        // dialogs — on the screen.)
+        .with_inner_size([1280.0, 800.0])
+        .with_maximized(true);
     if let Some(icon) = icon() {
         viewport = viewport.with_icon(icon);
     }
@@ -594,6 +598,10 @@ impl eframe::App for App {
                 ui.max_rect()
             })
             .inner;
+        // (What of the view is on the window: a ribbon wider than the
+        // window makes the view wider too, past its right edge — the
+        // dialogs stand inside the window all the same.)
+        let area = area.intersect(ui.ctx().content_rect());
         if let Some(shown) = &view.sheet {
             // (A drawing's dialog says what is selected on its sheet.)
             self.sheet.inspector(ui.ctx(), area, shown, &mut out);

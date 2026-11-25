@@ -309,7 +309,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "Drawn",
+          "axis": {
+            "Datum": "hub_profile/e15"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,
@@ -1082,15 +1084,23 @@
           "coil": null,
           "combine": "Join",
           "left": false,
-          "path": null,
           "pitch": 1.0,
+          "rails": [],
           "scale": 1.0,
           "sections": [
             {
-              "Profile": "root"
+              "end": "Free",
+              "face": null,
+              "of": {
+                "Profile": "root"
+              }
             },
             {
-              "Profile": "tip"
+              "end": "Free",
+              "face": null,
+              "of": {
+                "Profile": "tip"
+              }
             }
           ],
           "surface": false,
@@ -1102,8 +1112,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 360.0,
           "axis": {
@@ -1112,14 +1123,23 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 5,
+          "face": null,
           "features": [
             {
               "Topology": "blade/side/e0"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "blades"
@@ -1472,7 +1492,7 @@
             },
             {
               "at": [
-                7.105427357601002e-14,
+                2.5579538487363607e-13,
                 -25.0
               ],
               "note": "hub_profile/d23",
@@ -1480,7 +1500,7 @@
             },
             {
               "at": [
-                91.41880197855184,
+                91.41880197855153,
                 0.0
               ],
               "note": "hub_profile/d24",
@@ -1488,31 +1508,31 @@
             },
             {
               "at": [
-                -35.20526224699849,
-                17.602631123499307
+                -35.205262246998274,
+                17.602631123499364
               ],
               "note": "hub_round/radius",
               "view": "front"
             },
             {
               "at": [
-                14.05661040438406,
-                -34.791331615469204
+                -16.67885655829599,
+                41.281618597436534
               ],
               "note": "tip/d23",
               "view": "sec_tip"
             },
             {
               "at": [
-                -45.43200887377017,
-                -18.355723077387538
+                -45.43200887376986,
+                -18.355723077387324
               ],
               "note": "tip/d24",
               "view": "sec_tip"
             },
             {
               "at": [
-                58.5241772736091,
+                -58.52417727360921,
                 -15.0
               ],
               "note": "tip/d28",
@@ -1520,7 +1540,7 @@
             },
             {
               "at": [
-                -11.891707386316341,
+                -11.891707386315943,
                 -8.920444268613906
               ],
               "note": "tip/d29",
@@ -1528,8 +1548,8 @@
             },
             {
               "at": [
-                91.41880197855184,
-                -37.43388217064674
+                91.41880197855153,
+                -37.433882170646484
               ],
               "note": "tip_plane/distance",
               "view": "top"

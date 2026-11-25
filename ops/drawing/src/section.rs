@@ -30,6 +30,13 @@ impl Choices for Along {
             Along::Sketch => "A sketch's lines",
         }
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Along::Plane => "section-plane",
+            Along::Sketch => "section-sketch",
+        })
+    }
 }
 
 /// Where a section cuts.
@@ -54,7 +61,11 @@ pub struct SectionArgs {
     pub sketch: Option<Reference<Sketched>>,
     /// Whether the other side is taken away.
     #[serde(default)]
-    #[arg(label = "Takes away", options = "This side|The other side")]
+    #[arg(
+        label = "Takes away",
+        options = "This side|The other side",
+        icons = "side-front|side-back"
+    )]
     pub flip: bool,
 }
 

@@ -15,8 +15,9 @@
 //!   has `Choices`), shown as one.
 //! - `#[arg(field)]`: a field of another type there is a widget for
 //!   (three measures, as X, Y and Z).
-//! - `#[arg(nested)]`: a field whose type has arguments of its own:
-//!   what it refers to is referred to.
+//! - `#[arg(nested)]`: a field whose type has arguments of its own
+//!   (or a `Vec` of such): what it refers to is referred to. With
+//!   `with`, the function makes its widgets.
 //! - `#[arg(options = "One way|Both ways")]`: what the two states of a
 //!   `bool` are called.
 //! - `#[arg(flip)]`: a `bool` shown as the small button that turns
@@ -32,6 +33,13 @@
 //!   be chosen, which shows as that.
 //! - `#[arg(with = "path::to::function")]`: the field's widgets are
 //!   what `function(&arguments, context)` makes.
+//! - `#[arg(icon = "f-depth")]`: the icon beside the field's caption,
+//!   where its words do not say it (see `widgets::label_icon`).
+//! - `#[arg(icons = "one-way|both-ways")]`: the icons of the two states
+//!   of a `bool`, which then show as pictures.
+//! - `#[arg(group = "Where")]`: the field is in the part of the
+//!   dialog of that name (fields one after another of the same group
+//!   are one part, headed by its name).
 //! - `#[arg(hidden)]`: no field in the dialog.
 
 use proc_macro::TokenStream;
@@ -55,6 +63,9 @@ struct Said {
     label_by: Option<String>,
     with: Option<String>,
     one_of: Option<String>,
+    icon: Option<String>,
+    icons: Option<String>,
+    group: Option<String>,
 }
 
 fn said(field: &syn::Field) -> syn::Result<Said> {
@@ -91,6 +102,12 @@ fn said(field: &syn::Field) -> syn::Result<Said> {
                 out.with = Some(text(&meta)?);
             } else if meta.path.is_ident("one_of") {
                 out.one_of = Some(text(&meta)?);
+            } else if meta.path.is_ident("icon") {
+                out.icon = Some(text(&meta)?);
+            } else if meta.path.is_ident("group") {
+                out.group = Some(text(&meta)?);
+            } else if meta.path.is_ident("icons") {
+                out.icons = Some(text(&meta)?);
             } else if meta.path.is_ident("flip") {
                 out.flip = true;
             } else if meta.path.is_ident("row") {
@@ -181,7 +198,10 @@ pub fn arguments(input: TokenStream) -> TokenStream {
             sources_mut.push(quote! {
                 out.extend(::workpiece_core::Arguments::references_mut(&mut self.#ident));
             });
-            continue;
+            // (Its widgets, if a function makes them.)
+            if said.with.is_none() {
+                continue;
+            }
         }
         let refers = refers(&field.ty);
         if refers {
@@ -193,6 +213,7 @@ pub fn arguments(input: TokenStream) -> TokenStream {
             });
         }
         let (row, when) = (said.row, said.when.clone());
+        let group = said.group.clone().unwrap_or_default();
         let when = match when.as_deref().map(syn::parse_str::<syn::Expr>) {
             Some(Ok(when)) => quote! { #when },
             Some(Err(e)) => return e.to_compile_error().into(),
@@ -208,7 +229,7 @@ pub fn arguments(input: TokenStream) -> TokenStream {
                 if #when {
                     let made: ::std::vec::Vec<::workpiece_core::Widget<Self>> = #with(self, context);
                     for (k, widget) in made.into_iter().enumerate() {
-                        fields.push((#row && k == 0, widget));
+                        fields.push((#group, #row && k == 0, widget));
                     }
                 }
             });
@@ -258,6 +279,14 @@ pub fn arguments(input: TokenStream) -> TokenStream {
             None => quote! { ::core::option::Option::None },
         };
         let flip = said.flip;
+        let icon = match said.icon {
+            Some(icon) => quote! { ::core::option::Option::Some(#icon) },
+            None => quote! { ::core::option::Option::None },
+        };
+        let icons = match said.icons.as_deref().and_then(|o| o.split_once('|')) {
+            Some((no, yes)) => quote! { ::core::option::Option::Some((#no, #yes)) },
+            None => quote! { ::core::option::Option::None },
+        };
         widgets.push(quote! {
             if #when {
                 let args = ::core::clone::Clone::clone(self);
@@ -270,6 +299,8 @@ pub fn arguments(input: TokenStream) -> TokenStream {
                         empty: #empty,
                         options: #options,
                         flip: #flip,
+                        icon: #icon,
+                        icons: #icons,
                     },
                     context,
                     move |x| {
@@ -278,7 +309,7 @@ pub fn arguments(input: TokenStream) -> TokenStream {
                         new
                     },
                 );
-                fields.push((#row, widget));
+                fields.push((#group, #row, widget));
             }
         });
     }
@@ -307,7 +338,7 @@ pub fn arguments(input: TokenStream) -> TokenStream {
                 #[allow(unused_mut)]
                 let mut fields = ::std::vec::Vec::new();
                 #(#widgets)*
-                ::workpiece_core::arguments::rows(fields)
+                ::workpiece_core::arguments::grouped(fields)
             }
         }
     }

@@ -18,8 +18,10 @@ pub mod arcs;
 pub mod blend;
 pub mod bodies;
 pub mod cut;
+pub mod fill;
 pub mod gn;
 pub mod heal;
+pub mod interpolate;
 pub mod known;
 mod local;
 pub mod on;
@@ -40,7 +42,7 @@ pub use blend::{
 };
 pub use bodies::Combine;
 pub use split::{halves, halves_by, section};
-pub use surface::{between, faces_of, filled, rounded, ruled, trimmed, whole};
+pub use surface::{between, blended_sheet, faces_of, filled, rounded, ruled, trimmed, whole};
 pub use thick::{
     drafted, faces_moved, faces_offset, faces_placed, faces_to_plane, thicken, thickened,
 };

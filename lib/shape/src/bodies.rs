@@ -240,6 +240,35 @@ impl workpiece_core::Choices for Combine {
     fn label(self) -> &'static str {
         Self::label(self)
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Combine::NewBody => "combine-new",
+            Combine::Join => "combine-join",
+            Combine::Cut => "combine-cut",
+            Combine::Intersect => "combine-intersect",
+        })
+    }
+}
+
+/// The named solid and surface bodies of `topo` that what `names` refer
+/// to is of — a body, or a face, an edge or a vertex of one — in the
+/// order they were made.
+pub fn bodies_with<S: AsRef<str>>(topo: &Topo, names: &[S]) -> Vec<(BodyId, String)> {
+    let mut owners: Vec<BodyId> = names
+        .iter()
+        .filter_map(|name| topo.owner(topo.referred(name.as_ref())?))
+        .collect();
+    owners.sort();
+    owners.dedup();
+    owners
+        .into_iter()
+        .filter(|&body| {
+            topo.body(body)
+                .is_some_and(|b| matches!(b.kind, BodyKind::Solid | BodyKind::Sheet))
+        })
+        .filter_map(|body| Some((body, topo.name_of(body)?.to_owned())))
+        .collect()
 }
 
 /// The named solid bodies of `topo` that what `names` refer to is of —

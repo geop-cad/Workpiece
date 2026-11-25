@@ -119,6 +119,48 @@ pub enum Shape {
         /// Its direction, of length one.
         direction: Point2,
     },
+    /// Text: the outlines of its letters, laid out in a box — a
+    /// rectangle, turned as it is drawn. Its corners are points of the
+    /// sketch (the box's sides construction lines between them, held
+    /// square), so the box is dimensioned, constrained and dragged as
+    /// any rectangle; the letters follow it.
+    Text(TextBox),
+}
+
+/// How the lines of a text stand across its box.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub enum Align {
+    /// From the left (or the top).
+    #[default]
+    Start,
+    /// In the middle.
+    Middle,
+    /// To the right (or the bottom).
+    End,
+}
+
+/// A text in a box: see [`Shape::Text`].
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct TextBox {
+    /// The box's corners, counter-clockwise as the text reads: where
+    /// its baseline starts (lower left), where it ends (lower right),
+    /// the upper right, the upper left.
+    pub corners: [Id; 4],
+    /// What it says; a line break starts a new line.
+    pub text: String,
+    /// How high its capital letters are.
+    pub size: f64,
+    /// How its lines stand across the box: left, centred, right.
+    #[serde(default)]
+    pub align: Align,
+    /// How the lines stand in the box's height: at the top, in the
+    /// middle, at the bottom.
+    #[serde(default)]
+    pub valign: Align,
+    /// Whether a line too long for the box breaks between words; else
+    /// only where the text has a line break.
+    #[serde(default)]
+    pub wrap: bool,
 }
 
 /// Something drawn in a sketch.
@@ -595,6 +637,7 @@ impl SketchArgs {
             Some(Shape::Arc { center, start, end }) => vec![*center, *start, *end],
             Some(Shape::Spline { control, .. }) => control.clone(),
             Some(Shape::Axis { through, .. }) => vec![*through],
+            Some(Shape::Text(text)) => text.corners.to_vec(),
             None => Vec::new(),
         }
     }
@@ -735,6 +778,23 @@ impl SketchArgs {
             return;
         }
         let points = self.points_of(id);
+        // A text's box goes with it.
+        if let Some(Shape::Text(text)) = self.entities.get(&id).map(|e| &e.shape) {
+            let corners = text.corners;
+            let sides: Vec<Id> = self
+                .entities
+                .iter()
+                .filter(|(_, e)| {
+                    e.construction
+                        && matches!(e.shape, Shape::Line(a, b)
+                            if corners.contains(&a) && corners.contains(&b))
+                })
+                .map(|(&side, _)| side)
+                .collect();
+            for side in sides {
+                self.entities.remove(&side);
+            }
+        }
         self.entities.remove(&id);
         for p in points {
             if self.entities_at(p).is_empty() {

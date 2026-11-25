@@ -293,6 +293,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -335,8 +339,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 360.0,
           "axis": {
@@ -345,14 +350,23 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 4,
+          "face": null,
           "features": [
             {
               "Topology": "screw_hole/side/e1"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "screw_holes"
@@ -692,15 +706,15 @@
             {
               "at": [
                 0.0,
-                -60.00321295723998
+                -60.003212957239995
               ],
               "note": "cover/distance",
               "view": "secA"
             },
             {
               "at": [
-                16.97056274847715,
-                -16.973775705717117
+                16.970562748477136,
+                -16.973775705717145
               ],
               "note": "cover_outline/d10",
               "view": "left"
@@ -708,7 +722,7 @@
             {
               "at": [
                 43.84062043356596,
-                -43.843833390805926
+                -43.843833390805955
               ],
               "note": "cover_outline/d9",
               "view": "left"
@@ -716,14 +730,14 @@
             {
               "at": [
                 66.99839876520906,
-                -0.0032129572399810513
+                -0.003212957240009473
               ],
               "note": "hole_place/d10",
               "view": "left"
             },
             {
               "at": [
-                33.65605363209691,
+                33.65605363209693,
                 77.65284067485692
               ],
               "note": "screw_hole/callout",

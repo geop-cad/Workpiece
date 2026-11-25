@@ -348,6 +348,14 @@ pub fn hold_fields(hold: &Hold, step: &str, prefer: Option<JointKind>) -> Vec<Wi
             other => other.label().to_owned(),
         })
         .collect();
+    let icons = constraints
+        .iter()
+        .map(|c| match c {
+            Constraint::Free => Some("constraint-free"),
+            Constraint::Fixed => Some("constraint-fixed"),
+            Constraint::Joint(kind) => workpiece_core::Choices::icon(*kind),
+        })
+        .collect::<Vec<_>>();
     let with_constraint = {
         let hold = hold.clone();
         move |i: usize| Hold {
@@ -357,6 +365,7 @@ pub fn hold_fields(hold: &Hold, step: &str, prefer: Option<JointKind>) -> Vec<Wi
     };
     fields.push(
         Choice::new("Constraint", labels, chosen.unwrap_or(0), with_constraint)
+            .with_icons(icons)
             .drop_down()
             .into(),
     );

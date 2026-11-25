@@ -64,6 +64,9 @@ pub trait Mode: Copy + PartialEq + 'static {
 
     /// The mode's name, e.g. `"Midplane"`.
     fn label(self) -> &'static str;
+
+    /// The mode's icon, by name.
+    fn icon(self) -> &'static str;
 }
 
 /// What a construction's arguments have in common: a mode, and one list
@@ -240,15 +243,23 @@ fn construction_fields<A: Construction>(args: &A, world: &Arc<World>) -> Vec<Wid
         let args = args.clone();
         move |i: usize| args.with(modes[i], args.references())
     };
+    let mut references = ReferenceList::new(
+        "References",
+        KINDS.to_vec(),
+        args.references(),
+        set_references,
+    );
+    // Empty, it is what is picked first: a construction that needs
+    // nothing (a frame at a pose) starts from what is picked as well.
+    if args.references().is_empty() {
+        references = references.required();
+    }
     vec![
-        ReferenceList::new(
-            "References",
-            KINDS.to_vec(),
-            args.references(),
-            set_references,
-        )
-        .into(),
+        references.into(),
+        // (Many: a list, each with its picture.)
         Choice::new("Construction", labels, selected, set_mode)
+            .with_icons(modes.iter().map(|m| Some(m.icon())).collect())
+            .drop_down()
             .with_enabled(enabled)
             .with_reasons(reasons)
             .into(),
@@ -387,6 +398,9 @@ pub fn register(r: &mut workpiece_core::Registry) {
     r.icon("frame", include_str!("../icons/frame.svg"));
     r.icon("parallel", include_str!("../icons/parallel.svg"));
     r.icon("plane", include_str!("../icons/plane.svg"));
+    for (name, svg) in OPTION_ICONS {
+        r.icon(name, svg);
+    }
 }
 
 /// What a construction is, in a few words: its mode, and what of.
@@ -397,3 +411,32 @@ pub(crate) fn constructed(mode: &str, references: &[Source]) -> String {
     let from: Vec<String> = references.iter().map(Source::described).collect();
     format!("{} of {}", mode.to_lowercase(), from.join(", "))
 }
+
+macro_rules! icons {
+    ($($name:literal),* $(,)?) => {
+        &[$(($name, include_str!(concat!("../icons/", $name, ".svg")))),*]
+    };
+}
+
+/// The icons of the options of these operations' choices.
+const OPTION_ICONS: &[(&str, &str)] = icons!(
+    "axis-2points",
+    "axis-edge",
+    "axis-normal",
+    "axis-parallel-point",
+    "axis-planes",
+    "frame-3points",
+    "frame-axis-point",
+    "frame-plane",
+    "frame-plane-point",
+    "frame-point",
+    "frame-pose",
+    "plane-3points",
+    "plane-angle",
+    "plane-axis-point",
+    "plane-midplane",
+    "plane-normal-axis",
+    "plane-offset",
+    "plane-parallel-point",
+    "plane-tangent",
+);

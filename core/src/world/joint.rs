@@ -174,4 +174,15 @@ impl crate::Choices for JointKind {
     fn label(self) -> &'static str {
         Self::label(self)
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            JointKind::Fastened => "joint-fastened",
+            JointKind::Revolute => "joint-revolute",
+            JointKind::Slider => "joint-slider",
+            JointKind::Cylindrical => "joint-cylindrical",
+            JointKind::Planar => "joint-planar",
+            JointKind::Ball => "joint-ball",
+        })
+    }
 }

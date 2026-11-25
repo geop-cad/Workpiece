@@ -16,13 +16,21 @@ use crate::norm;
 #[serde(default)]
 pub struct ThreadArgs {
     /// Whether the thread is cut into the face, not only said of it.
-    #[arg(label = "Thread", options = "Cosmetic|Modelled")]
+    #[arg(
+        label = "Thread",
+        options = "Cosmetic|Modelled",
+        icons = "thread-cosmetic|thread-modelled"
+    )]
     pub modelled: bool,
     /// The cylindrical face: a rod's side, or a hole's wall.
     pub face: Option<workpiece_core::Reference<workpiece_core::world::topo::FaceId>>,
     /// Whether its pitch and depth are entered, not taken from the
     /// standard for the face's diameter.
-    #[arg(label = "Size", options = "ISO metric|Custom")]
+    #[arg(
+        label = "Size",
+        options = "ISO metric|Custom",
+        icons = "size-standard|size-custom"
+    )]
     pub custom: bool,
     /// How far the thread advances in a turn.
     #[arg(when = "self.custom")]
@@ -31,7 +39,11 @@ pub struct ThreadArgs {
     #[arg(row, when = "self.custom")]
     pub depth: Measure,
     /// Whether it is a left-handed thread.
-    #[arg(label = "Hand", options = "Right-handed|Left-handed")]
+    #[arg(
+        label = "Hand",
+        options = "Right-handed|Left-handed",
+        icons = "hand-right|hand-left"
+    )]
     pub left: bool,
 }
 

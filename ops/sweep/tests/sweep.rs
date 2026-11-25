@@ -1,7 +1,7 @@
 //! What the operations of this crate make.
 
 use workpiece_core::world::AreaPick;
-use workpiece_ops_sweep::{Extent, Extrude, Revolve, RevolveAxis};
+use workpiece_ops_sweep::{Extent, Extrude, Rail, Revolve, Role, Section};
 use workpiece_ops_testing::*;
 use workpiece_shape::Combine;
 
@@ -222,7 +222,7 @@ fn sketches_revolve_into_rings_and_combine() -> anyhow::Result<()> {
     // A rectangle beside the v axis, turned around it.
     sketch(&mut b, "s", xy(), Some(([1.0, 0.0], [2.0, 1.0])), &[])?;
     let mut ring = Revolve::of("ring", Some("s".into()), false);
-    ring.args.axis = RevolveAxis::SketchV;
+    ring.args.axis = Some(Reference::frame_axis(ORIGIN, Axis::Y));
     ring.apply(&mut b)?;
     check(&b);
     close(volume(&b.world.topo, body(&b, "ring")), 3.0 * PI, 0.05);
@@ -234,7 +234,7 @@ fn sketches_revolve_into_rings_and_combine() -> anyhow::Result<()> {
     ] {
         let mut quarter = Revolve::of(id, Some("s".into()), false);
         quarter.args.combine = Combine::NewBody;
-        quarter.args.axis = RevolveAxis::SketchV;
+        quarter.args.axis = Some(Reference::frame_axis(ORIGIN, Axis::Y));
         quarter.args.angle = Measure::new(90.0);
         quarter.args.flip = flip;
         quarter.args.symmetric = symmetric;
@@ -256,7 +256,7 @@ fn sketches_revolve_into_rings_and_combine() -> anyhow::Result<()> {
     .apply(&mut b)?;
     sketch(&mut b, "s", xy(), Some(([1.0, 0.0], [2.0, 1.0])), &[])?;
     let mut groove = Revolve::of("groove", Some("s".into()), false);
-    groove.args.axis = RevolveAxis::SketchV;
+    groove.args.axis = Some(Reference::frame_axis(ORIGIN, Axis::Y));
     groove.args.combine = Combine::Cut;
     groove.apply(&mut b)?;
     check(&b);
@@ -285,7 +285,7 @@ fn a_sketch_with_a_rotation_axis_is_turned_about_it() -> anyhow::Result<()> {
     let through = s.args.add_point(Point2::new(3.0, 0.0));
     s.args.add_rotation_axis(through, Point2::Y);
     s.apply(&mut b)?;
-    // Picked in its dialog, the sketch's rotation axis is chosen.
+    // Picked in its dialog, the sketch's one rotation axis is chosen.
     let picker = Revolve::of("ring", None, false);
     let world = std::sync::Arc::new(b.world.clone());
     let cache = workpiece_core::Cache::default();
@@ -299,7 +299,12 @@ fn a_sketch_with_a_rotation_axis_is_turned_about_it() -> anyhow::Result<()> {
         }
     });
     let picked = picked.expect("a sketch field").args.expect("arguments");
-    assert_eq!(picked.axis, RevolveAxis::Drawn);
+    let drawn = workpiece_ops_sweep::drawn_axes(&b.world, "s");
+    assert_eq!(drawn.len(), 1, "the sketch's one rotation axis is a datum");
+    assert_eq!(
+        picked.axis,
+        Some(workpiece_core::Source::Datum(drawn[0].clone()).into())
+    );
     let mut ring = picker;
     ring.args = picked;
     ring.apply(&mut b)?;
@@ -331,8 +336,11 @@ fn sketches_sweep_along_paths() -> anyhow::Result<()> {
     let sweep = |twist: f64| SweptLoft {
         id: "bar".into(),
         args: SweptLoftArgs {
-            sections: vec![Source::Profile("section".into()).into()],
-            path: Some(Source::Profile("path".into()).into()),
+            sections: vec![Section::of(Source::Profile("section".into()))],
+            rails: vec![Rail {
+                of: Source::Profile("path".into()).into(),
+                role: Role::Path,
+            }],
             twist: Measure::new(twist),
             ..SweptLoftArgs::default()
         },
@@ -403,7 +411,7 @@ fn sections_loft_into_solids() -> anyhow::Result<()> {
         ])
     };
     let measured = |sections: &[Vec<Curve3>]| {
-        let solid = through_sections("loft", sections)?;
+        let solid = through_sections("loft", sections, &Default::default())?;
         let mut topo = workpiece_core::world::Topo::new();
         let made = workpiece_boolean::write(&mut topo, &solid, "loft")?;
         assert_eq!(topo.validate(), Ok(()));
@@ -674,7 +682,7 @@ fn sections_coil_around_an_axis() -> anyhow::Result<()> {
     SweptLoft {
         id: "spring".into(),
         args: SweptLoftArgs {
-            sections: vec![Source::Profile("wire".into()).into()],
+            sections: vec![Section::of(Source::Profile("wire".into()))],
             coil: Some(Reference::frame_axis(ORIGIN, Axis::Z)),
             pitch: Measure::new(1.0),
             turns: Measure::new(3.0),
@@ -724,8 +732,8 @@ fn surfaces_are_lofted_through_sketches_left_open() -> anyhow::Result<()> {
         id: "walls".into(),
         args: SweptLoftArgs {
             sections: vec![
-                Source::Profile("low".into()).into(),
-                Source::Profile("high".into()).into(),
+                Section::of(Source::Profile("low".into())),
+                Section::of(Source::Profile("high".into())),
             ],
             surface: true,
             ..SweptLoftArgs::default()
@@ -766,8 +774,8 @@ fn surfaces_are_lofted_through_sketches_left_open() -> anyhow::Result<()> {
         id: "wave".into(),
         args: SweptLoftArgs {
             sections: vec![
-                Source::Profile("near".into()).into(),
-                Source::Profile("far".into()).into(),
+                Section::of(Source::Profile("near".into())),
+                Section::of(Source::Profile("far".into())),
             ],
             surface: true,
             ..SweptLoftArgs::default()
@@ -916,7 +924,7 @@ fn curves_left_open_sweep_into_surfaces() -> anyhow::Result<()> {
         assert_eq!(faces(&b, &id), Some(wanted), "{id}");
         let id = format!("around-{sketch}-{caps}");
         let mut around = Revolve::of(&*id, Some(sketch.into()), true);
-        around.args.axis = RevolveAxis::SketchV;
+        around.args.axis = Some(Reference::frame_axis(ORIGIN, Axis::Y));
         around.args.angle = Measure::new(90.0);
         around.args.caps = caps;
         around.apply(&mut b)?;
@@ -976,7 +984,7 @@ fn what_a_sweep_is_held_to_is_said_of_the_model_with_its_tolerance() -> anyhow::
     // A part of a turn is one too; a whole turn is none.
     let mut ring = Revolve::of("ring", Some("s".into()), false);
     ring.args.combine = Combine::NewBody;
-    ring.args.axis = RevolveAxis::SketchV;
+    ring.args.axis = Some(Reference::frame_axis(ORIGIN, Axis::Y));
     ring.apply(&mut b)?;
     assert!(!b.world.annotations.contains_key("ring/angle"));
     let mut part = ring.clone();

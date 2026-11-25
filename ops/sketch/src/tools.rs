@@ -32,6 +32,9 @@ pub enum Tool {
     Rectangle,
     /// A rectangle by its center and a corner.
     CenterRectangle,
+    /// A rectangle turned any way: two corners along one side, then how
+    /// far the side across reaches.
+    RotatedRectangle,
     /// A circle by its center and a point on it.
     Circle,
     /// A circle by the two ends of a diameter.
@@ -53,7 +56,8 @@ pub enum Tool {
     Spline,
     /// A point.
     Point,
-    /// Text: the outlines of its letters, written from a click.
+    /// Text in a box: a turned rectangle by three clicks, as
+    /// [`Tool::RotatedRectangle`] draws one, the letters inside it.
     Text,
     /// A rotation axis, through two clicks: the axis the sketch is
     /// turned about, a centre line without end.
@@ -178,10 +182,9 @@ pub struct SketchState {
     pub angle: f64,
     /// What Scale multiplies sizes by.
     pub factor: f64,
-    /// What Text writes, and how high its capital letters are.
+    /// What Text writes (its capitals half as high as the box drawn
+    /// for it, to change in its panel).
     pub text: String,
-    /// The height of the text's capital letters.
-    pub height: f64,
     /// The dimension just placed, or double-clicked: the field of its
     /// value takes the keyboard, so its value is typed next.
     pub focus: Option<Id>,
@@ -218,7 +221,6 @@ impl Default for SketchState {
             angle: 90.0,
             factor: 2.0,
             text: "Text".into(),
-            height: 1.0,
             focus: None,
             construction: false,
             grid: false,
@@ -553,10 +555,13 @@ fn chain_snap(args: &SketchArgs, state: &SketchState, at: Point2, view: &CanvasV
     found
 }
 
-/// [`snap`] for the clicks of a rotation axis: the second level with the
-/// first.
+/// [`snap`] for the clicks of a rotation axis or of a turned rectangle's
+/// first side: the second level with the first.
 fn axis_snap(args: &SketchArgs, state: &SketchState, at: Point2, view: &CanvasView) -> Snap {
-    let from = state.clicks.first().map(|s| s.at);
+    let from = match &state.clicks[..] {
+        [first] => Some(first.at),
+        _ => None,
+    };
     snap(args, at, view, from, state)
 }
 
@@ -657,21 +662,92 @@ fn rectangle(args: &mut SketchArgs, a: Point2, c: Point2) -> ([Id; 4], [Id; 4]) 
     (p, lines)
 }
 
+/// Adds a rectangle from `a` to `b` along one side and `height` across
+/// it (to the left of the way from `a` to `b`, or the right where
+/// negative): its corners (`a`, `b`, then on around) and its sides, held
+/// square — each side at right angles to the one before, the opposite
+/// ones parallel.
+fn turned_rectangle(
+    args: &mut SketchArgs,
+    a: Point2,
+    b: Point2,
+    height: f64,
+) -> ([Id; 4], [Id; 4]) {
+    let across = (b - a).normalize_or_zero().perp() * height;
+    let corners = [a, b, b + across, a + across];
+    let p = corners.map(|at| args.add_point(at));
+    let lines = [0, 1, 2, 3].map(|k| args.add_line(p[k], p[(k + 1) % 4]));
+    args.constrain(Kind::Perpendicular(lines[0], lines[1]));
+    args.constrain(Kind::Parallel(lines[0], lines[2]));
+    args.constrain(Kind::Parallel(lines[1], lines[3]));
+    (p, lines)
+}
+
+/// How high the capitals of a text in a box `height` high are, at
+/// first: half the box, to two figures.
+pub(crate) fn text_size(height: f64) -> f64 {
+    let half = height / 2.0;
+    if half <= 0.0 || !half.is_finite() {
+        return 1.0;
+    }
+    let ten = 10f64.powf(half.log10().floor() - 1.0);
+    (half / ten).round() * ten
+}
+
+/// How far across the line from `a` to `b` the click `at` is: to its
+/// left positive.
+fn across(a: Point2, b: Point2, at: Point2) -> f64 {
+    (b - a).normalize_or_zero().perp_dot(at - a)
+}
+
 /// Makes the shape the tool has all its clicks for. Returns what it made,
 /// for selecting; `None` if the clicks do not make a shape.
 fn build(args: &mut SketchArgs, state: &SketchState) -> Option<Vec<Item>> {
     let clicks = &state.clicks;
     let apart = |a: usize, b: usize| clicks[a].at.distance(clicks[b].at) > 1e-12;
     let made = match (state.tool, clicks.len()) {
-        (Tool::Text, 1) => {
-            let before: Vec<Id> = args.entities.keys().copied().collect();
-            // (Text that cannot be written leaves the sketch as it is.)
-            crate::text::write(args, &state.text, state.height, clicks[0].at).ok()?;
-            args.entities
-                .keys()
-                .copied()
-                .filter(|e| !before.contains(e))
-                .collect()
+        (Tool::RotatedRectangle | Tool::Text, 3) if apart(0, 1) => {
+            let (a, b) = (clicks[0].at, clicks[1].at);
+            let height = across(a, b, clicks[2].at);
+            if height.abs() <= 1e-12 {
+                return None;
+            }
+            // (Text reads from the first click to the second, upright:
+            // its box goes up from the side clicked.)
+            let (p, lines) = turned_rectangle(args, a, b, height);
+            attach(args, p[0], &clicks[0]);
+            attach(args, p[1], &clicks[1]);
+            // Level as drawn, it stays level.
+            if let Some(axis) = clicks[1].along {
+                args.constrain(Kind::Along {
+                    a: p[0],
+                    b: p[1],
+                    axis,
+                });
+            }
+            if state.tool == Tool::RotatedRectangle {
+                lines.to_vec()
+            } else {
+                for line in lines {
+                    args.entities.get_mut(&line)?.construction = true;
+                }
+                // The box is laid out from its lower left: with the
+                // height to the right of the first side, that is the
+                // far corner of it.
+                let corners = if height > 0.0 {
+                    p
+                } else {
+                    [p[3], p[2], p[1], p[0]]
+                };
+                vec![args.add(Shape::Text(crate::model::TextBox {
+                    corners,
+                    text: state.text.clone(),
+                    size: text_size(height.abs()),
+                    align: crate::model::Align::Start,
+                    valign: crate::model::Align::Start,
+                    wrap: true,
+                }))]
+            }
         }
         (Tool::Point, 1) => {
             let p = point_at(args, &clicks[0]);
@@ -880,14 +956,20 @@ pub(crate) fn ellipse(
 /// number, or none.
 fn clicks_needed(tool: Tool) -> Option<usize> {
     match tool {
-        Tool::Point | Tool::Text => Some(1),
+        Tool::Point => Some(1),
         Tool::Rectangle
         | Tool::CenterRectangle
         | Tool::Circle
         | Tool::Circle2
         | Tool::Polygon
         | Tool::RotationAxis => Some(2),
-        Tool::Arc | Tool::CenterArc | Tool::Slot | Tool::Circle3 | Tool::Ellipse => Some(3),
+        Tool::Arc
+        | Tool::CenterArc
+        | Tool::Slot
+        | Tool::Circle3
+        | Tool::Ellipse
+        | Tool::RotatedRectangle
+        | Tool::Text => Some(3),
         _ => None,
     }
 }
@@ -901,10 +983,14 @@ pub(crate) fn attaches(tool: Tool, index: usize) -> bool {
         Tool::Circle | Tool::Ellipse => index == 0,
         Tool::Circle2 | Tool::Circle3 => false,
         Tool::Arc => index < 2,
-        Tool::Rectangle | Tool::CenterRectangle | Tool::CenterArc | Tool::Slot | Tool::Polygon => {
-            index < 2
-        }
-        Tool::Select | Tool::Dimension | Tool::Trim | Tool::Text => false,
+        Tool::Rectangle
+        | Tool::CenterRectangle
+        | Tool::RotatedRectangle
+        | Tool::Text
+        | Tool::CenterArc
+        | Tool::Slot
+        | Tool::Polygon => index < 2,
+        Tool::Select | Tool::Dimension | Tool::Trim => false,
     }
 }
 
@@ -1098,7 +1184,9 @@ pub(crate) fn handle(
                 let cursor = match state.tool {
                     Tool::Line => chain_snap(args, state, at, view),
                     Tool::Spline => spline_snap(args, state, at, view),
-                    Tool::RotationAxis => axis_snap(args, state, at, view),
+                    Tool::RotationAxis | Tool::RotatedRectangle | Tool::Text => {
+                        axis_snap(args, state, at, view)
+                    }
                     _ => snap(args, at, view, None, state),
                 };
                 // What it would snap to lights up; a point is remembered,
@@ -1182,7 +1270,9 @@ pub(crate) fn handle(
         }
         (CanvasEventKind::Click, tool) => {
             next.clicks.push(match tool {
-                Tool::RotationAxis => axis_snap(args, state, at, view),
+                Tool::RotationAxis | Tool::RotatedRectangle | Tool::Text => {
+                    axis_snap(args, state, at, view)
+                }
                 _ => snap(args, at, view, None, state),
             });
             if Some(next.clicks.len()) == clicks_needed(tool) {

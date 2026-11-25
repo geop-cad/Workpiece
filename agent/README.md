@@ -38,11 +38,22 @@ u,v = x,y on XY; y,z on YZ; z,x on ZX; coordinates are only a starting guess)
 - target 0 degrees of freedom: `report.sketch(id)["degrees_of_freedom"]`
 
 **Features**: `p.extrude(s, d, combine="NewBody|Join|Cut|Intersect", symmetric=, through=, flip=, id=)`,
-`p.cut(s, d | through=True)`, `p.revolve(s, about=None|"SketchU"|"SketchV"|"Drawn", angle=)` (no `about`: the sketch's rotation axis if it has one, else u), `p.hole(s_with_dots, dia, depth=,
-kind="Counterbore"..)`, `p.fillet(edges, r)`, `p.chamfer(edges, d)`, `p.shell(open_faces, t)`,
-`p.feature_pattern([face], count, about=axis("Z") | along=axis("X"), spacing=)`, `p.feature_mirror([face], "Y")`,
-`p.pattern(body, ...)`, `p.plane("Z", 20)`, `p.dimension(ref_a, ref_b, show_in=, reference=, kind=)`,
+`p.cut(s, d | through=True)`, `p.revolve(s, about=None|"u"|"v"|axis_name|axis("Z")|topo(edge), angle=)` (no `about`: the sketch's one rotation axis, else u; "u"/"v" draw a rotation axis along the plane's axis into the sketch; a sketch's rotation axis `ax` is the datum axis `datum(f"{s.id}/{ax}")`), `p.hole(s_with_dots, dia, depth=,
+kind="Counterbore"..)` (or placed on a face: `p.hole(None, dia, on=topo(face), at=(x, y) | off=[(ref, d), (ref, d)] | around=axis("Z"), radius=, angle=)`), `p.fillet(edges, r)`, `p.chamfer(edges, d)`, `p.shell(open_faces, t)`,
+`p.feature_pattern([face], count, about=axis("Z") | along=axis("X"), spacing= | points=sketch | fill=topo(face), grid=)`, `p.feature_mirror([face], "Y")`,
+`p.pattern(body, ...)`, `p.mirror(body, "Y", join=)`, `p.plane("Z", 20)`, `p.dimension(ref_a, ref_b, show_in=, reference=, kind=)`,
 `p.on_sheet(step_or_dim, show_in=, at=, on_drawing=)`, any other step `p.op("Kind", id, **args)` (`workpiece kinds`).
+`p.sweep(section, path, twist=, scale=)` (section a sketch or `topo(face)`; path a sketch or a curve body `topo(name)`),
+`p.loft([s1, s2, ...], guides=[curve, ...], start="Free|Normal|Tangent|Curvature", end=, start_face=topo(f), end_face=, surface=)`
+(raw: `sections=[{"of": ref, "end": "Free", "face": ref}]`, `rails=[{"of": ref, "role": "Path"|"Guide"}]`, `coil=axis(..)` for a spring).
+Surfacing (`p.op("Surface", way=..., picked=[...])`, ways Copy Stitch Unstitch Delete Offset(`flip=`) Fill Trim Split Untrim Extend;
+Delete takes a surface's faces, whole surfaces, or a solid's faces (closed over); Stitch turns all one way, a closed one a solid facing out);
+`p.op("Boundary", sides=[{"edge": topo(e), "way": "Free|Tangent|Curvature", "face": topo(f)}])` fills a hole of any number of sides;
+Fillet/Chamfer take a surface's inner edges too; `p.op("Mesh", ..., surface=True)` keeps a SubD a surface.
+Curves in space (wire bodies to sweep along), one kind each: `p.op("CurveThrough", points=[topo(v), ...], closed=,
+start={"way": "Free|Tangent|Curvature|InFace|Normal", "to": topo(edge)|axis(..)|topo(face)|datum(plane)}, end=)`,
+`p.op("Helix", axis=axis("Z"), radius=, pitch=, turns=, grow=, start=deg, left=)`, `p.op("CurveIntersection", first=topo(f), second=topo(g))`,
+`p.op("CurveProjection", onto=[topo(face)], curves=[profile(s) | topo(edge_or_curve)], along=axis(..) | None for a sketch's normal)`.
 Pick faces/edges after a build: `rep.faces(where=lambda f: f["flat"] and f["normal"][2] > .99)`,
 `rep.edges(near=(x,y,z), count=1)`. Every wrapper takes `id=`.
 
@@ -225,7 +236,7 @@ More for matching the original:
   (`up_to=`, `head_up_to=`) is written, as a reference `↧(50)`, only with
   `p.drawing(..., reference_depths=True)` — an Extrude or
   Revolve its distance or angle (not when it ends "to next" or "to a face"), a Shell its wall
-  thickness (once), a Rib its thickness, a Pattern or FeaturePattern its spacing (along a line)
+  thickness (once), a Rib its thickness, a Pattern its spacing (along a line)
   or angle (over less than a full turn), an offset plane (`p.plane`) its distance, a plane at an
   angle its angle, a frame its moves and turn. A fillet measured by width or distance says
   that. Steer or hide them per step: `p.on_sheet("round", show_in="top")`, `p.on_sheet("pocket", on_drawing=False)`;
@@ -541,8 +552,8 @@ the report's `drawings[i]["inventory"]` is the sheet as data.
   geometric constraints (`horizontal`, `vertical`, `tangent`, `coincident`, `symmetric`, `equal`,
   …) — not computed coordinates. Coordinates are only the solver's starting guess: give a
   rough but plausible guess (right side, right order of magnitude).
-- **No repetition that is a pattern or mirror**: one feature plus `FeaturePattern` (or `Pattern`
-  for bodies), or `FeatureMirror` for a symmetric part, not the same feature several times. Lint
+- **No repetition that is a pattern or mirror**: one feature plus a `Pattern` (of features, or
+  `of="Bodies"`), or a `Mirror` for a symmetric part, not the same feature several times. Lint
   flags three or more alike steps.
 - **As few steps as do it**, with the ordinary operations a person would use (extrude, revolve,
   hole, fillet, chamfer, shell, rib, draft, pattern, mirror…).
@@ -582,7 +593,12 @@ text) — it will be fixed.
   face's own rim, whichever way from the sketch that is. `extent="ToNext"` ends a cut where it
   first comes out (through all of the first wall, also where the profile crosses a gap).
 - **A blind hole ends in a 118° drill point**; `point=180` makes its floor flat.
-- **Holes** go at the *dots* of a sketch: `d = s.dot(u, v)`, dimension it, `p.hole(s, 6)`. With
+- **Holes** go at the *dots* of a sketch: `d = s.dot(u, v)`, dimension it, `p.hole(s, 6)`
+  (`place="Sketch"`; a dot per hole). Or on a face without a sketch: `p.hole(None, 6,
+  on=topo(face), off=[(topo(side), 10), (topo(edge), 15)])` (a distance from each of two
+  planes, flat faces or straight edges — from a face of the body or an edge of the face drilled,
+  inward), `around=axis("Z"), radius=20, angle=30` (from an axis, the angle from the face's
+  x), or `at=(x, y)` (a point of the face's plane, in its own x and y). With
   no depth a hole goes through *everything* that way, bodies beyond included: give `depth=` or
   `target=topo(body)` when it should stop. A depth that is dimensioned elsewhere on the drawing
   is no number: `p.hole(s, 6, up_to=datum(plane_id), offset=0)` (or `topo(face)`) ends the bore at
@@ -593,7 +609,7 @@ text) — it will be fixed.
   several bodies overlap.
 - **Every wrapper takes `id=`** to name its step (`p.fillet(edges, 2, id="rim")`); names of
   faces and edges start with the id of the step that made them and change when an earlier
-  sketch is redrawn or a pattern copies them (`featurepattern1/1/…`): list them again after
+  sketch is redrawn or a pattern copies them (`pattern1/1/…`): list them again after
   such a change.
 - **Helpers**: `rect`, `polyline`, `slot` (obround), `polygon` (dimensioned across flats). A
   `rect` is already horizontal/vertical: adding `symmetric` on top says some things twice —
@@ -601,11 +617,18 @@ text) — it will be fixed.
 - **Patterns**: `p.feature_pattern([face_of_the_feature], count, about=axis("Z"), angle=360)`.
   A full turn is shared out evenly; over less than a full turn the first and last copy sit at
   the ends (3 over 180° are 90° apart). `along=axis("X"), spacing=…` for a row.
-  `p.pattern(body_name, …)` repeats a whole body.
+  `points=sketch` puts a copy at each dot of a sketch (moved there from where the feature
+  is; none at a dot where it is already). `fill=topo(flat_face), grid="Square"|"Rectangular"|
+  "Staggered"|"Hexagonal"|"Rings"|"Polygon", spacing=, across= (rows or rings apart), sides=,
+  turned= (degrees), margin=` fills the face from where the feature is, leaving out what would
+  cross its edges or the margin. `p.pattern(body_name or [names], …)` repeats whole bodies
+  (the same ways; `combine="NewBody"|"Join"|"Cut"`, `target=` to cut). One step, `Pattern`,
+  does both: `of="Features"` with `features=[faces]`, or `of="Bodies"` with `bodies=[...]`.
 - **Mirrored features**: `p.feature_mirror([face_of_the_feature, …], "Y")` (a datum plane
   `datum(id)` or a flat face `topo(face)` also do) mirrors what the steps of those faces
   added or cut (a pocket with its fillet: one face of each step) in one step; what they make is
-  named `{id}/…`. A whole body mirrors with `Transform`, `motion="Mirror"`.
+  named `{id}/…`. `p.mirror(body_or_names, "Y", join=False)` mirrors whole bodies (one step,
+  `Mirror`, `of="Features"|"Bodies"`).
 - **Planes from a face** (`p.plane(topo(face), d)`) have the face's own axes, the same as a
   sketch on the face: normal out of the body, origin = the world origin projected onto the plane,
   and "up" up: v is world +z projected onto the plane (normalised), u = v × normal, so the sketch

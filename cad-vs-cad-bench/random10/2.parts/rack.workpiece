@@ -491,6 +491,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -675,6 +679,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -730,21 +738,31 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 180.0,
           "axis": {
             "Datum": "bore_axis"
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 3,
+          "face": null,
           "features": [
             {
               "Topology": "rod_holes/side/e1"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "rod_holes3"
@@ -1089,8 +1107,8 @@
           "notes": [
             {
               "at": [
-                -28.107494552165264,
-                -43.98249455216529
+                28.107494552165264,
+                -43.982494552165264
               ],
               "decimals": 1,
               "note": "bore/callout",
@@ -1107,7 +1125,7 @@
             },
             {
               "at": [
-                69.10000000000002,
+                69.1,
                 19.05000000000001
               ],
               "decimals": 1,
@@ -1117,7 +1135,7 @@
             {
               "at": [
                 48.10000000000002,
-                12.699999999999974
+                12.700000000000003
               ],
               "decimals": 3,
               "note": "floor/distance",
@@ -1134,7 +1152,7 @@
             {
               "at": [
                 33.33750000000006,
-                25.8750000000001
+                25.875000000000043
               ],
               "note": "lip/distance",
               "view": "right"
@@ -1159,7 +1177,7 @@
             },
             {
               "at": [
-                76.10000000000002,
+                76.1,
                 0.0
               ],
               "decimals": 1,
@@ -1169,7 +1187,7 @@
             {
               "at": [
                 -48.10000000000002,
-                -2.842170943040401e-14
+                0.0
               ],
               "decimals": 2,
               "note": "rack/distance",
@@ -1185,7 +1203,7 @@
             },
             {
               "at": [
-                83.10000000000002,
+                83.1,
                 33.33749999999998
               ],
               "note": "rod_hole/d9",

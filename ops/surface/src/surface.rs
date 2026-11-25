@@ -9,7 +9,7 @@ use workpiece_core::world::topo::{BodyId, BodyKind, Topo};
 use workpiece_core::{Builder, EditContext, Measure, Operation, ReferenceKind, Widget};
 
 use workpiece_shape::ui;
-use workpiece_shape::{between, faces_of, filled, rounded, ruled, trimmed, whole};
+use workpiece_shape::{faces_of, filled, trimmed, whole};
 
 /// Every solid and sheet body of `topo`, read: its id, its name,
 /// whether it is a sheet, and its faces.
@@ -43,24 +43,27 @@ pub struct SurfaceArgs {
     /// Faces, or whole bodies.
     #[arg(with = "picked_field")]
     pub picked: Vec<workpiece_core::Reference<workpiece_core::Anything>>,
-    /// The way a ruled surface runs from its edges.
-    #[serde(default)]
-    #[arg(label = "Along", when = "self.way == SurfaceWay::Ruled")]
-    pub axis: Option<workpiece_core::Reference<workpiece_core::world::DatumAxis>>,
     /// The plane surfaces are trimmed to or split by.
     #[serde(default)]
     #[arg(when = "matches!(self.way, SurfaceWay::Trim | SurfaceWay::Split)")]
     pub plane: Option<workpiece_core::Reference<workpiece_core::world::DatumPlane>>,
-    /// Whether it is what is behind the plane that goes.
+    /// Whether it is what is behind the plane that goes (a trim), or
+    /// which side of the faces an offset goes to: along their normals
+    /// as they are, or against them. (A surface has no front or back of
+    /// its own: the way is said here.)
     #[serde(default)]
-    #[arg(flip, row, when = "self.way == SurfaceWay::Trim")]
+    #[arg(
+        flip,
+        row,
+        when = "matches!(self.way, SurfaceWay::Trim | SurfaceWay::Offset)"
+    )]
     pub flip: bool,
-    /// How far an offset surface is from what it is offset from: to
-    /// the faces' front, or (less than nothing) to their back; or how
-    /// far a ruled surface runs from its edges.
+    /// How far an offset surface is from what it is offset from (the
+    /// way `flip` says), how far a surface runs on, or a round's radius.
     #[serde(default = "a_tenth")]
     #[arg(
-        when = "matches!(self.way, SurfaceWay::Offset | SurfaceWay::Ruled | SurfaceWay::Extend | SurfaceWay::Fillet)"
+        label_by = "self.way.distance_label()",
+        when = "matches!(self.way, SurfaceWay::Offset | SurfaceWay::Extend)"
     )]
     pub distance: Measure,
 }
@@ -74,7 +77,6 @@ impl Default for SurfaceArgs {
         Self {
             way: SurfaceWay::default(),
             picked: Vec::new(),
-            axis: None,
             plane: None,
             flip: false,
             distance: a_tenth(),
@@ -96,23 +98,14 @@ pub enum SurfaceWay {
     Stitch,
     /// Takes the picked surfaces apart: every face a surface of its own.
     Unstitch,
-    /// Turns the picked surfaces around: their back is their front.
-    Reverse,
     /// Removes the picked faces from their surfaces (or the picked
-    /// surfaces altogether).
+    /// surfaces altogether); faces of a solid — a hole, a pocket, a
+    /// boss — are taken off it and the faces around closed over where
+    /// they were.
     Delete,
     /// A surface a distance off the picked faces (or all of the picked
     /// bodies' faces), named after the operation.
     Offset,
-    /// A surface from the picked edges straight along an axis, a
-    /// distance: each edge sweeps a face, sewn where the edges meet.
-    Ruled,
-    /// A surface between four picked edges that meet end to end around
-    /// it, running along each of them.
-    Boundary,
-    /// The picked edges, each between two faces of a surface, rounded
-    /// to the distance as a radius.
-    Fillet,
     /// The picked surfaces cut back to a plane: what is in front of it
     /// goes.
     Trim,
@@ -131,8 +124,34 @@ pub enum SurfaceWay {
     Fill,
 }
 
+impl SurfaceWay {
+    /// Whether it works on whole surfaces (a face picked standing for
+    /// its surface).
+    pub fn whole(self) -> bool {
+        matches!(
+            self,
+            Self::Stitch
+                | Self::Unstitch
+                | Self::Trim
+                | Self::Split
+                | Self::Untrim
+                | Self::Extend
+                | Self::Fill
+        )
+    }
+
+    /// What its distance is called.
+    fn distance_label(self) -> &'static str {
+        match self {
+            Self::Extend => "Run on by",
+            _ => "Distance",
+        }
+    }
+}
+
 /// An operation on surfaces: copy faces off bodies, sew surfaces
-/// together, take them apart, turn them around, or delete of them.
+/// together (all one way), take them apart, offset, fill, trim, split,
+/// untrim, extend them, or delete faces of them.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(from = "Saved")]
 pub struct Surface {
@@ -187,83 +206,12 @@ impl Operation for Surface {
         let picked: Vec<&str> = self.args.picked.iter().map(|r| r.name()).collect();
         ensure!(!picked.is_empty(), "pick the faces or surfaces");
         let distance = (*builder).measure(&self.args.distance, "the distance")?;
-        if self.args.way == SurfaceWay::Boundary {
-            ensure!(picked.len() == 4, "pick the four edges around the surface");
-            let topo = &builder.tracked().topo;
-            let all = bodies(topo);
-            let mut sides = Vec::new();
-            for wanted in &picked {
-                let found = all.iter().find_map(|(_, _, _, solid)| {
-                    let named = |e: &&workpiece_boolean::model::Edge| {
-                        e.name.as_deref() == Some(*wanted) || e.also.iter().any(|n| n == wanted)
-                    };
-                    solid.edges.iter().find(named).cloned()
-                });
-                let edge = found.with_context(|| format!("there is no edge {wanted:?}"))?;
-                sides.push((edge.curve.clone(), edge.range));
-            }
-            let sides: [_; 4] = sides
-                .try_into()
-                .map_err(|_| anyhow::anyhow!("pick the four edges around the surface"))?;
-            let sheet = between(&sides, &self.id)?;
-            out.write_sheet(&sheet, &self.id);
-            return Ok(out.made);
-        }
-        if self.args.way == SurfaceWay::Ruled {
-            let axis = self
-                .args
-                .axis
-                .as_ref()
-                .context("pick the axis to run along")?;
-            let by = builder.tracked().resolve(axis)?.direction() * distance;
-            let topo = &builder.tracked().topo;
-            let mut sheets = Vec::new();
-            for wanted in &picked {
-                let found = bodies(topo).into_iter().find_map(|(_, _, _, solid)| {
-                    let named = |e: &&workpiece_boolean::model::Edge| {
-                        e.name.as_deref() == Some(*wanted) || e.also.iter().any(|n| n == wanted)
-                    };
-                    solid.edges.iter().find(named).cloned()
-                });
-                let edge = found.with_context(|| format!("there is no edge {wanted:?}"))?;
-                let id = format!("{}/e{}", self.id, sheets.len());
-                sheets.push(ruled(&edge.curve, edge.range, by, &id)?);
-            }
-            let (sheet, _) = stitched(&sheets, by.length() * 1e-7)?;
-            out.write_sheet(&sheet, &self.id);
-            return Ok(out.made);
-        }
-        if self.args.way == SurfaceWay::Fillet {
-            ensure!(!picked.is_empty(), "pick the edges to round");
-            let topo = &builder.tracked().topo;
-            let mut left: Vec<&str> = picked.clone();
-            for (body, name, is_sheet, sheet) in bodies(topo) {
-                let edges: Vec<usize> = (0..sheet.edges.len())
-                    .filter(|&e| {
-                        let edge = &sheet.edges[e];
-                        let names = edge.name.iter().chain(&edge.also);
-                        names.into_iter().any(|n| picked.contains(&n.as_str()))
-                    })
-                    .collect();
-                if !is_sheet || edges.is_empty() {
-                    continue;
-                }
-                left.retain(|wanted| {
-                    !edges.iter().any(|&e| {
-                        let edge = &sheet.edges[e];
-                        edge.name.iter().chain(&edge.also).any(|n| n == wanted)
-                    })
-                });
-                let made = rounded(&sheet, &edges, distance, &self.id)
-                    .with_context(|| format!("rounding {name}"))?;
-                out.remove(topo, body);
-                out.write_sheet(&made, &name);
-            }
-            if let Some(missing) = left.first() {
-                anyhow::bail!("there is no edge {missing:?} of a surface");
-            }
-            return Ok(out.made);
-        }
+        // (An offset goes to the other side of the faces, flipped.)
+        let distance = if self.args.flip && self.args.way == SurfaceWay::Offset {
+            -distance
+        } else {
+            distance
+        };
         let plane = match self.args.way {
             SurfaceWay::Trim | SurfaceWay::Split => {
                 let plane = self
@@ -307,7 +255,15 @@ impl Operation for Surface {
                 })
                 .collect();
             if !faces.is_empty() {
-                chosen.push((k, faces, whole.is_some()));
+                // (What works on whole surfaces takes a face of one for
+                // all of it.)
+                let whole = whole.is_some() || self.args.way.whole();
+                let faces = if whole {
+                    (0..solid.faces.len()).collect()
+                } else {
+                    faces
+                };
+                chosen.push((k, faces, whole));
             }
         }
         if let Some(k) = found.iter().position(|f| !f) {
@@ -381,8 +337,6 @@ impl Operation for Surface {
                     out.write_sheet(&sewn, &self.id);
                 }
             }
-            // (Done above: they work on edges, not faces.)
-            SurfaceWay::Ruled | SurfaceWay::Boundary | SurfaceWay::Fillet => {}
             SurfaceWay::Trim | SurfaceWay::Split => {
                 ensure!(
                     chosen.iter().all(|(k, _, whole)| all[*k].2 && *whole),
@@ -483,38 +437,36 @@ impl Operation for Surface {
                     }
                 }
             }
-            SurfaceWay::Unstitch | SurfaceWay::Reverse | SurfaceWay::Delete => {
-                ensure!(
-                    chosen.iter().all(|(k, ..)| all[*k].2),
-                    "this works on surfaces: copy the faces off the solid first"
-                );
-                let mut made = 0;
+            SurfaceWay::Delete => {
                 for (k, faces, whole) in &chosen {
-                    let (body, name, _, sheet) = &all[*k];
+                    let (body, name, sheet, of) = &all[*k];
                     out.remove(topo, *body);
-                    match self.args.way {
-                        SurfaceWay::Unstitch => {
-                            for f in 0..sheet.faces.len() {
-                                made += 1;
-                                let called = format!("{}/{made}", self.id);
-                                out.write_sheet(&faces_of(sheet, &[f]), &called);
-                            }
-                        }
-                        SurfaceWay::Reverse => {
-                            let mut turned = sheet.clone();
-                            for face in &mut turned.faces {
-                                face.outward = !face.outward;
-                            }
-                            out.write_sheet(&turned, name);
-                        }
-                        _ => {
-                            let rest: Vec<usize> = (0..sheet.faces.len())
-                                .filter(|f| !faces.contains(f))
-                                .collect();
-                            if !*whole && !rest.is_empty() {
-                                out.write_sheet(&faces_of(sheet, &rest), name);
-                            }
-                        }
+                    let rest: Vec<usize> =
+                        (0..of.faces.len()).filter(|f| !faces.contains(f)).collect();
+                    if *whole || rest.is_empty() {
+                        continue;
+                    }
+                    if *sheet {
+                        out.write_sheet(&faces_of(of, &rest), name);
+                    } else {
+                        // Faces of a solid: taken off, and the faces
+                        // around closed over where they were.
+                        let healed = workpiece_shape::heal::faces_deleted(of, faces)
+                            .with_context(|| format!("deleting faces of {name}"))?;
+                        out.write(&healed, name);
+                    }
+                }
+            }
+            SurfaceWay::Unstitch => {
+                // (A solid taken apart is its faces, each a surface.)
+                let mut made = 0;
+                for (k, ..) in &chosen {
+                    let (body, _, _, sheet) = &all[*k];
+                    out.remove(topo, *body);
+                    for f in 0..sheet.faces.len() {
+                        made += 1;
+                        let called = format!("{}/{made}", self.id);
+                        out.write_sheet(&faces_of(sheet, &[f]), &called);
                     }
                 }
             }
@@ -528,12 +480,8 @@ impl Operation for Surface {
             SurfaceWay::Copy => "copied",
             SurfaceWay::Stitch => "sewn",
             SurfaceWay::Unstitch => "taken apart",
-            SurfaceWay::Reverse => "turned around",
             SurfaceWay::Delete => "deleted",
             SurfaceWay::Offset => "offset",
-            SurfaceWay::Ruled => "ruled",
-            SurfaceWay::Boundary => "edges bounded",
-            SurfaceWay::Fillet => "edges rounded",
             SurfaceWay::Trim => "trimmed",
             SurfaceWay::Split => "split",
             SurfaceWay::Untrim => "untrimmed",
@@ -546,19 +494,12 @@ impl Operation for Surface {
 
 /// The box that takes what it works on, of the kinds its way takes.
 fn picked_field(args: &SurfaceArgs, _: &EditContext<'_>) -> Vec<Widget<SurfaceArgs>> {
-    let kinds = match args.way {
-        SurfaceWay::Ruled | SurfaceWay::Boundary | SurfaceWay::Fillet => {
-            vec![ReferenceKind::Edge]
-        }
-        SurfaceWay::Stitch
-        | SurfaceWay::Unstitch
-        | SurfaceWay::Reverse
-        | SurfaceWay::Trim
-        | SurfaceWay::Split
-        | SurfaceWay::Untrim
-        | SurfaceWay::Extend
-        | SurfaceWay::Fill => vec![ReferenceKind::Body],
-        _ => vec![ReferenceKind::Face, ReferenceKind::Body],
+    // (A face picked of what works on whole surfaces stands for its
+    // surface.)
+    let kinds = if args.way.whole() {
+        vec![ReferenceKind::Body, ReferenceKind::Face]
+    } else {
+        vec![ReferenceKind::Face, ReferenceKind::Body]
     };
     let picked = workpiece_core::Reference::sources(&args.picked);
     let set = ui::set(args, |a, picked| {

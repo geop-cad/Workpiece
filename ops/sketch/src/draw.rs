@@ -378,6 +378,28 @@ pub(crate) fn shapes(
         } else {
             CURVE
         };
+        if let Shape::Text(_) = entity.shape {
+            // A text: its letters' outlines, as the profile has them.
+            use workpiece_core::world::topo::nurbs::Recognized;
+            for shape in args.text_outlines(id) {
+                let points = match shape {
+                    Recognized::Line(a, b) => vec![a, b],
+                    Recognized::Spline(curve) => {
+                        let (t0, t1) = curve.domain();
+                        curve.polyline(t0, t1)
+                    }
+                    _ => continue,
+                };
+                pen.line(points, tone, width, entity.construction);
+            }
+            // Selected or pointed at, its box shows it.
+            if tone != base
+                && let Some(frame) = args.text_frame(id)
+            {
+                pen.line(frame.outline(), tone, THIN, true);
+            }
+            continue;
+        }
         pen.line(args.polyline(id), tone, width, entity.construction);
         // A spline's hull — of one that is the sketch's own: a curve
         // off the model is just its line.
@@ -549,6 +571,46 @@ fn preview(pen: &mut Pen<'_>, args: &SketchArgs, state: &SketchState) {
         }
         (Tool::Rectangle, [a]) => pen.line(rectangle(*a, to), tone, CURVE, false),
         (Tool::CenterRectangle, [m]) => pen.line(rectangle(*m * 2.0 - to, to), tone, CURVE, false),
+        (Tool::RotatedRectangle | Tool::Text, [a]) => pen.line(vec![*a, to], tone, CURVE, false),
+        (Tool::RotatedRectangle | Tool::Text, [a, b]) => {
+            let across = (*b - *a).normalize_or_zero().perp();
+            let up = across * across.dot(to - *a);
+            let corners = vec![*a, *b, *b + up, *a + up, *a];
+            let dashed = state.tool == Tool::Text;
+            let width = if dashed { CONSTRUCTION } else { CURVE };
+            pen.line(corners.clone(), tone, width, dashed);
+            if dashed {
+                // The text as it will be written in the box.
+                let mut draft = SketchArgs::default();
+                let p =
+                    [corners[0], corners[1], corners[2], corners[3]].map(|c| draft.add_point(c));
+                let p = if across.dot(to - *a) >= 0.0 {
+                    p
+                } else {
+                    [p[3], p[2], p[1], p[0]]
+                };
+                let id = draft.add(Shape::Text(crate::TextBox {
+                    corners: p,
+                    text: state.text.clone(),
+                    size: crate::tools::text_size(across.dot(to - *a).abs()),
+                    align: crate::Align::Start,
+                    valign: crate::Align::Start,
+                    wrap: true,
+                }));
+                use workpiece_core::world::topo::nurbs::Recognized;
+                for shape in draft.text_outlines(id) {
+                    let points = match shape {
+                        Recognized::Line(a, b) => vec![a, b],
+                        Recognized::Spline(curve) => {
+                            let (t0, t1) = curve.domain();
+                            curve.polyline(t0, t1)
+                        }
+                        _ => continue,
+                    };
+                    pen.line(points, tone, THIN, false);
+                }
+            }
+        }
         (Tool::Circle, [c]) => pen.line(circle(*c, c.distance(to)), tone, CURVE, false),
         (Tool::Circle2, [a]) => {
             pen.line(

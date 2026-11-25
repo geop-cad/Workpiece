@@ -428,8 +428,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Line",
           "angle": 360.0,
           "axis": {
@@ -438,14 +439,23 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 2,
+          "face": null,
           "features": [
             {
               "Topology": "knuckle/side/e7"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 30.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "knuckles"
@@ -752,8 +762,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Line",
           "angle": 360.0,
           "axis": {
@@ -762,14 +773,23 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 2,
+          "face": null,
           "features": [
             {
               "Topology": "notch/side/e12"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 30.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "notches"
@@ -1050,6 +1070,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
@@ -1092,8 +1116,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Line",
           "angle": 360.0,
           "axis": {
@@ -1102,14 +1127,23 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 2,
+          "face": null,
           "features": [
             {
               "Topology": "screw/side/e2"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 30.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "screws"
@@ -1434,24 +1468,24 @@
           "notes": [
             {
               "at": [
-                42.02081579547783,
-                -12.020817341784579
+                42.0208157954778,
+                -12.020817341784564
               ],
               "note": "bore_section/d8",
               "view": "secS"
             },
             {
               "at": [
-                39.29760227360191,
-                -19.93877337641957
+                39.29760227360188,
+                -19.938773376419554
               ],
               "note": "knuckle_section/d8",
               "view": "secS"
             },
             {
               "at": [
-                -49.999999484693575,
-                6.999997938386727
+                -49.99999948469355,
+                6.999997938386741
               ],
               "note": "plate/distance",
               "view": "secS"
@@ -1459,7 +1493,7 @@
             {
               "at": [
                 -70.0,
-                -4.99999948469349
+                -4.999999484693518
               ],
               "note": "plate_outline/d20",
               "view": "top"
@@ -1467,7 +1501,7 @@
             {
               "at": [
                 0.0,
-                -56.999999484693575
+                -56.99999948469355
               ],
               "note": "plate_outline/d21",
               "view": "top"
@@ -1483,7 +1517,7 @@
             {
               "at": [
                 -45.0,
-                57.00000051530654
+                57.00000051530648
               ],
               "note": "relief/d21",
               "view": "top"
@@ -1498,7 +1532,7 @@
             },
             {
               "at": [
-                -63.656854249492426,
+                -63.6568542494924,
                 -47.656853734185916
               ],
               "note": "screw/callout",
@@ -1507,7 +1541,7 @@
             {
               "at": [
                 -45.0,
-                64.00000051530654
+                64.00000051530648
               ],
               "note": "screw_place/d10",
               "view": "top"
@@ -1515,15 +1549,15 @@
             {
               "at": [
                 -77.0,
-                8.00000051530651
+                8.000000515306482
               ],
               "note": "screw_place/d9",
               "view": "top"
             },
             {
               "at": [
-                -6.0,
-                -63.999999484693575
+                0.0,
+                -30.0
               ],
               "note": "screws/spacing",
               "view": "top"

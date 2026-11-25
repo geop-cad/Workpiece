@@ -147,7 +147,7 @@ impl ContextMenu {
 }
 
 /// How many tools the menu offers at most.
-const OFFERED: usize = 9;
+const OFFERED: usize = 10;
 
 /// The tools the menu offers for what is selected in `model`: those
 /// whose step takes all of it; with nothing selected, those that start
@@ -182,8 +182,13 @@ fn offered(model: &Model, item: &dyn Fn(Icon, &str, Hotkey, Message) -> MenuItem
         }
         let made = (tool.make)(&context);
         let (op, all) = crate::edit::with_selection(model, &path, made, &selection);
+        // (Of the tools of a menu, with nothing selected, the first.)
+        let later_in_menu = registry
+            .menus()
+            .iter()
+            .any(|m| m.tools.iter().skip(1).any(|t| *t == tool.label));
         let fits = if selection.is_empty() {
-            matches!(tool.group, "Sketch" | "Construct")
+            matches!(tool.group, "Sketch" | "Construct") && !later_in_menu
         } else if let Some(datum) = datums.iter().find(|d| d.label == tool.label) {
             // (A datum by its own constructions.)
             datum.fits

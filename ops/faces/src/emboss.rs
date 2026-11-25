@@ -31,7 +31,11 @@ pub struct EmbossArgs {
     pub faces: Vec<workpiece_core::Reference<workpiece_core::world::topo::FaceId>>,
     /// Whether they are sunk into the faces, not raised from them.
     #[serde(default)]
-    #[arg(label = "Way", options = "Emboss (raised)|Engrave (sunk)")]
+    #[arg(
+        label = "Way",
+        options = "Emboss (raised)|Engrave (sunk)",
+        icons = "emboss-raised|emboss-sunk"
+    )]
     pub engrave: bool,
     /// How high they stand, or how deep they are sunk.
     pub height: Measure,

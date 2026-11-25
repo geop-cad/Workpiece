@@ -52,6 +52,15 @@ impl Choices for Looking {
             Looking::Side(side) => side.label(),
         }
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Looking::Current => "view-current",
+            Looking::Plane => "view-plane",
+            Looking::Side(side) if side.label().contains("metric") => "view-iso",
+            Looking::Side(_) => "view-side",
+        })
+    }
 }
 
 /// How a camera view looks at the model.
@@ -76,7 +85,8 @@ pub struct CameraViewArgs {
     #[arg(
         when = "self.looking == Looking::Plane",
         label = "Side",
-        options = "Front|Back"
+        options = "Front|Back",
+        icons = "side-front|side-back"
     )]
     pub back: bool,
     /// How far it is turned about the line it looks along, in degrees,
@@ -88,7 +98,8 @@ pub struct CameraViewArgs {
     #[arg(
         when = "self.looking != Looking::Current",
         label = "Projection",
-        options = "Perspective|Parallel"
+        options = "Perspective|Parallel",
+        icons = "proj-perspective|proj-parallel"
     )]
     pub orthographic: bool,
 }

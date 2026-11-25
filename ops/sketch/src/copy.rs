@@ -68,6 +68,11 @@ pub(crate) fn copied(
                 knots: knots.clone(),
                 weights: weights.clone(),
             },
+            Shape::Text(text) => Shape::Text(crate::TextBox {
+                corners: text.corners.map(|p| image[&p]),
+                size: text.size * scale,
+                ..text.clone()
+            }),
         };
         let copy = args.add(shape);
         if let Some(entity) = args.entities.get_mut(&copy) {
@@ -148,6 +153,11 @@ pub(crate) fn mirror(args: &mut SketchArgs, selection: &[Item], mirror: Id) -> V
                 knots: knots.clone(),
                 weights: weights.clone(),
             },
+            // (Its letters as the mirror shows them.)
+            Shape::Text(text) => Shape::Text(crate::TextBox {
+                corners: text.corners.map(|p| image[&p]),
+                ..text.clone()
+            }),
         };
         let round = matches!(shape, Shape::Circle { .. });
         let copy = args.add(shape);

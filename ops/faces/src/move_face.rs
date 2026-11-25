@@ -202,4 +202,12 @@ impl workpiece_core::Choices for FaceWay {
             FaceWay::ToPlane => "Replace by a plane",
         }
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            FaceWay::Offset => "moveface-offset",
+            FaceWay::Along => "moveface-along",
+            FaceWay::ToPlane => "moveface-plane",
+        })
+    }
 }

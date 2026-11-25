@@ -37,8 +37,8 @@ mod trim;
 mod ui;
 
 pub use model::{
-    Constraint, DimTolerance, Dimension, Entity, Id, Item, Kind, Point, Shape, SketchArgs,
-    SketchAxis,
+    Align, Constraint, DimTolerance, Dimension, Entity, Id, Item, Kind, Point, Shape, SketchArgs,
+    SketchAxis, TextBox,
 };
 pub use modify::Action;
 pub use solve::{Diagnosis, Var};
@@ -330,7 +330,24 @@ impl Operation for Sketch {
             .chain(radii)
             .chain([("args".to_owned(), self.fingerprint())])
             .collect();
+        // Its rotation axes, as datum axes of their own (`{id}/e7`): what
+        // a revolve is turned about, picked in the view as any axis.
+        let datums = args
+            .entities
+            .iter()
+            .filter_map(|(&e, entity)| match entity.shape {
+                Shape::Axis { through, direction } => {
+                    let at = args.at(through);
+                    let origin = plane.origin() + plane.x_dir() * at.x + plane.y_dir() * at.y;
+                    let along = plane.x_dir() * direction.x + plane.y_dir() * direction.y;
+                    let axis = workpiece_core::world::DatumAxis::new(origin, along).ok()?;
+                    Some((format!("{}/e{e}", self.id), axis.into()))
+                }
+                _ => None,
+            })
+            .collect();
         Ok(workpiece_core::Made {
+            datums,
             // (Its dimensions are said of the model: a drawing shows
             // them.)
             annotations: annotate::annotations(&self.id, &args, &plane),
@@ -514,6 +531,10 @@ pub fn register(r: &mut workpiece_core::Registry) {
     r.icon("point", include_str!("../icons/point.svg"));
     r.icon("polygon", include_str!("../icons/polygon.svg"));
     r.icon("rectangle", include_str!("../icons/rectangle.svg"));
+    r.icon(
+        "rotated-rectangle",
+        include_str!("../icons/rotated-rectangle.svg"),
+    );
     r.icon("rotation-axis", include_str!("../icons/rotation-axis.svg"));
     r.icon("select", include_str!("../icons/select.svg"));
     r.icon("sketch", include_str!("../icons/sketch.svg"));

@@ -7,6 +7,9 @@ use crate::world::World;
 pub struct ReferenceList<M> {
     /// The caption.
     pub label: String,
+    /// The small icon beside the caption, by name: that of the first
+    /// kind it takes ([`super::kind_icon`]) unless set.
+    pub icon: Option<&'static str>,
     /// What it takes: a reference of any of these kinds.
     pub kinds: Vec<ReferenceKind>,
     /// The references, in the order picked.
@@ -16,6 +19,10 @@ pub struct ReferenceList<M> {
     pub required: bool,
     /// The message for the edited references.
     pub on_change: WidgetHandler<Vec<Source>, M>,
+    /// For a box that also wants to know where on what is picked the
+    /// pointer was (a curve through points on a face): the message for
+    /// a pick there, in place of adding or removing it.
+    pub on_pick_at: Option<WidgetHandler<(Source, crate::math::Point3), M>>,
 }
 
 impl<M: 'static> ReferenceList<M> {
@@ -28,10 +35,12 @@ impl<M: 'static> ReferenceList<M> {
     ) -> Self {
         Self {
             label: label.into(),
+            icon: kinds.first().map(|k| super::kind_icon(*k)),
             kinds,
             values,
             required: false,
             on_change: Box::new(on_change),
+            on_pick_at: None,
         }
     }
 
@@ -47,10 +56,38 @@ impl<M: 'static> ReferenceList<M> {
         })
     }
 
+    /// The same box, showing the icon `icon` (by name; none for `None`)
+    /// beside its caption.
+    #[must_use]
+    pub fn with_icon(mut self, icon: impl Into<Option<&'static str>>) -> Self {
+        self.icon = icon.into();
+        self
+    }
+
     /// The box, as one that has to hold something.
     pub fn required(mut self) -> Self {
         self.required = true;
         self
+    }
+
+    /// The same box, told where on what is picked the pointer was:
+    /// picking `s` at `p` produces `on_pick_at(s, p)`.
+    #[must_use]
+    pub fn picked_at(
+        mut self,
+        on_pick_at: impl Fn(Source, crate::math::Point3) -> M + 'static,
+    ) -> Self {
+        self.on_pick_at = Some(Box::new(move |(source, at)| on_pick_at(source, at)));
+        self
+    }
+
+    /// Picks `source`, the pointer at `at` on it (where that is known):
+    /// as [`toggle`](Self::toggle), for a box that does not ask where.
+    pub fn pick_at(&self, source: Source, at: Option<crate::math::Point3>) -> M {
+        match (&self.on_pick_at, at) {
+            (Some(on_pick_at), Some(at)) => on_pick_at((source, at)),
+            _ => self.toggle(source),
+        }
     }
 
     /// Whether `source` is of a kind the box takes, in `world`.
@@ -82,10 +119,12 @@ impl<M: 'static> ReferenceList<M> {
     pub(crate) fn map_rc<N: 'static>(self, f: &MapFn<M, N>) -> ReferenceList<N> {
         ReferenceList {
             label: self.label,
+            icon: self.icon,
             kinds: self.kinds,
             values: self.values,
             required: self.required,
             on_change: map_handler(self.on_change, f),
+            on_pick_at: self.on_pick_at.map(|h| map_handler(h, f)),
         }
     }
 }

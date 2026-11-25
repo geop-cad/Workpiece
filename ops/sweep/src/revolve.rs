@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use anyhow::Context;
 use workpiece_boolean::read;
 use workpiece_core::handles::AngularHandle;
-use workpiece_core::widgets::{Choice, ReferenceInput, VBox};
+use workpiece_core::widgets::VBox;
 use workpiece_core::world::{AreaPick, DatumAxis};
 use workpiece_core::{
     Builder, Edit, EditContext, EditVisualization, Measure, Operation, Reference, Source, Widget,
@@ -14,21 +14,6 @@ use workpiece_core::{
 use workpiece_shape::bodies::{self, Combine};
 use workpiece_shape::sweep::{self, Frame, Make, Turn};
 use workpiece_shape::ui;
-
-/// The axis of a revolution.
-#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
-pub enum RevolveAxis {
-    /// The sketch plane's u axis.
-    #[default]
-    SketchU,
-    /// The sketch plane's v axis.
-    SketchV,
-    /// The rotation axis drawn in the sketch.
-    Drawn,
-    /// A picked axis: a datum axis, a frame's axis, or a straight edge,
-    /// in the sketch's plane.
-    Picked(Option<Reference<DatumAxis>>),
-}
 
 /// What to revolve, around what, how far, and what it becomes.
 #[derive(
@@ -42,10 +27,11 @@ pub struct RevolveArgs {
     /// boundary; none for the whole sketch.
     #[serde(default)]
     pub areas: Vec<AreaPick>,
-    /// The axis.
+    /// The axis it turns about: a rotation axis drawn in a sketch, a
+    /// datum axis, a frame's axis, a straight edge, a round face's axis.
     #[serde(default)]
-    #[arg(with = "axis_fields")]
-    pub axis: RevolveAxis,
+    #[arg(label = "Rotation axis")]
+    pub axis: Option<Reference<DatumAxis>>,
     /// The angle, in degrees; 360 or more is all the way around.
     #[arg(label = "Angle °")]
     pub angle: Measure,
@@ -55,7 +41,11 @@ pub struct RevolveArgs {
     pub flip: bool,
     /// Whether the angle is half to either side of the sketch.
     #[serde(default)]
-    #[arg(label = "Extent", options = "One side|Symmetric")]
+    #[arg(
+        label = "Extent",
+        options = "One side|Symmetric",
+        icons = "extent-distance|extent-symmetric"
+    )]
     pub symmetric: bool,
     /// What the solid does to the bodies there are.
     #[serde(default)]
@@ -75,7 +65,12 @@ pub struct RevolveArgs {
     pub surface: bool,
     /// Whether a surface's ends are closed with flat faces.
     #[serde(default)]
-    #[arg(label = "Ends", options = "Open|Closed", when = "self.surface")]
+    #[arg(
+        label = "Ends",
+        options = "Open|Closed",
+        icons = "ends-open|ends-closed",
+        when = "self.surface"
+    )]
     pub caps: bool,
 }
 
@@ -84,7 +79,7 @@ impl Default for RevolveArgs {
         Self {
             sketch: None,
             areas: Vec::new(),
-            axis: RevolveAxis::SketchU,
+            axis: None,
             angle: Measure::new(360.0),
             symmetric: false,
             flip: false,
@@ -159,16 +154,11 @@ impl Operation for Revolve {
             .with_context(|| format!("there is no sketch {sketch:?}"))?
             .clone();
         let frame = Frame::of(&profile);
-        let (origin, axis) = match &args.axis {
-            RevolveAxis::SketchU => (frame.origin, frame.x),
-            RevolveAxis::SketchV => (frame.origin, frame.y),
-            RevolveAxis::Drawn => drawn_axis(&profile)
-                .context("the sketch has no rotation axis drawn: draw one, or pick an axis")?,
-            RevolveAxis::Picked(axis) => {
-                let axis = world.resolve(axis.as_ref().context("pick an axis")?)?;
-                (axis.origin(), axis.direction())
-            }
-        };
+        let axis = args.axis.as_ref().context(
+            "pick the rotation axis: one drawn in the sketch, an axis or a straight edge",
+        )?;
+        let axis = world.resolve(axis)?;
+        let (origin, axis) = (axis.origin(), axis.direction());
         let turn = Turn {
             origin,
             axis: axis.normalize() * if args.flip { -1.0 } else { 1.0 },
@@ -245,30 +235,6 @@ impl Operation for Revolve {
         Ok(out.made)
     }
 
-    fn references(&self) -> Vec<Source> {
-        let args = &self.args;
-        let axis = match &args.axis {
-            RevolveAxis::Picked(Some(axis)) => Some(&axis.source),
-            _ => None,
-        };
-        // (The axis is in what says how the sketch is turned.)
-        let mut out = workpiece_core::Arguments::references(args);
-        out.extend(axis.cloned());
-        out
-    }
-
-    fn references_mut(&mut self) -> Vec<&mut Source> {
-        let args = &mut self.args;
-        let axis = match &mut args.axis {
-            RevolveAxis::Picked(Some(axis)) => Some(&mut axis.source),
-            _ => None,
-        };
-        let mut out: Vec<&mut Source> = args.sketch.iter_mut().map(|r| &mut r.source).collect();
-        out.extend(args.target.iter_mut().map(|r| &mut r.source));
-        out.extend(axis);
-        out
-    }
-
     fn visualize_edit(
         &self,
         context: &EditContext<'_>,
@@ -289,15 +255,11 @@ impl Operation for Revolve {
             // is swept: turning it sets the angle, and back through the
             // sketch turns it around.
             let frame = Frame::of(profile);
-            let axis = match &args.axis {
-                RevolveAxis::SketchU => Some((frame.origin, frame.x)),
-                RevolveAxis::SketchV => Some((frame.origin, frame.y)),
-                RevolveAxis::Drawn => drawn_axis(profile),
-                RevolveAxis::Picked(axis) => axis
-                    .as_ref()
-                    .and_then(|axis| world.resolve(axis).ok())
-                    .map(|axis| (axis.origin(), axis.direction())),
-            };
+            let axis = args
+                .axis
+                .as_ref()
+                .and_then(|axis| world.resolve(axis).ok())
+                .map(|axis| (axis.origin(), axis.direction()));
             let value = args
                 .angle
                 .resolve(context.parameters)
@@ -348,96 +310,44 @@ impl Operation for Revolve {
     }
 }
 
+/// The rotation axes drawn in the sketch `sketch` (its name), as they
+/// are in `world`: the datum axes a sketch makes of them, by name.
+pub fn drawn_axes(world: &workpiece_core::World, sketch: &str) -> Vec<String> {
+    let prefix = format!("{sketch}/");
+    world
+        .datums
+        .iter()
+        .filter(|(name, datum)| {
+            name.starts_with(&prefix) && matches!(datum, workpiece_core::world::Datum::Axis(_))
+        })
+        .map(|(name, _)| name.clone())
+        .collect()
+}
+
 /// The field that picks the sketch (what was picked of another sketch
-/// goes with it), and what of it is taken.
-/// A sketch with a rotation axis drawn is turned about that, unless
-/// another axis is picked.
+/// goes with it), and what of it is taken. A sketch with one rotation
+/// axis drawn is turned about that, unless another axis is picked; the
+/// axis drawn in a sketch picked before goes with that sketch.
 fn sketch_fields(args: &RevolveArgs, context: &EditContext<'_>) -> Vec<Widget<RevolveArgs>> {
     let world = context.world.clone();
     let set = ui::set(
         args,
         move |a, sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>| {
-            let drawn = sketch
-                .as_ref()
-                .and_then(|s| world.profiles.get(s.name()))
-                .is_some_and(|p| p.axis.is_some());
-            if drawn {
-                a.axis = RevolveAxis::Drawn;
-            } else if a.axis == RevolveAxis::Drawn {
-                a.axis = RevolveAxis::SketchU;
+            let before = a.sketch.as_ref().map(|s| format!("{}/", s.name()));
+            let of_before = a.axis.as_ref().is_some_and(|axis| {
+                matches!((&axis.source, &before), (Source::Datum(name), Some(b)) if name.starts_with(b))
+            });
+            if of_before {
+                a.axis = None;
+            }
+            if let Some(sketch) = &sketch
+                && let [only] = &drawn_axes(&world, sketch.name())[..]
+            {
+                a.axis = Some(Source::Datum(only.clone()).into());
             }
             a.sketch = sketch;
             a.areas.clear();
         },
     );
     ui::sketch_fields(&args.sketch, args.areas.len(), set)
-}
-
-/// The rotation axis drawn in `profile`'s sketch, if one is: a point it
-/// passes through and its direction, in space.
-fn drawn_axis(
-    profile: &workpiece_core::world::Profile,
-) -> Option<(workpiece_core::math::Point3, workpiece_core::math::Point3)> {
-    let (through, direction) = profile.axis?;
-    let frame = Frame::of(profile);
-    Some((
-        frame.place(through),
-        frame.x * direction.x + frame.y * direction.y,
-    ))
-}
-
-/// The fields that say what it is turned around: the rotation axis
-/// drawn in the sketch, an axis of the sketch's plane, or one picked.
-fn axis_fields(args: &RevolveArgs, context: &EditContext<'_>) -> Vec<Widget<RevolveArgs>> {
-    let axes = [
-        "Sketch's rotation axis",
-        "Sketch u axis",
-        "Sketch v axis",
-        "Picked axis",
-    ]
-    .map(str::to_owned)
-    .to_vec();
-    let selected = match args.axis {
-        RevolveAxis::Drawn => 0,
-        RevolveAxis::SketchU => 1,
-        RevolveAxis::SketchV => 2,
-        RevolveAxis::Picked(_) => 3,
-    };
-    let drawn = ui::profile(context.world, &args.sketch).is_some_and(|p| p.axis.is_some());
-    let reason = if drawn {
-        String::new()
-    } else {
-        "The sketch has no rotation axis drawn".to_owned()
-    };
-    let mut fields: Vec<Widget<RevolveArgs>> = Vec::new();
-    fields.push(
-        Choice::new(
-            "Axis",
-            axes,
-            selected,
-            ui::set(args, |a, i: usize| {
-                a.axis = match i {
-                    0 => RevolveAxis::Drawn,
-                    1 => RevolveAxis::SketchU,
-                    2 => RevolveAxis::SketchV,
-                    _ => RevolveAxis::Picked(None),
-                };
-            }),
-        )
-        .drop_down()
-        .with_enabled(vec![drawn || selected == 0, true, true, true])
-        .with_reasons(vec![reason, String::new(), String::new(), String::new()])
-        .into(),
-    );
-    if let RevolveAxis::Picked(axis) = &args.axis {
-        fields.push(
-            ReferenceInput::new(
-                "Around",
-                axis.clone(),
-                ui::set(args, |a, axis| a.axis = RevolveAxis::Picked(Some(axis))),
-            )
-            .into(),
-        );
-    }
-    fields
 }

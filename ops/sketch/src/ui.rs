@@ -61,6 +61,12 @@ fn tool_info(tool: Tool) -> (&'static str, &'static str, Hotkey, &'static str) {
             Hotkey::shift('R'),
             "Click the center, then a corner",
         ),
+        Tool::RotatedRectangle => (
+            "rotated-rectangle",
+            "Turned rect",
+            Hotkey::shift('Q'),
+            "A rectangle turned any way: click two corners along one side, then how far the side across reaches",
+        ),
         Tool::Circle => (
             "circle",
             "Circle",
@@ -125,7 +131,7 @@ fn tool_info(tool: Tool) -> (&'static str, &'static str, Hotkey, &'static str) {
             "sketch-text",
             "Text",
             Hotkey::shift('K'),
-            "Click where the text starts: the outlines of its letters, curves of the sketch held where they are written. What it says and how high its capitals are show beside the tools while it is in hand",
+            "Text in a box: click two corners along its baseline, then how high the box is. The letters are curves of the sketch that follow the box (dimension and drag its corners); select the text to change what it says, its size, how it is aligned and whether it breaks lines to fit",
         ),
         Tool::RotationAxis => (
             "rotation-axis",
@@ -310,11 +316,12 @@ fn action_info(action: Action) -> (&'static str, &'static str, Hotkey, &'static 
     }
 }
 
-const DRAW: [Tool; 15] = [
+const DRAW: [Tool; 16] = [
     Tool::Line,
     Tool::RotationAxis,
     Tool::Rectangle,
     Tool::CenterRectangle,
+    Tool::RotatedRectangle,
     Tool::Circle,
     Tool::Circle2,
     Tool::Circle3,
@@ -642,7 +649,7 @@ impl Session {
                 _ => 3,
             };
             let args = self.args.clone();
-            let degree = NumericInput::new("Degree", shown as f64, move |n: f64| {
+            let degree = NumericInput::integer("Degree", shown as i64, move |n: i64| {
                 let mut new = (*args).clone();
                 for id in &splines {
                     if let Some(Shape::Spline {
@@ -655,7 +662,7 @@ impl Session {
                         // (As high as its points allow; its knots evenly
                         // spread again.)
                         *degree =
-                            (n.round() as usize).clamp(1, control.len().saturating_sub(1).max(1));
+                            (n.max(1) as usize).clamp(1, control.len().saturating_sub(1).max(1));
                         knots.clear();
                     }
                 }
@@ -664,11 +671,24 @@ impl Session {
             });
             fields.push(degree.into());
         }
-        // What the patterns, Rotate and Scale go by.
+        // What the patterns, Rotate and Scale go by: not properties of
+        // what is selected, but of what is done to it — by themselves,
+        // and not with a text alone, whose panel is its own.
+        let texts_only = !entities.is_empty()
+            && points == 0
+            && entities.iter().all(|e| {
+                self.args
+                    .entities
+                    .get(e)
+                    .is_some_and(|e| matches!(e.shape, Shape::Text(_)))
+            });
+        if texts_only {
+            return Some(fields);
+        }
         let state = self.state.clone();
-        let count = NumericInput::new("Count", self.state.copies as f64, move |n: f64| {
+        let count = NumericInput::integer("Count", self.state.copies as i64, move |n: i64| {
             let mut next = (*state).clone();
-            next.copies = (n.round() as usize).clamp(2, 200);
+            next.copies = n.clamp(2, 200) as usize;
             Edit::state(next)
         });
         let state = self.state.clone();
@@ -685,8 +705,80 @@ impl Session {
             }
             Edit::state(next)
         });
-        fields.extend([count.into(), angle.into(), factor.into()]);
+        fields.push(
+            Group::new(
+                "Pattern, rotate and scale by",
+                vec![count.into(), angle.into(), factor.into()],
+            )
+            .into(),
+        );
         Some(fields)
+    }
+
+    /// The panel of the one text selected: what it says, how high its
+    /// capitals are, how its lines are aligned, and whether they break
+    /// to fit the box.
+    fn text_panel(&self, id: Id) -> Option<Vec<Widget<SketchEdit>>> {
+        let Some(Shape::Text(text)) = self.args.entities.get(&id).map(|e| &e.shape) else {
+            return None;
+        };
+        // Each field changes the text and leaves the rest as it is.
+        let change = |f: fn(&mut crate::TextBox, &str, f64, usize, bool)| {
+            let args = self.args.clone();
+            move |said: &str, number: f64, index: usize, on: bool| {
+                let mut new = (*args).clone();
+                if let Some(Shape::Text(text)) = new.entities.get_mut(&id).map(|e| &mut e.shape) {
+                    f(text, said, number, index, on);
+                }
+                Edit::args(new)
+            }
+        };
+        let says = change(|t, said, _, _, _| said.clone_into(&mut t.text));
+        let size = change(|t, _, n, _, _| {
+            if n > 0.0 {
+                t.size = n;
+            }
+        });
+        let aligns = [crate::Align::Start, crate::Align::Middle, crate::Align::End];
+        let across = change(|t, _, _, i, _| {
+            t.align = [crate::Align::Start, crate::Align::Middle, crate::Align::End][i.min(2)];
+        });
+        let up = change(|t, _, _, i, _| {
+            t.valign = [crate::Align::Start, crate::Align::Middle, crate::Align::End][i.min(2)];
+        });
+        let wrap = change(|t, _, _, _, on| t.wrap = on);
+        let position = |a: crate::Align| aligns.iter().position(|&b| b == a).unwrap_or(0);
+        let names = |words: [&str; 3]| words.map(str::to_owned).to_vec();
+        Some(vec![
+            Label::new("", "Text", Mood::Plain).into(),
+            TextInput::new("Text", text.text.clone(), move |said: String| {
+                says(&said, 0.0, 0, false)
+            })
+            .multiline()
+            .into(),
+            NumericInput::new("Size", text.size, move |n: f64| size("", n, 0, false)).into(),
+            workpiece_core::widgets::Choice::new(
+                "Align",
+                names(["Left", "Centre", "Right"]),
+                position(text.align),
+                move |i: usize| across("", 0.0, i, false),
+            )
+            .drop_down()
+            .into(),
+            workpiece_core::widgets::Choice::new(
+                "Vertical",
+                names(["Top", "Middle", "Bottom"]),
+                position(text.valign),
+                move |i: usize| up("", 0.0, i, false),
+            )
+            .drop_down()
+            .into(),
+            Check::new("Break lines", text.wrap, move |on| wrap("", 0.0, 0, on))
+                .with_hint(
+                    "Break lines between words where they would reach past the box; else lines break only where the text has a line break",
+                )
+                .into(),
+        ])
     }
 
     /// The panel at the side: the properties of what is selected; `None`
@@ -694,6 +786,11 @@ impl Session {
     pub(crate) fn inspector(&self) -> Option<Widget<SketchEdit>> {
         let fields = match self.state.selection[..] {
             [Item::Constraint(id)] => self.dimension_panel(id)?,
+            [Item::Entity(id)] if self.text_panel(id).is_some() => {
+                let mut fields = self.text_panel(id)?;
+                fields.extend(self.selection_panel()?.into_iter().skip(1));
+                fields
+            }
             _ => self.selection_panel()?,
         };
         Some(VBox::new(fields).into())
@@ -818,20 +915,21 @@ impl Session {
         // degree and whether it goes through its clicks.
         if self.state.tool == Tool::Polygon {
             let state = self.state.clone();
-            let sides = NumericInput::new("Sides", self.state.sides as f64, move |n: f64| {
+            let sides = NumericInput::integer("Sides", self.state.sides as i64, move |n: i64| {
                 let mut next = (*state).clone();
-                next.sides = (n.round() as usize).clamp(3, 64);
+                next.sides = n.clamp(3, 64) as usize;
                 Edit::state(next)
             });
             draw.push(sides.into());
         }
         if self.state.tool == Tool::Spline {
             let state = self.state.clone();
-            let degree = NumericInput::new("Degree", self.state.degree as f64, move |n: f64| {
-                let mut next = (*state).clone();
-                next.degree = (n.round() as usize).clamp(1, 9);
-                Edit::state(next)
-            });
+            let degree =
+                NumericInput::integer("Degree", self.state.degree as i64, move |n: i64| {
+                    let mut next = (*state).clone();
+                    next.degree = n.clamp(1, 9) as usize;
+                    Edit::state(next)
+                });
             draw.push(degree.into());
             let state = self.state.clone();
             let through = self.state.through;
@@ -862,15 +960,6 @@ impl Session {
                 Edit::state(next)
             });
             draw.push(text.into());
-            let state = self.state.clone();
-            let height = NumericInput::new("Height", self.state.height, move |n: f64| {
-                let mut next = (*state).clone();
-                if n > 0.0 {
-                    next.height = n;
-                }
-                Edit::state(next)
-            });
-            draw.push(height.into());
         }
         let mut modify: Vec<Widget<SketchEdit>> = vec![self.tool(Tool::Trim).into()];
         modify.extend(MODIFY.map(|a| self.action(a).into()));
@@ -1002,6 +1091,7 @@ fn entity_name(args: &SketchArgs, id: Id) -> &'static str {
         Some(Shape::Arc { .. }) => "Arc",
         Some(Shape::Spline { .. }) => "Spline",
         Some(Shape::Axis { .. }) => "Rotation axis",
+        Some(Shape::Text(_)) => "Text",
         None => "",
     }
 }

@@ -1,7 +1,7 @@
 //! What the operations of this crate make.
 
 use workpiece_ops_bodies::{CombineArgs, CombineBodies};
-use workpiece_ops_sweep::{Extrude, Revolve, RevolveAxis};
+use workpiece_ops_sweep::{Extrude, Revolve};
 use workpiece_ops_testing::*;
 use workpiece_shape::Combine;
 
@@ -55,7 +55,7 @@ fn bodies_combine_whatever_their_faces_are() -> anyhow::Result<()> {
     slanted.apply(&mut b)?;
     let mut cone = Revolve::of("cone", Some("s".into()), false);
     cone.args.combine = workpiece_shape::Combine::NewBody;
-    cone.args.axis = RevolveAxis::SketchV;
+    cone.args.axis = Some(Reference::frame_axis(ORIGIN, Axis::Y));
     let mut alone = b.clone();
     cone.apply(&mut alone)?;
     check(&alone);
@@ -89,7 +89,9 @@ fn bodies_combine_whatever_their_faces_are() -> anyhow::Result<()> {
 
 #[test]
 fn bodies_are_moved_mirrored_scaled_and_repeated() -> anyhow::Result<()> {
-    use workpiece_ops_bodies::{Along, Motion, Pattern, PatternArgs, Transform, TransformArgs};
+    use workpiece_ops_bodies::{
+        Along, Motion, Pattern, PatternArgs, Repeat, Transform, TransformArgs,
+    };
     let z = || Some(Reference::frame_axis(ORIGIN, Axis::Z));
     let x = || Some(Reference::frame_axis(ORIGIN, Axis::X));
     let base_of = |_: &Standalone| Some(Source::Topology("base".into()));
@@ -141,7 +143,8 @@ fn bodies_are_moved_mirrored_scaled_and_repeated() -> anyhow::Result<()> {
     // Three along x, three apart, joined: one bar 10 long.
     let pattern = |b: &mut Standalone, set: &dyn Fn(&mut PatternArgs)| {
         let mut args = PatternArgs {
-            body: base_of(b).map(Into::into),
+            of: Repeat::Bodies,
+            bodies: base_of(b).map(Into::into).into_iter().collect(),
             ..Default::default()
         };
         set(&mut args);
@@ -183,6 +186,74 @@ fn bodies_are_moved_mirrored_scaled_and_repeated() -> anyhow::Result<()> {
     assert!(opposite.vertices.iter().all(|v| v.point.x < -3.9));
     // (All the way around: no angle to say.)
     assert!(!b.world.annotations.contains_key("pattern/angle"));
+
+    // Moved 2 along −x first, so it touches the plane x = 0, and
+    // mirrored in that: a body of its own on the other side, or one with
+    // it (64 in all).
+    use workpiece_ops_bodies::{Mirror, MirrorArgs};
+    for (how, called, all) in [
+        (Combine::NewBody, "mirror", 32.0),
+        (Combine::Join, "base", 64.0),
+    ] {
+        let mut b = Standalone::new();
+        base(&mut b)?;
+        transform(&mut b, "t", &|a| a.by = [-2.0, 0.0, 0.0].map(Measure::new))?;
+        Mirror {
+            id: "mirror".into(),
+            args: MirrorArgs {
+                of: Repeat::Bodies,
+                bodies: vec![Source::Topology("base".into()).into()],
+                plane: Some(Reference::frame_axis(ORIGIN, Axis::X)),
+                combine: how,
+                ..Default::default()
+            },
+        }
+        .apply(&mut b)?;
+        check(&b);
+        close(volume(&b.world.topo, body(&b, called)), all, 1e-9);
+        if how == Combine::NewBody {
+            let image = workpiece_boolean::read(&b.world.topo, body(&b, "mirror"))?;
+            assert!(image.vertices.iter().all(|v| v.point.x > -1e-9));
+        }
+    }
+
+    // A small block filling the top of a big one: a square grid 3 apart
+    // from where the block is, a margin of 1 in from the top's edges.
+    let mut b = Standalone::new();
+    AddBox {
+        id: "plate".into(),
+        args: AddBoxArgs {
+            frame: Some(Reference::datum(ORIGIN)),
+            size: [20.0, 20.0, 2.0].map(Measure::new),
+        },
+    }
+    .apply(&mut b)?;
+    AddBox {
+        id: "base".into(),
+        args: AddBoxArgs {
+            frame: Some(Reference::datum(ORIGIN)),
+            size: [1.0, 1.0, 1.0].map(Measure::new),
+        },
+    }
+    .apply(&mut b)?;
+    pattern(&mut b, &|a| {
+        a.along = Along::Fill;
+        a.face = Some(Source::Topology("plate/top".into()).into());
+        a.spacing = Measure::new(3.0);
+        a.margin = Measure::new(1.0);
+    })?;
+    check(&b);
+    // The block reaches 0.71 from its middle: places at most 8.29 from
+    // the middle of the plate, −6 … 6 both ways: 5 × 5 less itself.
+    let copies = (1..)
+        .take_while(|k| {
+            b.world
+                .topo
+                .resolve::<BodyId>(&format!("pattern/{k}"))
+                .is_some()
+        })
+        .count();
+    assert_eq!(copies, 24);
     Ok(())
 }
 
@@ -281,7 +352,7 @@ fn a_body_is_split_by_a_surface_and_a_half_deleted() -> anyhow::Result<()> {
 
 #[test]
 fn bodies_are_repeated_along_paths_and_at_points() -> anyhow::Result<()> {
-    use workpiece_ops_bodies::{Along, Pattern, PatternArgs};
+    use workpiece_ops_bodies::{Along, Pattern, PatternArgs, Repeat};
     // A small box at the origin; a path from there along x and then y.
     let small = |b: &mut Standalone| {
         AddBox {
@@ -315,7 +386,8 @@ fn bodies_are_repeated_along_paths_and_at_points() -> anyhow::Result<()> {
     Pattern {
         id: "row".into(),
         args: PatternArgs {
-            body: Some(Source::Topology("peg".into()).into()),
+            of: Repeat::Bodies,
+            bodies: vec![Source::Topology("peg".into()).into()],
             along: Along::Path,
             sketch: Some(Source::Profile("path".into()).into()),
             count: 5,
@@ -372,7 +444,8 @@ fn bodies_are_repeated_along_paths_and_at_points() -> anyhow::Result<()> {
     Pattern {
         id: "spots".into(),
         args: PatternArgs {
-            body: Some(Source::Topology("peg".into()).into()),
+            of: Repeat::Bodies,
+            bodies: vec![Source::Topology("peg".into()).into()],
             along: Along::Points,
             sketch: Some(Source::Profile("points".into()).into()),
             ..PatternArgs::default()

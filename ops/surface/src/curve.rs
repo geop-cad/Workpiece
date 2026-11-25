@@ -1,154 +1,1100 @@
-//! Curve: a curve in space as a body of its own — through points, a
-//! helix about an axis, or where two faces cross — to sweep along or to
-//! build on.
+//! Curves in space, each a body of its own (a wire) to sweep along or
+//! to build on — each way of making one its own step:
+//!
+//! * [`CurveThrough`]: a smooth curve through picked points, in the
+//!   order picked (vertices, frames' origins, points on faces).
+//! * [`Helix`]: a helix about an axis, or a spiral.
+//! * [`CurveIntersection`]: where two faces cross.
+//! * [`CurveProjection`]: curves — edges, curves in space, the curves
+//!   of sketches — thrown onto faces along a direction.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::{Context, ensure};
-use workpiece_boolean::model::Walk;
-use workpiece_boolean::{Op, Solid, combine, read, read_sheet};
+use workpiece_boolean::{Solid, read, read_sheet};
+use workpiece_core::handles::{AngularHandle, LinearHandle};
 use workpiece_core::math::Point3;
-use workpiece_core::widgets::{Choice, ReferenceList};
+use workpiece_core::widgets::{Label, Mood, ReferenceList};
 use workpiece_core::world::DatumAxis;
-use workpiece_core::world::topo::{Body, BodyId, BodyKind, Curve3, Edge, Topo, Vertex};
+use workpiece_core::world::topo::{Body, BodyId, BodyKind, Curve3, Edge, FaceId, Topo, Vertex};
 use workpiece_core::{
-    Builder, EditContext, Measure, Operation, Position, Reference, ReferenceKind, Resolve, Widget,
+    Anything, Builder, Edit, EditContext, EditVisualization, Measure, Operation, Position,
+    Reference, ReferenceKind, Resolve, Source, Widget,
 };
 
 use workpiece_shape::ui;
-
-/// What kind of curve.
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
-)]
-pub enum CurveWay {
-    /// A smooth curve through picked points, in the order picked.
-    #[default]
-    Spline,
-    /// A helix about an axis.
-    Helix,
-    /// Where two picked faces cross.
-    Intersection,
-    /// A picked curve body thrown onto a picked face, along an axis.
-    Projection,
-}
-
-/// What the curve is of.
-#[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
-)]
-pub struct CurveArgs {
-    /// What kind of curve.
-    #[arg(with = "way_field")]
-    pub way: CurveWay,
-    /// The axis of a helix.
-    #[arg(
-        label_by = "if self.way == CurveWay::Helix { \"Axis\" } else { \"Along\" }",
-        when = "matches!(self.way, CurveWay::Helix | CurveWay::Projection)"
-    )]
-    pub axis: Option<Reference<DatumAxis>>,
-    /// The points a spline goes through (vertices, frames), or the two
-    /// faces that cross.
-    #[arg(with = "picked_field", when = "self.way != CurveWay::Helix")]
-    pub picked: Vec<workpiece_core::Reference<workpiece_core::Anything>>,
-    /// Of a spline: where on the face picked at the same place in
-    /// `picked` it goes through (as the face was when it was pointed
-    /// at; the point of the face nearest that, as the face is now);
-    /// nothing for what is a point by itself.
-    #[serde(default)]
-    #[arg(hidden)]
-    pub spots: Vec<Option<[f64; 3]>>,
-    /// Of a spline: how far off the faces it goes through its points on
-    /// them — a cable's radius, laid along them.
-    #[serde(default = "nothing")]
-    #[arg(
-        label = "Off the faces",
-        when = "self.way == CurveWay::Spline && self.spots.iter().any(Option::is_some)"
-    )]
-    pub offset: Measure,
-    /// The helix's radius.
-    #[arg(when = "self.way == CurveWay::Helix")]
-    pub radius: Measure,
-    /// How far the helix advances in a turn.
-    #[arg(row, when = "self.way == CurveWay::Helix")]
-    pub pitch: Measure,
-    /// How many turns it makes.
-    #[arg(when = "self.way == CurveWay::Helix")]
-    pub turns: Measure,
-    /// How much its radius grows in a turn: a spiral.
-    #[serde(default = "nothing")]
-    #[arg(label = "Grows a turn", row, when = "self.way == CurveWay::Helix")]
-    pub grow: Measure,
-    /// Whether it is a left-handed helix.
-    #[arg(flip, row, when = "self.way == CurveWay::Helix")]
-    pub left: bool,
-}
 
 fn nothing() -> Measure {
     Measure::new(0.0)
 }
 
-impl Default for CurveArgs {
-    fn default() -> Self {
-        Self {
-            way: CurveWay::Spline,
-            picked: Vec::new(),
-            spots: Vec::new(),
-            offset: nothing(),
-            axis: None,
-            radius: Measure::new(10.0),
-            pitch: Measure::new(5.0),
-            turns: Measure::new(3.0),
-            grow: nothing(),
-            left: false,
-        }
-    }
+/// How a curve through points is held at one of its ends: the way it
+/// leaves (or arrives) and how it bends there, where they are given.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct EndHeld {
+    /// The direction it runs along there (either way along it; it is
+    /// taken the way the points go).
+    pub along: Option<Point3>,
+    /// How it bends there: the curvature vector (towards the centre of
+    /// the circle it bends along, as long as one over its radius).
+    pub bend: Option<Point3>,
 }
 
-/// Adds a curve in space as a wire body named after the operation's id,
-/// its edges `{id}/e0`, `{id}/e1`, …
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct Curve {
-    /// The operation's id; also the body's name.
-    pub id: String,
-    /// What the curve is of.
-    pub args: CurveArgs,
-}
-
-/// A smooth curve through `points`, in order: a cubic from each to the
-/// next, leaving every point the way the points beside it lie.
-pub fn through(points: &[Point3]) -> anyhow::Result<Curve3> {
+/// A smooth curve through `points`, in order. Open, it is one cubic
+/// spline through them (curving evenly from one to the next, its
+/// parameter how far along the points it is), held at its ends as
+/// `ends` say: leaving its first point and arriving at its last along
+/// a direction, and bending there as given (curvature continuous with
+/// what it runs on from). Closed, it runs on from the last point back
+/// to the first, smooth there too: a cubic from each point to the next,
+/// leaving every point the way the points beside it lie.
+pub fn through(points: &[Point3], closed: bool, ends: [EndHeld; 2]) -> anyhow::Result<Curve3> {
     let n = points.len();
-    ensure!(n >= 2, "a curve goes through two points or more");
+    ensure!(
+        n >= 2,
+        "a curve goes through two points or more: pick another"
+    );
+    ensure!(
+        !closed || n >= 3,
+        "a closed curve goes through three points or more"
+    );
     for pair in points.windows(2) {
         ensure!(
             pair[0].distance(pair[1]) > 0.0,
             "two points after each other are one place"
         );
     }
-    // The way through each point: along the chord of its neighbours
-    // (at the ends, so that the curve bends evenly into them).
+    if !closed {
+        return through_open(points, ends);
+    }
+    ensure!(
+        points[0].distance(points[n - 1]) > 0.0,
+        "the last point is the first: it closes by itself"
+    );
+    let mut at: Vec<Point3> = points.to_vec();
+    at.push(points[0]);
+    // The way through each point: along the chord of its neighbours.
     let way = |k: usize| -> Point3 {
-        if n == 2 {
-            points[1] - points[0]
-        } else if k == 0 {
-            (points[1] - points[0]) * 1.5 - (points[2] - points[0]) * 0.25
-        } else if k == n - 1 {
-            (points[n - 1] - points[n - 2]) * 1.5 - (points[n - 1] - points[n - 3]) * 0.25
-        } else {
-            (points[k + 1] - points[k - 1]) * 0.5
-        }
+        let k = k % n;
+        (points[(k + 1) % n] - points[(k + n - 1) % n]) * 0.5
     };
-    let mut control = vec![points[0]];
+    let mut control = vec![at[0]];
     let mut knots = vec![0.0; 4];
-    for k in 0..n - 1 {
-        control.push(points[k] + way(k) / 3.0);
-        control.push(points[k + 1] - way(k + 1) / 3.0);
-        control.push(points[k + 1]);
-        let at = (k + 1) as f64;
-        knots.extend(if k + 2 == n { vec![at; 4] } else { vec![at; 3] });
+    for k in 0..n {
+        control.push(at[k] + way(k) / 3.0);
+        control.push(at[k + 1] - way(k + 1) / 3.0);
+        control.push(at[k + 1]);
+        let t = (k + 1) as f64;
+        knots.extend(if k + 1 == n { vec![t; 4] } else { vec![t; 3] });
     }
     Ok(Curve3::new(3, knots, control, None)?)
+}
+
+/// [`through`] an open run of points: the cubic spline through them,
+/// by how far along they are, held at its ends.
+fn through_open(points: &[Point3], ends: [EndHeld; 2]) -> anyhow::Result<Curve3> {
+    use workpiece_shape::interpolate::{Held, interpolate};
+    let n = points.len();
+    let mut params = vec![0.0];
+    for pair in points.windows(2) {
+        params.push(params[params.len() - 1] + pair[0].distance(pair[1]));
+    }
+    // (Its parameter about how far along it is: a direction given is
+    // as long as one, a bend given is the curvature vector itself.)
+    let row = |p: Point3, w: f64| vec![[p.x, p.y, p.z, w]];
+    let held = |end: &EndHeld, forward: Point3| -> Held {
+        let along = end
+            .along
+            .and_then(Point3::try_normalize)
+            .map(|d| if d.dot(forward) < 0.0 { -d } else { d });
+        let bend = end.bend.zip(along).map(|(k, d)| k - d * k.dot(d));
+        Held {
+            first: along.map(|d| row(d, 0.0)),
+            second: bend.map(|k| row(k, 0.0)),
+        }
+    };
+    let start = held(&ends[0], points[1] - points[0]);
+    let end = held(&ends[1], points[n - 1] - points[n - 2]);
+    let rows = points.iter().map(|p| row(*p, 1.0)).collect();
+    let (degree, knots, control) = interpolate(&params, rows, [&start, &end])?;
+    let control = control
+        .iter()
+        .map(|row| Point3::new(row[0][0], row[0][1], row[0][2]))
+        .collect();
+    Ok(Curve3::new(degree, knots, control, None)?)
+}
+
+/// The kinds of reference a curve through points goes through.
+const THROUGH: [ReferenceKind; 3] = [
+    ReferenceKind::Vertex,
+    ReferenceKind::Point,
+    ReferenceKind::Face,
+];
+
+/// How a curve through points runs at one of its ends.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub enum EndWay {
+    /// As the points lie.
+    #[default]
+    Free,
+    /// Along an edge or an axis (G1): tangent to it where it is nearest.
+    Tangent,
+    /// Along an edge, and bending as it does there (G2): it runs on
+    /// from the edge smoothly, its curvature too.
+    Curvature,
+    /// Lying in a face or a plane: tangent to it, the way the points
+    /// lean along it.
+    InFace,
+    /// Square to a face or a plane.
+    Normal,
+}
+
+impl workpiece_core::arguments::Choices for EndWay {
+    const ALL: &'static [Self] = &[
+        Self::Free,
+        Self::Tangent,
+        Self::Curvature,
+        Self::InFace,
+        Self::Normal,
+    ];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Free => "Free",
+            Self::Tangent => "Tangent (G1)",
+            Self::Curvature => "Curvature (G2)",
+            Self::InFace => "In face",
+            Self::Normal => "Normal",
+        }
+    }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Self::Free => "end-free",
+            Self::Tangent => "end-tangent",
+            Self::Curvature => "end-curvature",
+            Self::InFace => "end-in-face",
+            Self::Normal => "end-normal",
+        })
+    }
+}
+
+impl EndWay {
+    /// What it is held to: lines and edges, or faces and planes.
+    fn kinds(self) -> Vec<ReferenceKind> {
+        match self {
+            Self::Free => Vec::new(),
+            Self::Tangent => vec![ReferenceKind::Edge, ReferenceKind::Axis],
+            Self::Curvature => vec![ReferenceKind::Edge],
+            Self::InFace | Self::Normal => vec![ReferenceKind::Face, ReferenceKind::Plane],
+        }
+    }
+}
+
+/// How a curve through points runs at one of its ends, and what it is
+/// held to there.
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    workpiece_core::Arguments,
+)]
+pub struct CurveEnd {
+    /// How it runs.
+    #[serde(default)]
+    #[arg(hidden)]
+    pub way: EndWay,
+    /// What it is held to: an edge or an axis (tangent, curvature), a
+    /// face or a plane (in face, normal).
+    #[serde(default)]
+    #[arg(hidden)]
+    pub to: Option<Reference<Anything>>,
+}
+
+/// The direction the curve `curve` runs along at its parameter `t`, and
+/// its curvature vector there.
+fn bend_of(curve: &Curve3, t: f64) -> (Point3, Point3) {
+    let (a, b) = curve.domain();
+    let h = (b - a) * 1e-5;
+    let (lo, hi) = ((t - h).max(a), (t + h).min(b));
+    let d = curve.derivative_at(t).1;
+    let dd = (curve.derivative_at(hi).1 - curve.derivative_at(lo).1) / (hi - lo);
+    let speed = d.length_squared();
+    if speed == 0.0 {
+        return (d, Point3::ZERO);
+    }
+    let unit = d / speed.sqrt();
+    (unit, (dd - unit * dd.dot(unit)) / speed)
+}
+
+/// The parameter of `curve` within `range` nearest `to`.
+fn nearest_on(curve: &Curve3, (a, b): (f64, f64), to: Point3) -> f64 {
+    let mut best = (f64::INFINITY, a);
+    for k in 0..=256 {
+        let t = a + (b - a) * f64::from(k) / 256.0;
+        let far = curve.point_at(t).distance(to);
+        if far < best.0 {
+            best = (far, t);
+        }
+    }
+    let mut t = best.1;
+    for _ in 0..30 {
+        let (p, d) = curve.derivative_at(t);
+        let step = (to - p).dot(d) / d.length_squared().max(1e-300);
+        t = (t + step).clamp(a.min(b), a.max(b));
+        if step.abs() <= (b - a).abs() * 1e-14 {
+            break;
+        }
+    }
+    t
+}
+
+impl CurveEnd {
+    /// How the curve is held at its end `at`, the points lying `free`
+    /// from it, in `world`.
+    fn held(
+        &self,
+        world: &workpiece_core::World,
+        at: Point3,
+        free: Point3,
+    ) -> anyhow::Result<EndHeld> {
+        if self.way == EndWay::Free {
+            return Ok(EndHeld::default());
+        }
+        let to = self.to.as_ref().context("pick what the end is held to")?;
+        let source = &to.source;
+        let edge = match source {
+            Source::Topology(name) => world
+                .topo
+                .resolve::<workpiece_core::world::topo::EdgeId>(name)
+                .and_then(|e| world.topo.edge(e))
+                .and_then(|e| Some((world.topo.curve(e.curve)?.clone(), (e.t0, e.t1)))),
+            _ => None,
+        };
+        let face = match source {
+            Source::Topology(name) if world.topo.resolve::<FaceId>(name).is_some() => {
+                Some(face_sheet(&world.topo, name)?)
+            }
+            _ => None,
+        };
+        Ok(match self.way {
+            EndWay::Free => EndHeld::default(),
+            EndWay::Tangent | EndWay::Curvature => {
+                let (along, bend) = match edge {
+                    Some((curve, range)) => bend_of(&curve, nearest_on(&curve, range, at)),
+                    None => {
+                        ensure!(
+                            self.way == EndWay::Tangent,
+                            "a curve bends as an edge does: pick an edge"
+                        );
+                        let axis: Reference<DatumAxis> = Reference::new(source.clone());
+                        (world.resolve(&axis)?.direction(), Point3::ZERO)
+                    }
+                };
+                EndHeld {
+                    along: Some(along),
+                    bend: (self.way == EndWay::Curvature).then_some(bend),
+                }
+            }
+            EndWay::InFace | EndWay::Normal => {
+                let normal = match &face {
+                    Some(sheet) => nearest(&sheet.faces[0], at).1,
+                    None => {
+                        let plane: Reference<workpiece_core::world::DatumPlane> =
+                            Reference::new(source.clone());
+                        world.resolve(&plane)?.normal()
+                    }
+                };
+                let along = if self.way == EndWay::Normal {
+                    normal
+                } else {
+                    let lying = free - normal * free.dot(normal);
+                    lying
+                        .try_normalize()
+                        .context("the points run square to the face: the curve cannot lie in it")?
+                };
+                EndHeld {
+                    along: Some(along),
+                    bend: None,
+                }
+            }
+        })
+    }
+}
+
+/// What a curve through points goes through, and how.
+#[derive(
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
+)]
+pub struct CurveThroughArgs {
+    /// What it goes through, in order: vertices, frames (their
+    /// origins), and faces (at a point on each).
+    #[arg(with = "through_field")]
+    pub points: Vec<Reference<Anything>>,
+    /// Where on the face at the same place in `points` it goes through
+    /// (as the face was when it was pointed at; the point of the face
+    /// nearest that, as the face is now); nothing for what is a point
+    /// by itself.
+    #[serde(default)]
+    #[arg(hidden)]
+    pub spots: Vec<Option<[f64; 3]>>,
+    /// How far off the faces it goes through its points on them — a
+    /// cable's radius, laid along them.
+    #[serde(default = "nothing")]
+    #[arg(
+        label = "Off the faces",
+        when = "self.spots.iter().any(Option::is_some)"
+    )]
+    pub offset: Measure,
+    /// Whether it runs on from the last point back to the first.
+    #[serde(default)]
+    #[arg(
+        label = "Ends",
+        options = "Open|Closed",
+        icons = "ends-open|ends-closed"
+    )]
+    pub closed: bool,
+    /// How it leaves its first point (of an open one).
+    #[serde(default)]
+    #[arg(nested, with = "start_fields", when = "!self.closed")]
+    pub start: CurveEnd,
+    /// How it arrives at its last point.
+    #[serde(default)]
+    #[arg(nested, with = "end_fields", when = "!self.closed")]
+    pub end: CurveEnd,
+}
+
+impl Default for CurveThroughArgs {
+    fn default() -> Self {
+        Self {
+            points: Vec::new(),
+            spots: Vec::new(),
+            offset: nothing(),
+            closed: false,
+            start: CurveEnd::default(),
+            end: CurveEnd::default(),
+        }
+    }
+}
+
+/// The fields of how a curve through points runs at an end: the way,
+/// as pictures, and what it is held to.
+fn end_widgets(
+    args: &CurveThroughArgs,
+    label: &'static str,
+    of: fn(&mut CurveThroughArgs) -> &mut CurveEnd,
+) -> Vec<Widget<CurveThroughArgs>> {
+    let now = of(&mut args.clone()).clone();
+    let context_free = args.clone();
+    // (Its caption says which way it is: the pictures alone do not.)
+    use workpiece_core::arguments::Choices;
+    let all = EndWay::ALL;
+    let way = workpiece_core::widgets::Choice::new(
+        format!("{label}: {}", now.way.label()),
+        all.iter().map(|w| w.label().to_owned()).collect(),
+        all.iter().position(|w| *w == now.way).unwrap_or(0),
+        move |i: usize| {
+            let way = all[i.min(all.len() - 1)];
+            let mut new = context_free.clone();
+            let end = of(&mut new);
+            if end.way.kinds() != way.kinds() {
+                end.to = None;
+            }
+            end.way = way;
+            new
+        },
+    )
+    .with_icons(all.iter().map(|w| w.icon()).collect())
+    .with_icon("f-extent");
+    let mut out = vec![way.into()];
+    if now.way != EndWay::Free {
+        let kinds = now.way.kinds();
+        let said = match now.way {
+            EndWay::Tangent => "Edge or axis",
+            EndWay::Curvature => "Edge",
+            _ => "Face or plane",
+        };
+        let (set, clear) = (args.clone(), args.clone());
+        let input = workpiece_core::widgets::ReferenceInput::of_kind(
+            said,
+            kinds[0],
+            now.to.as_ref().map(|r| r.source.clone()),
+            move |source: Source| {
+                let mut new = set.clone();
+                of(&mut new).to = Some(source.into());
+                new
+            },
+        )
+        .taking(&kinds)
+        .optional("Pick what it is held to", move || {
+            let mut new = clear.clone();
+            of(&mut new).to = None;
+            new
+        });
+        out.push(input.into());
+    }
+    out
+}
+
+fn start_fields(args: &CurveThroughArgs, _: &EditContext<'_>) -> Vec<Widget<CurveThroughArgs>> {
+    end_widgets(args, "Start", |a| &mut a.start)
+}
+
+fn end_fields(args: &CurveThroughArgs, _: &EditContext<'_>) -> Vec<Widget<CurveThroughArgs>> {
+    end_widgets(args, "End", |a| &mut a.end)
+}
+
+/// Adds a smooth curve through picked points, in the order picked, as
+/// a wire body named after the operation's id (its edge `{id}/e0`).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct CurveThrough {
+    /// The operation's id; also the body's name.
+    pub id: String,
+    /// What it goes through.
+    pub args: CurveThroughArgs,
+}
+
+impl CurveThroughArgs {
+    /// The points the curve goes through, in `world`.
+    fn places(&self, builder: &dyn Builder) -> anyhow::Result<Vec<Point3>> {
+        let world = builder.tracked();
+        let offset = (*builder).measure(&self.offset, "the distance off the faces")?;
+        let mut points = Vec::new();
+        for (k, source) in self.points.iter().enumerate() {
+            points.push(match self.spots.get(k).copied().flatten() {
+                // A point on a face: where the face is nearest to where
+                // it was put, and off it.
+                Some(at) => {
+                    let sheet = face_sheet(&world.topo, source.name())?;
+                    let (on, out) = nearest(&sheet.faces[0], Point3::from_array(at));
+                    on + out * offset
+                }
+                None => Position::resolve(world, source)?.0,
+            });
+        }
+        Ok(points)
+    }
+
+    /// The curve, through `points`.
+    fn curve(&self, world: &workpiece_core::World, points: &[Point3]) -> anyhow::Result<Curve3> {
+        let n = points.len();
+        let ends = if self.closed || n < 2 {
+            [EndHeld::default(); 2]
+        } else {
+            [
+                self.start.held(world, points[0], points[1] - points[0])?,
+                self.end
+                    .held(world, points[n - 1], points[n - 1] - points[n - 2])?,
+            ]
+        };
+        through(points, self.closed, ends)
+    }
+}
+
+impl Operation for CurveThrough {
+    type Args = CurveThroughArgs;
+    type EditState = ();
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn id_mut(&mut self) -> &mut String {
+        &mut self.id
+    }
+
+    fn args(&self) -> &CurveThroughArgs {
+        &self.args
+    }
+
+    fn args_mut(&mut self) -> &mut CurveThroughArgs {
+        &mut self.args
+    }
+
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
+        let points = self.args.places(builder)?;
+        let curve = self.args.curve(builder.tracked(), &points)?;
+        Ok(wire(&self.id, whole(curve)))
+    }
+
+    fn summary(&self) -> String {
+        let closed = if self.args.closed { ", closed" } else { "" };
+        format!("through {} points{closed}", self.args.points.len())
+    }
+}
+
+/// The box of what the curve goes through: what is picked is added in
+/// order (a face at the point pointed at; again, at another); picking a
+/// point that is in it already takes it out.
+fn through_field(
+    args: &CurveThroughArgs,
+    context: &EditContext<'_>,
+) -> Vec<Widget<CurveThroughArgs>> {
+    let picked = Reference::sources(&args.points);
+    let set = ui::set(args, |a, picked: Vec<Source>| {
+        // What went out of the box takes its place on a face with it.
+        let was = Reference::sources(&a.points);
+        let mut spots = a.spots.clone();
+        spots.resize(was.len(), None);
+        if picked.len() + 1 == was.len() {
+            let gone = (0..picked.len())
+                .find(|&k| picked[k] != was[k])
+                .unwrap_or(picked.len());
+            spots.remove(gone);
+        } else {
+            spots.resize(picked.len(), None);
+        }
+        a.spots = spots;
+        a.points = Reference::each(picked);
+    });
+    let at = {
+        let (args, world) = (args.clone(), context.world.clone());
+        move |source: Source, at: Point3| {
+            let mut a = args.clone();
+            a.spots.resize(a.points.len(), None);
+            let face = matches!(&source, Source::Topology(name)
+                if world.topo.resolve::<FaceId>(name).is_some());
+            let held = a.points.iter().position(|p| p.source == source);
+            match held {
+                // A point picked again goes out; a face takes another
+                // point on it.
+                Some(k) if !face => {
+                    a.points.remove(k);
+                    a.spots.remove(k);
+                }
+                _ => {
+                    a.points.push(source.into());
+                    a.spots.push(face.then(|| at.to_array()));
+                }
+            }
+            a
+        }
+    };
+    let count = args.points.len();
+    let said = match count {
+        0 => "Pick the points in order: vertices, frames, or places on faces".to_owned(),
+        1 => "1 point: pick the next".to_owned(),
+        n => format!("{n} points, in the order picked"),
+    };
+    vec![
+        ReferenceList::new("Through", THROUGH.to_vec(), picked, set)
+            .required()
+            .picked_at(at)
+            .into(),
+        Label::new("", said, Mood::Plain).into(),
+    ]
+}
+
+/// A helix's axis, radius, rise, turns and growth.
+#[derive(
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
+)]
+pub struct HelixArgs {
+    /// The axis it turns about.
+    pub axis: Option<Reference<DatumAxis>>,
+    /// Its radius where it starts.
+    pub radius: Measure,
+    /// How far it advances along the axis in a turn; nothing for a flat
+    /// spiral.
+    pub pitch: Measure,
+    /// How many turns it makes.
+    pub turns: Measure,
+    /// How much its radius grows in a turn: a spiral.
+    #[serde(default = "nothing")]
+    #[arg(label = "Grows a turn")]
+    pub grow: Measure,
+    /// Where about the axis it starts, in degrees from the axis's own
+    /// zero direction (a frame's axis: its next axis; z: x).
+    #[serde(default = "nothing")]
+    #[arg(label = "Start angle °")]
+    pub start: Measure,
+    /// Whether it is a left-handed helix.
+    #[serde(default)]
+    #[arg(flip, row)]
+    pub left: bool,
+}
+
+impl Default for HelixArgs {
+    fn default() -> Self {
+        Self {
+            axis: None,
+            radius: Measure::new(10.0),
+            pitch: Measure::new(5.0),
+            turns: Measure::new(3.0),
+            grow: nothing(),
+            start: nothing(),
+            left: false,
+        }
+    }
+}
+
+/// Adds a helix about an axis (or, growing as it turns, a spiral) as a
+/// wire body named after the operation's id (its edge `{id}/e0`).
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Helix {
+    /// The operation's id; also the body's name.
+    pub id: String,
+    /// Its axis and sizes.
+    pub args: HelixArgs,
+}
+
+/// Where a helix is: its axis's point and direction, the direction it
+/// starts in from the axis and its zero direction, and the way it turns
+/// about the axis.
+struct Laid {
+    origin: Point3,
+    axis: Point3,
+    zero: Point3,
+    start: Point3,
+    sense: f64,
+}
+
+impl Laid {
+    fn of(axis: &DatumAxis, start_degrees: f64, left: bool) -> Self {
+        let (origin, axis) = (axis.origin(), axis.direction().normalize_or_zero());
+        let zero = axis.any_orthonormal_vector();
+        let start = glam::DQuat::from_axis_angle(axis, start_degrees.to_radians()) * zero;
+        Self {
+            origin,
+            axis,
+            zero,
+            start,
+            sense: if left { -1.0 } else { 1.0 },
+        }
+    }
+
+    /// The direction from the axis after `turns` turns.
+    fn after(&self, turns: f64) -> Point3 {
+        let angle = self.sense * turns * std::f64::consts::TAU;
+        glam::DQuat::from_axis_angle(self.axis, angle) * self.start
+    }
+}
+
+impl Operation for Helix {
+    type Args = HelixArgs;
+    type EditState = ();
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn id_mut(&mut self) -> &mut String {
+        &mut self.id
+    }
+
+    fn args(&self) -> &HelixArgs {
+        &self.args
+    }
+
+    fn args_mut(&mut self) -> &mut HelixArgs {
+        &mut self.args
+    }
+
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
+        let args = &self.args;
+        let radius = (*builder).measure(&args.radius, "the radius")?;
+        let pitch = (*builder).measure(&args.pitch, "the pitch")?;
+        let turns = (*builder).measure(&args.turns, "the turns")?;
+        let grow = (*builder).measure(&args.grow, "the growth")?;
+        let start = (*builder).measure(&args.start, "the start angle")?;
+        ensure!(radius > 0.0, "a helix has some radius");
+        ensure!(
+            pitch != 0.0 || grow != 0.0,
+            "a helix advances as it turns, or a spiral grows"
+        );
+        let axis = args.axis.as_ref().context("pick the axis of the helix")?;
+        let axis = builder.tracked().resolve(axis)?;
+        let laid = Laid::of(&axis, start, args.left);
+        let from = laid.origin + laid.start * radius;
+        let curve = workpiece_shape::swept::helix(
+            laid.origin,
+            laid.axis,
+            from,
+            pitch,
+            turns,
+            grow,
+            args.left,
+        )?;
+        Ok(wire(&self.id, whole(curve)))
+    }
+
+    fn visualize_edit(
+        &self,
+        context: &EditContext<'_>,
+        (): &(),
+    ) -> EditVisualization<Edit<HelixArgs, ()>> {
+        let args = &self.args;
+        let fields = workpiece_core::Arguments::fields(args, context);
+        let mut handles = BTreeMap::new();
+        let value = |m: &Measure| m.resolve(context.parameters).unwrap_or(m.value);
+        let axis = args
+            .axis
+            .as_ref()
+            .and_then(|a| context.world.resolve(a).ok());
+        if let Some(axis) = axis {
+            let (radius, pitch, turns, grow, start) = (
+                value(&args.radius),
+                value(&args.pitch),
+                value(&args.turns),
+                value(&args.grow),
+                value(&args.start),
+            );
+            let laid = Laid::of(&axis, start, args.left);
+            let height = pitch * turns;
+            let top = laid.origin + laid.axis * height;
+            let end = laid.after(turns);
+            let mut add =
+                |name: &str, handle: Option<workpiece_core::handles::Handle<HelixArgs>>| {
+                    if let Some(handle) = handle {
+                        handles.insert(name.to_owned(), handle);
+                    }
+                };
+            // Its radius where it starts, out from the axis to the start.
+            let set = ui::set(args, |a, r: f64| a.radius = Measure::new(r.max(1e-9)));
+            add(
+                "radius",
+                LinearHandle::new(laid.origin, laid.start, radius, set).map(Into::into),
+            );
+            // (The rings that turn it stand a little off its ends along
+            // the axis: their knobs clear of the arrows at its ends.)
+            let apart = laid.axis * (0.3 * radius.abs().max(height.abs() * 0.1));
+            // Where it starts, turned about the axis.
+            let set = ui::set(args, |a, degrees: f64| a.start = Measure::new(degrees));
+            add(
+                "start",
+                AngularHandle::new(laid.origin - apart, laid.axis, laid.zero, start, set)
+                    .map(Into::into),
+            );
+            // How high it rises, up the axis: the pitch, for the turns it
+            // makes.
+            let set = ui::set(args, move |a, h: f64| {
+                if turns > 0.0 {
+                    a.pitch = Measure::new(h / turns);
+                }
+            });
+            add(
+                "height",
+                LinearHandle::new(laid.origin, laid.axis, height, set).map(Into::into),
+            );
+            // How many turns, turned about the axis at its top.
+            let set = ui::set(args, |a, degrees: f64| {
+                a.turns = Measure::new((degrees / 360.0).max(0.01));
+            });
+            add(
+                "turns",
+                AngularHandle::new(
+                    top + apart,
+                    laid.axis * laid.sense,
+                    laid.start,
+                    turns * 360.0,
+                    set,
+                )
+                .map(Into::into),
+            );
+            // Its radius where it ends: out from the axis at its top;
+            // more than where it starts, a spiral that grows.
+            let set = ui::set(args, move |a, r: f64| {
+                if turns > 0.0 {
+                    a.grow = Measure::new((r - radius) / turns);
+                }
+            });
+            add(
+                "end radius",
+                LinearHandle::new(top, end, radius + grow * turns, set).map(Into::into),
+            );
+        }
+        EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles).map(Edit::args)
+    }
+
+    fn summary(&self) -> String {
+        let a = &self.args;
+        if a.grow.value != 0.0 && a.pitch.value == 0.0 {
+            format!("a spiral of {} turns", a.turns)
+        } else {
+            format!("a helix of {} turns", a.turns)
+        }
+    }
+}
+
+/// The two faces a crossing is of.
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    workpiece_core::Arguments,
+)]
+pub struct CurveIntersectionArgs {
+    /// One face.
+    #[arg(label = "First face")]
+    pub first: Option<Reference<FaceId>>,
+    /// The other.
+    #[arg(label = "Second face")]
+    pub second: Option<Reference<FaceId>>,
+}
+
+/// Adds where two faces cross as a wire body named after the
+/// operation's id: its edges `{id}/e0`, `{id}/e1`, … one a piece.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct CurveIntersection {
+    /// The operation's id; also the body's name.
+    pub id: String,
+    /// The faces.
+    pub args: CurveIntersectionArgs,
+}
+
+impl Operation for CurveIntersection {
+    type Args = CurveIntersectionArgs;
+    type EditState = ();
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn id_mut(&mut self) -> &mut String {
+        &mut self.id
+    }
+
+    fn args(&self) -> &CurveIntersectionArgs {
+        &self.args
+    }
+
+    fn args_mut(&mut self) -> &mut CurveIntersectionArgs {
+        &mut self.args
+    }
+
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
+        let args = &self.args;
+        let first = args.first.as_ref().context("pick the first face")?;
+        let second = args.second.as_ref().context("pick the second face")?;
+        let topo = &builder.tracked().topo;
+        let pieces = crossing(
+            &face_sheet(topo, first.name())?,
+            &face_sheet(topo, second.name())?,
+        )?;
+        Ok(wire(&self.id, pieces))
+    }
+
+    fn summary(&self) -> String {
+        "where two faces cross".to_owned()
+    }
+}
+
+/// What is thrown onto which faces, and along what.
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    workpiece_core::Arguments,
+)]
+pub struct CurveProjectionArgs {
+    /// The faces it is thrown onto.
+    #[arg(label = "Onto faces", required)]
+    pub onto: Vec<Reference<FaceId>>,
+    /// What is thrown: edges, curves in space (wire bodies), sketches
+    /// (all their curves).
+    #[arg(with = "curves_field")]
+    pub curves: Vec<Reference<Anything>>,
+    /// The direction it is thrown along; none for a sketch's normal.
+    #[arg(label = "Along", empty = "Normal of the sketch")]
+    pub along: Option<Reference<DatumAxis>>,
+}
+
+/// Adds curves thrown onto faces along a direction — edges, curves in
+/// space, the curves of sketches — as a wire body named after the
+/// operation's id: its edges `{id}/e0`, `{id}/e1`, … one a piece.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct CurveProjection {
+    /// The operation's id; also the body's name.
+    pub id: String,
+    /// What, onto what, along what.
+    pub args: CurveProjectionArgs,
+}
+
+/// The kinds of what a projection throws.
+const THROWN: [ReferenceKind; 3] = [
+    ReferenceKind::Profile,
+    ReferenceKind::Edge,
+    ReferenceKind::Body,
+];
+
+/// The box of what is thrown onto the faces.
+fn curves_field(
+    args: &CurveProjectionArgs,
+    _: &EditContext<'_>,
+) -> Vec<Widget<CurveProjectionArgs>> {
+    let set = ui::set(args, |a, picked: Vec<Source>| {
+        a.curves = Reference::each(picked)
+    });
+    vec![
+        ReferenceList::new(
+            "Project",
+            THROWN.to_vec(),
+            Reference::sources(&args.curves),
+            set,
+        )
+        .required()
+        .into(),
+    ]
+}
+
+impl Operation for CurveProjection {
+    type Args = CurveProjectionArgs;
+    type EditState = ();
+
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn id_mut(&mut self) -> &mut String {
+        &mut self.id
+    }
+
+    fn args(&self) -> &CurveProjectionArgs {
+        &self.args
+    }
+
+    fn args_mut(&mut self) -> &mut CurveProjectionArgs {
+        &mut self.args
+    }
+
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
+        let args = &self.args;
+        let world = builder.tracked();
+        let topo = &world.topo;
+        ensure!(!args.onto.is_empty(), "pick the faces to throw onto");
+        ensure!(!args.curves.is_empty(), "pick what to throw onto the faces");
+        let along = args
+            .along
+            .as_ref()
+            .map(|a| Ok::<_, anyhow::Error>(world.resolve(a)?.direction()))
+            .transpose()?;
+        // What is thrown, each curve with its range and the direction it
+        // goes along.
+        let mut thrown: Vec<(Curve3, (f64, f64), Point3)> = Vec::new();
+        for source in &args.curves {
+            match &source.source {
+                Source::Profile(name) => {
+                    let profile = world
+                        .profiles
+                        .get(name)
+                        .with_context(|| format!("there is no sketch {name:?}"))?;
+                    let frame = workpiece_shape::sweep::Frame::of(profile);
+                    let way = along.unwrap_or_else(|| frame.normal());
+                    for edge in &profile.edges {
+                        let curve = &edge.curve;
+                        let points = curve
+                            .control_points()
+                            .iter()
+                            .map(|&p| frame.place(p))
+                            .collect();
+                        let lifted = Curve3::new(
+                            curve.degree(),
+                            curve.knots().to_vec(),
+                            points,
+                            Some(curve.weights().to_vec()),
+                        )?;
+                        thrown.push((lifted, (edge.t0, edge.t1), way));
+                    }
+                }
+                Source::Topology(name) => {
+                    let way = along.context("pick the direction to throw it along")?;
+                    let edges: Vec<workpiece_core::world::topo::EdgeId> =
+                        match topo.resolve::<BodyId>(name).and_then(|b| topo.body(b)) {
+                            Some(body) if body.kind == BodyKind::Wire => body.free_edges.clone(),
+                            Some(_) => {
+                                anyhow::bail!("{name:?} is a body, but no curve: pick its edges")
+                            }
+                            None => {
+                                vec![topo.resolve(name).with_context(|| {
+                                    format!("there is no edge or curve {name:?}")
+                                })?]
+                            }
+                        };
+                    for id in edges {
+                        let edge = topo.edge(id).context("an edge is gone")?;
+                        let line = topo.curve(edge.curve).context("an edge without a curve")?;
+                        thrown.push((line.clone(), (edge.t0, edge.t1), way));
+                    }
+                }
+                other => anyhow::bail!("{} cannot be thrown onto a face", other.described()),
+            }
+        }
+        let faces: Vec<Solid> = args
+            .onto
+            .iter()
+            .map(|f| face_sheet(topo, f.name()))
+            .collect::<anyhow::Result<_>>()?;
+        let mut found = Vec::new();
+        for (k, (line, range, way)) in thrown.iter().enumerate() {
+            let way = way.try_normalize().context("the direction has no length")?;
+            for onto in &faces {
+                // The curve carried along the direction, both ways, as
+                // far as the face is: where that wall crosses the face.
+                let (lo, hi) = onto.extent();
+                let from = line.point_at(range.0);
+                let size = (hi - lo).length();
+                let corners = (0..8).map(|c| {
+                    let pick = |bit: usize, a: f64, b: f64| if c & bit == 0 { a } else { b };
+                    Point3::new(
+                        pick(1, lo.x, hi.x),
+                        pick(2, lo.y, hi.y),
+                        pick(4, lo.z, hi.z),
+                    )
+                });
+                let (near, far) = corners.fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), p| {
+                    let s = (p - from).dot(way);
+                    (a.min(s), b.max(s))
+                });
+                let (near, far) = (near - size * 0.1, far + size * 0.1);
+                let wall = workpiece_shape::ruled(
+                    line,
+                    *range,
+                    way * (far - near),
+                    &format!("{}/w{k}", self.id),
+                )?
+                .moved(&|p| p + way * near)?;
+                if let Ok(pieces) = crossing(&wall, onto) {
+                    found.extend(pieces);
+                }
+            }
+        }
+        ensure!(
+            !found.is_empty(),
+            "along the direction, the curves miss the faces"
+        );
+        Ok(wire(&self.id, found))
+    }
+
+    fn summary(&self) -> String {
+        let n = self.args.curves.len();
+        format!(
+            "{n} {} thrown onto {} faces",
+            if n == 1 { "curve" } else { "curves" },
+            self.args.onto.len()
+        )
+    }
+}
+
+/// All of `curve`.
+fn whole(curve: Curve3) -> Vec<Piece> {
+    let range = curve.domain();
+    vec![(Arc::new(curve), range)]
+}
+
+/// What a curve step makes: the wire body `id` of `curves`.
+fn wire(id: &str, curves: Vec<Piece>) -> workpiece_core::Made<'static> {
+    let made = move |topo: &mut Topo, name: &str| write_wire(topo, name, &curves).map(|_| ());
+    workpiece_core::Made::body(id, made)
 }
 
 /// A curve, and the part of it that counts.
@@ -162,67 +1108,19 @@ pub fn crossing(a: &Solid, b: &Solid) -> anyhow::Result<Vec<Piece>> {
         (hi.max(hi2) - lo.min(lo2)).length()
     };
     ensure!(reach > 0.0, "the faces have some size");
-    // Each as a thin solid before it or behind it: where the two
-    // overlap, the edge between the faces themselves is where the faces
-    // cross. (Faces that end where they cross — two sides of a block —
-    // have only what is behind both in common.)
-    let all = |sheet: &Solid| -> Vec<usize> { (0..sheet.faces.len()).collect() };
-    let mut found = Vec::new();
-    for (front_a, front_b) in [(1.0, 1.0), (-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0)] {
-        let thin = |sheet: &Solid, side: f64| {
-            workpiece_shape::thick::thicken(sheet, &all(sheet), side * reach * 1e-3, false, true)
-        };
-        let (Ok(one), Ok(other)) = (thin(a, front_a), thin(b, front_b)) else {
-            continue;
-        };
-        let Ok(common) = combine(Op::Intersect, &one, &other).map(|c| c.solid) else {
-            continue;
-        };
-        // Which faces of what they have in common are pieces of the
-        // sheets' own faces: by where they are.
-        let on: Vec<[bool; 2]> = (0..common.faces.len())
-            .map(|f| {
-                let Some(p) = workpiece_shape::surface::inside(&common, f) else {
-                    return [false; 2];
-                };
-                [a, b].map(|sheet| {
-                    (0..sheet.faces.len())
-                        .any(|s| workpiece_boolean::lies_on(sheet, s, p, reach * 1e-7))
-                })
-            })
-            .collect();
-        let mut beside: Vec<Vec<usize>> = vec![Vec::new(); common.edges.len()];
-        for (f, face) in common.faces.iter().enumerate() {
-            for step in face.loops.iter().flatten() {
-                if let Walk::Edge { edge, .. } = step.walk {
-                    beside[edge].push(f);
-                }
-            }
-        }
-        found = (0..common.edges.len())
-            .filter(|&e| match beside[e][..] {
-                [f, g] => (on[f][0] && on[g][1]) || (on[g][0] && on[f][1]),
-                _ => false,
-            })
-            // (And is on both all along: not an edge across what the
-            // faces were thickened by, where one of them ends.)
-            .filter(|&e| {
-                let edge = &common.edges[e];
-                [0.25, 0.5, 0.75].iter().all(|share| {
-                    let t = edge.range.0 + (edge.range.1 - edge.range.0) * share;
-                    let p = edge.curve.point_at(t);
-                    [a, b].iter().all(|sheet| {
-                        (0..sheet.faces.len())
-                            .any(|s| workpiece_boolean::lies_on(sheet, s, p, reach * 1e-7))
-                    })
-                })
-            })
-            .map(|e| (common.edges[e].curve.clone(), common.edges[e].range))
-            .collect();
-        if !found.is_empty() {
-            break;
-        }
-    }
+    // Where the faces meet: where they cross, and where an edge of one
+    // lies in the other (two faces of a body side by side meet along
+    // the edge between them).
+    let found = workpiece_boolean::meeting_curves(a, b)
+        .map_err(|why| anyhow::anyhow!("where the faces cross could not be told: {why}"))?;
+    let found: Vec<Piece> = found
+        .into_iter()
+        .filter(|(c, (t0, t1))| {
+            let (p, q) = (c.point_at(*t0), c.point_at(*t1));
+            let middle = c.point_at((t0 + t1) / 2.0);
+            p.distance(q).max(p.distance(middle)) > reach * 1e-9
+        })
+        .collect();
     ensure!(!found.is_empty(), "the faces do not cross in a curve");
     Ok(found)
 }
@@ -344,211 +1242,4 @@ fn face_sheet(topo: &Topo, name: &str) -> anyhow::Result<Solid> {
         }
     }
     anyhow::bail!("there is no face {name:?}")
-}
-
-impl Operation for Curve {
-    type Args = CurveArgs;
-    type EditState = ();
-
-    fn id(&self) -> &str {
-        &self.id
-    }
-
-    fn id_mut(&mut self) -> &mut String {
-        &mut self.id
-    }
-
-    fn args(&self) -> &CurveArgs {
-        &self.args
-    }
-
-    fn args_mut(&mut self) -> &mut CurveArgs {
-        &mut self.args
-    }
-
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
-        let args = &self.args;
-        let whole = |curve: Curve3| {
-            let range = curve.domain();
-            vec![(Arc::new(curve), range)]
-        };
-        let curves = match args.way {
-            CurveWay::Spline => {
-                let world = builder.tracked();
-                let offset = (*builder).measure(&args.offset, "the distance off the faces")?;
-                let mut points = Vec::new();
-                for (k, source) in args.picked.iter().enumerate() {
-                    points.push(match args.spots.get(k).copied().flatten() {
-                        // A point on a face: where the face is nearest
-                        // to where it was put, and off it.
-                        Some(at) => {
-                            let sheet = face_sheet(&world.topo, source.name())?;
-                            let (on, out) = nearest(&sheet.faces[0], Point3::from_array(at));
-                            on + out * offset
-                        }
-                        None => Position::resolve(world, source)?.0,
-                    });
-                }
-                whole(through(&points)?)
-            }
-            CurveWay::Helix => {
-                let radius = (*builder).measure(&args.radius, "the radius")?;
-                let pitch = (*builder).measure(&args.pitch, "the pitch")?;
-                let turns = (*builder).measure(&args.turns, "the turns")?;
-                ensure!(radius > 0.0, "a helix has some radius");
-                let grow = (*builder).measure(&args.grow, "the growth")?;
-                ensure!(
-                    pitch != 0.0 || grow != 0.0,
-                    "a helix advances as it turns, or a spiral grows"
-                );
-                let axis = args.axis.as_ref().context("pick the axis of the helix")?;
-                let axis = builder.tracked().resolve(axis)?;
-                let (origin, along) = (axis.origin(), axis.direction());
-                let from = origin + along.any_orthonormal_vector() * radius;
-                whole(workpiece_shape::swept::helix(
-                    origin, along, from, pitch, turns, grow, args.left,
-                )?)
-            }
-            CurveWay::Projection => {
-                let axis = args
-                    .axis
-                    .as_ref()
-                    .context("pick the axis to throw it along")?;
-                let along = builder.tracked().resolve(axis)?.direction();
-                let topo = &builder.tracked().topo;
-                // The curve and the face, whichever was picked first.
-                let wire = |s: &&workpiece_core::Reference<workpiece_core::Anything>| {
-                    let body = topo.resolve::<BodyId>(s.name()).and_then(|b| topo.body(b));
-                    body.filter(|b| b.kind == BodyKind::Wire)
-                };
-                let curve = args.picked.iter().find_map(|s| wire(&s));
-                let curve = curve.context("pick the curve to throw onto the face")?;
-                let face = args.picked.iter().find(|s| wire(s).is_none());
-                let face = face.context("pick the face to throw the curve onto")?;
-                let onto = face_sheet(topo, face.name())?;
-                let (lo, hi) = onto.extent();
-                let mut found = Vec::new();
-                for (k, &id) in curve.free_edges.iter().enumerate() {
-                    let edge = topo.edge(id).context("an edge of the curve is gone")?;
-                    let line = topo.curve(edge.curve).context("an edge without a curve")?;
-                    // The edge carried along the axis, both ways, as far
-                    // as the face is: where that wall crosses the face.
-                    let from = line.point_at(edge.t0);
-                    let far = (hi - lo).length() + lo.distance(from) + hi.distance(from);
-                    let wall = workpiece_shape::ruled(
-                        line,
-                        (edge.t0, edge.t1),
-                        along * (2.0 * far),
-                        &format!("{}/w{k}", self.id),
-                    )?
-                    .moved(&|p| p - along * far)?;
-                    if let Ok(pieces) = crossing(&wall, &onto) {
-                        found.extend(pieces);
-                    }
-                }
-                ensure!(
-                    !found.is_empty(),
-                    "along the axis, the curve misses the face"
-                );
-                found
-            }
-            CurveWay::Intersection => {
-                let [a, b] = &args.picked[..] else {
-                    anyhow::bail!("pick the two faces that cross");
-                };
-                let topo = &builder.tracked().topo;
-                crossing(&face_sheet(topo, a.name())?, &face_sheet(topo, b.name())?)?
-            }
-        };
-        let wire = move |topo: &mut Topo, name: &str| write_wire(topo, name, &curves).map(|_| ());
-        Ok(workpiece_core::Made::body(&self.id, wire))
-    }
-
-    fn summary(&self) -> String {
-        match self.args.way {
-            CurveWay::Spline => format!("through {} points", self.args.picked.len()),
-            CurveWay::Helix => format!("a helix of {} turns", self.args.turns),
-            CurveWay::Intersection => "where two faces cross".to_owned(),
-            CurveWay::Projection => "a curve thrown onto a face".to_owned(),
-        }
-    }
-}
-
-/// The field that chooses what curve it is; what was picked for
-/// another kind goes with it.
-fn way_field(args: &CurveArgs, _: &EditContext<'_>) -> Vec<Widget<CurveArgs>> {
-    let ways = [
-        (CurveWay::Spline, "Through points"),
-        (CurveWay::Helix, "Helix or spiral"),
-        (CurveWay::Intersection, "Where two faces cross"),
-        (CurveWay::Projection, "A curve onto a face"),
-    ];
-    let labels = ways.iter().map(|w| w.1.to_owned()).collect();
-    let chosen = ways.iter().position(|w| w.0 == args.way).unwrap_or(0);
-    let set = ui::set(args, move |a, i: usize| {
-        a.way = ways[i].0;
-        a.picked.clear();
-        a.spots.clear();
-    });
-    vec![Choice::new("Curve", labels, chosen, set).into()]
-}
-
-/// The box that takes what the curve is made of, of the kinds its way
-/// takes.
-fn picked_field(args: &CurveArgs, _: &EditContext<'_>) -> Vec<Widget<CurveArgs>> {
-    let (label, kinds) = match args.way {
-        CurveWay::Spline => ("Through", vec![ReferenceKind::Vertex, ReferenceKind::Point]),
-        CurveWay::Intersection => ("Faces", vec![ReferenceKind::Face]),
-        _ => (
-            "Curve and face",
-            vec![ReferenceKind::Body, ReferenceKind::Face],
-        ),
-    };
-    let picked = workpiece_core::Reference::sources(&args.picked);
-    let set = ui::set(args, |a, picked: Vec<workpiece_core::Source>| {
-        // What went out of the box takes its place on a face with it.
-        let was = workpiece_core::Reference::sources(&a.picked);
-        let mut spots = a.spots.clone();
-        spots.resize(was.len(), None);
-        if picked.len() + 1 == was.len() {
-            let gone = (0..picked.len())
-                .find(|&k| picked[k] != was[k])
-                .unwrap_or(picked.len());
-            spots.remove(gone);
-        } else {
-            spots.resize(picked.len(), None);
-        }
-        a.spots = spots;
-        a.picked = workpiece_core::Reference::each(picked)
-    });
-    let mut fields: Vec<Widget<CurveArgs>> = vec![
-        ReferenceList::new(label, kinds, picked, set)
-            .required()
-            .into(),
-    ];
-    if args.way == CurveWay::Spline {
-        // A point on a face, where the face is pointed at: the curve
-        // goes through it next.
-        let on_face = ui::set(args, |a, picked: workpiece_core::widgets::Picked| {
-            if !picked.instance.is_empty() {
-                return;
-            }
-            let face = matches!(&picked.source, workpiece_core::Source::Topology(name)
-                if picked.within.topo.resolve::<workpiece_core::world::topo::FaceId>(name).is_some());
-            // (A vertex or a frame pointed at is a point by itself, as
-            // in the box above.)
-            let point = Position::resolve(&picked.within, &picked.source).is_ok();
-            if face || point {
-                a.spots.resize(a.picked.len(), None);
-                a.picked.push(picked.source.into());
-                a.spots.push(face.then(|| picked.at.to_array()));
-            }
-        });
-        fields.push(
-            workpiece_core::widgets::ConnectorInput::new("Then on a face", None, on_face)
-                .within(workpiece_core::widgets::Scope::Outside(String::new()))
-                .into(),
-        );
-    }
-    fields
 }

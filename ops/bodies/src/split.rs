@@ -212,4 +212,12 @@ impl workpiece_core::Choices for Keep {
     fn label(self) -> &'static str {
         Self::label(self)
     }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            Keep::Both => "split-both",
+            Keep::Front => "split-front",
+            Keep::Behind => "split-behind",
+        })
+    }
 }

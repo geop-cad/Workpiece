@@ -707,13 +707,16 @@
       }
     },
     {
-      "FeatureMirror": {
+      "Mirror": {
         "args": {
+          "bodies": [],
+          "combine": "NewBody",
           "features": [
             {
               "Topology": "rib/run0/start"
             }
           ],
+          "of": "Features",
           "plane": {
             "FrameAxis": {
               "axis": "Y",
@@ -1064,13 +1067,16 @@
       }
     },
     {
-      "FeatureMirror": {
+      "Mirror": {
         "args": {
+          "bodies": [],
+          "combine": "NewBody",
           "features": [
             {
               "Topology": "slot/side/e15"
             }
           ],
+          "of": "Features",
           "plane": {
             "FrameAxis": {
               "axis": "Y",
@@ -1213,6 +1219,10 @@
       "Hole": {
         "args": {
           "angle": 0.0,
+          "at": [
+            0.0,
+            0.0
+          ],
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,

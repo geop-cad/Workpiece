@@ -448,11 +448,33 @@ pub struct Tool {
     pub make: fn(&ToolContext<'_>) -> AnyOperation,
 }
 
+/// Tools of a tab offered as one button of the ribbon, which opens a
+/// menu of them: the ways of making one kind of thing that are each a
+/// step of its own (a curve through points, a helix, ...).
+pub struct Menu {
+    /// The tab it is on.
+    pub tab: &'static str,
+    /// The group of tools it stands with there.
+    pub group: &'static str,
+    /// What the button is called.
+    pub label: &'static str,
+    /// Its icon, by name.
+    pub icon: &'static str,
+    /// What it offers, in a sentence.
+    pub hint: &'static str,
+    /// Whether it is shown small, stacked with the others of its group.
+    pub small: bool,
+    /// The labels of the tools of the tab it offers, in order: they show
+    /// in the menu, not each on the ribbon.
+    pub tools: &'static [&'static str],
+}
+
 /// The operations there are: their kinds, their tools, their icons.
 #[derive(Default)]
 pub struct Registry {
     kinds: BTreeMap<&'static str, Kind>,
     tools: Vec<Tool>,
+    menus: Vec<Menu>,
     icons: BTreeMap<&'static str, &'static str>,
 }
 
@@ -499,9 +521,19 @@ impl Registry {
         self.icons.insert(name, svg);
     }
 
+    /// Tells of a menu of tools.
+    pub fn menu(&mut self, menu: Menu) {
+        self.menus.push(menu);
+    }
+
     /// The tools, in the order they were told of.
     pub fn tools(&self) -> &[Tool] {
         &self.tools
+    }
+
+    /// The menus of tools.
+    pub fn menus(&self) -> &[Menu] {
+        &self.menus
     }
 
     /// The picture of the icon called `name`, as SVG.

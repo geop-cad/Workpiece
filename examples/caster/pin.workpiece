@@ -393,7 +393,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "Drawn",
+          "axis": {
+            "Datum": "pin_profile/e19"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,

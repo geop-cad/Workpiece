@@ -189,9 +189,16 @@ fn run(name: &str) -> Found {
                 Point3::new(3.0, 2.5, 2.0),
                 Point3::new(4.0, 0.0, 3.0),
             ];
-            let curve = through(&points)?;
+            let curve = through(&points, false, Default::default())?;
+            // (Its parameter is how far along the points it is.)
+            let mut at = 0.0;
             let off: f64 = (0..4)
-                .map(|k| curve.point_at(k as f64).distance(points[k]))
+                .map(|k| {
+                    if k > 0 {
+                        at += points[k - 1].distance(points[k]);
+                    }
+                    curve.point_at(at).distance(points[k])
+                })
                 .sum();
             (1.0 + off, 1.0)
         }

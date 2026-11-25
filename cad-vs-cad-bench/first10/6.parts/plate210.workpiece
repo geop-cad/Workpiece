@@ -4,7 +4,7 @@
       "Sketch": {
         "args": {
           "constraints": {
-            "31": {
+            "32": {
               "dimension": null,
               "kind": {
                 "Symmetric": {
@@ -14,7 +14,7 @@
                 }
               }
             },
-            "32": {
+            "33": {
               "dimension": null,
               "kind": {
                 "Symmetric": {
@@ -24,7 +24,7 @@
                 }
               }
             },
-            "33": {
+            "34": {
               "dimension": null,
               "kind": {
                 "Symmetric": {
@@ -34,7 +34,7 @@
                 }
               }
             },
-            "34": {
+            "35": {
               "dimension": null,
               "kind": {
                 "Symmetric": {
@@ -44,7 +44,7 @@
                 }
               }
             },
-            "35": {
+            "36": {
               "dimension": null,
               "kind": {
                 "Symmetric": {
@@ -54,7 +54,7 @@
                 }
               }
             },
-            "36": {
+            "37": {
               "dimension": null,
               "kind": {
                 "Symmetric": {
@@ -64,7 +64,7 @@
                 }
               }
             },
-            "37": {
+            "38": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -74,7 +74,7 @@
                 }
               }
             },
-            "38": {
+            "39": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -84,7 +84,7 @@
                 }
               }
             },
-            "39": {
+            "40": {
               "dimension": null,
               "kind": {
                 "Along": {
@@ -94,7 +94,7 @@
                 }
               }
             },
-            "40": {
+            "41": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -114,7 +114,7 @@
                 ]
               }
             },
-            "41": {
+            "42": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -134,7 +134,7 @@
                 ]
               }
             },
-            "42": {
+            "43": {
               "dimension": {
                 "diameter": true,
                 "driven": false,
@@ -153,7 +153,7 @@
                 }
               }
             },
-            "43": {
+            "44": {
               "dimension": {
                 "diameter": true,
                 "driven": true,
@@ -173,7 +173,7 @@
                 }
               }
             },
-            "44": {
+            "45": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -193,7 +193,7 @@
                 }
               }
             },
-            "45": {
+            "46": {
               "dimension": {
                 "diameter": true,
                 "driven": false,
@@ -212,7 +212,7 @@
                 }
               }
             },
-            "46": {
+            "47": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -232,7 +232,7 @@
                 }
               }
             },
-            "47": {
+            "48": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -252,7 +252,7 @@
                 }
               }
             },
-            "48": {
+            "49": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
@@ -272,7 +272,7 @@
                 }
               }
             },
-            "49": {
+            "50": {
               "dimension": {
                 "diameter": true,
                 "driven": false,
@@ -289,6 +289,15 @@
                   "line": 4,
                   "point": 15
                 }
+              }
+            },
+            "51": {
+              "dimension": null,
+              "kind": {
+                "Parallel": [
+                  31,
+                  4
+                ]
               }
             }
           },
@@ -472,6 +481,23 @@
               },
               "tolerance": 1e-7
             },
+            "31": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Axis": {
+                  "direction": [
+                    1.0,
+                    0.0
+                  ],
+                  "through": 1
+                }
+              },
+              "tolerance": 1e-7
+            },
             "4": {
               "auto": false,
               "axis": "U",
@@ -501,7 +527,7 @@
               "tolerance": 1e-7
             }
           },
-          "next": 49,
+          "next": 51,
           "plane": {
             "FrameAxis": {
               "axis": "Y",
@@ -639,7 +665,9 @@
         "args": {
           "angle": 360.0,
           "areas": [],
-          "axis": "SketchU",
+          "axis": {
+            "Datum": "profile/e31"
+          },
           "caps": false,
           "combine": "NewBody",
           "flip": false,
@@ -1061,8 +1089,9 @@
       }
     },
     {
-      "FeaturePattern": {
+      "Pattern": {
         "args": {
+          "across": 10.0,
           "along": "Circle",
           "angle": 360.0,
           "axis": {
@@ -1071,7 +1100,10 @@
               "frame": "origin"
             }
           },
+          "bodies": [],
+          "combine": "NewBody",
           "count": 5,
+          "face": null,
           "features": [
             {
               "Topology": "pocket_cut/side/e18"
@@ -1083,8 +1115,14 @@
               "Topology": "pocket_cut/side/e19"
             }
           ],
+          "grid": "Square",
+          "margin": 2.0,
+          "of": "Features",
+          "sides": 6,
           "sketch": null,
           "spacing": 10.0,
+          "target": null,
+          "turned": 0.0,
           "upright": false
         },
         "id": "spokes"
@@ -1500,8 +1538,8 @@
             },
             {
               "at": [
-                3.694822225952521e-13,
-                14.500000000000043
+                -2.842170943040401e-14,
+                14.500000000000085
               ],
               "note": "dia",
               "view": "front"
@@ -1567,7 +1605,7 @@
                 -8.0,
                 -24.0
               ],
-              "note": "profile/d46",
+              "note": "profile/d47",
               "view": "secA_view"
             },
             {
@@ -1575,7 +1613,7 @@
                 -8.0,
                 -42.0
               ],
-              "note": "profile/d47",
+              "note": "profile/d48",
               "view": "secA_view"
             },
             {
@@ -1583,7 +1621,7 @@
                 8.0,
                 -48.0
               ],
-              "note": "profile/d48",
+              "note": "profile/d49",
               "view": "secA_view"
             },
             {

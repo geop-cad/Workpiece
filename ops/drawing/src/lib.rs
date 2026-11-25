@@ -87,4 +87,25 @@ pub fn register(r: &mut workpiece_core::Registry) {
     // (Of the panels that stand beside these tools.)
     r.icon("templates", include_str!("../icons/templates.svg"));
     r.icon("properties", include_str!("../icons/properties.svg"));
+    for (name, svg) in OPTION_ICONS {
+        r.icon(name, svg);
+    }
 }
+
+macro_rules! icons {
+    ($($name:literal),* $(,)?) => {
+        &[$(($name, include_str!(concat!("../icons/", $name, ".svg")))),*]
+    };
+}
+
+/// The icons of the options of these operations' choices.
+const OPTION_ICONS: &[(&str, &str)] = icons!(
+    "proj-parallel",
+    "proj-perspective",
+    "section-plane",
+    "section-sketch",
+    "view-current",
+    "view-iso",
+    "view-plane",
+    "view-side",
+);
