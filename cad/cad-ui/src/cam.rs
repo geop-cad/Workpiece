@@ -4,11 +4,11 @@
 
 use std::fmt::Write;
 
-use shapecraft_boolean::model::Walk;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::World;
-use shapecraft_core::world::topo::BodyKind;
-use shapecraft_core::{Pose, Unit};
+use workpiece_boolean::model::Walk;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::World;
+use workpiece_core::world::topo::BodyKind;
+use workpiece_core::{Pose, Unit};
 
 /// The outlines of what the plane square to z through `middle` cuts
 /// through the solid bodies of `world` (and of what is placed in it,
@@ -22,7 +22,7 @@ fn outlines(world: &World, pose: Pose, middle: Point3, far: f64, out: &mut Vec<V
     let x = normal.any_orthonormal_vector();
     let y = normal.cross(x);
     let corner = origin - (x + y + normal) * far;
-    let below = shapecraft_boolean::block(
+    let below = workpiece_boolean::block(
         "section",
         corner,
         [x, y, normal],
@@ -33,10 +33,10 @@ fn outlines(world: &World, pose: Pose, middle: Point3, far: f64, out: &mut Vec<V
         if body.kind != BodyKind::Solid {
             continue;
         }
-        let (Ok(solid), Ok(below)) = (shapecraft_boolean::read(topo, id), &below) else {
+        let (Ok(solid), Ok(below)) = (workpiece_boolean::read(topo, id), &below) else {
             continue;
         };
-        let Ok(cut) = shapecraft_boolean::combine(shapecraft_boolean::Op::Intersect, &solid, below)
+        let Ok(cut) = workpiece_boolean::combine(workpiece_boolean::Op::Intersect, &solid, below)
         else {
             continue;
         };
@@ -85,7 +85,7 @@ fn extent(world: &World, pose: Pose, into: &mut Option<(Point3, Point3)>) {
         if body.kind != BodyKind::Solid {
             continue;
         }
-        let Ok(solid) = shapecraft_boolean::read(&world.topo, id) else {
+        let Ok(solid) = workpiece_boolean::read(&world.topo, id) else {
             continue;
         };
         for v in &solid.vertices {
@@ -138,7 +138,7 @@ pub fn cut_path(world: &World, unit: Unit, feed: f64) -> anyhow::Result<String> 
         Unit::Inch | Unit::Millimetre => 1.0,
         other => other.millimetres(),
     };
-    let mut out = format!("(cut path, written by ShapeCraft)\n{units}\nG90\nM5\n");
+    let mut out = format!("(cut path, written by Workpiece)\n{units}\nG90\nM5\n");
     for run in &runs {
         let at = |p: &Point2| format!("X{:.4} Y{:.4}", p.x * scale, p.y * scale);
         let _ = writeln!(out, "G0 {}", at(&run[0]));
@@ -208,7 +208,7 @@ pub fn mill_path(
     let passes = ((hi.z - lo.z) / step_down - 1e-9).ceil().max(1.0) as usize;
     let clear = (hi.z + (hi.z - lo.z).max(tool)) * scale;
     let mut out = format!(
-        "(contour milling, written by ShapeCraft)\n(tool {:.3} across, in D1; {passes} passes of {:.3})\n{units}\nG90 G17\nG0 Z{clear:.4}\nM3\n",
+        "(contour milling, written by Workpiece)\n(tool {:.3} across, in D1; {passes} passes of {:.3})\n{units}\nG90 G17\nG0 Z{clear:.4}\nM3\n",
         tool * scale,
         (hi.z - lo.z) / passes as f64 * scale,
     );

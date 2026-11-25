@@ -1,6 +1,6 @@
-//! `shapecraft`: the command line scripts and agents build parts with.
+//! `workpiece`: the command line scripts and agents build parts with.
 //!
-//! `shapecraft make recipe.json -o part.shapecraft [--report report.json]
+//! `workpiece make recipe.json -o part.workpiece [--report report.json]
 //! [--render dir]` makes a part of a recipe — its steps said compactly,
 //! sketches by named points and curves with their constraints and
 //! dimensions, every other step by its kind and the arguments that are
@@ -8,19 +8,19 @@
 //! says what came of it: which steps failed and why, what every sketch
 //! can still do, the bodies and their volumes after every step, the
 //! faces and edges of the result by name, and what in it does not look
-//! like a person made it. `shapecraft report part.shapecraft` says the same of a
-//! part there is; `shapecraft kinds` lists the kinds of steps with their
+//! like a person made it. `workpiece report part.workpiece` says the same of a
+//! part there is; `workpiece kinds` lists the kinds of steps with their
 //! arguments as by default.
 
 use std::collections::BTreeMap;
 
 use anyhow::{Context, bail, ensure};
 use serde_json::{Value, json};
-use shapecraft_cad_part::{AnyOperation, Part, Workspace, registry};
-use shapecraft_core::math::{Axis, Point2, Point3};
-use shapecraft_core::world::topo::BodyKind;
-use shapecraft_core::{Reference, World};
-use shapecraft_ops_sketch::{Kind, Shape, Sketch, SketchAxis};
+use workpiece_core::math::{Axis, Point2, Point3};
+use workpiece_core::world::topo::BodyKind;
+use workpiece_core::{Reference, World};
+use workpiece_ops_sketch::{Kind, Shape, Sketch, SketchAxis};
+use workpiece_part::{AnyOperation, Part, Workspace, registry};
 
 mod inventory;
 
@@ -39,11 +39,11 @@ fn run() -> anyhow::Result<()> {
     };
     match args.first().map(String::as_str) {
         Some("--version" | "-V") => {
-            println!("shapecraft {}", env!("CARGO_PKG_VERSION"));
+            println!("workpiece {}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
         Some("--help" | "-h" | "help") => {
-            println!("shapecraft {}\n\n{USAGE}", env!("CARGO_PKG_VERSION"));
+            println!("workpiece {}\n\n{USAGE}", env!("CARGO_PKG_VERSION"));
             Ok(())
         }
         Some("kinds") => {
@@ -60,7 +60,7 @@ fn run() -> anyhow::Result<()> {
         Some("make") => {
             let from = args.get(1).context("which recipe?")?;
             let recipe: Value = serde_json::from_str(&std::fs::read_to_string(from)?)?;
-            let out = flag("-o").context("where to (-o part.shapecraft)?")?;
+            let out = flag("-o").context("where to (-o part.workpiece)?")?;
             let (part, names) = made(&recipe, &out)?;
             std::fs::write(&out, part.to_text()?)?;
             // The drawings that are to show all that is said of the model.
@@ -98,12 +98,12 @@ fn run() -> anyhow::Result<()> {
 
 /// What the command line says of itself.
 const USAGE: &str = "usage:
-  shapecraft make recipe.json -o part.shapecraft [--report r.json] [--render dir [--no-pictures]] [--times]
+  workpiece make recipe.json -o part.workpiece [--report r.json] [--render dir [--no-pictures]] [--times]
                   [--picture file.png [--size 1200x900] [--samples 256] [--seconds 5]]
-  shapecraft report part.shapecraft [--report r.json] [--render dir]
-  shapecraft kinds                      the kinds of steps, with their arguments as by default
-  shapecraft materials [--in folder]
-  shapecraft --version";
+  workpiece report part.workpiece [--report r.json] [--render dir]
+  workpiece kinds                      the kinds of steps, with their arguments as by default
+  workpiece materials [--in folder]
+  workpiece --version";
 
 /// Every kind of step a tool makes, as the tool makes it: what its
 /// arguments are when nothing else is said.
@@ -111,10 +111,10 @@ fn defaults() -> BTreeMap<String, Value> {
     let world = World::new();
     let mut all = BTreeMap::new();
     for tool in registry().tools() {
-        let context = shapecraft_core::registry::ToolContext {
+        let context = workpiece_core::registry::ToolContext {
             fresh_id: &|name| name.to_owned(),
             world: &world,
-            unit: shapecraft_core::Unit::default(),
+            unit: workpiece_core::Unit::default(),
             selection: &[],
         };
         let made: AnyOperation = (tool.make)(&context);
@@ -197,12 +197,12 @@ fn made(recipe: &Value, path: &str) -> anyhow::Result<(Part, Names)> {
     let defaults = defaults();
     let mut program = Vec::new();
     let mut names = Names::new();
-    let mut poses: Vec<(String, shapecraft_core::Pose)> = Vec::new();
+    let mut poses: Vec<(String, workpiece_core::Pose)> = Vec::new();
     let steps = recipe["steps"].as_array().context("a recipe has steps")?;
     // (One engine for what sketches project from: what is built for one
     // is not built again for the next.)
-    let engine = shapecraft_cad_part::Engine::inline();
-    let cancel = shapecraft_cad_part::Cancel::new();
+    let engine = workpiece_part::Engine::inline();
+    let cancel = workpiece_part::Cancel::new();
     for (n, step) in steps.iter().enumerate() {
         let made = if let Some(sketch) = step.get("sketch") {
             // What it projects of the model is of the model as the steps
@@ -213,7 +213,7 @@ fn made(recipe: &Value, path: &str) -> anyhow::Result<(Part, Names)> {
                     for (id, pose) in &poses {
                         so_far
                             .cache
-                            .replace(id, shapecraft_ops_instances::assembly::kept(pose));
+                            .replace(id, workpiece_ops_instances::assembly::kept(pose));
                     }
                     let workspace = workspace_of(path, so_far)?;
                     Some(
@@ -255,7 +255,7 @@ fn made(recipe: &Value, path: &str) -> anyhow::Result<(Part, Names)> {
                 .kinds()
                 .find(|k| k.name == kind)
                 .with_context(|| {
-                    format!("step {n}: there is no kind of step {kind:?} (see `shapecraft kinds`)")
+                    format!("step {n}: there is no kind of step {kind:?} (see `workpiece kinds`)")
                 })?
                 .load;
             if let Some(pose) = step.get("pose").filter(|p| !p.is_null()) {
@@ -297,7 +297,7 @@ fn made(recipe: &Value, path: &str) -> anyhow::Result<(Part, Names)> {
     }
     for (id, pose) in poses {
         part.cache
-            .replace(&id, shapecraft_ops_instances::assembly::kept(&pose));
+            .replace(&id, workpiece_ops_instances::assembly::kept(&pose));
     }
     Ok((part, names))
 }
@@ -305,7 +305,7 @@ fn made(recipe: &Value, path: &str) -> anyhow::Result<(Part, Names)> {
 /// A pose a recipe says: `{"at": [x, y, z], "euler": [x, y, z]}` — where
 /// the placed part's origin goes, and how it is turned (degrees about
 /// x, y and z, as the app's pose fields have them).
-fn pose_of(said: &Value) -> anyhow::Result<shapecraft_core::Pose> {
+fn pose_of(said: &Value) -> anyhow::Result<workpiece_core::Pose> {
     let three = |key: &str| -> anyhow::Result<[f64; 3]> {
         match said.get(key) {
             None | Some(Value::Null) => Ok([0.0; 3]),
@@ -316,7 +316,7 @@ fn pose_of(said: &Value) -> anyhow::Result<shapecraft_core::Pose> {
             }
         }
     };
-    Ok(shapecraft_core::Pose::IDENTITY
+    Ok(workpiece_core::Pose::IDENTITY
         .with_euler_degrees(three("euler")?)
         .with_translation(Point3::from_array(three("at")?)))
 }
@@ -324,7 +324,7 @@ fn pose_of(said: &Value) -> anyhow::Result<shapecraft_core::Pose> {
 /// The plane a recipe names: `"XY"`, `"YZ"`, `"ZX"` of the origin, or a
 /// reference as every step's are — a datum (`{"Datum": name}`), a flat
 /// face (`{"Topology": name}`), a frame's plane.
-fn plane(said: &Value) -> anyhow::Result<Reference<shapecraft_core::world::DatumPlane>> {
+fn plane(said: &Value) -> anyhow::Result<Reference<workpiece_core::world::DatumPlane>> {
     let told = "the plane is \"XY\", \"YZ\", \"ZX\", datum(name) or topo(face)";
     Ok(match said {
         Value::String(s) => match s.to_uppercase().as_str() {
@@ -353,7 +353,7 @@ fn sketched(said: &Value, world: Option<&World>) -> anyhow::Result<(Sketch, Name
         .flatten()
     {
         let world = world.context("nothing is built yet to project from")?;
-        let source: shapecraft_core::Source = serde_json::from_value(source.clone())
+        let source: workpiece_core::Source = serde_json::from_value(source.clone())
             .with_context(|| format!("what {name:?} is the projection of"))?;
         let made = sketch
             .project(world, &source)
@@ -747,8 +747,8 @@ fn said(
     let workspace = std::sync::Arc::new(workspace_of(path, part)?);
     // One engine for all of it: a step built once is not built again
     // for the steps after it.
-    let engine = shapecraft_cad_part::Engine::inline();
-    let cancel = shapecraft_cad_part::Cancel::new();
+    let engine = workpiece_part::Engine::inline();
+    let cancel = workpiece_part::Cancel::new();
     let build_steps = |steps: usize| {
         engine
             .build(&workspace, path, None, &|i| i < steps, &cancel)
@@ -913,8 +913,7 @@ fn said(
     let mut placed_any = false;
     #[allow(clippy::needless_range_loop)]
     for n in 0..ids.len() {
-        let Some(drawing) = part.program[n].downcast_ref::<shapecraft_ops_drawing::Drawing>()
-        else {
+        let Some(drawing) = part.program[n].downcast_ref::<workpiece_ops_drawing::Drawing>() else {
             continue;
         };
         let Ok(world) = build_steps(n + 1) else {
@@ -932,7 +931,7 @@ fn said(
             .iter()
             .map(|m| (m.name.clone(), m.density))
             .collect();
-        let subject = shapecraft_ops_drawing::lay::Subject {
+        let subject = workpiece_ops_drawing::lay::Subject {
             world: &world,
             unit: part.unit,
             material: part.material.clone(),
@@ -941,7 +940,7 @@ fn said(
             parts: &parts,
             densities: &densities,
         };
-        let kept = shapecraft_ops_drawing::lay::Kept::default();
+        let kept = workpiece_ops_drawing::lay::Kept::default();
         // What the recipe keeps off the sheet, by name.
         let mut kept_off: std::collections::BTreeSet<String> = Default::default();
         let mut placement_problems: Vec<String> = Vec::new();
@@ -964,7 +963,7 @@ fn said(
                 sheet.notes.iter().map(|n| n.note.clone()).collect();
             // (Each thing said of the model, with where it is asked to
             // stand and how many decimals it has.)
-            let mut wanted: Vec<shapecraft_ops_drawing::lay::Wanted> = Vec::new();
+            let mut wanted: Vec<workpiece_ops_drawing::lay::Wanted> = Vec::new();
             let mut decimals: Vec<Option<u8>> = Vec::new();
             // (And of a hole's callout, how many holes it says it is of.)
             let mut counts: Vec<Option<u32>> = Vec::new();
@@ -1058,7 +1057,7 @@ fn said(
                         .and_then(Value::as_u64)
                         .map(|n| n as u32),
                 );
-                wanted.push(shapecraft_ops_drawing::lay::Wanted {
+                wanted.push(workpiece_ops_drawing::lay::Wanted {
                     note: said,
                     view,
                     at,
@@ -1067,7 +1066,7 @@ fn said(
             // Each put by itself in turn, clear of what stands before it
             // (in a view that was not asked for where the one asked for
             // does not see it true).
-            let places = shapecraft_ops_drawing::lay::place_all(&sheet, &subject, &kept, &wanted);
+            let places = workpiece_ops_drawing::lay::place_all(&sheet, &subject, &kept, &wanted);
             for (((want, place), decimals), count) in
                 wanted.into_iter().zip(places).zip(decimals).zip(counts)
             {
@@ -1086,7 +1085,7 @@ fn said(
                 if want.at.is_some() {
                     held.insert(want.note.clone());
                 }
-                sheet.notes.push(shapecraft_ops_drawing::sheet::PlacedNote {
+                sheet.notes.push(workpiece_ops_drawing::sheet::PlacedNote {
                     decimals,
                     note: want.note,
                     view,
@@ -1100,10 +1099,10 @@ fn said(
             // in can change where its lines run).
             let [w, h] = sheet.size();
             for _ in 0..4 {
-                let laid = shapecraft_ops_drawing::lay::lay_out(&sheet, &subject, &kept, None);
+                let laid = workpiece_ops_drawing::lay::lay_out(&sheet, &subject, &kept, None);
                 let mut moved = false;
                 for note in laid.notes.iter().filter(|n| {
-                    n.kind == shapecraft_ops_drawing::lay::Placing::Note && n.preview.is_none()
+                    n.kind == workpiece_ops_drawing::lay::Placing::Note && n.preview.is_none()
                 }) {
                     let Some(placed) = sheet.notes.get_mut(note.index) else {
                         continue;
@@ -1125,18 +1124,18 @@ fn said(
                     break;
                 }
             }
-            if let Some(drawing) = part.program[n].downcast_mut::<shapecraft_ops_drawing::Drawing>()
+            if let Some(drawing) = part.program[n].downcast_mut::<workpiece_ops_drawing::Drawing>()
             {
                 drawing.args = sheet.clone();
                 placed_any = true;
             }
         }
-        let laid = shapecraft_ops_drawing::lay::lay_out(&sheet, &subject, &kept, None);
+        let laid = workpiece_ops_drawing::lay::lay_out(&sheet, &subject, &kept, None);
         // What reaches off the sheet's frame: a view or a dimension's
         // text that would be cut off on paper.
         let mut laid = laid;
         let [w, h] = laid.size;
-        let outside = |lo: shapecraft_core::math::Point2, hi: shapecraft_core::math::Point2| {
+        let outside = |lo: workpiece_core::math::Point2, hi: workpiece_core::math::Point2| {
             lo.x < 10.0 || lo.y < 10.0 || hi.x > w - 10.0 || hi.y > h - 10.0
         };
         laid.problems.extend(placement_problems);
@@ -1210,7 +1209,7 @@ fn said(
     let mut all = json!({ "part": path, "failed_steps": failed, "steps": steps, "lint": lint, "drawings": drawings });
     if let Some(world) = &last {
         timed("lint and drawings");
-        all["bodies"] = bodies(world, shapecraft_core::Pose::IDENTITY);
+        all["bodies"] = bodies(world, workpiece_core::Pose::IDENTITY);
         // The parts placed in it, each with where it is, its bodies (their
         // faces and edges where they are in this part) and what it
         // weighs; and what it all weighs.
@@ -1222,7 +1221,7 @@ fn said(
             path,
             &workspace,
             "",
-            shapecraft_core::Pose::IDENTITY,
+            workpiece_core::Pose::IDENTITY,
             &mut placed,
         );
         let mut parts = Vec::new();
@@ -1345,12 +1344,12 @@ fn folder_of(path: &str) -> std::path::PathBuf {
 
 /// The materials of the folder `dir`: its `materials.json`, or those a
 /// library starts with.
-fn library_in(dir: &std::path::Path) -> anyhow::Result<shapecraft_cad_part::Library> {
-    let file = dir.join(shapecraft_cad_part::LIBRARY_FILE);
+fn library_in(dir: &std::path::Path) -> anyhow::Result<workpiece_part::Library> {
+    let file = dir.join(workpiece_part::LIBRARY_FILE);
     match std::fs::read_to_string(&file) {
-        Ok(text) => shapecraft_cad_part::Library::from_text(&text)
+        Ok(text) => workpiece_part::Library::from_text(&text)
             .with_context(|| format!("reading {}", file.display())),
-        Err(_) => Ok(shapecraft_cad_part::Library::default()),
+        Err(_) => Ok(workpiece_part::Library::default()),
     }
 }
 
@@ -1368,7 +1367,7 @@ fn workspace_of(path: &str, part: Part) -> anyhow::Result<Workspace> {
             .filter_map(|op| op.placed().map(|(placed, _)| placed.to_owned()))
             .collect();
         for placed in placed {
-            if parts.contains_key(&placed) || shapecraft_cad_part::is_step(&placed) {
+            if parts.contains_key(&placed) || workpiece_part::is_step(&placed) {
                 continue;
             }
             let file = dir.join(&placed);
@@ -1389,7 +1388,7 @@ fn workspace_of(path: &str, part: Part) -> anyhow::Result<Workspace> {
 }
 
 /// A cubic unit of a part in `unit`, in cubic metres.
-fn cubic_metres(unit: shapecraft_core::Unit) -> f64 {
+fn cubic_metres(unit: workpiece_core::Unit) -> f64 {
     (unit.millimetres() / 1000.0).powi(3)
 }
 
@@ -1400,7 +1399,7 @@ fn cubic_metres(unit: shapecraft_core::Unit) -> f64 {
 /// materials. `cubic` is a cubic unit of the part, in cubic metres.
 fn weighed(
     world: &World,
-    library: &shapecraft_cad_part::Library,
+    library: &workpiece_part::Library,
     cubic: f64,
 ) -> (f64, Option<f64>, String, Option<f64>) {
     let topo = &world.topo;
@@ -1410,10 +1409,10 @@ fn weighed(
         if body.kind != BodyKind::Solid {
             continue;
         }
-        let (Some(name), Ok(solid)) = (topo.name_of(id), shapecraft_boolean::read(topo, id)) else {
+        let (Some(name), Ok(solid)) = (topo.name_of(id), workpiece_boolean::read(topo, id)) else {
             continue;
         };
-        let v = shapecraft_boolean::measure(&solid).volume;
+        let v = workpiece_boolean::measure(&solid).volume;
         let material = world.body_look(name).material;
         let density = material
             .as_deref()
@@ -1444,7 +1443,7 @@ fn placed_parts(
     path: &str,
     workspace: &Workspace,
     within: &str,
-    at: shapecraft_core::Pose,
+    at: workpiece_core::Pose,
     out: &mut Vec<Value>,
 ) {
     let program = workspace
@@ -1501,8 +1500,8 @@ fn volumes(world: &World) -> BTreeMap<String, f64> {
         if body.kind != BodyKind::Solid {
             continue;
         }
-        if let (Some(name), Ok(solid)) = (topo.name_of(id), shapecraft_boolean::read(topo, id)) {
-            all.insert(name.to_owned(), shapecraft_boolean::measure(&solid).volume);
+        if let (Some(name), Ok(solid)) = (topo.name_of(id), workpiece_boolean::read(topo, id)) {
+            all.insert(name.to_owned(), workpiece_boolean::measure(&solid).volume);
         }
     }
     all
@@ -1511,7 +1510,7 @@ fn volumes(world: &World) -> BTreeMap<String, f64> {
 /// The solid bodies of `world`: how each is spread, and its faces and
 /// edges by name with where they are, to pick them by — where `pose`
 /// puts them.
-fn bodies(world: &World, pose: shapecraft_core::Pose) -> Value {
+fn bodies(world: &World, pose: workpiece_core::Pose) -> Value {
     let topo = &world.topo;
     let mut all = Vec::new();
     let array = |p: Point3| {
@@ -1526,18 +1525,18 @@ fn bodies(world: &World, pose: shapecraft_core::Pose) -> Value {
         if body.kind != BodyKind::Solid {
             continue;
         }
-        let (Some(name), Ok(solid)) = (topo.name_of(id), shapecraft_boolean::read(topo, id)) else {
+        let (Some(name), Ok(solid)) = (topo.name_of(id), workpiece_boolean::read(topo, id)) else {
             continue;
         };
         // (Not how its volume is spread: its moments take a fine mesh of
         // every face, far longer than all the rest.)
-        let spread = shapecraft_boolean::measure(&solid);
+        let spread = workpiece_boolean::measure(&solid);
         let faces: Vec<Value> = (0..solid.faces.len())
             .filter_map(|f| {
                 let face = &solid.faces[f];
-                let (on, out) = shapecraft_shape::on::middle(&solid, f);
+                let (on, out) = workpiece_shape::on::middle(&solid, f);
                 // (What kind of surface it is, however it was made.)
-                use shapecraft_shape::known::{Known, known};
+                use workpiece_shape::known::{Known, known};
                 let kind = match known(&face.surface) {
                     Some(Known::Plane { .. }) => "plane",
                     Some(Known::Cylinder { .. }) => "cylinder",
@@ -1546,7 +1545,7 @@ fn bodies(world: &World, pose: shapecraft_core::Pose) -> Value {
                 };
                 Some(json!({
                     "name": face.name.as_ref()?,
-                    "area": shapecraft_boolean::face_area(&solid, f),
+                    "area": workpiece_boolean::face_area(&solid, f),
                     "middle": array(on),
                     "normal": direction(out),
                     "flat": kind == "plane",
@@ -1598,15 +1597,15 @@ fn arg(name: &str) -> Option<String> {
 /// least). How many each pixel got.
 fn traced(
     world: &World,
-    library: &shapecraft_cad_part::Library,
+    library: &workpiece_part::Library,
     file: &str,
     size: [usize; 2],
     samples: usize,
     seconds: f64,
 ) -> anyhow::Result<usize> {
-    let taking = shapecraft_cad_ui::preview::Taking {
+    let taking = workpiece_ui::preview::Taking {
         ground: true,
-        ..shapecraft_cad_ui::preview::Taking::new(size, samples)
+        ..workpiece_ui::preview::Taking::new(size, samples)
     };
     let started = std::time::Instant::now();
     let passes = std::cell::Cell::new(1);
@@ -1615,7 +1614,7 @@ fn traced(
         passes.set(passes.get() + usize::from(more));
         more
     };
-    let rgba = shapecraft_cad_ui::preview::shot(world, library, &taking, &more)
+    let rgba = workpiece_ui::preview::shot(world, library, &taking, &more)
         .context("there is no body to take a picture of")?;
     let rgb: Vec<u8> = rgba
         .as_chunks::<4>()
@@ -1637,7 +1636,7 @@ fn traced(
 
 fn pictures(
     world: &World,
-    library: &shapecraft_cad_part::Library,
+    library: &workpiece_part::Library,
     dir: &str,
 ) -> anyhow::Result<Vec<String>> {
     use glam::Vec3;
@@ -1655,11 +1654,11 @@ fn pictures(
             .map(|(_, from)| {
                 let from = *from;
                 scope.spawn(move || {
-                    let taking = shapecraft_cad_ui::preview::Taking {
+                    let taking = workpiece_ui::preview::Taking {
                         from,
-                        ..shapecraft_cad_ui::preview::Taking::new([width, height], 48)
+                        ..workpiece_ui::preview::Taking::new([width, height], 48)
                     };
-                    shapecraft_cad_ui::preview::shot(world, library, &taking, &|| true)
+                    workpiece_ui::preview::shot(world, library, &taking, &|| true)
                 })
             })
             .collect();
@@ -1701,11 +1700,11 @@ mod tests {
         assert!(
             made(
                 &recipe(json!({ "diameter": { "value": 5.0 } })),
-                "part.shapecraft"
+                "part.workpiece"
             )
             .is_ok()
         );
-        let said = match made(&recipe(json!({ "next": true })), "part.shapecraft") {
+        let said = match made(&recipe(json!({ "next": true })), "part.workpiece") {
             Err(e) => e.to_string(),
             Ok(_) => panic!("refused"),
         };
@@ -1738,7 +1737,7 @@ mod tests {
     #[test]
     fn a_sketch_of_an_assembly_projects_an_edge_of_a_placed_part() {
         let folder =
-            std::env::temp_dir().join(format!("shapecraft_cli_placed_{}", std::process::id()));
+            std::env::temp_dir().join(format!("workpiece_cli_placed_{}", std::process::id()));
         std::fs::create_dir_all(&folder).unwrap();
         let in_folder = |name: &str| folder.join(name).to_string_lossy().into_owned();
         let rect = |id: &str, w: f64, h: f64| {
@@ -1753,8 +1752,8 @@ mod tests {
             { "op": "Extrude", "id": "plate",
               "args": { "sketch": { "Profile": "s" }, "distance": 10.0, "combine": "NewBody" } },
         ] });
-        let (part, _) = made(&plate, &in_folder("plate.shapecraft")).unwrap();
-        std::fs::write(in_folder("plate.shapecraft"), part.to_text().unwrap()).unwrap();
+        let (part, _) = made(&plate, &in_folder("plate.workpiece")).unwrap();
+        std::fs::write(in_folder("plate.workpiece"), part.to_text().unwrap()).unwrap();
         // The assembly places it, projects the plate's top edge into a
         // sketch, lays a square on it and extrudes that.
         let mut square = rect("q", 10.0, 10.0);
@@ -1766,25 +1765,25 @@ mod tests {
             "source": { "Topology": "plate/end/e11" } } } });
         let assembly = json!({ "steps": [
             { "op": "AddPart", "id": "p1",
-              "args": { "part": "plate.shapecraft", "hold": { "constraint": "Fixed", "flip": false }, "bodies": [] },
+              "args": { "part": "plate.workpiece", "hold": { "constraint": "Fixed", "flip": false }, "bodies": [] },
               "pose": { "at": [0.0, 0.0, 5.0], "euler": [0.0, 0.0, 0.0] } },
             { "sketch": square },
             { "op": "Extrude", "id": "x",
               "args": { "sketch": { "Profile": "q" }, "distance": 3.0, "combine": "NewBody" } },
         ] });
-        let made_in_folder = made(&assembly, &in_folder("asm.shapecraft"));
+        let made_in_folder = made(&assembly, &in_folder("asm.workpiece"));
         let (assembly, _) = match made_in_folder {
             Ok(made) => made,
             Err(e) => panic!("{e:#}"),
         };
-        let workspace = workspace_of(&in_folder("asm.shapecraft"), assembly).unwrap();
-        let built = shapecraft_cad_part::Engine::inline()
+        let workspace = workspace_of(&in_folder("asm.workpiece"), assembly).unwrap();
+        let built = workpiece_part::Engine::inline()
             .build(
                 &std::sync::Arc::new(workspace),
-                &in_folder("asm.shapecraft"),
+                &in_folder("asm.workpiece"),
                 None,
                 &|_| true,
-                &shapecraft_cad_part::Cancel::new(),
+                &workpiece_part::Cancel::new(),
             )
             .unwrap();
         assert!(built.world.extent().is_some());

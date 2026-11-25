@@ -1,7 +1,7 @@
 import sys, math, os, json
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
-from shapecraft import *
-from shapecraft import view, projected, section_view
+from workpiece import *
+from workpiece import view, projected, section_view
 here = os.path.dirname(os.path.abspath(__file__))
 folder = os.path.join(here, "6.parts")
 os.makedirs(folder, exist_ok=True)
@@ -10,7 +10,7 @@ material(folder, "Plain carbon steel", 7800)
 def plate(D, T):
     """One standalone weight plate: revolved web profile (YZ: u = radius, v = axis), 5 spokes cut and patterned."""
     big = D == 210                      # the 210 carries the detailed views (as the original's main views)
-    p = Part(unit="Millimetre", material="Plain carbon steel", file=f"plate{D}.shapecraft", title=f"{D}mm PLATE")
+    p = Part(unit="Millimetre", material="Plain carbon steel", file=f"plate{D}.workpiece", title=f"{D}mm PLATE")
     path = os.path.join(folder, p.file)
     R, h = D / 2, T / 2
     s = p.sketch("ZX", id="profile", show_in="secA_view" if big else None, on_drawing=big)
@@ -105,7 +105,7 @@ asm = Part()
 Z = {210: 400, 270: 200, 330: 0}
 for D in (210, 270, 330):
     asm.add_part(plates[D], id=f"plate{D}", at=(0, 0, Z[D]))
-r = asm.build(os.path.join(folder, "plates.shapecraft"))
+r = asm.build(os.path.join(folder, "plates.workpiece"))
 r.show()
 # The 210's face view and section A-A carry the drawing's dimensions of the plate (measured on the placed plate).
 n = plates[210].n
@@ -151,7 +151,7 @@ asm.drawing(scale=(1, 2), format="A3", views=[
            note("edge210", (50, -38), "THESE ARE THE ONLY DIMENSIONS THAT CHANGE", to=[(-105, -9), (60, -9)]),
            note(None, (0, 0), "TYP", dimension="r20"), note(None, (0, 0), "TYP", dimension="a60"), note(None, (0, 0), "TYP", dimension="g8"),
            note(None, (0, 0), "THRU", dimension="bore"), note(None, (0, 0), "THRU", dimension="bore_ref")])
-r = asm.build(os.path.join(folder, "plates.shapecraft"), render=True)
+r = asm.build(os.path.join(folder, "plates.workpiece"), render=True)
 r.show()
 print(r.drawings[0]["problems"])
 for m in r.masses:

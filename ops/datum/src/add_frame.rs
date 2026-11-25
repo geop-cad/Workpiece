@@ -3,10 +3,10 @@
 
 use std::collections::BTreeMap;
 
-use shapecraft_core::handles::Gizmo;
-use shapecraft_core::widgets::{PoseInput, VBox};
-use shapecraft_core::world::{DatumAxis, DatumFrame, DatumPlane};
-use shapecraft_core::{Builder, EditVisualization, Operation, Pose, Position, Source, World};
+use workpiece_core::handles::Gizmo;
+use workpiece_core::widgets::{PoseInput, VBox};
+use workpiece_core::world::{DatumAxis, DatumFrame, DatumPlane};
+use workpiece_core::{Builder, EditVisualization, Operation, Pose, Position, Source, World};
 
 use crate::{
     Construction, Mode, construction_fields, ensure_free, fits, in_mode, pick, taken,
@@ -61,7 +61,7 @@ impl Mode for FrameMode {
 /// The construction, its references, and the pose moving the frame from
 /// what they construct.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct AddFrameArgs {
     /// How the frame is constructed.
@@ -70,7 +70,7 @@ pub struct AddFrameArgs {
     /// The references, in the order picked; the mode takes what it
     /// needs from them.
     #[arg(hidden)]
-    pub references: Vec<shapecraft_core::Reference<shapecraft_core::Anything>>,
+    pub references: Vec<workpiece_core::Reference<workpiece_core::Anything>>,
     /// Where the frame goes, relative to the constructed one (for
     /// [`FrameMode::AtPose`], to the part's origin).
     #[arg(with = "pose_field")]
@@ -95,11 +95,11 @@ impl Construction for AddFrameArgs {
     }
 
     fn references(&self) -> Vec<Source> {
-        shapecraft_core::Reference::sources(&self.references)
+        workpiece_core::Reference::sources(&self.references)
     }
 
     fn with(&self, mode: FrameMode, references: Vec<Source>) -> Self {
-        let references = shapecraft_core::Reference::each(references);
+        let references = workpiece_core::Reference::each(references);
         Self {
             mode,
             references,
@@ -152,7 +152,7 @@ impl AddFrameArgs {
     fn base(&self, world: &World) -> anyhow::Result<Pose> {
         let r = &self.references;
         let degenerate = || anyhow::anyhow!("the references do not fix a frame");
-        let axes = |origin, x: shapecraft_core::math::Point3, y: shapecraft_core::math::Point3| {
+        let axes = |origin, x: workpiece_core::math::Point3, y: workpiece_core::math::Point3| {
             let x = x.try_normalize().ok_or_else(degenerate)?;
             let y = y
                 .reject_from_normalized(x)
@@ -195,9 +195,9 @@ impl AddFrameArgs {
 /// The numbers a frame is placed by, said of the model: how far it is
 /// moved from what it is constructed on along each of that one's axes
 /// it is moved along, and the angle it is turned by.
-fn said(id: &str, base: Pose, pose: Pose) -> Vec<(String, shapecraft_core::world::Annotation)> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::Measured;
+fn said(id: &str, base: Pose, pose: Pose) -> Vec<(String, workpiece_core::world::Annotation)> {
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::Measured;
     let mut all = Vec::new();
     let moved = pose.translation();
     let from = base.transform_point(Point3::ZERO);
@@ -247,26 +247,26 @@ impl Operation for AddFrame {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // What it reads of the world: what it refers to.
         let world = builder.tracked();
         ensure_free(world, &self.id)?;
         let base = in_mode(self.args.mode, self.args.base(world))?;
         let pose = base * self.args.pose;
-        let mut made = shapecraft_core::Made::datum(&self.id, DatumFrame::from_pose(pose)?);
+        let mut made = workpiece_core::Made::datum(&self.id, DatumFrame::from_pose(pose)?);
         made.annotations = said(&self.id, base, self.args.pose);
         Ok(made)
     }
 
     fn visualize_edit(
         &self,
-        context: &shapecraft_core::EditContext<'_>,
+        context: &workpiece_core::EditContext<'_>,
         (): &(),
-    ) -> EditVisualization<shapecraft_core::Edit<AddFrameArgs, ()>> {
+    ) -> EditVisualization<workpiece_core::Edit<AddFrameArgs, ()>> {
         let world = context.world;
         let args = self.args.clone();
         // The fields the arguments give; the gizmo is its own.
-        let fields = shapecraft_core::Arguments::fields(&args, context);
+        let fields = workpiece_core::Arguments::fields(&args, context);
         let with_pose = {
             let args = args.clone();
             move |pose| AddFrameArgs {
@@ -283,7 +283,7 @@ impl Operation for AddFrame {
             });
             handles.insert("pose".to_owned(), gizmo.into());
         }
-        EditVisualization::new(VBox::new(fields), handles).map(shapecraft_core::Edit::args)
+        EditVisualization::new(VBox::new(fields), handles).map(workpiece_core::Edit::args)
     }
 
     fn summary(&self) -> String {
@@ -296,7 +296,7 @@ impl Operation for AddFrame {
                 "{}, moved {at}",
                 crate::constructed(
                     mode.label(),
-                    &shapecraft_core::Reference::sources(&op.args.references)
+                    &workpiece_core::Reference::sources(&op.args.references)
                 )
             ),
         }
@@ -307,8 +307,8 @@ impl Operation for AddFrame {
 /// construct from what is picked greyed out, and what is picked.
 fn mode_fields(
     args: &AddFrameArgs,
-    context: &shapecraft_core::EditContext<'_>,
-) -> Vec<shapecraft_core::Widget<AddFrameArgs>> {
+    context: &workpiece_core::EditContext<'_>,
+) -> Vec<workpiece_core::Widget<AddFrameArgs>> {
     construction_fields(args, context.world)
 }
 
@@ -316,8 +316,8 @@ fn mode_fields(
 /// it is constructed on.
 fn pose_field(
     args: &AddFrameArgs,
-    _: &shapecraft_core::EditContext<'_>,
-) -> Vec<shapecraft_core::Widget<AddFrameArgs>> {
+    _: &workpiece_core::EditContext<'_>,
+) -> Vec<workpiece_core::Widget<AddFrameArgs>> {
     let label = if args.mode == FrameMode::AtPose {
         "Pose"
     } else {
@@ -334,16 +334,16 @@ fn pose_field(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::handles::Handle;
-    use shapecraft_core::math::{Axis, Point3};
-    use shapecraft_core::world::{Datum, ORIGIN};
-    use shapecraft_core::{Standalone, Widget};
+    use workpiece_core::handles::Handle;
+    use workpiece_core::math::{Axis, Point3};
+    use workpiece_core::world::{Datum, ORIGIN};
+    use workpiece_core::{Standalone, Widget};
 
     fn pose_field(
         op: &AddFrame,
         world: &World,
-    ) -> anyhow::Result<shapecraft_core::widgets::PoseInput<AddFrameArgs>> {
-        let Widget::VBox(fields) = shapecraft_core::operation::edit_arguments(op, world).dialog
+    ) -> anyhow::Result<workpiece_core::widgets::PoseInput<AddFrameArgs>> {
+        let Widget::VBox(fields) = workpiece_core::operation::edit_arguments(op, world).dialog
         else {
             anyhow::bail!("expected fields");
         };
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn frames_say_how_far_they_are_moved_and_turned() -> anyhow::Result<()> {
-        use shapecraft_core::Operation;
+        use workpiece_core::Operation;
         let mut b = Standalone::new();
         let pose = Pose::from_rotation_translation(
             glam::DQuat::from_rotation_z(90f64.to_radians()),
@@ -381,10 +381,10 @@ mod tests {
 
     #[test]
     fn frames_sit_at_picked_points() -> anyhow::Result<()> {
-        use shapecraft_core::math::Point3;
+        use workpiece_core::math::Point3;
         let mut world = World::new();
         let there = Pose::from_translation(Point3::new(1.0, 2.0, 3.0));
-        let frame = shapecraft_core::world::DatumFrame::from_pose(there)?;
+        let frame = workpiece_core::world::DatumFrame::from_pose(there)?;
         world.datums.insert("there".into(), frame.into());
         let args = AddFrameArgs {
             mode: FrameMode::AtPoint,
@@ -411,7 +411,7 @@ mod tests {
             "the name is taken"
         );
 
-        let edit = shapecraft_core::operation::edit_arguments(&op, b.world());
+        let edit = workpiece_core::operation::edit_arguments(&op, b.world());
         let Some(Handle::Gizmo(g)) = edit.handles.get("pose") else {
             anyhow::bail!("expected a gizmo");
         };
@@ -461,7 +461,7 @@ mod tests {
         // The gizmo moves the offset, relative to the constructed frame.
         let op = AddFrame::from_selection("f".into(), &world, &[plane(Axis::X)]);
         assert_eq!(op.args.mode, FrameMode::OnPlane);
-        let edit = shapecraft_core::operation::edit_arguments(&op, &world);
+        let edit = workpiece_core::operation::edit_arguments(&op, &world);
         let Some(Handle::Gizmo(g)) = edit.handles.get("pose") else {
             anyhow::bail!("expected a gizmo");
         };

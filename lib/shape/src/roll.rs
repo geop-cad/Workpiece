@@ -21,10 +21,10 @@
 use std::sync::Arc;
 
 use anyhow::{Context, bail, ensure};
-use shapecraft_boolean::Solid;
-use shapecraft_boolean::model::Walk;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve3, NurbsSurface, Topo};
+use workpiece_boolean::Solid;
+use workpiece_boolean::model::Walk;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve3, NurbsSurface, Topo};
 
 use crate::blend::{By, Section, Shape};
 use crate::sweep::{self, Loft};
@@ -218,7 +218,7 @@ impl Side {
     /// it comes to a point.
     fn foot(&self, p: Point3, guess: Point2) -> Point2 {
         self.slid(p, guess, 8)
-            .unwrap_or_else(|| shapecraft_boolean::geometry::foot(&self.surface, p, guess).0)
+            .unwrap_or_else(|| workpiece_boolean::geometry::foot(&self.surface, p, guess).0)
     }
 
     /// [`Side::slide`], if it came to rest.
@@ -895,7 +895,7 @@ fn face_foot(solid: &Solid, f: usize, p: Point3) -> (Point3, Point3) {
             d(a).total_cmp(&d(b))
         })
         .unwrap_or(Point2::ZERO);
-    let uv = shapecraft_boolean::geometry::foot(&face.surface, p, start).0;
+    let uv = workpiece_boolean::geometry::foot(&face.surface, p, start).0;
     let (q, du, dv) = face.surface.derivatives_at(uv.x, uv.y);
     let n = du.cross(dv).normalize_or_zero();
     (q, if face.outward { n } else { -n })
@@ -1150,8 +1150,7 @@ fn smoothly_on(
                 .map(|i| {
                     let t = range.0 + (range.1 - range.0) * i as f64 / SAMPLES as f64;
                     near =
-                        shapecraft_boolean::geometry::foot(&face.surface, curve.point_at(t), near)
-                            .0;
+                        workpiece_boolean::geometry::foot(&face.surface, curve.point_at(t), near).0;
                     (t, near)
                 })
                 .collect();
@@ -1172,7 +1171,7 @@ fn smoothly_on(
     (sides, found)
 }
 
-/// Whether a point is inside the solid ([`shapecraft_boolean::holds`]).
+/// Whether a point is inside the solid ([`workpiece_boolean::holds`]).
 pub(crate) type Holds<'a> = &'a dyn Fn(Point3) -> Option<bool>;
 
 /// The edge at a place along it ([`Rolled::frame`]), with the place.
@@ -1274,7 +1273,7 @@ fn solve<const N: usize>(
         // at rest, no worse).
         let mut scale = 1.0;
         loop {
-            shapecraft_core::cancel::checkpoint();
+            workpiece_core::cancel::checkpoint();
             let next: [f64; N] = std::array::from_fn(|i| x[i] + dx[i] * scale);
             let rn = f(&next);
             if norm(&rn) < norm(&r) || (settled && norm(&rn) <= rest) {
@@ -1305,7 +1304,7 @@ impl Rolled {
             let (lo, hi) = solid.extent();
             (hi - lo).length()
         };
-        let holds = |p| shapecraft_boolean::holds(solid, p);
+        let holds = |p| workpiece_boolean::holds(solid, p);
         Rolled::of_in(solid, edge, shape, Some(&holds), size)
     }
 
@@ -1452,7 +1451,7 @@ impl Rolled {
         solid: &Solid,
         faces: [usize; 2],
         shape: &Shape,
-        guide: (usize, bool, &shapecraft_boolean::model::Use),
+        guide: (usize, bool, &workpiece_boolean::model::Use),
         far: usize,
     ) -> anyhow::Result<(f64, Rolled)> {
         let size = {
@@ -1484,7 +1483,7 @@ impl Rolled {
         };
         let mut along = Vec::new();
         for k in 0..=SAMPLES {
-            near = shapecraft_boolean::geometry::foot(&surface, e.point(at(k)), near).0;
+            near = workpiece_boolean::geometry::foot(&surface, e.point(at(k)), near).0;
             along.push((at(k), near));
         }
         let mut second = Side {
@@ -1511,7 +1510,7 @@ impl Rolled {
         // between flat faces that is where it is.)
         let mut before: Option<[f64; 4]> = None;
         for k in 0..=SAMPLES {
-            shapecraft_core::cancel::checkpoint();
+            workpiece_core::cancel::checkpoint();
             let (p, d) = e.curve.derivative_at(at(k));
             let way = d.normalize_or_zero();
             let asked = Asked::of([&first, &second]);
@@ -1567,7 +1566,7 @@ impl Rolled {
             None,
             (size, within),
             false,
-            Some(&|p| shapecraft_boolean::holds(solid, p)),
+            Some(&|p| workpiece_boolean::holds(solid, p)),
         )?;
         Ok((off, rolled))
     }
@@ -2030,7 +2029,7 @@ impl Rolled {
             for out in self.run_out.borrow().iter().flatten() {
                 let j = 1 - out.stay;
                 let rail = if j == 0 { a } else { b };
-                let uv = shapecraft_boolean::geometry::foot(&out.face.0, rail.0, out.face.2).0;
+                let uv = workpiece_boolean::geometry::foot(&out.face.0, rail.0, out.face.2).0;
                 let (p, du, dv) = out.face.0.derivatives_at(uv.x, uv.y);
                 let n = du.cross(dv).normalize_or_zero();
                 let n = if out.face.1 { n } else { -n };
@@ -2202,7 +2201,7 @@ impl Rolled {
         let (_, n_left) = face_foot(solid, self.faces[leave], q);
         let (_, n_end) = face_foot(solid, face, q);
         let probe = q + (n_end - n_left).normalize_or_zero() * (radius * 1e-3);
-        if shapecraft_boolean::holds(solid, probe) != Some(self.convex) {
+        if workpiece_boolean::holds(solid, probe) != Some(self.convex) {
             return Ok(None);
         }
         // Where along the edge the ball's rail on the face left reaches
@@ -2365,7 +2364,7 @@ impl Rolled {
             let foot = side.foot(b, guess);
             let (_, normal) = side.at(foot);
             let face = {
-                let uv = shapecraft_boolean::geometry::foot(&out.face.0, b, out.face.2).0;
+                let uv = workpiece_boolean::geometry::foot(&out.face.0, b, out.face.2).0;
                 let (_, du, dv) = out.face.0.derivatives_at(uv.x, uv.y);
                 let n = du.cross(dv).normalize_or_zero();
                 if out.face.1 { n } else { -n }
@@ -3070,7 +3069,7 @@ impl Rolled {
         };
         let mut scratch = Topo::new();
         let body = sweep::loft(&mut scratch, id, &loft)?;
-        let mut tool = shapecraft_boolean::read(&scratch, body)?;
+        let mut tool = workpiece_boolean::read(&scratch, body)?;
         // A round runs on smoothly into the faces its rails lie in.
         if matches!(self.shape, Shape::Fillet { .. }) {
             let rails: Vec<usize> = (0..tool.edges.len())

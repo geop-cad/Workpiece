@@ -4,9 +4,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::DatumPlane;
-use shapecraft_core::{Reference, Source};
+use workpiece_core::math::Point2;
+use workpiece_core::world::DatumPlane;
+use workpiece_core::{Reference, Source};
 
 /// The id of a point, an entity or a constraint of a sketch. Ids are
 /// never reused within a sketch, so names made from them stay.
@@ -338,7 +338,7 @@ impl Kind {
 }
 
 /// The tolerance of a dimension, for the drawing made from it later.
-pub use shapecraft_core::world::Tolerance as DimTolerance;
+pub use workpiece_core::world::Tolerance as DimTolerance;
 
 /// What a dimension measures is its constraint's kind; this is its
 /// value, whether it holds that value or only measures, whether it is
@@ -392,7 +392,7 @@ pub struct Constraint {
     Default,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct SketchArgs {
     /// The plane it is drawn on.

@@ -22,8 +22,8 @@ pub use template::{Template, Templates};
 
 /// Tells `r` of this crate's operation: its kind, the tool that adds
 /// it, and its icon.
-pub fn register(r: &mut shapecraft_core::Registry) {
-    use shapecraft_core::Tool;
+pub fn register(r: &mut workpiece_core::Registry) {
+    use workpiece_core::Tool;
     r.kind::<Drawing>("drawing");
     r.tool(Tool {
         tab: "Annotate",

@@ -3,9 +3,9 @@
 //! goes.
 
 use anyhow::Context;
-use shapecraft_boolean::Solid;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve3, Topo};
+use workpiece_boolean::Solid;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve3, Topo};
 
 use crate::sweep::{self, Loft};
 
@@ -255,7 +255,7 @@ pub fn carried(
     };
     let mut scratch = Topo::new();
     let body = sweep::loft(&mut scratch, id, &loft)?;
-    Ok(shapecraft_boolean::read(&scratch, body)?)
+    Ok(workpiece_boolean::read(&scratch, body)?)
 }
 
 /// The sides of an outline, as an [`Outline`] takes them: of each, its
@@ -316,7 +316,7 @@ pub fn swept_runs(
     up: Point3,
     size: f64,
 ) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     let n = corners.len();
     anyhow::ensure!(n >= 2, "a path has two ends");
     let runs = if closed { n } else { n - 1 };
@@ -509,7 +509,7 @@ fn cut_beyond(
         [far, far * 2.0, far * 2.0],
     )?;
     Ok(
-        shapecraft_boolean::combine(shapecraft_boolean::Op::Cut, solid, &beyond)
+        workpiece_boolean::combine(workpiece_boolean::Op::Cut, solid, &beyond)
             .context("mitering a corner of the path")?
             .solid,
     )
@@ -533,7 +533,7 @@ pub fn along_path(
     twist: f64,
     scale: f64,
 ) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     let upright = up.into();
     let (Upright::Fixed(up) | Upright::Least(up)) = upright;
     // What keeps the section upright along each curve of the path: one
@@ -703,7 +703,7 @@ pub fn area_along_path(
     twist: f64,
     scale: f64,
 ) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     let up = up.into();
     let mut whole: Option<Solid> = None;
     for holes in [false, true] {
@@ -1050,7 +1050,7 @@ fn lofted(id: &str, sections: &[Vec<Curve3>], aligned: bool) -> anyhow::Result<S
     };
     let mut scratch = Topo::new();
     let body = sweep::loft(&mut scratch, id, &loft)?;
-    Ok(shapecraft_boolean::read(&scratch, body)?)
+    Ok(workpiece_boolean::read(&scratch, body)?)
 }
 
 /// The helix about the axis through `origin` along `axis` that starts

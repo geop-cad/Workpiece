@@ -8,11 +8,11 @@
 use std::collections::BTreeMap;
 
 use serde_json::{Value, json};
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::World;
-use shapecraft_core::world::annotation::{Measured, Note};
-use shapecraft_ops_drawing::lay::{Laid, Placing, parts};
-use shapecraft_ops_drawing::sheet::{Beside, Projection, Sheet, Side, ViewKind};
+use workpiece_core::math::Point2;
+use workpiece_core::world::World;
+use workpiece_core::world::annotation::{Measured, Note};
+use workpiece_ops_drawing::lay::{Laid, Placing, parts};
+use workpiece_ops_drawing::sheet::{Beside, Projection, Sheet, Side, ViewKind};
 
 /// How far (sheet millimetres) from a drawn line a dimension's end may
 /// be to count as on it.
@@ -45,8 +45,8 @@ fn near_segment(p: Point2, a: Point2, b: Point2) -> f64 {
 /// draws (nothing if it is on one, or the line the extension line runs
 /// back along from it meets one within `gap`).
 fn ends_off(
-    l: &shapecraft_ops_drawing::lay::LaidLinear,
-    v: &shapecraft_ops_drawing::lay::LaidView,
+    l: &workpiece_ops_drawing::lay::LaidLinear,
+    v: &workpiece_ops_drawing::lay::LaidView,
     gap: f64,
 ) -> Vec<f64> {
     let away = |p: Point2| {
@@ -188,12 +188,12 @@ fn describe(kind: &ViewKind) -> String {
 
 /// What one sketch dimension measures, by the names the recipe gave.
 fn constraint_text(
-    kind: &shapecraft_ops_sketch::Kind,
+    kind: &workpiece_ops_sketch::Kind,
     diameter: bool,
     points: &BTreeMap<u32, String>,
     curves: &BTreeMap<u32, String>,
 ) -> String {
-    use shapecraft_ops_sketch::Kind as K;
+    use workpiece_ops_sketch::Kind as K;
     let p = |i: &u32| points.get(i).cloned().unwrap_or_else(|| format!("#{i}"));
     let c = |i: &u32| curves.get(i).cloned().unwrap_or_else(|| format!("#{i}"));
     match kind {
@@ -226,7 +226,7 @@ fn constraint_text(
     }
 }
 
-fn p3(p: shapecraft_core::math::Point3) -> String {
+fn p3(p: workpiece_core::math::Point3) -> String {
     format!("({:.3} {:.3} {:.3})", p.x, p.y, p.z)
 }
 
@@ -262,7 +262,7 @@ pub fn of_sheet(
     laid: &Laid,
     world: &World,
     names: &BTreeMap<String, crate::Named>,
-    sketches: &BTreeMap<String, shapecraft_ops_sketch::Sketch>,
+    sketches: &BTreeMap<String, workpiece_ops_sketch::Sketch>,
     steps: &BTreeMap<String, Value>,
     part_names: &BTreeMap<String, String>,
 ) -> Value {
@@ -279,12 +279,12 @@ pub fn of_sheet(
                 None => format!("{sketch}/d{key}"),
             };
             let text = constraint_text(&c.kind, d.diameter, &named.0, &named.1);
-            let reference = d.tolerance == shapecraft_core::world::Tolerance::Reference;
+            let reference = d.tolerance == workpiece_core::world::Tolerance::Reference;
             said_by.insert(said, (sketch.clone(), text, reference));
         }
     }
     let item_names: Vec<parts::Item> = parts::items(world, part_names);
-    let belongs = |rect: &[Point2; 2], t: &shapecraft_ops_drawing::lay::Text| {
+    let belongs = |rect: &[Point2; 2], t: &workpiece_ops_drawing::lay::Text| {
         let slack = 0.8;
         t.at.x >= rect[0].x - slack
             && t.at.x <= rect[1].x + slack
@@ -292,7 +292,7 @@ pub fn of_sheet(
             && t.at.y <= rect[1].y + slack
     };
     let text_of = |rect: &[Point2; 2]| -> String {
-        let mut found: Vec<&shapecraft_ops_drawing::lay::Text> =
+        let mut found: Vec<&workpiece_ops_drawing::lay::Text> =
             laid.texts.iter().filter(|t| belongs(rect, t)).collect();
         found.sort_by(|a, b| {
             b.at.y
@@ -338,7 +338,7 @@ pub fn of_sheet(
                             } => {
                                 (dim_kind, measures) = measured_text(measured);
                                 reference =
-                                    *tolerance == shapecraft_core::world::Tolerance::Reference;
+                                    *tolerance == workpiece_core::world::Tolerance::Reference;
                             }
                             Note::Hole { centre, radius, .. } => {
                                 dim_kind = "hole".into();

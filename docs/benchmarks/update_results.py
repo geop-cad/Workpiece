@@ -3,21 +3,21 @@
 
     python3 -I docs/benchmarks/update_results.py [options]
 
-What it rewrites: the rows that were measured with ShapeCraft's own code in this checkout
+What it rewrites: the rows that were measured with Workpiece's own code in this checkout
 (origin "run here") and, if given, the rows of a third-party kernel run in the sandbox
 (origin "reproduced"). What it keeps: every row whose origin is "published", which is copied from
 the report a benchmark's maintainers published; those are added with --published-conformance.
 
 Inputs (all optional; a benchmark without its input keeps the rows it had):
 
-  --conformance FILE         brep-conformance results of shapecraft (the suite's --out JSON)
+  --conformance FILE         brep-conformance results of workpiece (the suite's --out JSON)
   --reproduced FILE...       brep-conformance results of another kernel, run in the sandbox
   --published-conformance FILE...
                              reports the suite's maintainers published (their CDN, see README.md)
   --boolean-log FILE         the standard output of `target/release/boolean-bench`
   --boolean-tsv FILE         target/bench-results/boolean.tsv, written by the same run
   --machine TEXT             the machine the runs were made on, one line
-  --commit TEXT              the ShapeCraft commit (and whether the tree was clean)
+  --commit TEXT              the Workpiece commit (and whether the tree was clean)
   --date YYYY-MM-DD          the date of the runs (default: today, UTC)
 
 The benchmark's own names and numbers are written as they come; nothing is rounded or ranked.
@@ -43,7 +43,7 @@ FREEFORM = {"freeform_panel"}
 
 KERNEL_INFO = {
     # name: (licence, link) as the suite's registry (kernels.json) lists them
-    "shapecraft": ("MIT OR Apache-2.0", "https://github.com/geop-cad/ShapeCraft"),
+    "workpiece": ("MIT OR Apache-2.0", "https://github.com/geop-cad/Workpiece"),
     "springrep": ("MIT", "https://github.com/springcraft-ai/springrep"),
     "arris": ("MIT OR Apache-2.0", "https://github.com/arris-labs/arris"),
     "cad-kernel": ("MIT OR Apache-2.0", "https://github.com/bmander/geomsolver"),
@@ -93,7 +93,7 @@ def conformance_row(report, origin, date, source, note=""):
     row["licence"] = licence
     row["link"] = link
     row["origin"] = origin
-    row["scored_by"] = "self" if kernel["name"] == "shapecraft" else "benchmark maintainers" if origin == "published" else "ShapeCraft, from the suite's own report"
+    row["scored_by"] = "self" if kernel["name"] == "workpiece" else "benchmark maintainers" if origin == "published" else "Workpiece, from the suite's own report"
     row["suite_version"] = suite_version
     row["suite_commit"] = suite_commit
     row["date"] = datetime.datetime.fromtimestamp(unix, datetime.timezone.utc).strftime("%Y-%m-%d") if unix else date
@@ -150,7 +150,7 @@ def boolean_rows(log_path):
 
 
 def step_conformance_row(tsv_path):
-    """ShapeCraft's cells of step-conformance, by kind of part, from the boolean bench's results."""
+    """Workpiece's cells of step-conformance, by kind of part, from the boolean bench's results."""
     kinds = {"shop parts": [0, 0], "freeform panel": [0, 0], "parts of known shape": [0, 0]}
     with open(tsv_path, encoding="utf-8") as f:
         for line in f:
@@ -207,21 +207,21 @@ def main():
             report = load(path)
             run = report["run"]
             put(conformance_row(report, "published", args.date, f"https://cdn.springcraft.ai/brep-conformance/reports/{run['id']}/", f"run {run['id']}, complete: {run['complete']}, verified: {run['verified']}"))
-        rows.sort(key=lambda r: (r["kernel"] != "shapecraft", -r["pass"] / max(r["cases"], 1), r["kernel"], r["origin"]))
+        rows.sort(key=lambda r: (r["kernel"] != "workpiece", -r["pass"] / max(r["cases"], 1), r["kernel"], r["origin"]))
 
     if args.boolean_log:
         cats, total = boolean_rows(args.boolean_log)
         b = bench(
             "boolean-bench",
             "The boolean bench",
-            source="https://github.com/geop-cad/ShapeCraft/tree/main/bench/boolean",
+            source="https://github.com/geop-cad/Workpiece/tree/main/bench/boolean",
             metric="cases passed, refused, wrong or crashed",
         )
         row = collections.OrderedDict(
-            kernel="shapecraft",
+            kernel="workpiece",
             version=args.commit or "",
-            licence=KERNEL_INFO["shapecraft"][0],
-            link=KERNEL_INFO["shapecraft"][1],
+            licence=KERNEL_INFO["workpiece"][0],
+            link=KERNEL_INFO["workpiece"][1],
             origin="run here",
             scored_by="self",
             date=args.date,
@@ -248,17 +248,17 @@ def main():
             categories=list(per),
         )
         mine = collections.OrderedDict(
-            kernel="shapecraft",
+            kernel="workpiece",
             version=args.commit or "",
-            licence=KERNEL_INFO["shapecraft"][0],
-            link=KERNEL_INFO["shapecraft"][1],
+            licence=KERNEL_INFO["workpiece"][0],
+            link=KERNEL_INFO["workpiece"][1],
             origin="run here",
-            scored_by="self (ShapeCraft's port of the benchmark's rule, bench/boolean/src/conformance.rs; not the benchmark's scorer)",
+            scored_by="self (Workpiece's port of the benchmark's rule, bench/boolean/src/conformance.rs; not the benchmark's scorer)",
             date=args.date,
             cases=sum(c["total"] for c in per.values()),
             per_category=per,
             machine=args.machine,
-            note="the shop parts are compared with ShapeCraft's own fine mesh, since the benchmark's reference reader (OpenCascade) is not run here",
+            note="the shop parts are compared with Workpiece's own fine mesh, since the benchmark's reference reader (OpenCascade) is not run here",
         )
         mine["pass"] = sum(c["pass"] for c in per.values())
         b["rows"] = [r for r in b.get("rows", []) if r["origin"] != "run here"] + [mine]
@@ -267,7 +267,7 @@ def main():
     out = collections.OrderedDict()
     out["schema"] = 1
     out["generated"] = args.date
-    out["shapecraft_commit"] = args.commit or data.get("shapecraft_commit", "")
+    out["workpiece_commit"] = args.commit or data.get("workpiece_commit", "")
     out["machine"] = args.machine or data.get("machine", "")
     out["benchmarks"] = list(benchmarks.values())
     with open(RESULTS, "w", encoding="utf-8") as f:

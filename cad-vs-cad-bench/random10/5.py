@@ -1,7 +1,7 @@
 import math, os, sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
-from shapecraft import datum, Part, axis, topo, view, projected, note, material
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "5.shapecraft")
+from workpiece import datum, Part, axis, topo, view, projected, note, material
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "5.workpiece")
 material(os.path.dirname(out), "Red oak", 570)
 p = Part(material="Red oak")
 D = 5.7e-4   # 570 kg/m3 in g/mm3

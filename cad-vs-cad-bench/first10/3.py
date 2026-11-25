@@ -17,7 +17,7 @@
 #   and fades out to nothing at that point.
 import sys, math
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
-from shapecraft import *
+from workpiece import *
 import os
 here = os.path.dirname(os.path.abspath(__file__))
 material(here, "ABS 1020", 1020)
@@ -138,5 +138,5 @@ p.drawing(format="A3", scale=(1, 2), comma=False, views=[view("front", "Front", 
                  note("secv", (44, -22), "TANGENT", to=(0, 20, 50)),
                  note("top", (50, 22), "R20 SPHERICAL", to=(-14.1, 51.6, 188)),
                  note(None, (0, 0), "THRU", dimension="bore_sk/d43")])
-r = p.build("3.shapecraft", render=True); r.show()
+r = p.build("3.workpiece", render=True); r.show()
 print("mass g at 1020 kg/m^3:", r.volume * RHO * 1000)

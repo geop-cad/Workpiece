@@ -16,7 +16,7 @@ pub mod timeline;
 pub mod viewport;
 
 use eframe::egui;
-use shapecraft_core::{Hotkey, Key};
+use workpiece_core::{Hotkey, Key};
 
 /// What shows when the pointer rests on a button: its name with its
 /// hotkey, and what it does.

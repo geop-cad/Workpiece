@@ -5,8 +5,8 @@
 
 use std::collections::BTreeMap;
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::World;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::World;
 
 use super::views::Placed;
 use super::{Fill, Laid, LaidNote, Pen, Placing, Subject};
@@ -257,7 +257,7 @@ fn balloons(
             None => std::sync::Arc::new(subject.world.clone()),
         };
         let mut all = crate::quick::Shape::default();
-        crate::quick::shape(&world, shapecraft_core::Pose::IDENTITY, &mut all);
+        crate::quick::shape(&world, workpiece_core::Pose::IDENTITY, &mut all);
         let kept = (world, std::sync::Arc::new(all));
         seen_by.push((frame.view.id.clone(), kept.clone()));
         kept

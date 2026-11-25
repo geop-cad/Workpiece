@@ -7,12 +7,12 @@ use std::f64::consts::{PI, TAU};
 use std::sync::Arc;
 
 use glam::DQuat;
-use shapecraft_boolean::{Solid, face_area, measure};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::Curve3;
-use shapecraft_ops_standard::{StandardKind, standard};
-use shapecraft_ops_surface::{crossing, through};
-use shapecraft_shape::{faces_of, rounded, trimmed};
+use workpiece_boolean::{Solid, face_area, measure};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::Curve3;
+use workpiece_ops_standard::{StandardKind, standard};
+use workpiece_ops_surface::{crossing, through};
+use workpiece_shape::{faces_of, rounded, trimmed};
 
 use crate::scene::Scene;
 use crate::{Case, Grade};
@@ -34,7 +34,7 @@ fn face_towards(solid: &Solid, way: Point3) -> Solid {
     face_by(solid, &|f| {
         let mut corners = Vec::new();
         for step in solid.faces[f].loops.iter().flatten() {
-            if let shapecraft_boolean::model::Walk::Edge { edge, .. } = step.walk {
+            if let workpiece_boolean::model::Walk::Edge { edge, .. } = step.walk {
                 corners.extend(solid.edges[edge].ends.map(|v| solid.vertices[v].point));
             }
         }
@@ -136,10 +136,10 @@ fn run(name: &str) -> Found {
                 face_towards(&block, Point3::Z),
                 face_towards(&block, -Point3::Y),
             );
-            let (sheet, _) = shapecraft_boolean::stitched(&[top, front], 1e-6)?;
+            let (sheet, _) = workpiece_boolean::stitched(&[top, front], 1e-6)?;
             let mut walked = vec![0; sheet.edges.len()];
             for step in sheet.faces.iter().flat_map(|f| f.loops.iter().flatten()) {
-                if let shapecraft_boolean::model::Walk::Edge { edge, .. } = step.walk {
+                if let workpiece_boolean::model::Walk::Edge { edge, .. } = step.walk {
                     walked[edge] += 1;
                 }
             }
@@ -160,7 +160,7 @@ fn run(name: &str) -> Found {
             ];
             let faces = [[0, 2, 1], [0, 1, 3], [1, 2, 3], [0, 3, 2]];
             (
-                measure(&shapecraft_boolean::faceted("m", &p, &faces)?).volume,
+                measure(&workpiece_boolean::faceted("m", &p, &faces)?).volume,
                 4.5,
             )
         }
@@ -168,12 +168,12 @@ fn run(name: &str) -> Found {
         // the size.
         "step-in-inches" => {
             let block = s.cube([0.0; 3], [1.0, 2.0, 3.0], turn)?;
-            let text = shapecraft_ops_step::export(
+            let text = workpiece_ops_step::export(
                 "part",
                 &[("b".into(), block)],
-                shapecraft_core::Unit::Inch,
+                workpiece_core::Unit::Inch,
             )?;
-            let back = shapecraft_ops_step::import(text.as_bytes())?;
+            let back = workpiece_ops_step::import(text.as_bytes())?;
             let body = back
                 .bodies
                 .first()
@@ -197,7 +197,7 @@ fn run(name: &str) -> Found {
         }
         // A helix is as long as its turns unrolled.
         "helix-length" => {
-            let helix = shapecraft_shape::swept::helix(
+            let helix = workpiece_shape::swept::helix(
                 Point3::ZERO,
                 Point3::Z,
                 Point3::X * 2.0,

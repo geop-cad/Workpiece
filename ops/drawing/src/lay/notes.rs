@@ -3,13 +3,13 @@
 //! 1101) — and which of it stands nowhere yet.
 
 use crate::Sheet;
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::annotation::number;
-use shapecraft_core::world::{Annotation, Callout, Characteristic, Measured, Note, Tolerance};
+use workpiece_core::math::Point2;
+use workpiece_core::world::annotation::number;
+use workpiece_core::world::{Annotation, Callout, Characteristic, Measured, Note, Tolerance};
 
 use super::views::Placed;
 use super::{Laid, LaidNote, Pen, Subject, lettering};
-use shapecraft_core::math::Point3;
+use workpiece_core::math::Point3;
 
 /// How something looks at the model and lays what it sees flat: a view
 /// of a sheet, or the plane a note lies in on the model itself.
@@ -635,7 +635,7 @@ fn shows_measured(measured: &Measured, placed: &dyn Frame, from_a_corner: bool) 
             // arc where they are.)
             Measured::Angle { at, first, second } => {
                 let v = placed.place(*at);
-                let crosses = |d: shapecraft_core::math::Point3| {
+                let crosses = |d: workpiece_core::math::Point3| {
                     placed
                         .way(d)
                         .try_normalize()
@@ -650,9 +650,9 @@ fn shows_measured(measured: &Measured, placed: &dyn Frame, from_a_corner: bool) 
     }
     let towards = placed.towards();
     let flat =
-        |d: shapecraft_core::math::Point3| d.dot(towards).abs() < 1e-6 * d.length().max(1e-300);
+        |d: workpiece_core::math::Point3| d.dot(towards).abs() < 1e-6 * d.length().max(1e-300);
     // Along one of the model's axes, and not seen end on.
-    let along_an_axis = |d: shapecraft_core::math::Point3| {
+    let along_an_axis = |d: workpiece_core::math::Point3| {
         let Some(d) = d.try_normalize() else {
             return false;
         };
@@ -663,8 +663,8 @@ fn shows_measured(measured: &Measured, placed: &dyn Frame, from_a_corner: bool) 
     };
     // Round about `axis`, seen square on or from the side; a ball
     // (which has no axis) from anywhere.
-    let round = |axis: shapecraft_core::math::Point3| {
-        axis == shapecraft_core::math::Point3::ZERO
+    let round = |axis: workpiece_core::math::Point3| {
+        axis == workpiece_core::math::Point3::ZERO
             || flat(axis)
             || axis.dot(towards).abs() > 1.0 - 1e-9
     };
@@ -1968,7 +1968,7 @@ pub(crate) fn draw_note(
 /// as the model has it — as `6× ` before it, or (the sheet's `places`)
 /// as a line `(6) PLACES` after it.
 fn callout_as_written(note: &Annotation, sheet: &Sheet, count: Option<u32>) -> Annotation {
-    use shapecraft_core::world::Callout;
+    use workpiece_core::world::Callout;
     let mut said = note.clone();
     let Note::Hole { lines, outside, .. } = &mut said.note else {
         return said;
@@ -2053,8 +2053,8 @@ fn kept_within(laid: &mut Laid, start: usize, lo: Point2, hi: Point2) {
 
 /// Whether something round about `axis` is seen square on by who looks
 /// along `towards`: along its axis — or it is a ball, which has none.
-fn square_on(axis: shapecraft_core::math::Point3, towards: shapecraft_core::math::Point3) -> bool {
-    axis == shapecraft_core::math::Point3::ZERO || axis.dot(towards).abs() > 1.0 - 1e-9
+fn square_on(axis: workpiece_core::math::Point3, towards: workpiece_core::math::Point3) -> bool {
+    axis == workpiece_core::math::Point3::ZERO || axis.dot(towards).abs() > 1.0 - 1e-9
 }
 
 /// Whether the boxes `a` and `b` are nearer than `gap` to each other.
@@ -2177,9 +2177,9 @@ pub(crate) fn draw(
         // (Where its arrowheads start.)
         let fills0 = laid.fills.len();
         // (With the decimals said of this one, if any are.)
-        let how = shapecraft_core::world::annotation::numbers();
+        let how = workpiece_core::world::annotation::numbers();
         // (Decimals said of this one are as many as it says.)
-        let how = shapecraft_core::world::Numbers {
+        let how = workpiece_core::world::Numbers {
             decimals: placed_note.decimals.or(how.decimals),
             trim: how.trim && placed_note.decimals.is_none(),
             ..how
@@ -2191,13 +2191,13 @@ pub(crate) fn draw(
         // the model says, `6×` before it or `(6) PLACES` after it.)
         let written;
         let note = match &note.note {
-            shapecraft_core::world::Note::Hole { .. } => {
+            workpiece_core::world::Note::Hole { .. } => {
                 written = callout_as_written(note, sheet, placed_note.count);
                 &written
             }
             _ => note,
         };
-        let drawn = shapecraft_core::world::annotation::written(how, || {
+        let drawn = workpiece_core::world::annotation::written(how, || {
             draw_note(laid, note, placed, at, starts)
         });
         values.push((
@@ -3071,8 +3071,8 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
 /// them (ISO 129-1, ISO 1101, ISO 5459; on a model, ISO 16792).
 pub mod on_model {
     use super::{Frame, Laid, draw_note, width};
-    use shapecraft_core::math::{Point2, Point3};
-    use shapecraft_core::world::{Annotation, Measured, Note};
+    use workpiece_core::math::{Point2, Point3};
+    use workpiece_core::world::{Annotation, Measured, Note};
 
     /// A line of lettering on the model.
     #[derive(Debug, Clone, PartialEq)]

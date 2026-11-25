@@ -3,10 +3,10 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::BodyKind;
-use shapecraft_core::world::{Connector, DatumPlane, Instance, Joint, JointKind, Limits};
-use shapecraft_core::{Builder, Operation, Pose, Reference};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::BodyKind;
+use workpiece_core::world::{Connector, DatumPlane, Instance, Joint, JointKind, Limits};
+use workpiece_core::{Builder, Operation, Pose, Reference};
 
 /// The part mirrored, and the plane it is mirrored in.
 #[derive(
@@ -16,7 +16,7 @@ use shapecraft_core::{Builder, Operation, Pose, Reference};
     Default,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct MirrorPartArgs {
     /// The instance that is mirrored: a part placed in this one.
@@ -61,10 +61,10 @@ impl Operation for MirrorPart {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: what it makes is put in by the
         // builder.)
-        let mut out = shapecraft_boolean::Out::default();
+        let mut out = workpiece_boolean::Out::default();
         let args = &self.args;
         let of = args.of.as_ref().context("pick the part to mirror")?;
         let plane = args.plane.as_ref().context("pick the plane to mirror in")?;
@@ -94,10 +94,10 @@ impl Operation for MirrorPart {
             .collect();
         for body in bodies {
             let name = image.topo.name_of(body).unwrap_or("body").to_owned();
-            let solid = shapecraft_boolean::read(&image.topo, body)?;
+            let solid = workpiece_boolean::read(&image.topo, body)?;
             let flipped = solid.mapped(&|p| Point3::new(p.x, p.y, -p.z), true, 1.0)?;
-            shapecraft_boolean::remove(&mut image.topo, body);
-            shapecraft_boolean::write(&mut image.topo, &flipped, &name)?;
+            workpiece_boolean::remove(&mut image.topo, body);
+            workpiece_boolean::write(&mut image.topo, &flipped, &name)?;
         }
         let (origin, normal) = (plane.origin(), plane.normal());
         let point = |p: Point3| p - normal * (2.0 * (p - origin).dot(normal));
@@ -138,9 +138,9 @@ impl Operation for MirrorPart {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::{Axis, Measure, Standalone};
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::{Axis, Measure, Standalone};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
 
     #[test]
     fn placed_parts_are_mirrored_in_planes() -> anyhow::Result<()> {
@@ -148,7 +148,7 @@ mod tests {
         // in the yz plane is 5 the other way, the box on the other side.
         let mut part = Standalone::new();
         let pose = Pose::from_translation(Point3::new(1.0, 2.0, 3.0));
-        let frame = shapecraft_core::world::DatumFrame::from_pose(pose)?;
+        let frame = workpiece_core::world::DatumFrame::from_pose(pose)?;
         part.world.datums.insert("off".into(), frame.into());
         AddBox {
             id: "box".into(),
@@ -178,8 +178,8 @@ mod tests {
         let image = &b.world.instances["other"];
         assert_eq!(image.world.topo.validate(), Ok(()));
         let body = image.world.topo.resolve("box").expect("the box");
-        let solid = shapecraft_boolean::read(&image.world.topo, body)?;
-        let measured = shapecraft_boolean::measure(&solid);
+        let solid = workpiece_boolean::read(&image.world.topo, body)?;
+        let measured = workpiece_boolean::measure(&solid);
         assert!((measured.volume - 1.0).abs() < 1e-9, "{}", measured.volume);
         let centre = image.pose.transform_point(measured.centre);
         assert!(

@@ -5,9 +5,9 @@
 use std::collections::BTreeSet;
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::read;
-use shapecraft_core::{Builder, Operation};
-pub use shapecraft_shape::heal::faces_deleted;
+use workpiece_boolean::read;
+use workpiece_core::{Builder, Operation};
+pub use workpiece_shape::heal::faces_deleted;
 
 /// The faces to delete.
 #[derive(
@@ -17,12 +17,12 @@ pub use shapecraft_shape::heal::faces_deleted;
     Default,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct DeleteFaceArgs {
     /// The faces deleted: all of a hole, a pocket or a boss.
     #[arg(required)]
-    pub faces: Vec<shapecraft_core::Reference<shapecraft_core::world::topo::FaceId>>,
+    pub faces: Vec<workpiece_core::Reference<workpiece_core::world::topo::FaceId>>,
 }
 
 /// Deletes faces of bodies and closes the faces around them over where
@@ -55,16 +55,16 @@ impl Operation for DeleteFace {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let args = &self.args;
         ensure!(!args.faces.is_empty(), "pick the faces to delete");
         let picked: Vec<&str> = args.faces.iter().map(|r| r.name()).collect();
         // (Nothing is changed here: the bodies it makes of those it reads
         // are written by the builder.)
         let topo = &builder.tracked().topo;
-        let mut out = shapecraft_core::Made::default();
+        let mut out = workpiece_core::Made::default();
         let mut found: BTreeSet<&str> = BTreeSet::new();
-        for (body, name) in shapecraft_shape::bodies::solids_with(topo, &picked) {
+        for (body, name) in workpiece_shape::bodies::solids_with(topo, &picked) {
             let solid = read(topo, body)?;
             let faces: Vec<usize> = (0..solid.faces.len())
                 .filter(|&f| {

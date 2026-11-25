@@ -2,8 +2,8 @@
 //! dimensions, and changes to the geometry. Each says why it cannot be
 //! done when the selection does not fit, so its button can.
 
-use shapecraft_core::handles::CanvasView;
-use shapecraft_core::math::Point2;
+use workpiece_core::handles::CanvasView;
+use workpiece_core::math::Point2;
 
 use crate::model::{Id, Item, Kind, Shape, SketchArgs, SketchAxis};
 use crate::solve::Overdefined;

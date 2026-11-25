@@ -13,10 +13,10 @@
 
 use std::sync::Arc;
 
-use shapecraft_boolean::Solid;
-use shapecraft_boolean::model::{Edge, Face, Use, Vertex, Walk};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface, Topo};
+use workpiece_boolean::Solid;
+use workpiece_boolean::model::{Edge, Face, Use, Vertex, Walk};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface, Topo};
 
 use crate::roll::{Rolled, Stretch};
 
@@ -214,7 +214,7 @@ fn patch_at(
         &patch.section,
     )
     .ok()?;
-    let kept = shapecraft_boolean::read(&scratch, kept).ok()?;
+    let kept = workpiece_boolean::read(&scratch, kept).ok()?;
     // The patch itself: the one of its faces that comes to a point.
     let comes_to_a_point = |f: &&Face| {
         let mut steps = f.loops.iter().flatten();
@@ -366,7 +366,7 @@ pub(crate) fn blended(
     let mut dead_vertices = Vec::new();
     let mut touched: Vec<usize> = Vec::new();
     for (k, (edge, rolled)) in found.iter().enumerate() {
-        shapecraft_core::cancel::checkpoint();
+        workpiece_core::cancel::checkpoint();
         let edge = *edge;
         if rolled.edge != edge || rolled.vertices.iter().any(|v| poles.contains(v)) {
             return None;
@@ -549,7 +549,7 @@ pub(crate) fn blended(
                 return None;
             }
             let rail = stations[end].rails[j];
-            let at = shapecraft_boolean::geometry::on_curve(&it.curve, it.range, rail, tol);
+            let at = workpiece_boolean::geometry::on_curve(&it.curve, it.range, rail, tol);
             let &[at] = &at[..] else {
                 return None;
             };
@@ -992,7 +992,7 @@ pub(crate) fn blended(
     }
     // And sound, as the kernel's own checker sees it.
     let mut scratch = Topo::new();
-    shapecraft_boolean::write(&mut scratch, &out, "blended").ok()?;
+    workpiece_boolean::write(&mut scratch, &out, "blended").ok()?;
     scratch.validate().ok()?;
     Some(out)
 }

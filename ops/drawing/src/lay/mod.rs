@@ -19,9 +19,9 @@ use std::sync::{Arc, Mutex};
 
 use crate::Sheet;
 use crate::sheet::ViewKind;
-use shapecraft_core::Unit;
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::World;
+use workpiece_core::Unit;
+use workpiece_core::math::Point2;
+use workpiece_core::world::World;
 
 pub use frame::{Weight, mass_text, solid_bodies, weight};
 pub use notes::on_model;
@@ -706,7 +706,7 @@ pub fn lay_out(
     } else {
         3.5
     };
-    shapecraft_core::world::annotation::written(sheet.numbers, || {
+    workpiece_core::world::annotation::written(sheet.numbers, || {
         lettered(height, || laid_out(sheet, subject, kept, previews))
     })
 }
@@ -833,7 +833,7 @@ pub fn place(
     note: &str,
     view: Option<&str>,
 ) -> Option<(String, [f64; 2])> {
-    use shapecraft_core::world::Note;
+    use workpiece_core::world::Note;
     let said = subject.world.said(note)?;
     let said = &*said;
     let frames = views::frames(sheet, subject, kept, &mut Vec::new());
@@ -889,7 +889,7 @@ pub fn place_all(
     kept: &Kept,
     wanted: &[Wanted],
 ) -> Vec<Option<(String, [f64; 2], bool)>> {
-    shapecraft_core::world::annotation::written(sheet.numbers, || {
+    workpiece_core::world::annotation::written(sheet.numbers, || {
         let frames = views::frames(sheet, subject, kept, &mut Vec::new());
         notes::place_all(sheet, subject, &frames, wanted)
     })
@@ -904,8 +904,8 @@ pub fn looking(
     kept: &Kept,
     id: &str,
 ) -> Option<(
-    [shapecraft_core::math::Point3; 3],
-    shapecraft_core::math::Point3,
+    [workpiece_core::math::Point3; 3],
+    workpiece_core::math::Point3,
 )> {
     let frames = views::frames(sheet, subject, kept, &mut Vec::new());
     let placed = frames.iter().find(|placed| placed.view.id == id)?;

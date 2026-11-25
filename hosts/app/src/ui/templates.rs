@@ -5,11 +5,11 @@
 //! a part says of itself are dropped.
 
 use eframe::egui;
-use shapecraft_cad_ui::Message;
-use shapecraft_cad_ui::view::SheetTemplates;
-use shapecraft_ops_drawing::sheet::{Beside, Format, Projection, SheetView, Side, Style, ViewKind};
-use shapecraft_ops_drawing::template::{Cell, Content};
-use shapecraft_ops_drawing::{Template, Templates};
+use workpiece_ops_drawing::sheet::{Beside, Format, Projection, SheetView, Side, Style, ViewKind};
+use workpiece_ops_drawing::template::{Cell, Content};
+use workpiece_ops_drawing::{Template, Templates};
+use workpiece_ui::Message;
+use workpiece_ui::view::SheetTemplates;
 
 use super::materials::field;
 use crate::theme::color;
@@ -769,7 +769,7 @@ impl TemplatesPanel {
                         .on_hover_text("The title block of ISO 7200 again")
                         .clicked()
                     {
-                        template.block = shapecraft_ops_drawing::template::iso_block();
+                        template.block = workpiece_ops_drawing::template::iso_block();
                         self.picked = Picked::Nothing;
                     }
                 });

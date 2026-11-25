@@ -3,10 +3,10 @@
 
 use std::sync::Arc;
 
-use shapecraft_cad_part::{Cancel, Engine, Workspace};
-use shapecraft_cad_rasterize::{Drawing, Scenes, Style};
-use shapecraft_core::world::Visibility;
-use shapecraft_core::{Pose, World};
+use workpiece_core::world::Visibility;
+use workpiece_core::{Pose, World};
+use workpiece_part::{Cancel, Engine, Workspace};
+use workpiece_rasterize::{Drawing, Scenes, Style};
 
 use super::Camera;
 use super::camera::Transition;
@@ -37,10 +37,10 @@ pub struct Shown {
     pub error: Option<String>,
     /// The focused part's cache as the build left it: what its operations
     /// worked out, to keep with the part.
-    pub cache: Option<shapecraft_core::Cache>,
+    pub cache: Option<workpiece_core::Cache>,
     /// The references of the part's steps that lost what they named
     /// and were found again: its program follows them.
-    pub repaired: Vec<shapecraft_cad_part::Repair>,
+    pub repaired: Vec<workpiece_part::Repair>,
     /// The bodies of each part the focused part places, by its path
     /// and variant: what a dialog offers to take along of it.
     pub placed: std::collections::BTreeMap<(String, Option<String>), Vec<String>>,
@@ -66,11 +66,11 @@ pub struct Moving {
     /// The instance moved.
     pub instance: String,
     /// The point of it the pointer holds, in its coordinates.
-    pub local: shapecraft_core::math::Point3,
+    pub local: workpiece_core::math::Point3,
     /// Where that point was when it was grabbed, in the view's
     /// coordinates: the pointer moves it in the plane through there
     /// that faces the view.
-    pub grabbed: shapecraft_core::math::Point3,
+    pub grabbed: workpiece_core::math::Point3,
 }
 
 /// The viewport's state.

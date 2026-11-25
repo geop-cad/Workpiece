@@ -1,12 +1,12 @@
 //! What a view of a sheet shows: all of the model, or the bodies it
 //! names; of a section, all behind the cut, or only what the cut meets.
 
-use shapecraft_core::world::Cutting;
-use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
-use shapecraft_ops_drawing::Sheet;
-use shapecraft_ops_drawing::lay::{Kept, Laid, Subject, lay_out};
-use shapecraft_ops_drawing::sheet::{PlacedNote, SheetView, Side, Style, ViewKind};
-use shapecraft_ops_testing::*;
+use workpiece_core::world::Cutting;
+use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
+use workpiece_ops_drawing::Sheet;
+use workpiece_ops_drawing::lay::{Kept, Laid, Subject, lay_out};
+use workpiece_ops_drawing::sheet::{PlacedNote, SheetView, Side, Style, ViewKind};
+use workpiece_ops_testing::*;
 
 #[test]
 fn a_view_shows_the_bodies_it_names_and_a_section_only_its_cut() -> anyhow::Result<()> {
@@ -23,18 +23,18 @@ fn a_view_shows_the_bodies_it_names_and_a_section_only_its_cut() -> anyhow::Resu
         .apply(b)
     };
     block(&mut b, "large", ORIGIN, 4.0)?;
-    let there = shapecraft_core::world::DatumFrame::new(
-        shapecraft_core::math::Point3::new(10.0, 0.0, 0.0),
-        shapecraft_core::math::Point3::X,
-        shapecraft_core::math::Point3::Y,
+    let there = workpiece_core::world::DatumFrame::new(
+        workpiece_core::math::Point3::new(10.0, 0.0, 0.0),
+        workpiece_core::math::Point3::X,
+        workpiece_core::math::Point3::Y,
     )?;
     b.world
         .datums
-        .insert("there".into(), shapecraft_core::world::Datum::Frame(there));
+        .insert("there".into(), workpiece_core::world::Datum::Frame(there));
     block(&mut b, "small", "there", 2.0)?;
     let cut = Cutting::plane(
-        shapecraft_core::math::Point3::ZERO,
-        shapecraft_core::math::Point3::Y,
+        workpiece_core::math::Point3::ZERO,
+        workpiece_core::math::Point3::Y,
     );
     b.world.sections.insert("mid".into(), cut);
     let view = |id: &str, kind, bodies: &[&str], cut_only| SheetView {
@@ -64,7 +64,7 @@ fn a_view_shows_the_bodies_it_names_and_a_section_only_its_cut() -> anyhow::Resu
         };
         let subject = Subject {
             world: &b.world,
-            unit: shapecraft_core::Unit::default(),
+            unit: workpiece_core::Unit::default(),
             material: None,
             name: "blocks",
             properties: &properties,
@@ -104,18 +104,18 @@ fn blocks() -> anyhow::Result<Standalone> {
         .apply(b)
     };
     block(&mut b, "large", ORIGIN, 4.0)?;
-    let there = shapecraft_core::world::DatumFrame::new(
-        shapecraft_core::math::Point3::new(10.0, 0.0, 0.0),
-        shapecraft_core::math::Point3::X,
-        shapecraft_core::math::Point3::Y,
+    let there = workpiece_core::world::DatumFrame::new(
+        workpiece_core::math::Point3::new(10.0, 0.0, 0.0),
+        workpiece_core::math::Point3::X,
+        workpiece_core::math::Point3::Y,
     )?;
     b.world
         .datums
-        .insert("there".into(), shapecraft_core::world::Datum::Frame(there));
+        .insert("there".into(), workpiece_core::world::Datum::Frame(there));
     block(&mut b, "small", "there", 2.0)?;
     let cut = Cutting::plane(
-        shapecraft_core::math::Point3::new(0.0, 1.0, 0.0),
-        shapecraft_core::math::Point3::Y,
+        workpiece_core::math::Point3::new(0.0, 1.0, 0.0),
+        workpiece_core::math::Point3::Y,
     );
     b.world.sections.insert("mid".into(), cut);
     Ok(b)
@@ -130,7 +130,7 @@ fn laid(b: &Standalone, views: Vec<SheetView>, notes: Vec<PlacedNote>) -> Laid {
     };
     let subject = Subject {
         world: &b.world,
-        unit: shapecraft_core::Unit::default(),
+        unit: workpiece_core::Unit::default(),
         material: None,
         name: "blocks",
         properties: &properties,
@@ -205,8 +205,8 @@ fn a_view_of_some_bodies_stands_on_them_and_a_section_turns() -> anyhow::Result<
 
 #[test]
 fn dimensions_stand_where_a_view_sees_them_and_nowhere_else() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::{Annotation, Measured, Note, Tolerance};
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::{Annotation, Measured, Note, Tolerance};
     let mut b = blocks()?;
     let say = |b: &mut Standalone, name: &str, measured: Measured, value: f64| {
         let note = Annotation {
@@ -290,7 +290,7 @@ fn dimensions_stand_where_a_view_sees_them_and_nowhere_else() -> anyhow::Result<
 #[test]
 fn a_section_shows_its_line_stands_upright_and_hatches_each_body_its_own_way() -> anyhow::Result<()>
 {
-    use shapecraft_ops_drawing::lay::Pen;
+    use workpiece_ops_drawing::lay::Pen;
     // The blocks cut by the plane y = 1, from above: the plane's line
     // shows in the top view, though the section says it in no plane of
     // its own.
@@ -337,7 +337,7 @@ fn a_section_shows_its_line_stands_upright_and_hatches_each_body_its_own_way() -
 
 #[test]
 fn walls_seen_edge_on_are_their_edges_drawn_once() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
     // A post standing on the origin, seen from above: its rim, a circle,
     // and nothing of its wall, which is seen edge on all round — no
     // outline of it zigzagging between its sides, no second circle of
@@ -393,7 +393,7 @@ fn walls_seen_edge_on_are_their_edges_drawn_once() -> anyhow::Result<()> {
 
 #[test]
 fn a_seam_on_the_outline_of_a_disc_leaves_both_its_sides_drawn() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
     // A disc 270 across and 30 thick, its seam turned a quarter at a
     // time: twice on an outline seen from the front, twice square to
     // it. However its seam lies, both its sides are drawn, each once,
@@ -401,15 +401,14 @@ fn a_seam_on_the_outline_of_a_disc_leaves_both_its_sides_drawn() -> anyhow::Resu
     for quarter in 0..4 {
         let turn = f64::from(quarter) * std::f64::consts::FRAC_PI_2;
         let mut b = Standalone::new();
-        let turned = shapecraft_core::world::DatumFrame::new(
-            shapecraft_core::math::Point3::ZERO,
-            shapecraft_core::math::Point3::new(turn.cos(), turn.sin(), 0.0),
-            shapecraft_core::math::Point3::new(-turn.sin(), turn.cos(), 0.0),
+        let turned = workpiece_core::world::DatumFrame::new(
+            workpiece_core::math::Point3::ZERO,
+            workpiece_core::math::Point3::new(turn.cos(), turn.sin(), 0.0),
+            workpiece_core::math::Point3::new(-turn.sin(), turn.cos(), 0.0),
         )?;
-        b.world.datums.insert(
-            "turned".into(),
-            shapecraft_core::world::Datum::Frame(turned),
-        );
+        b.world
+            .datums
+            .insert("turned".into(), workpiece_core::world::Datum::Frame(turned));
         AddCylinder {
             id: "disc".into(),
             args: AddCylinderArgs {
@@ -448,7 +447,7 @@ fn a_seam_on_the_outline_of_a_disc_leaves_both_its_sides_drawn() -> anyhow::Resu
 
 #[test]
 fn the_round_of_a_post_s_rim_is_outlined_from_the_side() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
     // A post 2 in radius and 3 high, the rim of its top rounded 1/2:
     // from the front its outline goes up past where the round starts,
     // to the top, round over the corners — not a box that stops where
@@ -464,9 +463,9 @@ fn the_round_of_a_post_s_rim_is_outlined_from_the_side() -> anyhow::Result<()> {
     }
     .apply(&mut b)?;
     let rim = vec![Source::Topology("post/top-rim".into())];
-    shapecraft_ops_blend::Fillet {
+    workpiece_ops_blend::Fillet {
         id: "round".into(),
-        args: shapecraft_ops_blend::FilletArgs {
+        args: workpiece_ops_blend::FilletArgs {
             edges: Reference::each(rim),
             size: Measure::new(0.5),
             ..Default::default()
@@ -528,7 +527,7 @@ fn seen_from(b: &Standalone, side: Side) -> (Vec<(Point2, Point2)>, f64) {
 
 #[test]
 fn a_ball_seen_from_anywhere_is_its_outline_once() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddSphere, AddSphereArgs};
+    use workpiece_ops_basic_shapes::{AddSphere, AddSphereArgs};
     let mut b = Standalone::new();
     AddSphere {
         id: "ball".into(),
@@ -572,7 +571,7 @@ fn a_ball_seen_from_anywhere_is_its_outline_once() -> anyhow::Result<()> {
 
 #[test]
 fn a_post_seen_isometric_has_both_its_outlines_the_full_height() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
     let mut b = Standalone::new();
     AddCylinder {
         id: "post".into(),
@@ -610,9 +609,9 @@ fn the_quarter_rounds_of_a_rounded_block_s_top_are_outlined() -> anyhow::Result<
     let mut b = Standalone::new();
     base(&mut b)?;
     let fillet = |b: &mut Standalone, id: &str, edges: Vec<Source>, r: f64| {
-        shapecraft_ops_blend::Fillet {
+        workpiece_ops_blend::Fillet {
             id: id.into(),
-            args: shapecraft_ops_blend::FilletArgs {
+            args: workpiece_ops_blend::FilletArgs {
                 edges: Reference::each(edges),
                 size: Measure::new(r),
                 ..Default::default()
@@ -671,14 +670,14 @@ fn a_section_of_only_its_cut_is_framed_by_the_cut() -> anyhow::Result<()> {
     // its cut, it is the large block's 4 × 4 square: its frame, its
     // name over it and its lines all about that.
     let mut b = blocks()?;
-    let high = shapecraft_core::world::DatumFrame::new(
-        shapecraft_core::math::Point3::new(-10.0, 0.0, 10.0),
-        shapecraft_core::math::Point3::X,
-        shapecraft_core::math::Point3::Y,
+    let high = workpiece_core::world::DatumFrame::new(
+        workpiece_core::math::Point3::new(-10.0, 0.0, 10.0),
+        workpiece_core::math::Point3::X,
+        workpiece_core::math::Point3::Y,
     )?;
     b.world
         .datums
-        .insert("high".into(), shapecraft_core::world::Datum::Frame(high));
+        .insert("high".into(), workpiece_core::world::Datum::Frame(high));
     AddBox {
         id: "high".into(),
         args: AddBoxArgs {
@@ -687,12 +686,12 @@ fn a_section_of_only_its_cut_is_framed_by_the_cut() -> anyhow::Result<()> {
         },
     }
     .apply(&mut b)?;
-    let large = shapecraft_boolean::read(&b.world.topo, body(&b, "large"))?;
+    let large = workpiece_boolean::read(&b.world.topo, body(&b, "large"))?;
     let (lo, hi) = large.extent();
     let middle = (lo + hi) / 2.0;
     b.world.sections.insert(
         "across".into(),
-        Cutting::plane(middle, shapecraft_core::math::Point3::X),
+        Cutting::plane(middle, workpiece_core::math::Point3::X),
     );
     let section = |cut_only| SheetView {
         cut_only,
@@ -755,15 +754,15 @@ fn a_pictorial_view_from_below_looks_up_with_the_model_s_up_upright() {
 
 #[test]
 fn a_length_between_the_middles_of_drawn_arcs_ends_on_what_the_view_draws() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::{Annotation, Measured, Note, Tolerance};
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::{Annotation, Measured, Note, Tolerance};
     // A block 4 × 4 × 2, its upright edges rounded 1: from the top four
     // quarter circles. A length from the middle of one to the middle of
     // the next along x ends on what the view draws (each end at an arc's
     // middle, which is then marked), not on nothing.
     let mut b = Standalone::new();
     base(&mut b)?;
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     let (lo, hi) = solid.vertices.iter().fold(
         (
             Point3::splat(f64::INFINITY),
@@ -774,9 +773,9 @@ fn a_length_between_the_middles_of_drawn_arcs_ends_on_what_the_view_draws() -> a
     let upright = edges_where(&b, "base", |a, c| {
         (a.x - c.x).abs() < 1e-9 && (a.y - c.y).abs() < 1e-9
     });
-    shapecraft_ops_blend::Fillet {
+    workpiece_ops_blend::Fillet {
         id: "corners".into(),
-        args: shapecraft_ops_blend::FilletArgs {
+        args: workpiece_ops_blend::FilletArgs {
             edges: Reference::each(upright),
             size: Measure::new(1.0),
             ..Default::default()
@@ -827,9 +826,9 @@ fn a_length_between_the_middles_of_drawn_arcs_ends_on_what_the_view_draws() -> a
 #[test]
 fn a_radius_of_a_round_off_the_text_s_side_is_one_straight_leader_through_its_centre()
 -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::{Annotation, Measured, Note, Tolerance};
-    use shapecraft_ops_drawing::lay::Pen;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::{Annotation, Measured, Note, Tolerance};
+    use workpiece_ops_drawing::lay::Pen;
     // A block 4 × 4 × 2, its upright edges rounded 1; the radius of one
     // corner, its text put on the far side of the round's middle (the
     // arc does not reach round to it): the leader runs from the arrow on
@@ -837,7 +836,7 @@ fn a_radius_of_a_round_off_the_text_s_side_is_one_straight_leader_through_its_ce
     // the text — no second bend (ISO 129-1).
     let mut b = Standalone::new();
     base(&mut b)?;
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     let (lo, hi) = solid.vertices.iter().fold(
         (
             Point3::splat(f64::INFINITY),
@@ -848,9 +847,9 @@ fn a_radius_of_a_round_off_the_text_s_side_is_one_straight_leader_through_its_ce
     let upright = edges_where(&b, "base", |a, c| {
         (a.x - c.x).abs() < 1e-9 && (a.y - c.y).abs() < 1e-9
     });
-    shapecraft_ops_blend::Fillet {
+    workpiece_ops_blend::Fillet {
         id: "corners".into(),
-        args: shapecraft_ops_blend::FilletArgs {
+        args: workpiece_ops_blend::FilletArgs {
             edges: Reference::each(upright),
             size: Measure::new(1.0),
             ..Default::default()
@@ -917,7 +916,7 @@ fn a_radius_of_a_round_off_the_text_s_side_is_one_straight_leader_through_its_ce
 
 #[test]
 fn a_detail_of_a_section_hatches_only_within_its_circle() -> anyhow::Result<()> {
-    use shapecraft_ops_drawing::lay::Pen;
+    use workpiece_ops_drawing::lay::Pen;
     // The blocks' section, and a detail of it (a small circle over the
     // large block's cut, five times larger) far off on the sheet.
     let b = blocks()?;
@@ -938,7 +937,7 @@ fn a_detail_of_a_section_hatches_only_within_its_circle() -> anyhow::Result<()> 
     let s = &alone.views[0];
     // (A point of the large block's cut: the middle of a hatch line of
     // the left half of the view.)
-    let hatch = |k: &shapecraft_ops_drawing::lay::Stroke| {
+    let hatch = |k: &workpiece_ops_drawing::lay::Stroke| {
         let d = (k.b - k.a).normalize_or_zero();
         k.pen == Pen::Narrow && (d.x * d.y).abs() > 0.4
     };
@@ -986,7 +985,7 @@ fn a_detail_of_a_section_hatches_only_within_its_circle() -> anyhow::Result<()> 
 
 #[test]
 fn a_caption_keeps_where_it_was_dragged_as_its_view_moves() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point2;
+    use workpiece_core::math::Point2;
     // The section of the blocks, its caption dragged 30 to the right of
     // its middle and 5 down; the view moved: the caption with it.
     let b = blocks()?;

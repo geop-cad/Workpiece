@@ -1,25 +1,25 @@
-# Building ShapeCraft parts from a script
+# Building Workpiece parts from a script
 
-The `shapecraft` Python package (`python/shapecraft/`, installed by `pip install shapecraft-cad`) is a
-small layer over the `shapecraft` command line (in a checkout: `cargo build --release -p shapecraft-cli`).
-`python -m shapecraft` starts the desktop app, `shapecraft` (or `python -m shapecraft.cli`) is the command line, and
-`python -m shapecraft.tools` has the helpers (`help`, `sheet`, `crop`, `tile`). A script is the model: it says sketches with their
+The `workpiece` Python package (`python/workpiece/`, installed by `pip install workpiece`) is a
+small layer over the `workpiece` command line (in a checkout: `cargo build --release -p workpiece-cli`).
+`python -m workpiece` starts the desktop app, `workpiece` (or `python -m workpiece.cli`) is the command line, and
+`python -m workpiece.tools` has the helpers (`help`, `sheet`, `crop`, `tile`). A script is the model: it says sketches with their
 constraints and driving dimensions, features, and patterns; `Part.build(path)` writes the
-`.shapecraft` file, solves and builds it, and returns a `Report`. `agent/examples/` has complete
+`.workpiece` file, solves and builds it, and returns a `Report`. `agent/examples/` has complete
 scripts: `flange.py`, `pinned_plate.py` (assembly), `bracket.py` (a drawing built to a
 declared original), `wood_box.py` (parts + assembly sheet with detail, section, parts list).
 
 **Read the quick reference below; read a long section only when you need it** with
-`python -m shapecraft.tools help <topic>` (`help` alone lists the topics; `help drawing`,
+`python -m workpiece.tools help <topic>` (`help` alone lists the topics; `help drawing`,
 `help centre-lines`, `help assemblies`, ...). Do not read this file whole on every pass.
 
 ## Quick reference
 
 ```python
-import sys; sys.path.insert(0, "path/to/ShapeCraft/agent")   # the agent/ folder of this repository
-from shapecraft import (Part, original, view, projected, section_view, detail_view, note, balloon,
+import sys; sys.path.insert(0, "path/to/Workpiece/agent")   # the agent/ folder of this repository
+from workpiece import (Part, original, view, projected, section_view, detail_view, note, balloon,
                    topo, datum, axis, placed, anchor, profile, material)
-p = Part(unit="Inch" | "Millimetre", material="6061 Aluminium", title="NAME", file="x.shapecraft")
+p = Part(unit="Inch" | "Millimetre", material="6061 Aluminium", title="NAME", file="x.workpiece")
 p.expect(original(views=[("front","Front"), ("iso","Pictorial")], numbers=[92, "R32", "Ø50", "(9)"],
                   notes=["(4) PLACES"], mass=(450.0, 0.3, "g"), units="mm"))   # once, from the original
 ```
@@ -42,11 +42,11 @@ u,v = x,y on XY; y,z on YZ; z,x on ZX; coordinates are only a starting guess)
 kind="Counterbore"..)`, `p.fillet(edges, r)`, `p.chamfer(edges, d)`, `p.shell(open_faces, t)`,
 `p.feature_pattern([face], count, about=axis("Z") | along=axis("X"), spacing=)`, `p.feature_mirror([face], "Y")`,
 `p.pattern(body, ...)`, `p.plane("Z", 20)`, `p.dimension(ref_a, ref_b, show_in=, reference=, kind=)`,
-`p.on_sheet(step_or_dim, show_in=, at=, on_drawing=)`, any other step `p.op("Kind", id, **args)` (`shapecraft kinds`).
+`p.on_sheet(step_or_dim, show_in=, at=, on_drawing=)`, any other step `p.op("Kind", id, **args)` (`workpiece kinds`).
 Pick faces/edges after a build: `rep.faces(where=lambda f: f["flat"] and f["normal"][2] > .99)`,
 `rep.edges(near=(x,y,z), count=1)`. Every wrapper takes `id=`.
 
-**Assembly**: parts `Part(file="a.shapecraft")`; `asm = Part(); asm.add_part(a, id="a", at=(x,y,z), euler=(..)
+**Assembly**: parts `Part(file="a.workpiece")`; `asm = Part(); asm.add_part(a, id="a", at=(x,y,z), euler=(..)
 | constraint="Fastened", onto=anchor(topo(face),"FaceCentre",instance="a"), with_=anchor(...), flip=)`;
 `placed("a", topo(face))`; `rep.faces(placed="a", ...)`; `rep.masses`, `rep.mass_total` (kg).
 
@@ -60,15 +60,15 @@ Dimetric IsometricBelow{Front,Back}{Right,Left}. Front looks from +x (y right, z
 elevation on YZ, the side on ZX, the plan on XY.
 
 **Build and look** (cheap, in this order; never render or crop by hand):
-1. `rep = p.build("x.shapecraft"); rep.show()` — steps, degrees of freedom, volumes, lint, scorecard, seconds.
+1. `rep = p.build("x.workpiece"); rep.show()` — steps, degrees of freedom, volumes, lint, scorecard, seconds.
    Identical rebuilds are reused; `render=False` (default) skips the sheet files.
 2. `rep.sheet()` prints the sheet as text (every view, dimension text as printed, what it measures, whether
    its ends are on drawn geometry, notes, centre lines, cuts, balloons, parts list, problems);
-   also `x.shapecraft.views/sheet.txt` on every build; the scorecard is in `show()` and `views/score.txt`.
+   also `x.workpiece.views/sheet.txt` on every build; the scorecard is in `show()` and `views/score.txt`.
 3. `p.build(path, render=True)` — sheets as PDF/PNG plus one image per view `views/view-<id>.png`
    (about 1200 px, the view with its dimensions): open only the view that changed.
-4. `python -m shapecraft.tools crop sheet.pdf x y w h -o out.png` (mm of the sheet from its lower left) or on a
-   PNG (pixels) for any other crop; `python -m shapecraft.tools tile original.png --grid 3x2 -o dir` cuts an original into
+4. `python -m workpiece.tools crop sheet.pdf x y w h -o out.png` (mm of the sheet from its lower left) or on a
+   PNG (pixels) for any other crop; `python -m workpiece.tools tile original.png --grid 3x2 -o dir` cuts an original into
    overlapping 2x tiles to read its small text once.
 5. Mass: `rep.mass_total` (kg) with a material of the folder's library, else `rep.mass(density)`.
 
@@ -81,10 +81,10 @@ not work around them silently.
 
 ## How to work
 
-Builds are quick (a second or two): build after every step or two. `shapecraft report part.shapecraft
+Builds are quick (a second or two): build after every step or two. `workpiece report part.workpiece
 --times` prints the seconds each step, the drawing and the pictures took.
 
-1. Write the script step by step and call `report = p.build("x.shapecraft")` often; `report.show()`
+1. Write the script step by step and call `report = p.build("x.workpiece")` often; `report.show()`
    prints every step (ok / FAILED with the error), each sketch's degrees of freedom, the bodies'
    volumes, and lint. `report.volumes_after(step_id)` says what a step added or took.
 2. To pick faces and edges for fillets, shells, patterns, planes: build first, then
@@ -191,7 +191,7 @@ is a pair of whole numbers). Views:
 
 ### Which side is which
 
-**Which side is which.** ShapeCraft's Front looks at the model from +x: the Front view shows y to
+**Which side is which.** Workpiece's Front looks at the model from +x: the Front view shows y to
 the right and z up — exactly a sketch on "YZ" (u right, v up). So draw the part's front
 elevation on YZ, its side elevation on ZX (the Right view shows it with x running to the
 left, z up), and its plan on XY (the Top view shows y to the right and x downward: a quarter
@@ -403,21 +403,21 @@ as text: `report.sheet()` and the scorecard (next section).
 
 **Rule: a drawing whose parts list has several items is modelled as one standalone part per
 item, plus an assembly that places them — not as several bodies of one part.** A box with two
-dividers is `box.shapecraft` and `divider.shapecraft` (placed twice), and `box_assembly.shapecraft`. Each part
+dividers is `box.workpiece` and `divider.workpiece` (placed twice), and `box_assembly.workpiece`. Each part
 has its own material, mass and drawing; the assembly only places them.
 
 ```python
-from shapecraft import Part, anchor, placed, topo
+from workpiece import Part, anchor, placed, topo
 
-plate = Part(material="Aluminium", file="plate.shapecraft")   # modelled as any part
+plate = Part(material="Aluminium", file="plate.workpiece")   # modelled as any part
 ...
-pin = Part(material="Steel", file="pin.shapecraft")
+pin = Part(material="Steel", file="pin.workpiece")
 ...
 asm = Part()                                              # the assembly: no bodies of its own
 asm.add_part(plate, id="plate")                           # Fixed where it was modelled
 asm.add_part(pin, id="pin1", at=(-20, 0, -5))             # the same part file, placed twice
 asm.add_part(pin, id="pin2", at=(20, 0, -5), euler=(0, 0, 90))
-report = asm.build("out/pinned_plate.shapecraft")              # builds plate.shapecraft, pin.shapecraft there first
+report = asm.build("out/pinned_plate.workpiece")              # builds plate.workpiece, pin.workpiece there first
 report.show()
 for m in report.masses:                                   # per placed part: name, file, material,
     print(m["name"], m["file"], m["mass"])                #   volume, mass (kg)
@@ -426,7 +426,7 @@ print(report.mass_total)                                  # all of it (kg)
 
 - `add_part(part, ...)` takes a `Part(file=...)` of the script (built into the assembly's
   folder first, once however often it is placed; its report is `asm.reports[file]`) or the
-  name of a .shapecraft file already in that folder. The step's `id` names the placed part.
+  name of a .workpiece file already in that folder. The step's `id` names the placed part.
 - **Where it goes**: `constraint="Fixed"` (default) or `"Free"` with `at=(x, y, z)` (where its
   origin goes) and `euler=(x, y, z)` (degrees about the fixed x, y, z axes, in turn); or a
   joint — `"Fastened"`, `"Revolute"`, `"Slider"`, `"Cylindrical"`, `"Planar"`, `"Ball"` —
@@ -481,7 +481,7 @@ kinds are compared). Numbers are compared as printed (`R`, `Ø`, `°`, brackets 
 dimensions); counts (`(4) PLACES`, `4×`) are notes, not numbers. For a multi-part script put
 `expect` on the part whose sheet stands for the original's (the assembly).
 
-**The scorecard** (`report.show()`, `report.score["line"]`, `<part>.shapecraft.views/score.txt`):
+**The scorecard** (`report.show()`, `report.score["line"]`, `<part>.workpiece.views/score.txt`):
 `views 6/6, numbers 21/25 (missing: 18, (9), R6, 60), extra: 5.4; notes 3/5 (missing: ...);
 mass ok (450.016 g vs 450 ± 0.3); problems 0, ends off geometry 2`. Views by kind (missing /
 extra views also appear as lint), numbers of the original not on the sheet and numbers on the
@@ -490,7 +490,7 @@ sheet's problems, and dimensions whose ends are not on drawn geometry. A produce
 clean scorecard and clean problems; a grader opens images only for what it cannot judge
 (placement, legibility, right geometry).
 
-**The sheet as text** — `report.sheet()` (also `<part>.shapecraft.views/sheet.txt`, every build):
+**The sheet as text** — `report.sheet()` (also `<part>.workpiece.views/sheet.txt`, every build):
 
 ```
 view front  [Front] Front  1:1 HiddenDashed  at 110,165  size 127,69.85  box 38.5,113.07..217.3,221.43
@@ -518,10 +518,10 @@ kinds against the declaration.
 - `p.build(path, render=True)` writes `<path>.views/view-<id>.png` per view (the view's box plus its
   dimensions, about 1200 px on the long side) beside `drawing1.png` / `.pdf`; `report.view_images`
   lists them. Open the one view that changed, not the whole sheet.
-- `python -m shapecraft.tools crop sheet.pdf x y w h -o out.png` — a box of a sheet PDF in mm from its
+- `python -m workpiece.tools crop sheet.pdf x y w h -o out.png` — a box of a sheet PDF in mm from its
   lower left corner (the `at` / `box` numbers of `sheet.txt`); on a PNG/JPG the box is in pixels from the
-  upper left. Python: `from shapecraft import crop; crop(path, (x, y, w, h), out)`. `-m 5` widens the box.
-- `python -m shapecraft.tools tile original.png --grid 3x2 -o tiles/` — overlapping tiles at 2x
+  upper left. Python: `from workpiece import crop; crop(path, (x, y, w, h), out)`. `-m 5` widens the box.
+- `python -m workpiece.tools tile original.png --grid 3x2 -o tiles/` — overlapping tiles at 2x
   (`tile-r1c1.png` ...; `tiles.txt` says where each lies in the original's pixels): read the original's
   small text once, then reuse the tiles. Python: `tile(path, (3, 2), out_dir)`.
 
@@ -529,8 +529,8 @@ kinds against the declaration.
 lint, pictures). A build of what an earlier build of the same path already built (same recipe, and
 the parts it places) is not done again (`report.reused`); `render` defaults to False — ask for sheets
 and view images only on the build you are going to read; the four iso/front/top/right pictures are
-written only for a part without a drawing (`pictures=True` forces them). The `shapecraft` command
-line: `shapecraft make recipe.json -o x.shapecraft --report r.json [--times] [--render dir [--no-pictures]]`;
+written only for a part without a drawing (`pictures=True` forces them). The `workpiece` command
+line: `workpiece make recipe.json -o x.workpiece --report r.json [--times] [--render dir [--no-pictures]]`;
 the report's `drawings[i]["inventory"]` is the sheet as data.
 
 ## What a good model is (what is checked)
@@ -624,7 +624,7 @@ text) — it will be fixed.
   not on a curve. Left out, the whole sketch is taken (areas inside others are holes). Areas
   picked in the app are saved by their boundary (`[{"entity": "e7", "left": true, "at": 0.5}]`,
   entity ids that shift when the sketch is redrawn): in a script, use points.
-- **Every other step**: `p.op("Kind", **arguments)`; run `shapecraft kinds` for all kinds with their
+- **Every other step**: `p.op("Kind", **arguments)`; run `workpiece kinds` for all kinds with their
   arguments as by default — only say what differs. References are `profile(sketch)`,
   `topo(name)`, `datum(id)`, `axis("Z")`.
 - **Names** of faces and edges come from the steps that made them and are stable across

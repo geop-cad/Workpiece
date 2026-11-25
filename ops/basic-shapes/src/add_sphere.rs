@@ -1,19 +1,19 @@
 //! [`AddSphere`]: a sphere centred on a frame.
 
 use anyhow::Context;
-use shapecraft_core::handles::LinearHandle;
-use shapecraft_core::math::{Axis, Point2, Point3};
-use shapecraft_core::widgets::VBox;
-use shapecraft_core::world::DatumFrame;
-use shapecraft_core::world::topo::{Curve3, NurbsSurface, Orientation};
-use shapecraft_core::{Builder, EditVisualization, Measure, Operation, Reference, World};
+use workpiece_core::handles::LinearHandle;
+use workpiece_core::math::{Axis, Point2, Point3};
+use workpiece_core::widgets::VBox;
+use workpiece_core::world::DatumFrame;
+use workpiece_core::world::topo::{Curve3, NurbsSurface, Orientation};
+use workpiece_core::{Builder, EditVisualization, Measure, Operation, Reference, World};
 
 use crate::brep::{SolidBuilder, circle_knots, unit_circle};
 use crate::frame_handles;
 
 /// Where the sphere goes and how big it is.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct AddSphereArgs {
     /// The frame the sphere is centred on; its z axis runs through the
@@ -80,14 +80,14 @@ impl Operation for AddSphere {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let r = (*builder).measure(&self.args.radius, "the radius")?;
         anyhow::ensure!(r.is_finite() && r > 0.0, "radius {r} is not positive");
         let frame = self.args.frame.as_ref().context("pick a frame")?;
         // (It reads its frame, and no more; what it makes of that is
         // written by the builder.)
         let pose = builder.resolve(frame)?.pose();
-        let shape = move |topo: &mut shapecraft_core::world::topo::Topo, name: &str| {
+        let shape = move |topo: &mut workpiece_core::world::topo::Topo, name: &str| {
             let mut solid = SolidBuilder::new(topo, name, pose)?;
 
             // The surface of revolution of the meridian: u around the z axis,
@@ -138,14 +138,14 @@ impl Operation for AddSphere {
             solid.solid(vec![face])?;
             Ok(())
         };
-        Ok(shapecraft_core::Made::body(&self.id, shape))
+        Ok(workpiece_core::Made::body(&self.id, shape))
     }
 
     fn visualize_edit(
         &self,
-        context: &shapecraft_core::EditContext<'_>,
+        context: &workpiece_core::EditContext<'_>,
         (): &(),
-    ) -> EditVisualization<shapecraft_core::Edit<AddSphereArgs, ()>> {
+    ) -> EditVisualization<workpiece_core::Edit<AddSphereArgs, ()>> {
         let world: &World = context.world;
         let AddSphereArgs { frame, radius } = self.args.clone();
         let with_radius = {
@@ -156,14 +156,14 @@ impl Operation for AddSphere {
             }
         };
         // The fields the arguments give; the handles are its own.
-        let dialog = VBox::new(shapecraft_core::Arguments::fields(&self.args, context));
+        let dialog = VBox::new(workpiece_core::Arguments::fields(&self.args, context));
         // What a formula gives cannot be dragged.
         let handles = frame_handles(world, &frame, &[Axis::X], |_, origin, direction| {
             let with_radius = with_radius.clone();
             let drag = move |r: f64| with_radius(Measure::new(r));
             LinearHandle::new(origin, direction, radius.value, drag).filter(|_| radius.is_plain())
         });
-        EditVisualization::new(dialog, handles).map(shapecraft_core::Edit::args)
+        EditVisualization::new(dialog, handles).map(workpiece_core::Edit::args)
     }
 
     fn summary(&self) -> String {
@@ -171,7 +171,7 @@ impl Operation for AddSphere {
         format!(
             "r {} on {}",
             op.args.radius,
-            shapecraft_core::reference::described(&op.args.frame)
+            workpiece_core::reference::described(&op.args.frame)
         )
     }
 }
@@ -179,9 +179,9 @@ impl Operation for AddSphere {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::Standalone;
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::world::topo::FaceId;
+    use workpiece_core::Standalone;
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::world::topo::FaceId;
 
     #[test]
     fn spheres_are_valid_named_solids() -> anyhow::Result<()> {

@@ -1,14 +1,12 @@
 //! Split: a body cut in two by a plane, or by faces that go through it.
 
 use anyhow::Context;
-use shapecraft_boolean::{Solid, read, read_sheet, stitched};
-use shapecraft_core::widgets::ReferenceList;
-use shapecraft_core::world::topo::{BodyId, BodyKind, Topo};
-use shapecraft_core::world::{DatumPlane, World};
-use shapecraft_core::{
-    Anything, Builder, EditContext, Operation, Reference, ReferenceKind, Widget,
-};
-use shapecraft_shape::{halves, halves_by};
+use workpiece_boolean::{Solid, read, read_sheet, stitched};
+use workpiece_core::widgets::ReferenceList;
+use workpiece_core::world::topo::{BodyId, BodyKind, Topo};
+use workpiece_core::world::{DatumPlane, World};
+use workpiece_core::{Anything, Builder, EditContext, Operation, Reference, ReferenceKind, Widget};
+use workpiece_shape::{halves, halves_by};
 
 /// Which side of the plane is kept.
 #[derive(
@@ -44,13 +42,13 @@ impl Keep {
     Default,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct SplitArgs {
     /// The body split; `None` for every solid body the plane goes
     /// through.
     #[arg(label = "Body", empty = "All bodies")]
-    pub target: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
     /// What it is split by: a datum plane or a flat face (the body is
     /// cut all the way along its plane), or faces of any shape that go
     /// all the way through the body — a surface, or some of its faces
@@ -69,7 +67,7 @@ fn by_field(args: &SplitArgs, _: &EditContext<'_>) -> Vec<Widget<SplitArgs>> {
         ReferenceKind::Face,
         ReferenceKind::Body,
     ];
-    let set = shapecraft_shape::ui::set(args, |a: &mut SplitArgs, by| {
+    let set = workpiece_shape::ui::set(args, |a: &mut SplitArgs, by| {
         a.by = Reference::each(by);
     });
     vec![
@@ -110,9 +108,9 @@ fn cutter(world: &World, by: &[Reference<Anything>]) -> anyhow::Result<Cutter> {
             sheets.push(read_sheet(&world.topo, body)?);
             continue;
         }
-        let (of, face) = shapecraft_shape::on::face(&world.topo, name)
+        let (of, face) = workpiece_shape::on::face(&world.topo, name)
             .with_context(|| format!("{name} is neither a plane nor a face"))?;
-        sheets.push(shapecraft_shape::faces_of(&of, &[face]));
+        sheets.push(workpiece_shape::faces_of(&of, &[face]));
     }
     if let [only] = &sheets[..] {
         return Ok(Cutter::Faces(only.clone()));
@@ -159,14 +157,14 @@ impl Operation for Split {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let cutter = cutter(builder.tracked(), &args.by)?;
         let topo = &builder.tracked().topo;
-        let targets = shapecraft_shape::bodies::targets(topo, &self.id, &args.target)?;
+        let targets = workpiece_shape::bodies::targets(topo, &self.id, &args.target)?;
         let mut split = 0;
         for (body, name) in targets {
             let solid = read(topo, body)?;
@@ -208,7 +206,7 @@ impl Operation for Split {
     }
 }
 
-impl shapecraft_core::Choices for Keep {
+impl workpiece_core::Choices for Keep {
     const ALL: &'static [Self] = &Self::ALL;
 
     fn label(self) -> &'static str {

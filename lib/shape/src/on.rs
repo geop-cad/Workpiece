@@ -2,10 +2,10 @@
 //! out of the body there.
 
 use anyhow::Context;
-use shapecraft_boolean::model::Walk;
-use shapecraft_boolean::{Solid, read, read_sheet};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::{BodyKind, Topo};
+use workpiece_boolean::model::Walk;
+use workpiece_boolean::{Solid, read, read_sheet};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::{BodyKind, Topo};
 
 /// The body that has the face called `name`, read, and which of its
 /// faces that is.
@@ -31,7 +31,7 @@ pub fn face(topo: &Topo, name: &str) -> anyhow::Result<(Solid, usize)> {
 /// (u, v).
 pub fn middle(solid: &Solid, face: usize) -> (Point3, Point3) {
     let it = &solid.faces[face];
-    let mut sum = shapecraft_core::math::Point2::ZERO;
+    let mut sum = workpiece_core::math::Point2::ZERO;
     let mut count = 0.0;
     for step in it.loops.iter().flatten() {
         if let Walk::Edge { .. } = step.walk {
@@ -46,7 +46,7 @@ pub fn middle(solid: &Solid, face: usize) -> (Point3, Point3) {
     let uv = if count > 0.0 {
         sum / count
     } else {
-        shapecraft_core::math::Point2::new((u0 + u1) / 2.0, (v0 + v1) / 2.0)
+        workpiece_core::math::Point2::new((u0 + u1) / 2.0, (v0 + v1) / 2.0)
     };
     let (p, du, dv) = it
         .surface
@@ -71,10 +71,10 @@ pub fn held(
     what: &str,
     (solid, face): (&Solid, usize),
     (by, way): (f64, Option<Point3>),
-    measure: &shapecraft_core::Measure,
+    measure: &workpiece_core::Measure,
     value: f64,
-) -> (String, shapecraft_core::world::Annotation) {
-    use shapecraft_core::world::{Annotation, Measured};
+) -> (String, workpiece_core::world::Annotation) {
+    use workpiece_core::world::{Annotation, Measured};
     let (on, out) = middle(solid, face);
     let measured = Measured::Length {
         from: on,
@@ -271,7 +271,7 @@ fn corner_on(solid: &Solid, edge: usize, share: f64) -> Option<Corner> {
             let uv = used.pcurve.point_at(t);
             let run = used.pcurve.point_at(t + (to - from) * 1e-3) - uv;
             let walked = if reversed { -run } else { run };
-            let left = shapecraft_core::math::Point2::new(-walked.y, walked.x).try_normalize()?;
+            let left = workpiece_core::math::Point2::new(-walked.y, walked.x).try_normalize()?;
             let (_, du, dv) = face.surface.derivatives_at(uv.x, uv.y);
             let normal = du.cross(dv).try_normalize()?;
             let normal = if face.outward { normal } else { -normal };

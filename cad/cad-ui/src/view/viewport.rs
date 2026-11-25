@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use shapecraft_cad_rasterize::{Drawing, Pick, Scene};
+use workpiece_rasterize::{Drawing, Pick, Scene};
 
-use shapecraft_core::handles::GizmoPart;
+use workpiece_core::handles::GizmoPart;
 
-use shapecraft_core::widgets::Button;
-use shapecraft_core::{Hotkey, Key};
+use workpiece_core::widgets::Button;
+use workpiece_core::{Hotkey, Key};
 
 use crate::model::Camera;
 use crate::picking::Candidate;
@@ -22,7 +22,7 @@ pub struct Entry {
     /// The text it starts with, selected.
     pub text: String,
     /// The message for text entered, or why it is not taken.
-    pub enter: shapecraft_core::handles::CanvasEnter<Message>,
+    pub enter: workpiece_core::handles::CanvasEnter<Message>,
     /// Closes the field without entering anything.
     pub cancel: Message,
 }
@@ -138,7 +138,7 @@ impl Viewport {
             takes_view: model.takes_view(),
             notes: {
                 let pose = v.shown.pose;
-                let place = |p: shapecraft_core::math::Point3| pose.transform_point(p).as_vec3();
+                let place = |p: workpiece_core::math::Point3| pose.transform_point(p).as_vec3();
                 // Annotations show on the model where what is said of
                 // it is looked at: on the Annotate tab, and nowhere else.
                 let annotating = model.tab == crate::message::Tab::Annotate;
@@ -157,7 +157,7 @@ impl Viewport {
                     model.focused_part().is_some_and(|p| {
                         model.workspace.part(&p).is_ok_and(|p| {
                             p.operation(e).is_some_and(|op| {
-                                op.downcast_ref::<shapecraft_ops_sketch::Sketch>().is_some()
+                                op.downcast_ref::<workpiece_ops_sketch::Sketch>().is_some()
                             })
                         })
                     })
@@ -168,7 +168,7 @@ impl Viewport {
                     .filter_map(|(name, note)| {
                         let at = places
                             .and_then(|p| p.get(name))
-                            .map_or(note.at, |at| shapecraft_core::math::Point3::from_array(*at));
+                            .map_or(note.at, |at| workpiece_core::math::Point3::from_array(*at));
                         // (A drawing's lettering, 3.5 millimetres high,
                         // is twelve pixels high here.)
                         let pixel = model.pixel(pose.transform_point(at));
@@ -180,7 +180,7 @@ impl Viewport {
                             return sketch_note(name, note, of, pixel, right, up, &place);
                         }
                         let per_mm = pixel * NOTE_PIXELS;
-                        let drawn = shapecraft_ops_drawing::lay::on_model::on_model(
+                        let drawn = workpiece_ops_drawing::lay::on_model::on_model(
                             note, at, right, up, per_mm,
                         )
                         .unwrap_or_default();
@@ -289,15 +289,15 @@ const SKETCH_TEXT_PX: f32 = 13.5 * 0.7;
 /// screen's right and up point (in the part's directions).
 fn sketch_note(
     name: &str,
-    note: &shapecraft_core::world::Annotation,
-    of: &shapecraft_core::world::SketchOf,
+    note: &workpiece_core::world::Annotation,
+    of: &workpiece_core::world::SketchOf,
     pixel: f64,
-    right: shapecraft_core::math::Point3,
-    up: shapecraft_core::math::Point3,
-    place: &dyn Fn(shapecraft_core::math::Point3) -> glam::Vec3,
+    right: workpiece_core::math::Point3,
+    up: workpiece_core::math::Point3,
+    place: &dyn Fn(workpiece_core::math::Point3) -> glam::Vec3,
 ) -> Option<NoteShown> {
-    use shapecraft_core::handles::{CanvasShape, CanvasView, HEAD_LENGTH, HEAD_WIDTH, Tone};
-    use shapecraft_core::math::Point2;
+    use workpiece_core::handles::{CanvasShape, CanvasView, HEAD_LENGTH, HEAD_WIDTH, Tone};
+    use workpiece_core::math::Point2;
     let to_3d = |p: Point2| place(of.origin + of.x * p.x + of.y * p.y);
     // The sketch's coordinates of where the text stands.
     let label = Point2::new(
@@ -315,7 +315,7 @@ fn sketch_note(
         texts: Vec::new(),
         grip: [place(note.at); 4],
     };
-    for shape in shapecraft_ops_sketch::layout::annotation(of, &view, Tone::Dimension)? {
+    for shape in workpiece_ops_sketch::layout::annotation(of, &view, Tone::Dimension)? {
         match shape {
             CanvasShape::Polyline { points, .. } => shown
                 .strokes
@@ -376,10 +376,10 @@ const NOTE_PIXELS: f64 = 12.0 / 3.5;
 fn masses(
     model: &Model,
     v: &crate::model::viewport::Viewport,
-    right: shapecraft_core::math::Point3,
-    up: shapecraft_core::math::Point3,
+    right: workpiece_core::math::Point3,
+    up: workpiece_core::math::Point3,
 ) -> Vec<NoteShown> {
-    use shapecraft_core::math::Point3;
+    use workpiece_core::math::Point3;
     let world = &v.shown.world;
     let pose = v.shown.pose;
     let place = |p: Point3| pose.transform_point(p).as_vec3();

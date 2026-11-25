@@ -4,19 +4,19 @@ use anyhow::Context;
 use std::collections::BTreeMap;
 use std::collections::btree_map::Entry;
 
-use shapecraft_core::handles::LinearHandle;
-use shapecraft_core::math::{Axis, Point2, Point3};
-use shapecraft_core::widgets::VBox;
-use shapecraft_core::world::DatumFrame;
-use shapecraft_core::world::topo::{Curve3, NurbsSurface, Orientation};
-use shapecraft_core::{Builder, EditVisualization, Measure, Operation, Reference, World};
+use workpiece_core::handles::LinearHandle;
+use workpiece_core::math::{Axis, Point2, Point3};
+use workpiece_core::widgets::VBox;
+use workpiece_core::world::DatumFrame;
+use workpiece_core::world::topo::{Curve3, NurbsSurface, Orientation};
+use workpiece_core::{Builder, EditVisualization, Measure, Operation, Reference, World};
 
 use crate::brep::SolidBuilder;
 use crate::frame_handles;
 
 /// Where the box goes and how big it is.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct AddBoxArgs {
     /// The frame the box is centred on and aligned with.
@@ -87,7 +87,7 @@ impl Operation for AddBox {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let lengths = ["the width", "the depth", "the height"];
         let mut size = Point3::ZERO;
         for (i, name) in lengths.into_iter().enumerate() {
@@ -101,7 +101,7 @@ impl Operation for AddBox {
         // (It reads its frame, and no more; what it makes of that is
         // written by the builder.)
         let pose = builder.resolve(frame)?.pose();
-        let shape = move |topo: &mut shapecraft_core::world::topo::Topo, name: &str| {
+        let shape = move |topo: &mut workpiece_core::world::topo::Topo, name: &str| {
             let mut solid = SolidBuilder::new(topo, name, pose)?;
 
             let half = size / 2.0;
@@ -150,14 +150,14 @@ impl Operation for AddBox {
             solid.solid(faces)?;
             Ok(())
         };
-        Ok(shapecraft_core::Made::body(&self.id, shape))
+        Ok(workpiece_core::Made::body(&self.id, shape))
     }
 
     fn visualize_edit(
         &self,
-        context: &shapecraft_core::EditContext<'_>,
+        context: &workpiece_core::EditContext<'_>,
         (): &(),
-    ) -> EditVisualization<shapecraft_core::Edit<AddBoxArgs, ()>> {
+    ) -> EditVisualization<workpiece_core::Edit<AddBoxArgs, ()>> {
         let world: &World = context.world;
         let AddBoxArgs { frame, size } = self.args.clone();
         let with_size = {
@@ -172,7 +172,7 @@ impl Operation for AddBox {
             }
         };
         // The fields the arguments give; the handles are its own.
-        let dialog = VBox::new(shapecraft_core::Arguments::fields(&self.args, context));
+        let dialog = VBox::new(workpiece_core::Arguments::fields(&self.args, context));
         // An arrow to the centre of each face the frame's axes point at;
         // none for a length a formula gives.
         let handles = frame_handles(world, &frame, &Axis::ALL, |axis, origin, direction| {
@@ -182,7 +182,7 @@ impl Operation for AddBox {
             LinearHandle::new(origin, direction, length.value / 2.0, drag)
                 .filter(|_| length.is_plain())
         });
-        EditVisualization::new(dialog, handles).map(shapecraft_core::Edit::args)
+        EditVisualization::new(dialog, handles).map(workpiece_core::Edit::args)
     }
 
     fn summary(&self) -> String {
@@ -193,7 +193,7 @@ impl Operation for AddBox {
             s[0],
             s[1],
             s[2],
-            shapecraft_core::reference::described(&op.args.frame)
+            workpiece_core::reference::described(&op.args.frame)
         )
     }
 }
@@ -201,9 +201,9 @@ impl Operation for AddBox {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::Standalone;
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::world::topo::{EdgeId, FaceId, VertexId};
+    use workpiece_core::Standalone;
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::world::topo::{EdgeId, FaceId, VertexId};
 
     #[test]
     fn boxes_are_valid_named_solids() -> anyhow::Result<()> {
@@ -211,7 +211,7 @@ mod tests {
         let op = AddBox {
             id: "box1".into(),
             args: AddBoxArgs {
-                size: [2.0, 4.0, 6.0].map(shapecraft_core::Measure::new),
+                size: [2.0, 4.0, 6.0].map(workpiece_core::Measure::new),
                 frame: Some(Reference::datum(ORIGIN)),
             },
         };
@@ -233,14 +233,14 @@ mod tests {
         // The top face is planar, facing +z, at half the height.
         let top = b
             .world
-            .resolve(&Reference::<shapecraft_core::world::DatumPlane>::topology(
+            .resolve(&Reference::<workpiece_core::world::DatumPlane>::topology(
                 "box1/top",
             ))?;
         assert!(top.normal().abs_diff_eq(Point3::Z, 1e-12));
         assert!((top.origin().z - 3.0).abs() < 1e-12);
         let face = |name: &str| {
             b.world
-                .resolve(&Reference::<shapecraft_core::world::DatumPlane>::topology(
+                .resolve(&Reference::<workpiece_core::world::DatumPlane>::topology(
                     name,
                 ))
         };
@@ -252,7 +252,7 @@ mod tests {
         let flat = AddBox {
             id: "flat".into(),
             args: AddBoxArgs {
-                size: [1.0, 0.0, 1.0].map(shapecraft_core::Measure::new),
+                size: [1.0, 0.0, 1.0].map(workpiece_core::Measure::new),
                 frame: Some(Reference::datum(ORIGIN)),
             },
         };
@@ -269,8 +269,8 @@ mod tests {
                 ..AddBoxArgs::default()
             },
         };
-        let edit = shapecraft_core::operation::edit_arguments(&op, &World::new());
-        let Some(shapecraft_core::handles::Handle::Linear(z)) = edit.handles.get("z") else {
+        let edit = workpiece_core::operation::edit_arguments(&op, &World::new());
+        let Some(workpiece_core::handles::Handle::Linear(z)) = edit.handles.get("z") else {
             anyhow::bail!("expected the z arrow");
         };
         assert!(z.tip().abs_diff_eq(Point3::new(0.0, 0.0, 0.5), 1e-12));

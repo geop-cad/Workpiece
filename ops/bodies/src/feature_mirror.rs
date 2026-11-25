@@ -3,11 +3,11 @@
 //! in a plane.
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::{Op, combine, read};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::DatumPlane;
-use shapecraft_core::world::topo::FaceId;
-use shapecraft_core::{Builder, Operation, Reference};
+use workpiece_boolean::{Op, combine, read};
+use workpiece_core::math::Point3;
+use workpiece_core::world::DatumPlane;
+use workpiece_core::world::topo::FaceId;
+use workpiece_core::{Builder, Operation, Reference};
 
 use crate::features::{Change, Features, Move, steps_of};
 
@@ -19,7 +19,7 @@ use crate::features::{Change, Features, Move, steps_of};
     PartialEq,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 #[serde(default)]
 pub struct FeatureMirrorArgs {
@@ -64,8 +64,8 @@ impl Operation for FeatureMirror {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
-        let mut out = shapecraft_shape::bodies::Out::default();
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         ensure!(
             !args.features.is_empty(),

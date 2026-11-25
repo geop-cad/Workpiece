@@ -2,11 +2,11 @@
 //! closed forms, near misses, random pairs, public STEP parts — are the
 //! benchmark suite's (`bench/boolean`), run when this crate changes.
 
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::{BodyId, Topo};
-use shapecraft_core::world::{Datum, DatumFrame};
-use shapecraft_core::{Measure, Operation, Pose, Reference, Standalone};
-use shapecraft_ops_basic_shapes::{
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::{BodyId, Topo};
+use workpiece_core::world::{Datum, DatumFrame};
+use workpiece_core::{Measure, Operation, Pose, Reference, Standalone};
+use workpiece_ops_basic_shapes::{
     AddBox, AddBoxArgs, AddCylinder, AddCylinderArgs, AddSphere, AddSphereArgs,
 };
 
@@ -213,7 +213,7 @@ fn blocks_side_by_side_become_one_block() -> anyhow::Result<()> {
 
 #[test]
 fn blocks_are_sound_and_cut_as_blocks_do() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
+    use workpiece_core::math::Point3;
     let block = |at: f64| {
         crate::block(
             "b",
@@ -223,7 +223,7 @@ fn blocks_are_sound_and_cut_as_blocks_do() -> anyhow::Result<()> {
         )
     };
     let (a, b) = (block(0.0)?, block(1.0)?);
-    let mut topo = shapecraft_core::world::Topo::new();
+    let mut topo = workpiece_core::world::Topo::new();
     crate::write(&mut topo, &a, "a")?;
     assert_eq!(topo.validate(), Ok(()));
     let m = crate::measure(&a);
@@ -235,7 +235,7 @@ fn blocks_are_sound_and_cut_as_blocks_do() -> anyhow::Result<()> {
 
 #[test]
 fn closed_meshes_bound_solids_with_flat_faces() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
+    use workpiece_core::math::Point3;
     // A cube of twelve triangles: six faces, of volume 8.
     let points: Vec<Point3> = (0..8)
         .map(|i| Point3::new(f64::from(i & 1), f64::from(i >> 1 & 1), f64::from(i >> 2)) * 2.0)
@@ -253,7 +253,7 @@ fn closed_meshes_bound_solids_with_flat_faces() -> anyhow::Result<()> {
         .flat_map(|q| [[q[0], q[1], q[2]], [q[0], q[2], q[3]]])
         .collect();
     let cube = crate::faceted("m", &points, &triangles)?;
-    let mut topo = shapecraft_core::world::Topo::new();
+    let mut topo = workpiece_core::world::Topo::new();
     crate::write(&mut topo, &cube, "m")?;
     assert_eq!(topo.validate(), Ok(()));
     assert_eq!(cube.faces.len(), 6);
@@ -266,7 +266,7 @@ fn closed_meshes_bound_solids_with_flat_faces() -> anyhow::Result<()> {
 
 #[test]
 fn what_is_under_a_surface_is_a_solid() {
-    use shapecraft_core::world::topo::NurbsSurface;
+    use workpiece_core::world::topo::NurbsSurface;
     // A 10 by 10 patch 5 up, its middle control point 7 up.
     let knots = vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0];
     let mut points = Vec::new();
@@ -550,7 +550,7 @@ fn a_plane_cuts_outlines_out_of_solids_without_a_boolean() -> anyhow::Result<()>
 
 #[test]
 fn the_spread_of_a_block_is_what_the_books_say() {
-    use shapecraft_core::math::Point3;
+    use workpiece_core::math::Point3;
     // A 2 × 3 × 4 block: m (b² + c²) / 12 about each axis through its middle.
     let axes = [Point3::X, Point3::Y, Point3::Z];
     let block = crate::block("b", Point3::new(5.0, 0.0, 0.0), axes, [2.0, 3.0, 4.0]).unwrap();

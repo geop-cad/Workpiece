@@ -10,7 +10,7 @@
             "distance": null,
             "flip": false
           },
-          "part": "plate210.shapecraft",
+          "part": "plate210.workpiece",
           "variant": null
         },
         "id": "plate210"
@@ -26,7 +26,7 @@
             "distance": null,
             "flip": false
           },
-          "part": "plate270.shapecraft",
+          "part": "plate270.workpiece",
           "variant": null
         },
         "id": "plate270"
@@ -42,7 +42,7 @@
             "distance": null,
             "flip": false
           },
-          "part": "plate330.shapecraft",
+          "part": "plate330.workpiece",
           "variant": null
         },
         "id": "plate330"

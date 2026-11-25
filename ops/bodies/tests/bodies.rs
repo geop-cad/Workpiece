@@ -1,9 +1,9 @@
 //! What the operations of this crate make.
 
-use shapecraft_ops_bodies::{CombineArgs, CombineBodies};
-use shapecraft_ops_sweep::{Extrude, Revolve, RevolveAxis};
-use shapecraft_ops_testing::*;
-use shapecraft_shape::Combine;
+use workpiece_ops_bodies::{CombineArgs, CombineBodies};
+use workpiece_ops_sweep::{Extrude, Revolve, RevolveAxis};
+use workpiece_ops_testing::*;
+use workpiece_shape::Combine;
 
 #[test]
 fn bodies_combine_whatever_their_faces_are() -> anyhow::Result<()> {
@@ -11,7 +11,7 @@ fn bodies_combine_whatever_their_faces_are() -> anyhow::Result<()> {
     base(&mut b)?;
     sketch(&mut b, "s", xy(), Some(([0.0; 2], [3.0; 2])), &[])?;
     let mut tool = Extrude::of("tool", Some("s".into()), false);
-    tool.args.combine = shapecraft_shape::Combine::NewBody;
+    tool.args.combine = workpiece_shape::Combine::NewBody;
     tool.args.distance = Measure::new(3.0);
     tool.apply(&mut b)?;
     let combine = |b: &mut Standalone, how| {
@@ -54,7 +54,7 @@ fn bodies_combine_whatever_their_faces_are() -> anyhow::Result<()> {
     }
     slanted.apply(&mut b)?;
     let mut cone = Revolve::of("cone", Some("s".into()), false);
-    cone.args.combine = shapecraft_shape::Combine::NewBody;
+    cone.args.combine = workpiece_shape::Combine::NewBody;
     cone.args.axis = RevolveAxis::SketchV;
     let mut alone = b.clone();
     cone.apply(&mut alone)?;
@@ -89,7 +89,7 @@ fn bodies_combine_whatever_their_faces_are() -> anyhow::Result<()> {
 
 #[test]
 fn bodies_are_moved_mirrored_scaled_and_repeated() -> anyhow::Result<()> {
-    use shapecraft_ops_bodies::{Along, Motion, Pattern, PatternArgs, Transform, TransformArgs};
+    use workpiece_ops_bodies::{Along, Motion, Pattern, PatternArgs, Transform, TransformArgs};
     let z = || Some(Reference::frame_axis(ORIGIN, Axis::Z));
     let x = || Some(Reference::frame_axis(ORIGIN, Axis::X));
     let base_of = |_: &Standalone| Some(Source::Topology("base".into()));
@@ -114,7 +114,7 @@ fn bodies_are_moved_mirrored_scaled_and_repeated() -> anyhow::Result<()> {
     })?;
     check(&b);
     close(volume(&b.world.topo, body(&b, "copy")), 32.0, 1e-9);
-    let moved = shapecraft_boolean::read(&b.world.topo, body(&b, "copy"))?;
+    let moved = workpiece_boolean::read(&b.world.topo, body(&b, "copy"))?;
     assert!(moved.vertices.iter().all(|v| v.point.x > 7.9));
     // Turned, mirrored and scaled, it is still a solid: mirrored, with
     // its inside still inside.
@@ -179,7 +179,7 @@ fn bodies_are_moved_mirrored_scaled_and_repeated() -> anyhow::Result<()> {
             1e-9,
         );
     }
-    let opposite = shapecraft_boolean::read(&b.world.topo, body(&b, "pattern/2"))?;
+    let opposite = workpiece_boolean::read(&b.world.topo, body(&b, "pattern/2"))?;
     assert!(opposite.vertices.iter().all(|v| v.point.x < -3.9));
     // (All the way around: no angle to say.)
     assert!(!b.world.annotations.contains_key("pattern/angle"));
@@ -188,7 +188,7 @@ fn bodies_are_moved_mirrored_scaled_and_repeated() -> anyhow::Result<()> {
 
 #[test]
 fn bodies_are_split_by_planes() -> anyhow::Result<()> {
-    use shapecraft_ops_bodies::{Keep, Split, SplitArgs};
+    use workpiece_ops_bodies::{Keep, Split, SplitArgs};
     // The 4 × 4 × 2 box, by the plane x = 0 and by the plane y = 0.
     let split = |keep: Keep, axis: Axis| -> anyhow::Result<Standalone> {
         let mut b = Standalone::new();
@@ -218,9 +218,9 @@ fn bodies_are_split_by_planes() -> anyhow::Result<()> {
 
 #[test]
 fn a_body_is_split_by_a_surface_and_a_half_deleted() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::topo::Curve3;
-    use shapecraft_ops_bodies::{DeleteBody, DeleteBodyArgs, Keep, Split, SplitArgs};
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::topo::Curve3;
+    use workpiece_ops_bodies::{DeleteBody, DeleteBodyArgs, Keep, Split, SplitArgs};
     let mut b = Standalone::new();
     base(&mut b)?;
     // A bent surface through the 4 × 4 × 2 box, from below it to above.
@@ -235,8 +235,8 @@ fn a_body_is_split_by_a_surface_and_a_half_deleted() -> anyhow::Result<()> {
         None,
     )?;
     let sheet =
-        shapecraft_shape::surface::ruled(&bend, (0.0, 1.0), Point3::new(0.0, 0.0, 10.0), "bent")?;
-    shapecraft_boolean::write_sheet(&mut b.world.topo, &sheet, "bent")?;
+        workpiece_shape::surface::ruled(&bend, (0.0, 1.0), Point3::new(0.0, 0.0, 10.0), "bent")?;
+    workpiece_boolean::write_sheet(&mut b.world.topo, &sheet, "bent")?;
     let face = b
         .world
         .topo
@@ -281,7 +281,7 @@ fn a_body_is_split_by_a_surface_and_a_half_deleted() -> anyhow::Result<()> {
 
 #[test]
 fn bodies_are_repeated_along_paths_and_at_points() -> anyhow::Result<()> {
-    use shapecraft_ops_bodies::{Along, Pattern, PatternArgs};
+    use workpiece_ops_bodies::{Along, Pattern, PatternArgs};
     // A small box at the origin; a path from there along x and then y.
     let small = |b: &mut Standalone| {
         AddBox {
@@ -293,14 +293,14 @@ fn bodies_are_repeated_along_paths_and_at_points() -> anyhow::Result<()> {
         }
         .apply(b)
     };
-    let centre = |b: &Standalone, name: &str| -> anyhow::Result<shapecraft_core::math::Point3> {
-        let solid = shapecraft_boolean::read(&b.world.topo, body(b, name))?;
+    let centre = |b: &Standalone, name: &str| -> anyhow::Result<workpiece_core::math::Point3> {
+        let solid = workpiece_boolean::read(&b.world.topo, body(b, name))?;
         let n = solid.vertices.len() as f64;
         Ok(solid
             .vertices
             .iter()
             .map(|v| v.point)
-            .sum::<shapecraft_core::math::Point3>()
+            .sum::<workpiece_core::math::Point3>()
             / n)
     };
     let mut b = Standalone::new();
@@ -330,7 +330,7 @@ fn bodies_are_repeated_along_paths_and_at_points() -> anyhow::Result<()> {
         let names = b.world.topo.names();
         let all = names
             .iter()
-            .filter(|(_, id)| shapecraft_core::world::topo::FaceId::try_from(*id).is_ok());
+            .filter(|(_, id)| workpiece_core::world::topo::FaceId::try_from(*id).is_ok());
         let its = all.filter(|(n, _)| n.starts_with(of));
         its.map(|(n, _)| n.to_owned()).collect()
     };
@@ -352,8 +352,8 @@ fn bodies_are_repeated_along_paths_and_at_points() -> anyhow::Result<()> {
         close(c.x, at[0], 1e-9);
         close(c.y, at[1], 1e-9);
     }
-    let turned = shapecraft_boolean::read(&b.world.topo, body(&b, "row/4"))?;
-    let wide = |s: &shapecraft_boolean::Solid| {
+    let turned = workpiece_boolean::read(&b.world.topo, body(&b, "row/4"))?;
+    let wide = |s: &workpiece_boolean::Solid| {
         let xs = s.vertices.iter().map(|v| v.point.x);
         xs.clone().fold(f64::MIN, f64::max) - xs.fold(f64::MAX, f64::min)
     };

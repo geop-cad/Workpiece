@@ -1,12 +1,12 @@
 //! The [`Mechanism`] operation: two joints whose travels go together.
 
-use shapecraft_core::widgets::{Choice, Label, Mood, NumericInput};
-use shapecraft_core::world::{Coupling, CouplingKind};
-use shapecraft_core::{Builder, EditContext, Operation};
+use workpiece_core::widgets::{Choice, Label, Mood, NumericInput};
+use workpiece_core::world::{Coupling, CouplingKind};
+use workpiece_core::{Builder, EditContext, Operation};
 
 /// The arguments of [`Mechanism`].
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct MechanismArgs {
     /// How the second joint follows the first.
@@ -83,7 +83,7 @@ impl Operation for Mechanism {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let (Some(a), Some(b)) = (&self.args.a, &self.args.b) else {
             anyhow::bail!("choose the two joints the mechanism is between");
         };
@@ -108,7 +108,7 @@ impl Operation for Mechanism {
             a != b || matches!(self.args.kind, CouplingKind::Screw { .. }),
             "a mechanism is between two joints (only a screw is one joint's turning and sliding)"
         );
-        Ok(shapecraft_core::Made {
+        Ok(workpiece_core::Made {
             couplings: vec![Coupling {
                 name: self.id.clone(),
                 kind: self.args.kind,
@@ -137,7 +137,7 @@ impl Operation for Mechanism {
 fn fields_of(
     args: &MechanismArgs,
     context: &EditContext<'_>,
-) -> Vec<shapecraft_core::Widget<MechanismArgs>> {
+) -> Vec<workpiece_core::Widget<MechanismArgs>> {
     let args = args.clone();
     let same = |k: &CouplingKind| std::mem::discriminant(k) == std::mem::discriminant(&args.kind);
     let mut fields = vec![

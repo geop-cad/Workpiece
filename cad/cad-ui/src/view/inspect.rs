@@ -4,12 +4,12 @@
 
 use std::sync::{Arc, Mutex};
 
-use shapecraft_boolean::{face_area, measure, read, read_sheet};
-use shapecraft_cad_rasterize::tessellate;
-use shapecraft_core::Source;
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::World;
-use shapecraft_core::world::topo::{BodyId, BodyKind, EdgeId, EntityId, FaceId, Topo, VertexId};
+use workpiece_boolean::{face_area, measure, read, read_sheet};
+use workpiece_core::Source;
+use workpiece_core::math::Point3;
+use workpiece_core::world::World;
+use workpiece_core::world::topo::{BodyId, BodyKind, EdgeId, EntityId, FaceId, Topo, VertexId};
+use workpiece_rasterize::tessellate;
 
 use crate::picking::Candidate;
 
@@ -61,7 +61,7 @@ fn owner(topo: &Topo, face: FaceId) -> Option<BodyId> {
 /// the part of it the face's edges reach; `None` for one that does not
 /// bend.
 fn tightest(topo: &Topo, face: FaceId) -> Option<f64> {
-    use shapecraft_core::math::Point2;
+    use workpiece_core::math::Point2;
     let body = owner(topo, face)?;
     let solid = match topo.body(body)?.kind {
         BodyKind::Solid => read(topo, body).ok()?,
@@ -269,7 +269,7 @@ fn of_one(topo: &Topo, thing: Thing, density: Option<f64>) -> Vec<Reading> {
                 if let Ok(sheet) = read_sheet(topo, body) {
                     let mut walked = vec![0; sheet.edges.len()];
                     for step in sheet.faces.iter().flat_map(|f| f.loops.iter().flatten()) {
-                        if let shapecraft_boolean::model::Walk::Edge { edge, .. } = step.walk {
+                        if let workpiece_boolean::model::Walk::Edge { edge, .. } = step.walk {
                             walked[edge] += 1;
                         }
                     }
@@ -348,7 +348,7 @@ fn of_one(topo: &Topo, thing: Thing, density: Option<f64>) -> Vec<Reading> {
 /// Something measured, in the part it is of, where that is placed.
 struct Placed<'a> {
     topo: &'a Topo,
-    pose: shapecraft_core::Pose,
+    pose: workpiece_core::Pose,
     thing: Thing,
 }
 
@@ -405,7 +405,7 @@ fn of_two(first: &Placed<'_>, second: &Placed<'_>) -> Vec<Reading> {
             a.moved(&|p| first.pose.transform_point(p)),
             b.moved(&|p| second.pose.transform_point(p)),
         )
-        && let Ok(common) = shapecraft_boolean::combine(shapecraft_boolean::Op::Intersect, &a, &b)
+        && let Ok(common) = workpiece_boolean::combine(workpiece_boolean::Op::Intersect, &a, &b)
     {
         let shared = measure(&common.solid).volume;
         out.clear();
@@ -440,14 +440,14 @@ fn of_two(first: &Placed<'_>, second: &Placed<'_>) -> Vec<Reading> {
 /// that it belongs to, where `pose` puts it.
 fn placed_solids(
     world: &World,
-    pose: shapecraft_core::Pose,
+    pose: workpiece_core::Pose,
     of: Option<&str>,
-    out: &mut Vec<(String, shapecraft_boolean::Solid)>,
+    out: &mut Vec<(String, workpiece_boolean::Solid)>,
 ) {
     if let Some(of) = of {
         let topo = &world.topo;
         for (id, body) in topo.bodies().iter() {
-            if body.kind != shapecraft_core::world::topo::BodyKind::Solid {
+            if body.kind != workpiece_core::world::topo::BodyKind::Solid {
                 continue;
             }
             let moved = read(topo, id)
@@ -482,7 +482,7 @@ pub fn of_assembly(world: &Arc<World>) -> Vec<Reading> {
         return readings.clone();
     }
     let mut solids = Vec::new();
-    placed_solids(world, shapecraft_core::Pose::IDENTITY, None, &mut solids);
+    placed_solids(world, workpiece_core::Pose::IDENTITY, None, &mut solids);
     let mut made = Vec::new();
     let (mut volume, mut centre) = (0.0, Point3::ZERO);
     for (_, solid) in &solids {
@@ -532,7 +532,7 @@ pub fn of_assembly(world: &Arc<World>) -> Vec<Reading> {
                 continue;
             }
             looked += 1;
-            let common = shapecraft_boolean::combine(shapecraft_boolean::Op::Intersect, one, other);
+            let common = workpiece_boolean::combine(workpiece_boolean::Op::Intersect, one, other);
             let shared = common.map_or(0.0, |c| measure(&c.solid).volume);
             if shared > volume * 1e-12 {
                 *clashes.entry((a.clone(), b.clone())).or_default() += shared;
@@ -585,7 +585,7 @@ pub fn readings(world: &Arc<World>, selection: &[Candidate], density: Option<f64
             else {
                 return None;
             };
-            let (mut of, mut pose) = (&**world, shapecraft_core::Pose::IDENTITY);
+            let (mut of, mut pose) = (&**world, workpiece_core::Pose::IDENTITY);
             for step in instance {
                 let next = of.instances.get(step)?;
                 pose = pose * next.pose;
@@ -654,9 +654,9 @@ pub fn readings(world: &Arc<World>, selection: &[Candidate], density: Option<f64
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::{Measure, Operation, Reference, Standalone};
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::{Measure, Operation, Reference, Standalone};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
 
     #[test]
     fn what_is_selected_is_measured() -> anyhow::Result<()> {
@@ -743,9 +743,9 @@ mod tests {
         );
         // A cylinder's rim is round: its radius is read too.
         let mut round = Standalone::new();
-        shapecraft_ops_basic_shapes::AddCylinder {
+        workpiece_ops_basic_shapes::AddCylinder {
             id: "rod".into(),
-            args: shapecraft_ops_basic_shapes::AddCylinderArgs {
+            args: workpiece_ops_basic_shapes::AddCylinderArgs {
                 frame: Some(Reference::datum(ORIGIN)),
                 radius: Measure::new(1.5),
                 height: Measure::new(2.0),
@@ -753,7 +753,7 @@ mod tests {
         }
         .apply(&mut round)?;
         // Its side alone, as a surface, is open at both rims.
-        let rod = shapecraft_boolean::read(
+        let rod = workpiece_boolean::read(
             &round.world.topo,
             round.world.topo.resolve("rod").expect("the rod"),
         )?;
@@ -761,9 +761,9 @@ mod tests {
             .faces
             .iter()
             .position(|f| f.name.as_deref() == Some("rod/side"));
-        let skin = shapecraft_shape::faces_of(&rod, &[side.expect("the side")]);
+        let skin = workpiece_shape::faces_of(&rod, &[side.expect("the side")]);
         let mut open = World::new();
-        shapecraft_boolean::write_sheet(&mut open.topo, &skin, "skin")?;
+        workpiece_boolean::write_sheet(&mut open.topo, &skin, "skin")?;
         let read_out = readings(&Arc::new(open), &[pick("skin")], None);
         let edges = read_out.iter().find(|r| r.label == "Open edges");
         // (Two rims of radius 1.5: 18.85 together.)

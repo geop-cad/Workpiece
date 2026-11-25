@@ -38,7 +38,7 @@ members = [
 edition = "2024"
 version = "0.1.0"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/geop-cad/ShapeCraft"
+repository = "https://github.com/geop-cad/Workpiece"
 # The newest minimum of the dependencies (egui 0.36 asks for 1.95).
 rust-version = "1.95"
 
@@ -52,32 +52,32 @@ glam = { version = "0.34.3", features = ["serde"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = "2.0.21"
-shapecraft-core = { path = "core" }
-shapecraft-solver = { path = "lib/solver" }
-shapecraft-boolean = { path = "lib/boolean" }
-shapecraft-render = { path = "lib/render" }
-shapecraft-ops-sketch = { path = "ops/sketch" }
-shapecraft-ops-testing = { path = "ops/testing" }
-shapecraft-ops-annotate = { path = "ops/annotate" }
-shapecraft-ops-drawing = { path = "ops/drawing" }
-shapecraft-ops-mesh = { path = "ops/mesh" }
-shapecraft-ops-appearance = { path = "ops/appearance" }
-shapecraft-ops-standard = { path = "ops/standard" }
-shapecraft-ops-sheet-metal = { path = "ops/sheet-metal" }
-shapecraft-ops-surface = { path = "ops/surface" }
-shapecraft-ops-features = { path = "ops/features" }
-shapecraft-ops-bodies = { path = "ops/bodies" }
-shapecraft-ops-faces = { path = "ops/faces" }
-shapecraft-ops-blend = { path = "ops/blend" }
-shapecraft-ops-sweep = { path = "ops/sweep" }
-shapecraft-shape = { path = "lib/shape" }
-shapecraft-ops-basic-shapes = { path = "ops/basic-shapes" }
-shapecraft-ops-datum = { path = "ops/datum" }
-shapecraft-ops-instances = { path = "ops/instances" }
-shapecraft-ops-step = { path = "ops/step" }
-shapecraft-cad-part = { path = "cad/cad-part" }
-shapecraft-cad-rasterize = { path = "cad/cad-rasterize" }
-shapecraft-cad-ui = { path = "cad/cad-ui" }
+workpiece-core = { path = "core" }
+workpiece-solver = { path = "lib/solver" }
+workpiece-boolean = { path = "lib/boolean" }
+workpiece-render = { path = "lib/render" }
+workpiece-ops-sketch = { path = "ops/sketch" }
+workpiece-ops-testing = { path = "ops/testing" }
+workpiece-ops-annotate = { path = "ops/annotate" }
+workpiece-ops-drawing = { path = "ops/drawing" }
+workpiece-ops-mesh = { path = "ops/mesh" }
+workpiece-ops-appearance = { path = "ops/appearance" }
+workpiece-ops-standard = { path = "ops/standard" }
+workpiece-ops-sheet-metal = { path = "ops/sheet-metal" }
+workpiece-ops-surface = { path = "ops/surface" }
+workpiece-ops-features = { path = "ops/features" }
+workpiece-ops-bodies = { path = "ops/bodies" }
+workpiece-ops-faces = { path = "ops/faces" }
+workpiece-ops-blend = { path = "ops/blend" }
+workpiece-ops-sweep = { path = "ops/sweep" }
+workpiece-shape = { path = "lib/shape" }
+workpiece-ops-basic-shapes = { path = "ops/basic-shapes" }
+workpiece-ops-datum = { path = "ops/datum" }
+workpiece-ops-instances = { path = "ops/instances" }
+workpiece-ops-step = { path = "ops/step" }
+workpiece-part = { path = "cad/cad-part" }
+workpiece-rasterize = { path = "cad/cad-rasterize" }
+workpiece-ui = { path = "cad/cad-ui" }
 eframe = { version = "0.36.2", default-features = false }
 
 # The geometry is slow without the optimizer (a fillet takes seconds):

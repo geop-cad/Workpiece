@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-ops-sheet-metal"
+name = "workpiece-ops-sheet-metal"
 description = "Sheet metal: flanges bent up, and bent sheets laid out flat."
 edition.workspace = true
 version.workspace = true
@@ -8,21 +8,21 @@ repository.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "shapecraft_ops_sheet_metal"
+name = "workpiece_ops_sheet_metal"
 
 [dependencies]
 anyhow.workspace = true
-shapecraft-boolean.workspace = true
-shapecraft-core.workspace = true
-shapecraft-shape.workspace = true
+workpiece-boolean.workspace = true
+workpiece-core.workspace = true
+workpiece-shape.workspace = true
 serde.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
-shapecraft-cad-rasterize.workspace = true
-shapecraft-ops-basic-shapes.workspace = true
-shapecraft-ops-sketch.workspace = true
-shapecraft-ops-testing.workspace = true
+workpiece-rasterize.workspace = true
+workpiece-ops-basic-shapes.workspace = true
+workpiece-ops-sketch.workspace = true
+workpiece-ops-testing.workspace = true
 
 [lints]
 workspace = true

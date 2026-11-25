@@ -2,34 +2,34 @@
 //! through the areas of several sketches.
 
 use anyhow::Context;
-use shapecraft_boolean::{Op, Solid, combine};
-use shapecraft_core::Reference;
-use shapecraft_core::math::Point3;
-use shapecraft_core::widgets::ReferenceInput;
-use shapecraft_core::world::DatumAxis;
-use shapecraft_core::world::topo::Curve3;
-use shapecraft_core::{Builder, EditContext, Measure, Operation, ReferenceKind, Source, Widget};
+use workpiece_boolean::{Op, Solid, combine};
+use workpiece_core::Reference;
+use workpiece_core::math::Point3;
+use workpiece_core::widgets::ReferenceInput;
+use workpiece_core::world::DatumAxis;
+use workpiece_core::world::topo::Curve3;
+use workpiece_core::{Builder, EditContext, Measure, Operation, ReferenceKind, Source, Widget};
 
-use shapecraft_shape::bodies::{self, Combine};
-use shapecraft_shape::paths::{curve, path};
-use shapecraft_shape::sweep::{self, Frame};
-use shapecraft_shape::swept::{along_path, through_sections};
-use shapecraft_shape::ui;
+use workpiece_shape::bodies::{self, Combine};
+use workpiece_shape::paths::{curve, path};
+use workpiece_shape::sweep::{self, Frame};
+use workpiece_shape::swept::{along_path, through_sections};
+use workpiece_shape::ui;
 
 /// What is swept or lofted, and what it becomes.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct SweptLoftArgs {
     /// The sketches whose areas are the sections: one, to sweep along
     /// the path; two or more, in order, to loft through.
     #[arg(required)]
-    pub sections: Vec<shapecraft_core::Reference<shapecraft_core::Sketched>>,
+    pub sections: Vec<workpiece_core::Reference<workpiece_core::Sketched>>,
     /// The sketch whose curves are the path a section is swept along;
     /// none, for a loft.
     #[serde(default)]
     #[arg(with = "path_fields")]
-    pub path: Option<shapecraft_core::Reference<shapecraft_core::SketchOrBody>>,
+    pub path: Option<workpiece_core::Reference<workpiece_core::SketchOrBody>>,
     /// The axis a section is swept around as a coil, without a path:
     /// along a helix about it, from where the section is.
     #[serde(default)]
@@ -74,7 +74,7 @@ pub struct SweptLoftArgs {
         empty = "All bodies",
         when = "!self.surface && self.combine != Combine::NewBody"
     )]
-    pub target: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
 }
 
 fn one() -> Measure {
@@ -114,7 +114,7 @@ pub struct SweptLoft {
 /// sides in space, one after the other, and whether it is around a
 /// hole.
 fn outlines(
-    world: &shapecraft_core::World,
+    world: &workpiece_core::World,
     source: &Source,
 ) -> anyhow::Result<Vec<(Vec<Curve3>, bool)>> {
     let name = source.name();
@@ -149,7 +149,7 @@ fn outlines(
 /// With it, how many of its sides are the sketch's own. `None` for a
 /// sketch with a closed area, or whose curves are no one open run.
 fn open_outline(
-    world: &shapecraft_core::World,
+    world: &workpiece_core::World,
     source: &Source,
 ) -> anyhow::Result<Option<(Vec<Curve3>, usize)>> {
     let Some(profile) = world.profiles.get(source.name()) else {
@@ -197,7 +197,7 @@ fn open_outline(
 /// or, for a surface, of a sketch whose curves are left open, the one
 /// outline [`open_outline`] closes for it.
 fn outlines_of(
-    world: &shapecraft_core::World,
+    world: &workpiece_core::World,
     source: &Source,
     surface: bool,
 ) -> anyhow::Result<Vec<(Vec<Curve3>, bool)>> {
@@ -211,7 +211,7 @@ impl SweptLoft {
     /// The solid it makes.
     fn solid(
         &self,
-        world: &shapecraft_core::World,
+        world: &workpiece_core::World,
         twist: f64,
         scale: f64,
         (pitch, turns): (f64, f64),
@@ -244,7 +244,7 @@ impl SweptLoft {
                 turns <= 1.0 || tall <= pitch * (1.0 + 1e-9),
                 "the turns run into each other: the sketch is {tall:.4} along the axis, and a turn rises {pitch:.4}"
             );
-            let along = shapecraft_shape::swept::helix(
+            let along = workpiece_shape::swept::helix(
                 axis.origin(),
                 axis.direction(),
                 from,
@@ -309,9 +309,7 @@ impl SweptLoft {
         let (curves, closes, up) = path(world, along, start(&loops[0].0))?;
         // What the outlines around the areas sweep, less what those
         // around their holes do.
-        shapecraft_shape::swept::area_along_path(
-            &self.id, &loops, &curves, closes, up, twist, scale,
-        )
+        workpiece_shape::swept::area_along_path(&self.id, &loops, &curves, closes, up, twist, scale)
     }
 }
 
@@ -335,10 +333,10 @@ impl Operation for SweptLoft {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let twist = (*builder).measure(&args.twist, "the twist")?.to_radians();
         let scale = (*builder).measure(&args.scale, "the scale")?;
@@ -359,7 +357,7 @@ impl Operation for SweptLoft {
                 }
             }
             if runs.len() == args.sections.len() && runs.len() >= 2 {
-                let sheet = shapecraft_shape::swept::through_open_sections(&self.id, &runs)?;
+                let sheet = workpiece_shape::swept::through_open_sections(&self.id, &runs)?;
                 out.write_sheet(&sheet, &self.id);
                 return Ok(out.made);
             }
@@ -383,7 +381,7 @@ impl Operation for SweptLoft {
                         && !own.zip(side).is_some_and(|(own, k)| k >= own)
                 })
                 .collect();
-            let sheet = shapecraft_shape::surface::faces_of(&tool, &sides);
+            let sheet = workpiece_shape::surface::faces_of(&tool, &sides);
             out.write_sheet(&sheet, &self.id);
             return Ok(out.made);
         }

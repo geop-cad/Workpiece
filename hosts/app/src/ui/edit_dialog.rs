@@ -1,10 +1,10 @@
 //! The popup that edits a step.
 
 use eframe::egui;
-use shapecraft_cad_ui::Message;
-use shapecraft_cad_ui::view::{EditDialog, describe_source};
-use shapecraft_core::widgets::{Mood, ToolButton};
-use shapecraft_core::{Axis, Widget};
+use workpiece_core::widgets::{Mood, ToolButton};
+use workpiece_core::{Axis, Widget};
+use workpiece_ui::Message;
+use workpiece_ui::view::{EditDialog, describe_source};
 
 use super::tip;
 use crate::icons;
@@ -163,9 +163,9 @@ impl Fields<'_> {
     fn tolerance(
         &mut self,
         ui: &mut egui::Ui,
-        input: &shapecraft_core::widgets::NumericInput<Message>,
+        input: &workpiece_core::widgets::NumericInput<Message>,
     ) {
-        use shapecraft_core::world::Tolerance;
+        use workpiece_core::world::Tolerance;
         let Some(now) = &input.tolerance else {
             return;
         };
@@ -320,7 +320,7 @@ impl Fields<'_> {
                 // The options as buttons in one rounded track, the
                 // chosen one raised; options that cannot be chosen are
                 // greyed out.
-                use shapecraft_core::widgets::Shown;
+                use workpiece_core::widgets::Shown;
                 // (Beside others in a row, a drop-down says what it
                 // chooses by itself.)
                 let row = ui.layout().main_dir().is_horizontal();
@@ -695,7 +695,7 @@ impl Fields<'_> {
     fn searched(
         &mut self,
         ui: &mut egui::Ui,
-        choice: &shapecraft_core::widgets::Choice<Message>,
+        choice: &workpiece_core::widgets::Choice<Message>,
         path: &[usize],
     ) {
         let id = egui::Id::new(("dialog-search", path.to_vec()));

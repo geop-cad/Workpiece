@@ -5,12 +5,12 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use shapecraft_core::handles::{Gizmo, Handle};
-use shapecraft_core::widgets::{
+use workpiece_core::handles::{Gizmo, Handle};
+use workpiece_core::widgets::{
     Choice, ConnectorInput, HBox, Label, Mood, NumericInput, Picked, PoseInput, Scope,
 };
-use shapecraft_core::world::{Connector, Instance, Joint, JointKind};
-use shapecraft_core::{Builder, Edit, EditContext, Kept, Made, Pose, Widget, World};
+use workpiece_core::world::{Connector, Instance, Joint, JointKind};
+use workpiece_core::{Builder, Edit, EditContext, Kept, Made, Pose, Widget, World};
 
 use crate::connector::Snap;
 use crate::{Anchor, MateArgs};
@@ -418,7 +418,7 @@ pub fn pose_edit<A: 'static, S: 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::Source;
+    use workpiece_core::Source;
 
     fn anchor(snap: Snap) -> Anchor {
         Anchor {

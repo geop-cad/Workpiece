@@ -4,9 +4,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use shapecraft_core::handles::{CanvasEventKind, SpaceEvent, SpaceView};
-use shapecraft_core::math::Point3;
-use shapecraft_core::{Edit, Pose, Ray};
+use workpiece_core::handles::{CanvasEventKind, SpaceEvent, SpaceView};
+use workpiece_core::math::Point3;
+use workpiece_core::{Edit, Pose, Ray};
 
 use crate::MeshArgs;
 use crate::ops::{self, Done};

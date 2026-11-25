@@ -2,7 +2,7 @@
 //! step stands in the part's program.
 
 use anyhow::ensure;
-use shapecraft_core::{Builder, Choices, Made, Operation};
+use workpiece_core::{Builder, Choices, Made, Operation};
 
 /// What lights the picture.
 #[derive(
@@ -49,7 +49,7 @@ pub struct View {
 /// The picture: from where it is taken, how large it is, and its
 /// light.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct Shot {
     /// From where it is taken; none, until the view was turned to it.

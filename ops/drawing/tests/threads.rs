@@ -1,9 +1,9 @@
 //! Threads that are said of the model, in its drawing.
 
-use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
-use shapecraft_ops_drawing::quick::ThreeViews;
-use shapecraft_ops_features::{Hole, HoleArgs, HoleKind};
-use shapecraft_ops_testing::*;
+use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
+use workpiece_ops_drawing::quick::ThreeViews;
+use workpiece_ops_features::{Hole, HoleArgs, HoleKind};
+use workpiece_ops_testing::*;
 
 #[test]
 fn a_cosmetic_thread_is_drawn_from_the_side_along_its_axis_and_cut_open() -> anyhow::Result<()> {

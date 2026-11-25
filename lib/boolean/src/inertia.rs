@@ -2,7 +2,7 @@
 //! moments about that centre — what its mass, its centre of gravity and
 //! its moments of inertia follow from, given what it is made of.
 
-use shapecraft_core::math::Point3;
+use workpiece_core::math::Point3;
 
 use crate::model::Solid;
 

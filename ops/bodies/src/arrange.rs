@@ -2,14 +2,14 @@
 //! copy of it), and a body repeated along a line or around an axis.
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::{Op, Solid, combine, read};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::{BodyId, Curve3, Topo};
-use shapecraft_core::world::{DatumAxis, DatumPlane};
-use shapecraft_core::{Builder, Measure, Operation, Reference};
+use workpiece_boolean::{Op, Solid, combine, read};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::{BodyId, Curve3, Topo};
+use workpiece_core::world::{DatumAxis, DatumPlane};
+use workpiece_core::{Builder, Measure, Operation, Reference};
 
-use shapecraft_shape::bodies::Combine;
-use shapecraft_shape::ui;
+use workpiece_shape::bodies::Combine;
+use workpiece_shape::ui;
 
 /// The body `source` names in `topo`, and its name.
 fn body_of(
@@ -66,11 +66,11 @@ impl Motion {
 /// The body, how it is transformed, and whether it stays where it was
 /// too.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct TransformArgs {
     /// The body.
-    pub body: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub body: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
     /// How it is transformed.
     #[arg(choice, label = "How")]
     pub motion: Motion,
@@ -139,17 +139,17 @@ impl Operation for Transform {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let (body, name) = body_of(&builder.tracked().topo, &args.body, "the body to transform")?;
         // (A surface is moved as a solid is.)
         let sheet = builder.tracked().topo.body(body).map(|b| b.kind)
-            == Some(shapecraft_core::world::topo::BodyKind::Sheet);
+            == Some(workpiece_core::world::topo::BodyKind::Sheet);
         let solid = if sheet {
-            shapecraft_boolean::read_sheet(&builder.tracked().topo, body)?
+            workpiece_boolean::read_sheet(&builder.tracked().topo, body)?
         } else {
             read(&builder.tracked().topo, body)?
         };
@@ -228,11 +228,11 @@ pub enum Along {
 
 /// The body, what it is repeated along, and what becomes of the copies.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct PatternArgs {
     /// The body that is repeated.
-    pub body: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub body: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
     /// Along a line or around a circle.
     #[arg(choice)]
     pub along: Along,
@@ -243,7 +243,7 @@ pub struct PatternArgs {
     /// places.
     #[serde(default)]
     #[arg(when = "matches!(self.along, Along::Path | Along::Points)")]
-    pub sketch: Option<shapecraft_core::Reference<shapecraft_core::Sketched>>,
+    pub sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>,
     /// How many there are in the end, the body itself counted.
     #[serde(deserialize_with = "whole")]
     #[arg(when = "self.along != Along::Points")]
@@ -273,7 +273,7 @@ pub struct PatternArgs {
         label = "Of",
         when = "matches!(self.combine, Combine::Cut | Combine::Intersect)"
     )]
-    pub target: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
 }
 
 impl Default for PatternArgs {
@@ -342,7 +342,7 @@ pub fn repeated(
 pub(crate) struct Places<'a> {
     pub(crate) along: Along,
     pub(crate) axis: &'a Option<Reference<DatumAxis>>,
-    pub(crate) sketch: &'a Option<shapecraft_core::Reference<shapecraft_core::Sketched>>,
+    pub(crate) sketch: &'a Option<workpiece_core::Reference<workpiece_core::Sketched>>,
     pub(crate) count: usize,
     pub(crate) spacing: &'a Measure,
     pub(crate) angle: &'a Measure,
@@ -374,8 +374,8 @@ impl Places<'_> {
         builder: &dyn Builder,
         id: &str,
         near: Point3,
-    ) -> Vec<(String, shapecraft_core::world::Annotation)> {
-        use shapecraft_core::world::{Annotation, Measured};
+    ) -> Vec<(String, workpiece_core::world::Annotation)> {
+        use workpiece_core::world::{Annotation, Measured};
         let Some(Ok(axis)) = self.axis.as_ref().map(|a| builder.tracked().resolve(a)) else {
             return Vec::new();
         };
@@ -449,7 +449,7 @@ pub(crate) fn places(
                 .context("pick the sketch of the path")?;
 
             let (curves, closes, normal) =
-                shapecraft_shape::paths::path(builder.tracked(), sketch, near)?;
+                workpiece_shape::paths::path(builder.tracked(), sketch, near)?;
             along_curves(solid, &curves, closes, normal, count, args.upright)?
         }
         Along::Points => {
@@ -471,7 +471,7 @@ pub(crate) fn places(
                 used[edge.end] = true;
             }
             let plane = profile.plane;
-            let place = |p: shapecraft_core::math::Point2| {
+            let place = |p: workpiece_core::math::Point2| {
                 plane.origin() + plane.x_dir() * p.x + plane.y_dir() * p.y
             };
             let mut places: Vec<Point3> = (0..used.len())
@@ -598,10 +598,10 @@ impl Operation for Pattern {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let (body, name) = body_of(&builder.tracked().topo, &args.body, "the body to repeat")?;
         let solid = read(&builder.tracked().topo, body)?;
@@ -698,7 +698,7 @@ pub(crate) fn instance(mut solid: Solid, called: &str) -> Solid {
     solid
 }
 
-impl shapecraft_core::Choices for Motion {
+impl workpiece_core::Choices for Motion {
     const ALL: &'static [Self] = &MOTIONS;
 
     fn label(self) -> &'static str {
@@ -706,7 +706,7 @@ impl shapecraft_core::Choices for Motion {
     }
 }
 
-impl shapecraft_core::Choices for Along {
+impl workpiece_core::Choices for Along {
     const ALL: &'static [Self] = &[Along::Line, Along::Circle, Along::Path, Along::Points];
 
     fn label(self) -> &'static str {
@@ -722,7 +722,7 @@ impl shapecraft_core::Choices for Along {
 /// The solid body of `topo` called `name`.
 pub(crate) fn named_solid(topo: &Topo, name: &str) -> Option<BodyId> {
     let body = topo.body_called(name)?;
-    (topo.body(body)?.kind == shapecraft_core::world::topo::BodyKind::Solid).then_some(body)
+    (topo.body(body)?.kind == workpiece_core::world::topo::BodyKind::Solid).then_some(body)
 }
 
 /// A whole number, read from one written with a fraction too (as counts

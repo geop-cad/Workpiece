@@ -1,7 +1,7 @@
 # cad-vs-cad-bench: twenty worked cases
 
 Twenty cases of the private `cad-vs-cad-bench` data set (drawing in, mass out), each modelled with the
-Python authoring layer. Every script builds its part from nothing, writes the `.shapecraft` file beside
+Python authoring layer. Every script builds its part from nothing, writes the `.workpiece` file beside
 itself (a folder `n.parts/` for a drawing of several items: one file per item and the assembly) and a
 drawing sheet, and prints the mass. The drawings they were modelled from are not in this repository.
 

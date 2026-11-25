@@ -19,10 +19,10 @@ use std::fmt::Write;
 use std::sync::Arc;
 
 use anyhow::Context;
-use shapecraft_boolean::model::{Edge, Face, Use, Vertex, Walk};
-use shapecraft_boolean::{Solid, geometry, stitched};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
+use workpiece_boolean::model::{Edge, Face, Use, Vertex, Walk};
+use workpiece_boolean::{Solid, geometry, stitched};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
 
 /// A curve, and the part of it that counts.
 type Piece = (Curve3, (f64, f64));
@@ -1116,7 +1116,7 @@ impl Writer {
 pub fn export_iges(
     name: &str,
     bodies: &[(String, Solid)],
-    unit: shapecraft_core::Unit,
+    unit: workpiece_core::Unit,
 ) -> anyhow::Result<String> {
     let mut w = Writer::default();
     for (_, body) in bodies {
@@ -1212,20 +1212,20 @@ pub fn export_iges(
 
 impl Writer {
     /// The file of what was added, called `name`, its numbers in `unit`.
-    fn finish(&self, name: &str, unit: shapecraft_core::Unit) -> String {
+    fn finish(&self, name: &str, unit: workpiece_core::Unit) -> String {
         let (flag, called) = match unit {
-            shapecraft_core::Unit::Inch => (1, "4HINCH"),
-            shapecraft_core::Unit::Millimetre => (2, "2HMM"),
-            shapecraft_core::Unit::Metre => (6, "1HM"),
-            shapecraft_core::Unit::Centimetre => (10, "2HCM"),
+            workpiece_core::Unit::Inch => (1, "4HINCH"),
+            workpiece_core::Unit::Millimetre => (2, "2HMM"),
+            workpiece_core::Unit::Metre => (6, "1HM"),
+            workpiece_core::Unit::Centimetre => (10, "2HCM"),
         };
         let text = |s: &str| format!("{}H{s}", s.len());
         let global = format!(
             "1H,,1H;,{},{},{},{},32,38,6,308,15,{},1.0,{flag},{called},1,1.0,{},1.0E-6,1.0E6,,,11,0,{};",
             text(name),
             text(&format!("{name}.igs")),
-            text("shapecraft"),
-            text("shapecraft"),
+            text("workpiece"),
+            text("workpiece"),
             text(name),
             text("20261116.000000"),
             text("20261116.000000"),
@@ -1234,7 +1234,7 @@ impl Writer {
         let _ = writeln!(
             out,
             "{:<72}S{:>7}",
-            format!("{name}, written by ShapeCraft"),
+            format!("{name}, written by Workpiece"),
             1
         );
         let chars: Vec<char> = global.chars().collect();
@@ -1360,7 +1360,7 @@ mod tests {
             "00010000",
             &[whole(flat), whole(1), whole(1), whole(walk)],
         );
-        let text = w.finish("shapes", shapecraft_core::Unit::Centimetre);
+        let text = w.finish("shapes", workpiece_core::Unit::Centimetre);
         let found = import_iges(text.as_bytes(), "i")?;
         assert!(found.refused.is_empty(), "{:?}", found.refused);
         // (In centimetres: ten times as large in each direction.)
@@ -1368,7 +1368,7 @@ mod tests {
             .bodies
             .iter()
             .flat_map(|(body, _)| {
-                (0..body.faces.len()).map(|f| shapecraft_boolean::face_area(body, f))
+                (0..body.faces.len()).map(|f| workpiece_boolean::face_area(body, f))
             })
             .sum();
         let wanted = (4.0 + std::f64::consts::TAU * 2.0 + 6.0 + 4.0) * 100.0;

@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use shapecraft_core::world::topo::{
+use workpiece_core::world::topo::{
     Body, BodyId, BodyKind, Coedge, CoedgeKind, Edge as TopoEdge, EdgeId, EntityId,
     Face as TopoFace, FaceUse, Loop, Lump, Orientation, Shell, Topo, Vertex as TopoVertex,
     VertexId,
@@ -177,7 +177,7 @@ fn write_all(
     kind: BodyKind,
     added: &mut Vec<EntityId>,
 ) -> Result<BodyId, Refusal> {
-    let failed = |e: shapecraft_core::world::topo::TopoError| Refusal::Open(e.to_string());
+    let failed = |e: workpiece_core::world::topo::TopoError| Refusal::Open(e.to_string());
     let mut keep = |id: EntityId| {
         added.push(id);
         id
@@ -327,7 +327,7 @@ fn write_all(
     // before them: by x, then y, then z, of a vertex or an edge's middle.
     let place = |kind: &str, k: usize| -> [f64; 3] {
         // (Rounded: what is one place within the tolerance is one.)
-        let at = |p: shapecraft_core::math::Point3| p.to_array().map(|x| (x * 1e6).round() / 1e6);
+        let at = |p: workpiece_core::math::Point3| p.to_array().map(|x| (x * 1e6).round() / 1e6);
         match kind {
             "vertex" => at(solid.vertices[k].point),
             "edge" => {
@@ -443,7 +443,7 @@ fn write_all(
     Ok(body)
 }
 
-impl shapecraft_core::Shape for Solid {
+impl workpiece_core::Shape for Solid {
     fn write(&self, topo: &mut Topo, name: &str) -> anyhow::Result<()> {
         write(topo, self, name)?;
         Ok(())
@@ -454,7 +454,7 @@ impl shapecraft_core::Shape for Solid {
 #[derive(Debug, Clone)]
 pub struct Sheet(pub Solid);
 
-impl shapecraft_core::Shape for Sheet {
+impl workpiece_core::Shape for Sheet {
     fn write(&self, topo: &mut Topo, name: &str) -> anyhow::Result<()> {
         write_sheet(topo, &self.0, name)?;
         Ok(())
@@ -467,7 +467,7 @@ impl shapecraft_core::Shape for Sheet {
 #[derive(Default)]
 pub struct Out<'a> {
     /// What was gathered.
-    pub made: shapecraft_core::Made<'a>,
+    pub made: workpiece_core::Made<'a>,
 }
 
 impl Out<'_> {

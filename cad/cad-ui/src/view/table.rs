@@ -1,5 +1,5 @@
-use shapecraft_cad_part::{Parameter, Variant};
-use shapecraft_core::Parameters;
+use workpiece_core::Parameters;
+use workpiece_part::{Parameter, Variant};
 
 use crate::{Message, Model};
 

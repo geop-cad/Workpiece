@@ -4,8 +4,8 @@
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
 
 use glam::DQuat;
-use shapecraft_boolean::{Op, Solid, combine, measure};
-use shapecraft_core::math::Point3;
+use workpiece_boolean::{Op, Solid, combine, measure};
+use workpiece_core::math::Point3;
 
 use crate::scene::{Scene, consistent, expect, sound};
 use crate::{Case, Grade};

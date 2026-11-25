@@ -102,7 +102,7 @@ impl Pool {
             .map(|k| {
                 let shared = shared.clone();
                 std::thread::Builder::new()
-                    .name(format!("shapecraft-build-{k}"))
+                    .name(format!("workpiece-build-{k}"))
                     .spawn(move || {
                         WORKER.set(Some((shared.id(), k)));
                         loop {
@@ -142,7 +142,7 @@ impl Pool {
     pub fn help_until(&self, done: &dyn Fn() -> bool) {
         while !done() {
             // (Who waits is stopped like who works.)
-            shapecraft_core::cancel::checkpoint();
+            workpiece_core::cancel::checkpoint();
             match self.shared.take() {
                 Some(task) => task(),
                 None => std::thread::sleep(std::time::Duration::from_micros(200)),

@@ -4,7 +4,7 @@ A map of the crates and of how a part is built, for someone who wants to find th
 
 ## The idea
 
-A **part** is a program: an ordered list of **operations** (also called steps) with arguments. Applying the operations in order to an empty **world** gives the part's geometry. The program, the parameters and a cache of solved values are what is saved in a `.shapecraft` file (JSON); geometry is never saved, it is rebuilt.
+A **part** is a program: an ordered list of **operations** (also called steps) with arguments. Applying the operations in order to an empty **world** gives the part's geometry. The program, the parameters and a cache of solved values are what is saved in a `.workpiece` file (JSON); geometry is never saved, it is rebuilt.
 
 A **step never depends on a later step**: a step sees only what the steps before it made. Across parts, a part never contains itself; building a part that is already being built fails.
 
@@ -14,7 +14,7 @@ Dependencies point downwards in this list.
 
 | Layer | Crate | Role |
 |---|---|---|
-| core | `core` (`shapecraft-core`) | The world, references, the `Operation` trait, the `Builder` trait, the `Cache`, the `Registry`, widgets and handles (what a dialog and the viewport show while a step is edited), units, measures with formulas, rigid poses. |
+| core | `core` (`workpiece-core`) | The world, references, the `Operation` trait, the `Builder` trait, the `Cache`, the `Registry`, widgets and handles (what a dialog and the viewport show while a step is edited), units, measures with formulas, rigid poses. |
 | core | `core/derive` | `#[derive(Arguments)]`: from the fields of an operation's arguments it finds what they refer to and makes the default dialog. |
 | lib | `lib/boolean` | Booleans of solids over tolerant NURBS B-reps: finds where boundaries meet, cuts the faces, keeps the pieces. A boolean it cannot do exactly is a `Refusal` with a reason. |
 | lib | `lib/shape` | Geometry that several operations share: sweeps and lofts, blends (fillet, chamfer), thickening, shelling, drafting, healing, surfaces, splitting, threads. |
@@ -25,7 +25,7 @@ Dependencies point downwards in this list.
 | cad | `cad/cad-ui` | The application as data: `Model` (all state), `View` (derived from the model each frame), `Message` (what the view asks for). No window. |
 | cad | `cad/cad-rasterize` | Turns built worlds and edit handles into triangle, line and point buffers for drawing and picking. |
 | host | `hosts/app` | The desktop application: egui for the interface, OpenGL (`glow`) for the viewport. Reads and writes files; the model does not. The same crate compiled for `wasm32-unknown-unknown` is the application in the browser (`src/web.rs`, built by `website/app/build.sh`). |
-| host | `hosts/cli` | The `shapecraft` command: `make`, `report`, `kinds`, `materials`. |
+| host | `hosts/cli` | The `workpiece` command: `make`, `report`, `kinds`, `materials`. |
 | bench | `bench/boolean`, `bench/conformance` | Benchmarks, outside `cargo test`. |
 
 The operation crates (`ops/`): `basic-shapes`, `sketch`, `sweep`, `features` (holes, threads), `blend`, `faces`, `bodies`, `datum`, `surface`, `sheet-metal`, `annotate`, `drawing`, `appearance`, `mesh`, `step` (STEP, IGES, STL and 3MF in, STEP, IGES, STL and 3MF out), `instances` (placing parts, joints), `standard` (screws, nuts, washers, bearings). `ops/testing` is only for their tests.
@@ -74,11 +74,11 @@ In the app, each frame `cad-ui` derives a `View` from the `Model`; `hosts/app` d
 
 ## In the browser
 
-`hosts/app` compiled for `wasm32-unknown-unknown` runs in a page (eframe's web runner, WebGL 2 through the same `glow` renderer). What differs is said in a few places, not spread through the code: `shapecraft_core::files` reads and writes the files the user names, on disk or (in a browser) in memory, which is what the kernel's own reads (a placed or imported STEP file) go through too; `shapecraft_core::HAS_THREADS` says whether work can go to threads (the engine's pool, the drawing's views, the previews, the path tracer) or is done on the one thread there is; and `hosts/app/src/web.rs` has the page: opening by `?open=`, picking local files, downloads, the start screen with the examples, the settings in local storage. Without threads a build runs as it is asked for, on the page's thread. The standard library for this target is built with `panic=abort`, so a step that panics ends the page (it says so) instead of failing as a step.
+`hosts/app` compiled for `wasm32-unknown-unknown` runs in a page (eframe's web runner, WebGL 2 through the same `glow` renderer). What differs is said in a few places, not spread through the code: `workpiece_core::files` reads and writes the files the user names, on disk or (in a browser) in memory, which is what the kernel's own reads (a placed or imported STEP file) go through too; `workpiece_core::HAS_THREADS` says whether work can go to threads (the engine's pool, the drawing's views, the previews, the path tracer) or is done on the one thread there is; and `hosts/app/src/web.rs` has the page: opening by `?open=`, picking local files, downloads, the start screen with the examples, the settings in local storage. Without threads a build runs as it is asked for, on the page's thread. The standard library for this target is built with `panic=abort`, so a step that panics ends the page (it says so) instead of failing as a step.
 
 ## The command line and Python
 
-`hosts/cli` reads a JSON recipe (steps compactly, sketches by named points with constraints), builds the part through the same workspace, and prints a report: failed steps with reasons, each sketch's degrees of freedom, volumes after every step, and the named faces and edges. `python/shapecraft/` (the `shapecraft-cad` package) writes recipes from Python and reads the report back.
+`hosts/cli` reads a JSON recipe (steps compactly, sketches by named points with constraints), builds the part through the same workspace, and prints a report: failed steps with reasons, each sketch's degrees of freedom, volumes after every step, and the named faces and edges. `python/workpiece/` (the `workpiece` package) writes recipes from Python and reads the report back.
 
 ## Where to start
 

@@ -4,9 +4,9 @@
 
 use std::sync::Arc;
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::nurbs::NurbsError;
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::nurbs::NurbsError;
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
 
 use crate::model::{Edge, Face, Solid, Use, Vertex, Walk};
 

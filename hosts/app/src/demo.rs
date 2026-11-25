@@ -3,16 +3,16 @@
 
 use std::collections::BTreeMap;
 
-use shapecraft_cad_part::{AnyOperation, Part, Workspace};
-use shapecraft_cad_ui::{Message, Model};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::ORIGIN;
-use shapecraft_core::{Pose, Reference};
-use shapecraft_ops_basic_shapes::{
+use workpiece_core::math::Point3;
+use workpiece_core::world::ORIGIN;
+use workpiece_core::{Pose, Reference};
+use workpiece_ops_basic_shapes::{
     AddBox, AddBoxArgs, AddCylinder, AddCylinderArgs, AddSphere, AddSphereArgs,
 };
-use shapecraft_ops_datum::AddFrame;
-use shapecraft_ops_instances::{AddPart, AddPartArgs};
+use workpiece_ops_datum::AddFrame;
+use workpiece_ops_instances::{AddPart, AddPartArgs};
+use workpiece_part::{AnyOperation, Part, Workspace};
+use workpiece_ui::{Message, Model};
 
 /// The demo, with the assembly open and its left bracket expanded;
 /// `editing` also edits that step of the right bracket from inside the
@@ -24,7 +24,7 @@ pub fn model(editing: Option<&str>) -> anyhow::Result<Model> {
                 id: "plate".into(),
                 args: AddBoxArgs {
                     frame: Some(Reference::datum(ORIGIN)),
-                    size: [2.0, 1.2, 0.3].map(shapecraft_core::Measure::new),
+                    size: [2.0, 1.2, 0.3].map(workpiece_core::Measure::new),
                 },
             }),
             AddFrame::at("top", Pose::from_translation(Point3::new(0.5, 0.0, 0.15))).into(),
@@ -52,7 +52,7 @@ pub fn model(editing: Option<&str>) -> anyhow::Result<Model> {
         AddPart {
             id: id.into(),
             args: AddPartArgs {
-                part: "bracket.shapecraft".into(),
+                part: "bracket.workpiece".into(),
                 variant: None,
                 hold: Default::default(),
                 bodies: Vec::new(),
@@ -65,20 +65,20 @@ pub fn model(editing: Option<&str>) -> anyhow::Result<Model> {
         .placing("left", &beside(-1.0))
         .placing("right", &beside(1.0));
     let mut model = Model::new(Workspace::new(BTreeMap::from([
-        ("assembly.shapecraft".into(), assembly),
-        ("bracket.shapecraft".into(), bracket),
+        ("assembly.workpiece".into(), assembly),
+        ("bracket.workpiece".into(), bracket),
     ])));
-    model.update(Message::Open("assembly.shapecraft".into()))?;
+    model.update(Message::Open("assembly.workpiece".into()))?;
     // One placed part open in the timeline.
     model.update(Message::Toggle(vec!["left".into()]))?;
     if editing == Some("plane") {
         // A new plane in the right bracket, from its plate's top face.
         model.update(Message::Focus(vec!["right".into()]))?;
         let world = model.viewport.shown.world.clone();
-        let top = vec![shapecraft_core::Source::Topology("plate/top".into())];
-        let op = shapecraft_ops_datum::AddPlane::from_selection("plane1".into(), &world, &top);
+        let top = vec![workpiece_core::Source::Topology("plate/top".into())];
+        let op = workpiece_ops_datum::AddPlane::from_selection("plane1".into(), &world, &top);
         model.update(Message::AddOperation {
-            part: "bracket.shapecraft".into(),
+            part: "bracket.workpiece".into(),
             op: op.into(),
         })?;
         return Ok(model);
@@ -92,33 +92,33 @@ pub fn model(editing: Option<&str>) -> anyhow::Result<Model> {
 /// A plate with a sketch on its top, open for editing: a rounded outline
 /// offset from the plate's projected edges, a toleranced hole and a slot.
 pub fn sketch() -> anyhow::Result<Model> {
-    use shapecraft_core::math::Point2;
-    use shapecraft_ops_sketch::{DimTolerance, Kind, Shape, Sketch, SketchAxis};
+    use workpiece_core::math::Point2;
+    use workpiece_ops_sketch::{DimTolerance, Kind, Shape, Sketch, SketchAxis};
 
     let plate = AddBox {
         id: "plate".into(),
         args: AddBoxArgs {
             frame: Some(Reference::datum(ORIGIN)),
-            size: [3.0, 2.0, 0.3].map(shapecraft_core::Measure::new),
+            size: [3.0, 2.0, 0.3].map(workpiece_core::Measure::new),
         },
     };
     let mut part = Part::default();
     part.program.push(plate.into());
-    part.parameters.push(shapecraft_cad_part::Parameter {
+    part.parameters.push(workpiece_part::Parameter {
         name: "hole".into(),
-        value: shapecraft_core::Measure::new(0.6),
+        value: workpiece_core::Measure::new(0.6),
     });
-    part.variants.push(shapecraft_cad_part::Variant {
+    part.variants.push(workpiece_part::Variant {
         name: "wide".into(),
-        values: BTreeMap::from([("hole".to_owned(), shapecraft_core::Measure::new(0.9))]),
+        values: BTreeMap::from([("hole".to_owned(), workpiece_core::Measure::new(0.9))]),
     });
     let mut model = Model::new(Workspace::new(BTreeMap::from([(
-        "plate.shapecraft".into(),
+        "plate.workpiece".into(),
         part,
     )])));
-    model.update(Message::Open("plate.shapecraft".into()))?;
+    model.update(Message::Open("plate.workpiece".into()))?;
     let world = model.viewport.shown.world.clone();
-    let top = shapecraft_core::Source::Topology("plate/top".into());
+    let top = workpiece_core::Source::Topology("plate/top".into());
     let mut sketch = Sketch::from_selection("sketch1", &world, &[top]);
     let a = &mut sketch.args;
     // The top face's plane starts at a corner: the plate spans 3 × 2.
@@ -171,7 +171,7 @@ pub fn sketch() -> anyhow::Result<Model> {
         axis: SketchAxis::U,
     });
     a.dimension(Kind::Size(small), 0.2, Point2::new(2.35, 0.65));
-    let fit = |a: &mut shapecraft_ops_sketch::SketchArgs, id, tolerance| {
+    let fit = |a: &mut workpiece_ops_sketch::SketchArgs, id, tolerance| {
         if let Some(d) = a
             .constraints
             .get_mut(&id)
@@ -198,7 +198,7 @@ pub fn sketch() -> anyhow::Result<Model> {
     );
     anyhow::ensure!(a.solve(), "the demo sketch does not solve");
     model.update(Message::AddOperation {
-        part: "plate.shapecraft".into(),
+        part: "plate.workpiece".into(),
         op: sketch.into(),
     })?;
     Ok(model)
@@ -208,14 +208,14 @@ pub fn sketch() -> anyhow::Result<Model> {
 /// rounded, a boss on it whose root runs into the block in a round and
 /// whose rim is cut off flat. The chamfer is open for editing.
 pub fn blends() -> anyhow::Result<Model> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::{Measure, Source};
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
-    use shapecraft_ops_blend::{Chamfer, ChamferArgs, Fillet, FilletArgs};
-    use shapecraft_ops_bodies::{CombineArgs, CombineBodies};
-    use shapecraft_shape::Combine;
+    use workpiece_core::math::Point3;
+    use workpiece_core::{Measure, Source};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_blend::{Chamfer, ChamferArgs, Fillet, FilletArgs};
+    use workpiece_ops_bodies::{CombineArgs, CombineBodies};
+    use workpiece_shape::Combine;
 
-    const PART: &str = "bracket.shapecraft";
+    const PART: &str = "bracket.workpiece";
     let body = |name: &str| Some(Source::Topology(name.into()));
     let mut part = Part::default();
     part.program.push(
@@ -230,7 +230,7 @@ pub fn blends() -> anyhow::Result<Model> {
     );
     let mut model = Model::new(Workspace::new(BTreeMap::from([(PART.into(), part)])));
     model.update(Message::Open(PART.into()))?;
-    let add = |model: &mut Model, op: shapecraft_cad_part::AnyOperation| {
+    let add = |model: &mut Model, op: workpiece_part::AnyOperation| {
         model.update(Message::AddOperation {
             part: PART.into(),
             op,
@@ -253,7 +253,7 @@ pub fn blends() -> anyhow::Result<Model> {
     let rounds = Fillet {
         id: "rounds".into(),
         args: FilletArgs {
-            edges: shapecraft_core::Reference::each(edges(&model, &|a, b| (a.z - b.z).abs() > 0.1)),
+            edges: workpiece_core::Reference::each(edges(&model, &|a, b| (a.z - b.z).abs() > 0.1)),
             size: Measure::new(0.4),
             ..Default::default()
         },
@@ -289,7 +289,7 @@ pub fn blends() -> anyhow::Result<Model> {
     let root = Fillet {
         id: "root".into(),
         args: FilletArgs {
-            edges: shapecraft_core::Reference::each(edges(&model, &circle(false))),
+            edges: workpiece_core::Reference::each(edges(&model, &circle(false))),
             size: Measure::new(0.2),
             ..Default::default()
         },
@@ -299,7 +299,7 @@ pub fn blends() -> anyhow::Result<Model> {
     let rim = Chamfer {
         id: "rim".into(),
         args: ChamferArgs {
-            edges: shapecraft_core::Reference::each(edges(&model, &circle(true))),
+            edges: workpiece_core::Reference::each(edges(&model, &circle(true))),
             distance: Measure::new(0.1),
             ..Default::default()
         },
@@ -313,16 +313,16 @@ pub fn blends() -> anyhow::Result<Model> {
 /// it, and a wheel beside the arm that a gear mechanism turns twice as
 /// fast the other way. Drag the arm, the slide or the wheel.
 pub fn joints() -> anyhow::Result<Model> {
-    use shapecraft_core::world::{CouplingKind, JointKind};
-    use shapecraft_ops_instances::connector::Snap;
-    use shapecraft_ops_instances::{Anchor, Constraint, Hold, MateArgs, Mechanism, MechanismArgs};
+    use workpiece_core::world::{CouplingKind, JointKind};
+    use workpiece_ops_instances::connector::Snap;
+    use workpiece_ops_instances::{Anchor, Constraint, Hold, MateArgs, Mechanism, MechanismArgs};
 
     let block = |size: [f64; 3], frames: &[(&str, Pose)]| {
         let mut program = vec![AnyOperation::from(AddBox {
             id: "body".into(),
             args: AddBoxArgs {
                 frame: Some(Reference::datum(ORIGIN)),
-                size: size.map(shapecraft_core::Measure::new),
+                size: size.map(workpiece_core::Measure::new),
             },
         })];
         for (name, pose) in frames {
@@ -336,7 +336,7 @@ pub fn joints() -> anyhow::Result<Model> {
     let frame = |instance: Option<&str>, name: &str| {
         Some(Anchor {
             instance: instance.into_iter().map(str::to_owned).collect(),
-            source: shapecraft_core::Source::Datum(name.into()),
+            source: workpiece_core::Source::Datum(name.into()),
             snap: Snap::Datum,
         })
     };
@@ -396,14 +396,14 @@ pub fn joints() -> anyhow::Result<Model> {
 
     let mut model = Model::new(Workspace::new(BTreeMap::from([
         (
-            "base.shapecraft".into(),
+            "base.workpiece".into(),
             block(
                 [2.4, 4.4, 0.4],
                 &[("pivot", at(0.0, -1.0, 0.2)), ("axle", at(0.0, 1.4, 0.2))],
             ),
         ),
         (
-            "arm.shapecraft".into(),
+            "arm.workpiece".into(),
             block(
                 [4.0, 0.6, 0.3],
                 &[
@@ -413,25 +413,25 @@ pub fn joints() -> anyhow::Result<Model> {
             ),
         ),
         (
-            "slide.shapecraft".into(),
+            "slide.workpiece".into(),
             block([0.8, 1.0, 0.4], &[("rail", along_x(0.0, -0.2))]),
         ),
         (
-            "wheel.shapecraft".into(),
+            "wheel.workpiece".into(),
             block([1.2, 1.2, 0.3], &[("hub", at(0.0, 0.0, -0.15))]),
         ),
         (
-            "joints.shapecraft".into(),
+            "joints.workpiece".into(),
             Part::new(vec![
-                place("base", "base.shapecraft", None),
-                place("arm", "arm.shapecraft", Some(hinge)),
-                place("slide", "slide.shapecraft", Some(slider)),
-                place("wheel", "wheel.shapecraft", Some(axle)),
+                place("base", "base.workpiece", None),
+                place("arm", "arm.workpiece", Some(hinge)),
+                place("slide", "slide.workpiece", Some(slider)),
+                place("wheel", "wheel.workpiece", Some(axle)),
                 gears.into(),
             ]),
         ),
     ])));
-    model.update(Message::Open("joints.shapecraft".into()))?;
+    model.update(Message::Open("joints.workpiece".into()))?;
     Ok(model)
 }
 
@@ -462,14 +462,14 @@ mod tests {
         assert_eq!(world.couplings.len(), 1);
         // The arm's pivot is on the base's, the slide on the arm's rail.
         let arm = world.instances["arm"].pose;
-        let pivot = arm.transform_point(shapecraft_core::math::Point3::new(-1.6, 0.0, -0.15));
+        let pivot = arm.transform_point(workpiece_core::math::Point3::new(-1.6, 0.0, -0.15));
         assert!(
-            pivot.abs_diff_eq(shapecraft_core::math::Point3::new(0.0, -1.0, 0.2), 1e-6),
+            pivot.abs_diff_eq(workpiece_core::math::Point3::new(0.0, -1.0, 0.2), 1e-6),
             "{pivot}"
         );
         let slide = world.instances["slide"].pose;
         let rail = arm.inverse() * slide;
-        let off = rail.transform_point(shapecraft_core::math::Point3::new(0.0, 0.0, -0.2));
+        let off = rail.transform_point(workpiece_core::math::Point3::new(0.0, 0.0, -0.2));
         assert!((off.y).abs() < 1e-6 && (off.z - 0.15).abs() < 1e-6, "{off}");
         Ok(())
     }

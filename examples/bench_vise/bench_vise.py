@@ -4,7 +4,7 @@ screw that turns in the moving jaw and passes through the fixed jaw.
 The moving jaw is held by a slider joint against the fixed jaw's face, the screw by a revolute joint
 in the jaw's seat; a Drive step opens the jaws to a width. The sheet shows the vise opened 40, a
 section through the screw (shown whole: it is not sectioned), a parts list and balloons; the same
-assembly driven to 8 is built beside it (`bench_vise_closed.shapecraft`, `render-closed.png`), to
+assembly driven to 8 is built beside it (`bench_vise_closed.workpiece`, `render-closed.png`), to
 show it moves.
 
     python3 bench_vise.py            # opened 40 (and closed to 8)
@@ -12,10 +12,10 @@ show it moves.
 """
 import os, sys
 try:
-    import shapecraft
+    import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from shapecraft import Part, anchor, axis, balloon, topo, view, projected, section_view
+from workpiece import Part, anchor, axis, balloon, topo, view, projected, section_view
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 at = lambda name: os.path.join(HERE, name)
@@ -41,14 +41,14 @@ def profile(part, id, corners, show_in):
 
 # --- The body: a base 140 long, 60 wide, 12 thick, the fixed jaw 18 thick standing 38 on it at x = 0;
 # a Ø13 bore for the screw through the jaw, 31 up.
-body = Part(material="Cast iron", title="VISE BODY", file="body.shapecraft")
+body = Part(material="Cast iron", title="VISE BODY", file="body.workpiece")
 s, q = profile(body, "body_profile", [(0, 0), (0, 140), (12, 140), (12, 18), (50, 18), (50, 0)], None)
 s.distance_v(q[0], q[1], 140)
 s.distance_u(q[1], q[2], 12)
 s.distance_v(q[5], q[4], 18)
 s.distance_u(q[0], q[5], 50)
 body.extrude(s, 60, symmetric=True, combine="NewBody", id="body")
-brep = body.build(at("body.shapecraft"))
+brep = body.build(at("body.workpiece"))
 outside = brep.faces(where=lambda f: f["flat"] and f["normal"][0] < -0.99)[0]
 b = body.sketch(topo(outside), id="bore_place", show_in="left")
 dot = b.dot(0, 31, "c")
@@ -61,12 +61,12 @@ body.drawing(views=[view("front", "Front", (230, 110)), projected("top", "front"
 
 # --- The moving jaw: 18 thick, 60 wide, 38 high; a Ø12 seat 8 deep for the screw's tip on its back,
 # 19 up.
-jaw = Part(material="Cast iron", title="MOVING JAW", file="jaw.shapecraft")
+jaw = Part(material="Cast iron", title="MOVING JAW", file="jaw.workpiece")
 s, q = profile(jaw, "jaw_profile", [(0, 0), (0, 18), (38, 18), (38, 0)], None)
 s.distance_v(q[0], q[1], 18)
 s.distance_u(q[1], q[2], 38)
 jaw.extrude(s, 60, symmetric=True, combine="NewBody", id="jaw")
-jrep = jaw.build(at("jaw.shapecraft"))
+jrep = jaw.build(at("jaw.workpiece"))
 back = jrep.faces(where=lambda f: f["flat"] and f["normal"][0] < -0.99)[0]
 k = jaw.sketch(topo(back), id="seat_place", show_in="left")
 dot = k.dot(0, 19, "c")
@@ -78,7 +78,7 @@ jaw.drawing(views=[view("front", "Front", (120, 160)), projected("left", "front"
 
 # --- The screw: Ø12 × 110 with an M12 thread, a Ø24 × 12 head; turned about x (it lies as it is placed). A solid screw is
 # drawn whole where a section runs along it.
-screw = Part(material="Steel", title="VISE SCREW", file="screw.shapecraft", sectioned=False)
+screw = Part(material="Steel", title="VISE SCREW", file="screw.workpiece", sectioned=False)
 t = screw.sketch("XY", id="screw_profile", show_in="top")
 axis_line = t.rotation_axis(t.origin, (1, 0))
 t.horizontal(axis_line)
@@ -93,7 +93,7 @@ t.diameter_about(pts[3], axis_line, 12, on_drawing=False)  # (the thread's callo
 t.distance_u(pts[1], pts[2], 12)
 t.distance_u(pts[0], pts[5], 122)
 screw.revolve(t, combine="NewBody", id="screw")
-srep = screw.build(at("screw.shapecraft"))
+srep = screw.build(at("screw.workpiece"))
 shank = srep.faces(where=lambda f: f["surface"] == "cylinder" and f["middle"][0] > 20)[0]
 screw.op("Thread", id="thread", face=topo(shank))
 screw.on_sheet("thread/callout", show_in="top", at=(40, -30))
@@ -102,7 +102,7 @@ screw.drawing(views=[view("top", "Top", (160, 170)), view("iso", "Isometric", (3
 
 # --- The vise: the body fixed; the jaw slides on it, its back face against the fixed jaw's inner face
 # (the slider's travel is how far apart they are); the screw turns in the jaw's seat; Drive opens it.
-brep, jrep, srep = body.build(at("body.shapecraft")), jaw.build(at("jaw.shapecraft")), screw.build(at("screw.shapecraft"))
+brep, jrep, srep = body.build(at("body.workpiece")), jaw.build(at("jaw.workpiece")), screw.build(at("screw.workpiece"))
 inner = brep.faces(where=lambda f: f["flat"] and f["normal"][0] > 0.99 and f["middle"][0] < 20)[0]
 seat_floor = jrep.faces(where=lambda f: f["flat"] and f["name"].startswith("seat/"))[0]
 tip = srep.faces(where=lambda f: f["flat"] and f["middle"][0] > 100)[0]
@@ -127,11 +127,11 @@ def vise(open_at: float, drawing: bool) -> Part:
 
 
 asm = vise(OPEN, drawing=True)
-rep = asm.build(at("bench_vise.shapecraft"), render=True, pictures=True, picture=at("render.png"))
+rep = asm.build(at("bench_vise.workpiece"), render=True, pictures=True, picture=at("render.png"))
 for part_report in asm.reports.values():
     part_report.show()
 rep.show()
 
 # The same vise driven nearly shut: only where the jaw (and the screw in it) is changes.
-closed = vise(8.0, drawing=False).build(at("bench_vise_closed.shapecraft"), picture=at("render-closed.png"))
+closed = vise(8.0, drawing=False).build(at("bench_vise_closed.workpiece"), picture=at("render-closed.png"))
 print("closed: jaw at", [round(c, 3) for c in closed.placed_part("jaw")["pose"]["at"]])

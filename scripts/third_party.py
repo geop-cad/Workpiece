@@ -6,7 +6,7 @@ version, licence and repository, and the licences of the fonts the app carries.
 
 Without --target the dependencies for every platform are listed (a superset of what one
 platform's build contains). Development dependencies (tests, benchmarks) are left out: the
-walk starts at `shapecraft-app` and `shapecraft-cli` and follows normal and build dependencies.
+walk starts at `workpiece-app` and `workpiece-cli` and follows normal and build dependencies.
 """
 
 import argparse
@@ -16,7 +16,7 @@ import os
 import subprocess
 import sys
 
-ROOTS = ["shapecraft-app", "shapecraft-cli"]
+ROOTS = ["workpiece-app", "workpiece-cli"]
 FONT_LICENCES = ["OFL.txt", "UFL.txt", "Hack-Regular.txt", "emoji-icon-font-mit-license.txt"]
 
 
@@ -42,7 +42,7 @@ def main() -> int:
     ours = {p["id"] for p in meta["packages"] if p["source"] is None}
     found = sorted((packages[i] for i in seen - ours), key=lambda p: (p["name"], p["version"]))
     lines = [
-        "ShapeCraft is licensed under MIT OR Apache-2.0 (LICENSE-MIT, LICENSE-APACHE).",
+        "Workpiece is licensed under MIT OR Apache-2.0 (LICENSE-MIT, LICENSE-APACHE).",
         "",
         "It is built from the following third-party crates, each under the licence named",
         "(an SPDX expression; where it offers a choice, either may be used).",

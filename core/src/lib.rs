@@ -14,7 +14,7 @@
 //! * [`files`]: the files the program reads and writes, on disk or (in a
 //!   browser) in memory.
 
-extern crate self as shapecraft_core;
+extern crate self as workpiece_core;
 
 pub mod arguments;
 pub mod builder;
@@ -50,9 +50,9 @@ pub use reference::{
     ResolveError, SketchOrBody, Sketched, Source,
 };
 pub use registry::{AnyEdit, AnyEditState, AnyOperation, IconOf, Registry, Tool, ToolContext};
-pub use shapecraft_derive::Arguments;
 pub use unit::Unit;
 pub use widgets::{Widget, WidgetHandler};
+pub use workpiece_derive::Arguments;
 pub use world::World;
 
 /// Whether work can be spread over threads: everywhere but in a browser,

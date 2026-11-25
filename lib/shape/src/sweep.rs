@@ -11,13 +11,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::arcs::{arc_form, ellipse};
 use anyhow::Context;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::profile::EdgeUse;
-use shapecraft_core::world::topo::{
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::profile::EdgeUse;
+use workpiece_core::world::topo::{
     Body, BodyId, BodyKind, Coedge, CoedgeId, Curve2, Curve3, Edge, EdgeId, EntityId, Face,
     FaceUse, Loop, Lump, NurbsSurface, Orientation, Shell, Topo, Vertex, VertexId,
 };
-use shapecraft_core::world::{AreaPick, Profile};
+use workpiece_core::world::{AreaPick, Profile};
 
 /// Whether `p` is inside the polygon `points` (even-odd).
 fn inside(points: &[Point2], p: Point2) -> bool {
@@ -182,7 +182,7 @@ pub fn sheet_of(
     profile: &Profile,
     picked: &[AreaPick],
     swept: Sweep<'_>,
-) -> anyhow::Result<shapecraft_boolean::Solid> {
+) -> anyhow::Result<workpiece_boolean::Solid> {
     let [closed, open] = curves(profile, picked)?;
     let mut sheets = Vec::new();
     for (walks, closed) in [(closed, true), (open, false)] {
@@ -191,7 +191,7 @@ pub fn sheet_of(
         }
         let mut scratch = Topo::new();
         let body = swept(&mut scratch, &walks, closed)?;
-        sheets.push(shapecraft_boolean::read_sheet(&scratch, body)?);
+        sheets.push(workpiece_boolean::read_sheet(&scratch, body)?);
     }
     anyhow::ensure!(!sheets.is_empty(), "the sketch has no curve to sweep");
     if sheets.len() == 1 {
@@ -201,7 +201,7 @@ pub fn sheet_of(
         .iter()
         .flat_map(|s| &s.vertices)
         .fold(1.0_f64, |m, v| m.max(v.point.length()));
-    Ok(shapecraft_boolean::stitched(&sheets, size * 1e-9)?.0)
+    Ok(workpiece_boolean::stitched(&sheets, size * 1e-9)?.0)
 }
 
 /// What to make of a sweep.

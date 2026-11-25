@@ -1,12 +1,12 @@
 //! What the operations of this crate make.
 
-use shapecraft_ops_sweep::{Extent, Extrude};
-use shapecraft_ops_testing::*;
-use shapecraft_shape::Combine;
+use workpiece_ops_sweep::{Extent, Extrude};
+use workpiece_ops_testing::*;
+use workpiece_shape::Combine;
 
 #[test]
 fn holes_are_drilled_at_the_points_of_a_sketch() -> anyhow::Result<()> {
-    use shapecraft_ops_features::{Hole, HoleArgs, HoleKind};
+    use workpiece_ops_features::{Hole, HoleArgs, HoleKind};
     // Two points in the middle plane of the 4 × 4 × 2 box: the holes go
     // down from there.
     let drilled = |set: &dyn Fn(&mut HoleArgs)| -> anyhow::Result<f64> {
@@ -83,7 +83,7 @@ fn holes_are_drilled_at_the_points_of_a_sketch() -> anyhow::Result<()> {
 
 #[test]
 fn holes_are_placed_off_planes_and_around_axes() -> anyhow::Result<()> {
-    use shapecraft_ops_features::{Hole, HoleArgs, HolePlace};
+    use workpiece_ops_features::{Hole, HoleArgs, HolePlace};
     // The box 4 × 4 × 2 about the origin; a hole ⌀1 through its top.
     let through = |place: HoleArgs| HoleArgs {
         diameter: Measure::new(1.0),
@@ -93,7 +93,7 @@ fn holes_are_placed_off_planes_and_around_axes() -> anyhow::Result<()> {
     };
     let hole_at = |b: &Standalone| {
         // (The middle of the rims of the bore: of its round edges.)
-        let solid = shapecraft_boolean::read(&b.world.topo, body(b, "base")).unwrap();
+        let solid = workpiece_boolean::read(&b.world.topo, body(b, "base")).unwrap();
         let rims: Vec<_> = solid
             .edges
             .iter()
@@ -109,7 +109,7 @@ fn holes_are_placed_off_planes_and_around_axes() -> anyhow::Result<()> {
                 (e.curve.point_at(a) + e.curve.point_at(across)) / 2.0
             })
             .collect();
-        rims.iter().sum::<shapecraft_core::math::Point3>() / rims.len() as f64
+        rims.iter().sum::<workpiece_core::math::Point3>() / rims.len() as f64
     };
     // 0.5 in from the right side and 1.5 in from the back.
     let mut b = Standalone::new();
@@ -164,8 +164,8 @@ fn holes_are_placed_off_planes_and_around_axes() -> anyhow::Result<()> {
 
 #[test]
 fn threads_are_cut_into_rods_and_holes() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
-    use shapecraft_ops_features::{Thread, ThreadArgs};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_features::{Thread, ThreadArgs};
     // What a V groove takes from a face of this radius in a turn: its
     // triangle (less the lip beyond the face), carried around.
     let (pitch, depth) = (0.25, 0.12);
@@ -253,9 +253,9 @@ fn threads_are_cut_into_rods_and_holes() -> anyhow::Result<()> {
 
 #[test]
 fn dialogs_are_made_from_the_arguments() {
-    use shapecraft_core::{Arguments, Cache, EditContext, Widget};
-    use shapecraft_ops_features::{HoleArgs, HoleKind, HolePlace};
-    let world = std::sync::Arc::new(shapecraft_core::World::new());
+    use workpiece_core::{Arguments, Cache, EditContext, Widget};
+    use workpiece_ops_features::{HoleArgs, HoleKind, HolePlace};
+    let world = std::sync::Arc::new(workpiece_core::World::new());
     let cache = Cache::default();
     let context = EditContext::standalone(&world, &cache);
     let mut args = HoleArgs::default();
@@ -281,9 +281,9 @@ fn dialogs_are_made_from_the_arguments() {
     assert_eq!(args.fields(&context).len(), 10);
     args.size = None;
     // A chamfer has a width and an angle, in a row.
-    args.deburr = shapecraft_ops_features::Deburr::Both;
+    args.deburr = workpiece_ops_features::Deburr::Both;
     assert_eq!(args.fields(&context).len(), 11);
-    args.deburr = shapecraft_ops_features::Deburr::None;
+    args.deburr = workpiece_ops_features::Deburr::None;
     // What the arguments refer to is what their reference fields hold.
     args.sketch = Some(Source::Profile("s".into()).into());
     args.target = Some(Source::Topology("b".into()).into());
@@ -305,8 +305,8 @@ fn dialogs_are_made_from_the_arguments() {
 
 #[test]
 fn a_cosmetic_thread_is_said_of_its_face_and_changes_nothing() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
-    use shapecraft_ops_features::{Thread, ThreadArgs};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_features::{Thread, ThreadArgs};
     let mut b = Standalone::new();
     AddCylinder {
         id: "rod".into(),
@@ -338,7 +338,7 @@ fn a_cosmetic_thread_is_said_of_its_face_and_changes_nothing() -> anyhow::Result
     // Its designation on a leader to the rod's outline, best from the
     // side.
     let callout = &b.world.annotations["thread/callout"];
-    let shapecraft_core::world::Note::Hole { lines, outside, .. } = &callout.note else {
+    let workpiece_core::world::Note::Hole { lines, outside, .. } = &callout.note else {
         panic!("a callout");
     };
     assert!(*outside);
@@ -349,8 +349,8 @@ fn a_cosmetic_thread_is_said_of_its_face_and_changes_nothing() -> anyhow::Result
 
 #[test]
 fn holes_take_their_sizes_from_the_standards_and_are_chamfered() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
-    use shapecraft_ops_features::{Deburr, Hole, HoleArgs, HoleKind};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
+    use workpiece_ops_features::{Deburr, Hole, HoleArgs, HoleKind};
     // One point in the middle plane of a 40 × 40 × 40 block: the hole
     // goes down from there, through 20.
     let drilled = |set: &dyn Fn(&mut HoleArgs)| -> anyhow::Result<(f64, Standalone)> {
@@ -405,7 +405,7 @@ fn holes_take_their_sizes_from_the_standards_and_are_chamfered() -> anyhow::Resu
     let wall = b
         .world
         .topo
-        .resolve::<shapecraft_core::world::topo::FaceId>(&said.face);
+        .resolve::<workpiece_core::world::topo::FaceId>(&said.face);
     assert!(wall.is_some(), "{}", said.face);
     // A fine pitch: M6×0.75, drilled 5.25 across. Through, the thread
     // is as long as the block is thick.
@@ -447,7 +447,7 @@ fn holes_take_their_sizes_from_the_standards_and_are_chamfered() -> anyhow::Resu
 
 #[test]
 fn a_counterbore_says_its_head() -> anyhow::Result<()> {
-    use shapecraft_ops_features::{Hole, HoleArgs, HoleKind};
+    use workpiece_ops_features::{Hole, HoleArgs, HoleKind};
     let mut b = Standalone::new();
     base(&mut b)?;
     let mut points = Sketch::new("points");
@@ -479,8 +479,8 @@ fn a_counterbore_says_its_head() -> anyhow::Result<()> {
 
 #[test]
 fn holes_end_up_to_a_face_or_a_datum_plane() -> anyhow::Result<()> {
-    use shapecraft_ops_datum::{AddPlane, AddPlaneArgs, PlaneMode};
-    use shapecraft_ops_features::{Hole, HoleArgs, HoleKind};
+    use workpiece_ops_datum::{AddPlane, AddPlaneArgs, PlaneMode};
+    use workpiece_ops_features::{Hole, HoleArgs, HoleKind};
     // One point in the middle plane of the 4 × 4 × 2 box (z from -1 to
     // 1): the hole goes down from there. A plane `floor` is 1.5 under
     // the box's top, at z = -0.5.
@@ -529,7 +529,7 @@ fn holes_end_up_to_a_face_or_a_datum_plane() -> anyhow::Result<()> {
     })?;
     close(at_plane, typed, 1e-9);
     let callout = &b.world.annotations["hole/callout"];
-    let shapecraft_core::world::Note::Hole { lines, .. } = &callout.note else {
+    let workpiece_core::world::Note::Hole { lines, .. } = &callout.note else {
         panic!("a hole's callout")
     };
     let said: Vec<String> = lines

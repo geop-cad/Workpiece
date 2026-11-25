@@ -3,8 +3,8 @@
 //! dimensions drawn as on a drawing (thin extension and dimension lines,
 //! slender filled arrowheads, the value written along the line above it).
 
-use shapecraft_core::handles::{CanvasShape, CanvasView, Tone};
-use shapecraft_core::math::Point2;
+use workpiece_core::handles::{CanvasShape, CanvasView, Tone};
+use workpiece_core::math::Point2;
 
 use crate::geometry::{angle, unit};
 use crate::model::{Constraint, DimTolerance, Id, Item, Kind, Shape, SketchArgs, SketchAxis};
@@ -560,7 +560,7 @@ fn preview(pen: &mut Pen<'_>, args: &SketchArgs, state: &SketchState) {
         }
         (Tool::Circle3, [a]) => pen.line(vec![*a, to], tone, THIN, true),
         (Tool::Circle3, [a, b]) => {
-            use shapecraft_core::world::topo::nurbs::recognize::circumcenter;
+            use workpiece_core::world::topo::nurbs::recognize::circumcenter;
             if let Some(c) = circumcenter(*a, *b, to) {
                 pen.line(circle(c, c.distance(*a)), tone, CURVE, false);
             }
@@ -589,7 +589,7 @@ fn preview(pen: &mut Pen<'_>, args: &SketchArgs, state: &SketchState) {
         }
         (Tool::Arc, [a]) => pen.line(vec![*a, to], tone, THIN, true),
         (Tool::Arc, [a, b]) => {
-            use shapecraft_core::world::topo::nurbs::recognize::circumcenter;
+            use workpiece_core::world::topo::nurbs::recognize::circumcenter;
             if let Some(c) = circumcenter(*a, *b, to) {
                 let forward =
                     crate::geometry::sweep(*a - c, to - c) < crate::geometry::sweep(*a - c, *b - c);

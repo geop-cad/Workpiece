@@ -1,5 +1,5 @@
 //! Imports the STEP files named on the command line and says what each
-//! holds: `cargo run --release -p shapecraft-ops-step --example import -- a.step`.
+//! holds: `cargo run --release -p workpiece-ops-step --example import -- a.step`.
 
 use std::time::Instant;
 
@@ -13,7 +13,7 @@ fn main() {
             }
         };
         let clock = Instant::now();
-        match shapecraft_ops_step::import(&bytes) {
+        match workpiece_ops_step::import(&bytes) {
             Ok(found) => {
                 println!(
                     "{path}: {} solid(s), {} refused, {:.1} MB in {:?}",
@@ -23,7 +23,7 @@ fn main() {
                     clock.elapsed()
                 );
                 for body in &found.bodies {
-                    let m = shapecraft_boolean::measure(&body.solid);
+                    let m = workpiece_boolean::measure(&body.solid);
                     let (lo, hi) = body.solid.extent();
                     println!(
                         "  {:?}: {} faces, volume {:.6}, area {:.6}, from {:.3?} to {:.3?}",

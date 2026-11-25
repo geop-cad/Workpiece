@@ -5,10 +5,10 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use shapecraft_boolean::{Op, Solid, combine, read};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::{BodyKind, FaceId, Topo};
-use shapecraft_core::{Builder, Reference, World};
+use workpiece_boolean::{Op, Solid, combine, read};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::{BodyKind, FaceId, Topo};
+use workpiece_core::{Builder, Reference, World};
 
 /// The step that made what is called `name`: what its name starts with.
 fn step_of(name: &str) -> &str {
@@ -169,9 +169,9 @@ impl Features {
         });
         let mut on = (*self.before).clone();
         if let Some(old) = crate::arrange::named_solid(&on.topo, name) {
-            shapecraft_boolean::remove(&mut on.topo, old);
+            workpiece_boolean::remove(&mut on.topo, old);
         }
-        shapecraft_boolean::write(&mut on.topo, &aside, name)?;
+        workpiece_boolean::write(&mut on.topo, &aside, name)?;
         let after = builder.redone(&self.steps, on)?;
         let body = crate::arrange::named_solid(&after.topo, name)
             .with_context(|| format!("{name} is gone"))?;
@@ -183,8 +183,8 @@ impl Features {
             }
         });
         let (was, now) = (
-            shapecraft_boolean::measure(result),
-            shapecraft_boolean::measure(&made),
+            workpiece_boolean::measure(result),
+            workpiece_boolean::measure(&made),
         );
         let same = |a: f64, b: f64| (a - b).abs() <= 1e-9 * (a.abs() + b.abs());
         if same(was.volume, now.volume) && same(was.area, now.area) {
@@ -199,10 +199,10 @@ impl Features {
 /// a pattern or a mirror image of them says of the model, in their
 /// place.
 pub(crate) fn callouts_times(
-    builder: &dyn shapecraft_core::Builder,
-    faces: &[shapecraft_core::Reference<shapecraft_core::world::topo::FaceId>],
+    builder: &dyn workpiece_core::Builder,
+    faces: &[workpiece_core::Reference<workpiece_core::world::topo::FaceId>],
     times: usize,
-) -> Vec<(String, shapecraft_core::world::Annotation)> {
+) -> Vec<(String, workpiece_core::world::Annotation)> {
     let annotations = &builder.tracked().annotations;
     steps_of(faces)
         .into_iter()

@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-core"
+name = "workpiece-core"
 description = "The modelling core: world (topology, datums, profiles), references and operations."
 edition.workspace = true
 version.workspace = true
@@ -8,11 +8,11 @@ repository.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "shapecraft_core"
+name = "workpiece_core"
 
 [dependencies]
 anyhow.workspace = true
-shapecraft-derive = { path = "derive" }
+workpiece-derive = { path = "derive" }
 glam.workspace = true
 serde.workspace = true
 serde_json.workspace = true

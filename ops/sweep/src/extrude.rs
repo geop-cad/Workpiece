@@ -3,19 +3,19 @@
 use std::collections::BTreeMap;
 
 use anyhow::Context;
-use shapecraft_boolean::read;
-use shapecraft_core::handles::LinearHandle;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::widgets::{HBox, Label, Mood, NumericInput, ReferenceInput, VBox};
-use shapecraft_core::world::AreaPick;
-use shapecraft_core::world::topo::FaceId;
-use shapecraft_core::{
+use workpiece_boolean::read;
+use workpiece_core::handles::LinearHandle;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::widgets::{HBox, Label, Mood, NumericInput, ReferenceInput, VBox};
+use workpiece_core::world::AreaPick;
+use workpiece_core::world::topo::FaceId;
+use workpiece_core::{
     Builder, Edit, EditContext, EditVisualization, Measure, Operation, Reference, Source, Widget,
 };
 
-use shapecraft_shape::bodies::{self, Combine};
-use shapecraft_shape::sweep::{self, Frame, Make};
-use shapecraft_shape::ui;
+use workpiece_shape::bodies::{self, Combine};
+use workpiece_shape::sweep::{self, Frame, Make};
+use workpiece_shape::ui;
 
 /// Where an extrusion ends.
 #[derive(
@@ -69,12 +69,12 @@ impl Extent {
 
 /// What to extrude, how far, and what it becomes.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct ExtrudeArgs {
     /// The sketch.
     #[arg(with = "sketch_fields")]
-    pub sketch: Option<shapecraft_core::Reference<shapecraft_core::Sketched>>,
+    pub sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>,
     /// The areas of it to extrude, each by a point inside it or by its
     /// boundary; none for the whole sketch (areas inside others are
     /// holes).
@@ -106,7 +106,7 @@ pub struct ExtrudeArgs {
         empty = "All bodies",
         when = "!self.surface && self.combine != Combine::NewBody"
     )]
-    pub target: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
     /// Whether it makes a surface (a sheet) instead of a solid: the
     /// sketch's curves swept, closed areas or not.
     #[serde(default)]
@@ -180,10 +180,10 @@ impl Operation for Extrude {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let distance = (*builder).measure(&args.distance, "the distance")?;
         let world = builder.tracked();
@@ -238,7 +238,7 @@ impl Operation for Extrude {
             );
             Ok(distance)
         };
-        let beyond = |topo: &shapecraft_core::world::Topo, bodies: Vec<_>| {
+        let beyond = |topo: &workpiece_core::world::Topo, bodies: Vec<_>| {
             let far = bodies::reach(topo, &bodies, frame.origin, direction)
                 .filter(|far| *far > 1e-9)
                 .context("no body lies that way")?;
@@ -250,7 +250,7 @@ impl Operation for Extrude {
         let to_plane = match args.extent {
             Extent::ToFace => args.up_to.as_ref().and_then(|face| {
                 let plane =
-                    Reference::<shapecraft_core::world::DatumPlane>::new(face.source.clone());
+                    Reference::<workpiece_core::world::DatumPlane>::new(face.source.clone());
                 world.resolve(&plane).ok()
             }),
             _ => None,
@@ -311,7 +311,7 @@ impl Operation for Extrude {
         };
         // How far it is swept is a size of the model.
         if matches!(args.extent, Extent::Distance | Extent::Symmetric) {
-            use shapecraft_core::world::{Annotation, Measured};
+            use workpiece_core::world::{Annotation, Measured};
             let from = frame.place(ui::middle(&profile, &args.areas));
             let measured = Measured::Length {
                 from: from + frame.normal() * range.0,
@@ -340,7 +340,7 @@ impl Operation for Extrude {
         }
         // (Swept in a place of its own, then put with the bodies there are.)
         let walks = sweep::outline(&profile, &regions)?;
-        let mut scratch = shapecraft_core::world::topo::Topo::new();
+        let mut scratch = workpiece_core::world::topo::Topo::new();
         let body = sweep::extrude(&mut scratch, &self.id, &profile, &walks, true, range, make)?;
         if args.combine == Combine::NewBody && !trimmed {
             out.take(&scratch, body)?;
@@ -353,7 +353,7 @@ impl Operation for Extrude {
                 // What of it is on the sketch's side of the plane.
                 let (plane, from, _) = to_plane.as_ref().expect("just asked");
                 let [front, behind] =
-                    shapecraft_shape::halves(&tool, plane.origin(), plane.normal())?;
+                    workpiece_shape::halves(&tool, plane.origin(), plane.normal())?;
                 let ahead = (*from - plane.origin()).dot(plane.normal()) > 0.0;
                 tool = if ahead { front } else { behind };
             }
@@ -379,7 +379,7 @@ impl Operation for Extrude {
     ) -> EditVisualization<Edit<ExtrudeArgs, ()>> {
         let (world, args) = (context.world, &self.args);
         // The fields the arguments give; the handles are its own.
-        let fields = shapecraft_core::Arguments::fields(args, context);
+        let fields = workpiece_core::Arguments::fields(args, context);
         let mut handles = BTreeMap::new();
         if let Some(profile) = ui::profile(world, &args.sketch) {
             let picker = ui::area_picker(
@@ -446,7 +446,7 @@ impl Operation for Extrude {
 
 /// The face `face` refers to in `topo`.
 fn world_face(
-    topo: &shapecraft_core::world::Topo,
+    topo: &workpiece_core::world::Topo,
     face: &Reference<FaceId>,
 ) -> anyhow::Result<FaceId> {
     let name = face.source.name();
@@ -513,7 +513,7 @@ fn how_far(args: &ExtrudeArgs, context: &EditContext<'_>) -> Vec<Widget<ExtrudeA
     vec![row]
 }
 
-impl shapecraft_core::Choices for Extent {
+impl workpiece_core::Choices for Extent {
     const ALL: &'static [Self] = &Self::ALL;
 
     fn label(self) -> &'static str {
@@ -526,8 +526,8 @@ impl shapecraft_core::Choices for Extent {
 /// from points spread over the areas, along the way out as far as the
 /// bodies reach, more closely near the sketch.
 fn meeting<'a>(
-    topo: &'a shapecraft_core::world::Topo,
-    profile: &'a shapecraft_core::world::Profile,
+    topo: &'a workpiece_core::world::Topo,
+    profile: &'a workpiece_core::world::Profile,
     regions: &[usize],
     frame: &'a Frame,
 ) -> impl Fn(Point3) -> bool + 'a {
@@ -589,7 +589,7 @@ fn meeting<'a>(
         }
     }
     move |way: Point3| {
-        let holders: Vec<_> = solids.iter().map(shapecraft_boolean::Holder::new).collect();
+        let holders: Vec<_> = solids.iter().map(workpiece_boolean::Holder::new).collect();
         points.iter().any(|&p| {
             let Some(far) = bodies::reach(topo, &all, p, way).filter(|far| *far > 1e-9) else {
                 return false;

@@ -2,16 +2,16 @@
 //! they place) and writing. Paths are relative to the working directory;
 //! only opened files and what they place are read.
 //!
-//! Files go through [`shapecraft_core::files`]: on disk, or in a browser
+//! Files go through [`workpiece_core::files`]: on disk, or in a browser
 //! in memory (what the user opened, what was fetched). There, what is
 //! saved or exported is also handed to the user as a download.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use shapecraft_cad_part::{Part, Workspace};
-use shapecraft_core::files;
-use shapecraft_ops_instances::PART_EXTENSION;
+use workpiece_core::files;
+use workpiece_ops_instances::PART_EXTENSION;
+use workpiece_part::{Part, Workspace};
 
 /// How deep the file list looks into subdirectories.
 const DEPTH: usize = 4;
@@ -23,7 +23,7 @@ pub fn list(placing: bool) -> Vec<String> {
     if files::IN_MEMORY {
         let fits = |name: &String| {
             name.ends_with(&format!(".{PART_EXTENSION}"))
-                || (placing && shapecraft_cad_part::is_step(name))
+                || (placing && workpiece_part::is_step(name))
         };
         out = files::in_memory().into_iter().filter(fits).collect();
     } else {
@@ -49,7 +49,7 @@ fn walk(dir: &Path, depth: usize, placing: bool, out: &mut Vec<String>) {
                 walk(&path, depth + 1, placing, out);
             }
         } else if path.extension().is_some_and(|e| e == PART_EXTENSION)
-            || (placing && shapecraft_cad_part::is_step(&name))
+            || (placing && workpiece_part::is_step(&name))
         {
             let relative = path.strip_prefix(".").unwrap_or(&path);
             out.push(relative.to_string_lossy().replace('\\', "/"));
@@ -59,72 +59,72 @@ fn walk(dir: &Path, depth: usize, placing: bool, out: &mut Vec<String>) {
 
 /// The materials the working directory has in its library file, or
 /// those a library starts with, if it has none.
-pub fn library() -> anyhow::Result<shapecraft_cad_part::Library> {
-    let path = shapecraft_cad_part::LIBRARY_FILE;
+pub fn library() -> anyhow::Result<workpiece_part::Library> {
+    let path = workpiece_part::LIBRARY_FILE;
     if !files::exists(path) {
-        return Ok(shapecraft_cad_part::Library::default());
+        return Ok(workpiece_part::Library::default());
     }
     let text = files::read_to_string(path).map_err(|e| anyhow::anyhow!("reading {path}: {e}"))?;
-    shapecraft_cad_part::Library::from_text(&text).map_err(|e| e.context(format!("reading {path}")))
+    workpiece_part::Library::from_text(&text).map_err(|e| e.context(format!("reading {path}")))
 }
 
 /// Writes `library` to the working directory's library file.
-pub fn save_library(library: &shapecraft_cad_part::Library) -> anyhow::Result<()> {
-    let path = shapecraft_cad_part::LIBRARY_FILE;
+pub fn save_library(library: &workpiece_part::Library) -> anyhow::Result<()> {
+    let path = workpiece_part::LIBRARY_FILE;
     files::write(path, library.to_text()?).map_err(|e| anyhow::anyhow!("writing {path}: {e}"))
 }
 
 /// The sheet templates the working directory has in their file, or
 /// those a workspace starts with, if it has none.
-pub fn templates() -> anyhow::Result<shapecraft_ops_drawing::Templates> {
-    let path = shapecraft_ops_drawing::template::TEMPLATES_FILE;
+pub fn templates() -> anyhow::Result<workpiece_ops_drawing::Templates> {
+    let path = workpiece_ops_drawing::template::TEMPLATES_FILE;
     if !files::exists(path) {
-        return Ok(shapecraft_ops_drawing::Templates::default());
+        return Ok(workpiece_ops_drawing::Templates::default());
     }
     let text = files::read_to_string(path).map_err(|e| anyhow::anyhow!("reading {path}: {e}"))?;
-    shapecraft_ops_drawing::Templates::from_text(&text)
+    workpiece_ops_drawing::Templates::from_text(&text)
         .map_err(|e| e.context(format!("reading {path}")))
 }
 
 /// Writes `templates` to the working directory's file of them.
-pub fn save_templates(templates: &shapecraft_ops_drawing::Templates) -> anyhow::Result<()> {
-    let path = shapecraft_ops_drawing::template::TEMPLATES_FILE;
+pub fn save_templates(templates: &workpiece_ops_drawing::Templates) -> anyhow::Result<()> {
+    let path = workpiece_ops_drawing::template::TEMPLATES_FILE;
     files::write(path, templates.to_text()?).map_err(|e| anyhow::anyhow!("writing {path}: {e}"))
 }
 
 /// The properties parts have, as the working directory's file says, or
 /// those a workspace starts with, if it has none.
-pub fn schema() -> anyhow::Result<shapecraft_cad_part::Schema> {
-    let path = shapecraft_cad_part::SCHEMA_FILE;
+pub fn schema() -> anyhow::Result<workpiece_part::Schema> {
+    let path = workpiece_part::SCHEMA_FILE;
     if !files::exists(path) {
-        return Ok(shapecraft_cad_part::Schema::default());
+        return Ok(workpiece_part::Schema::default());
     }
     let text = files::read_to_string(path).map_err(|e| anyhow::anyhow!("reading {path}: {e}"))?;
-    shapecraft_cad_part::Schema::from_text(&text).map_err(|e| e.context(format!("reading {path}")))
+    workpiece_part::Schema::from_text(&text).map_err(|e| e.context(format!("reading {path}")))
 }
 
 /// Writes `schema` to the working directory's file of it.
-pub fn save_schema(schema: &shapecraft_cad_part::Schema) -> anyhow::Result<()> {
-    let path = shapecraft_cad_part::SCHEMA_FILE;
+pub fn save_schema(schema: &workpiece_part::Schema) -> anyhow::Result<()> {
+    let path = workpiece_part::SCHEMA_FILE;
     files::write(path, schema.to_text()?).map_err(|e| anyhow::anyhow!("writing {path}: {e}"))
 }
 
 /// The file of the user's settings: in the user's configuration directory
-/// (`$SHAPECRAFT_CONFIG_DIR` if that is set, which tests and trials use).
+/// (`$WORKPIECE_CONFIG_DIR` if that is set, which tests and trials use).
 #[cfg(not(target_arch = "wasm32"))]
 fn settings_file() -> Option<std::path::PathBuf> {
     let var = |name: &str| std::env::var_os(name).filter(|v| !v.is_empty());
-    let dir = if let Some(dir) = var("SHAPECRAFT_CONFIG_DIR") {
+    let dir = if let Some(dir) = var("WORKPIECE_CONFIG_DIR") {
         std::path::PathBuf::from(dir)
     } else if cfg!(target_os = "windows") {
-        std::path::PathBuf::from(var("APPDATA")?).join("shapecraft")
+        std::path::PathBuf::from(var("APPDATA")?).join("workpiece")
     } else if cfg!(target_os = "macos") {
         let home = std::path::PathBuf::from(var("HOME")?);
-        home.join("Library/Application Support/shapecraft")
+        home.join("Library/Application Support/workpiece")
     } else if let Some(xdg) = var("XDG_CONFIG_HOME") {
-        std::path::PathBuf::from(xdg).join("shapecraft")
+        std::path::PathBuf::from(xdg).join("workpiece")
     } else {
-        std::path::PathBuf::from(var("HOME")?).join(".config/shapecraft")
+        std::path::PathBuf::from(var("HOME")?).join(".config/workpiece")
     };
     Some(dir.join("settings.json"))
 }
@@ -164,12 +164,12 @@ fn write_settings_text(text: &str) -> anyhow::Result<()> {
 
 /// Where in a browser's local storage the settings are.
 #[cfg(target_arch = "wasm32")]
-const SETTINGS_KEY: &str = "shapecraft.settings";
+const SETTINGS_KEY: &str = "workpiece.settings";
 
 /// The settings the user's file has; those not in it are as they are by
 /// default.
-pub fn settings() -> shapecraft_cad_ui::model::Settings {
-    let mut settings = shapecraft_cad_ui::model::Settings::default();
+pub fn settings() -> workpiece_ui::model::Settings {
+    let mut settings = workpiece_ui::model::Settings::default();
     let json: Option<serde_json::Value> =
         settings_text().and_then(|t| serde_json::from_str(&t).ok());
     if let Some(on) = json
@@ -183,12 +183,12 @@ pub fn settings() -> shapecraft_cad_ui::model::Settings {
 }
 
 /// Writes `settings` to the user's file of them.
-pub fn save_settings(settings: &shapecraft_cad_ui::model::Settings) -> anyhow::Result<()> {
+pub fn save_settings(settings: &workpiece_ui::model::Settings) -> anyhow::Result<()> {
     let json = serde_json::json!({ "sketch_section": settings.sketch_section });
     write_settings_text(&serde_json::to_string_pretty(&json)?)
 }
 
-/// A name for a new part: `untitled.shapecraft`, or with the smallest number
+/// A name for a new part: `untitled.workpiece`, or with the smallest number
 /// from 2 that is neither in `workspace` nor on disk.
 pub fn untitled(workspace: &Workspace) -> String {
     let free = |name: &String| !workspace.parts.contains_key(name) && !files::exists(name);
@@ -204,7 +204,7 @@ pub fn with_extension(name: &str) -> String {
     if Path::new(name)
         .extension()
         .is_some_and(|e| e == PART_EXTENSION)
-        || shapecraft_cad_part::is_step(name)
+        || workpiece_part::is_step(name)
     {
         name.to_owned()
     } else {
@@ -223,7 +223,7 @@ pub fn load(path: &str, workspace: &Workspace) -> anyhow::Result<BTreeMap<String
         }
         // A STEP file is no part file: the workspace makes a part of
         // it, whose one step imports it.
-        if shapecraft_cad_part::is_step(&path) {
+        if workpiece_part::is_step(&path) {
             anyhow::ensure!(files::exists(&path), "no file {path}");
             continue;
         }
@@ -254,12 +254,12 @@ pub fn export(path: &str, bytes: impl AsRef<[u8]>) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_cad_part::AnyOperation;
-    use shapecraft_ops_instances::{AddPart, AddPartArgs};
+    use workpiece_ops_instances::{AddPart, AddPartArgs};
+    use workpiece_part::AnyOperation;
 
     #[test]
     fn parts_load_with_what_they_place() -> anyhow::Result<()> {
-        let dir = std::env::temp_dir().join(format!("shapecraft-files-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("workpiece-files-{}", std::process::id()));
         let path = |name: &str| dir.join(name).to_string_lossy().into_owned();
         let place = |part: String| -> AnyOperation {
             AddPart {
@@ -273,24 +273,24 @@ mod tests {
             }
             .into()
         };
-        save(&path("nut.shapecraft"), &Part::default())?;
+        save(&path("nut.workpiece"), &Part::default())?;
         save(
-            &path("bolt.shapecraft"),
+            &path("bolt.workpiece"),
             &Part {
-                program: vec![place(path("nut.shapecraft"))],
+                program: vec![place(path("nut.workpiece"))],
                 ..Default::default()
             },
         )?;
-        let loaded = load(&path("bolt.shapecraft"), &Workspace::default())?;
+        let loaded = load(&path("bolt.workpiece"), &Workspace::default())?;
         assert_eq!(loaded.len(), 2);
         // What the workspace has already is not read again.
         let mut ws = Workspace::default();
-        ws.parts.insert(path("nut.shapecraft"), Part::default());
-        assert_eq!(load(&path("bolt.shapecraft"), &ws)?.len(), 1);
-        assert!(load(&path("missing.shapecraft"), &ws).is_err());
+        ws.parts.insert(path("nut.workpiece"), Part::default());
+        assert_eq!(load(&path("bolt.workpiece"), &ws)?.len(), 1);
+        assert!(load(&path("missing.workpiece"), &ws).is_err());
         std::fs::remove_dir_all(&dir)?;
-        assert_eq!(with_extension("a"), "a.shapecraft");
-        assert_eq!(with_extension("a.shapecraft"), "a.shapecraft");
+        assert_eq!(with_extension("a"), "a.workpiece");
+        assert_eq!(with_extension("a.workpiece"), "a.workpiece");
         Ok(())
     }
 }

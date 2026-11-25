@@ -10,15 +10,16 @@
             "distance": null,
             "flip": false
           },
-          "part": "housing.shapecraft",
+          "part": "fork.workpiece",
           "variant": null
         },
-        "id": "housing"
+        "id": "fork"
       }
     },
     {
-      "StandardPart": {
+      "AddPart": {
         "args": {
+          "bodies": [],
           "hold": {
             "angle": null,
             "constraint": {
@@ -28,58 +29,24 @@
             "flip": true,
             "onto": {
               "instance": [
-                "housing"
+                "fork"
               ],
-              "snap": "FaceCentre",
+              "snap": "ArcCentre",
               "source": {
-                "Topology": "housing/side/e17"
+                "Topology": "block/edge[axle/side/e8+side/e11]"
               }
             },
             "with": {
-              "snap": "FaceCentre",
+              "snap": "ArcCentre",
               "source": {
-                "Topology": "bearing1/end"
+                "Topology": "pin/ring/p10"
               }
             }
           },
-          "kind": "Bearing",
-          "length": 20.0,
-          "size": "6204"
+          "part": "pin.workpiece",
+          "variant": null
         },
-        "id": "bearing1"
-      }
-    },
-    {
-      "StandardPart": {
-        "args": {
-          "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "housing"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "housing/side/e25"
-              }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "bearing2/end"
-              }
-            }
-          },
-          "kind": "Bearing",
-          "length": 20.0,
-          "size": "6204"
-        },
-        "id": "bearing2"
+        "id": "pin"
       }
     },
     {
@@ -93,119 +60,31 @@
             },
             "distance": null,
             "flip": true,
-            "onto": {
-              "instance": [
-                "bearing1"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "bearing1/end"
-              }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "shaft/side/e17"
-              }
-            }
-          },
-          "part": "shaft.shapecraft",
-          "variant": null
-        },
-        "id": "shaft"
-      }
-    },
-    {
-      "AddPart": {
-        "args": {
-          "bodies": [],
-          "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "housing"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "housing/side/e19"
-              }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "cover/start"
-              }
-            }
-          },
-          "part": "cover.shapecraft",
-          "variant": null
-        },
-        "id": "cover"
-      }
-    },
-    {
-      "StandardPart": {
-        "args": {
-          "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
             "offset": [
               0.0,
-              44.0,
-              0.0
+              0.0,
+              -7.0
             ],
             "onto": {
               "instance": [
-                "cover"
+                "fork"
               ],
-              "snap": "FaceCentre",
+              "snap": "ArcCentre",
               "source": {
-                "Topology": "cover/end"
+                "Topology": "block/edge[axle/side/e8+thick/f0/far]"
               }
             },
             "with": {
-              "snap": "FaceCentre",
+              "snap": "ArcCentre",
               "source": {
-                "Topology": "screw/head/start"
+                "Topology": "hub/ring/p7"
               }
             }
           },
-          "kind": "SocketScrew",
-          "length": 12.0,
-          "size": "M5"
+          "part": "wheel.workpiece",
+          "variant": null
         },
-        "id": "screw"
-      }
-    },
-    {
-      "PatternPart": {
-        "args": {
-          "count": 4,
-          "of": "screw",
-          "step": {
-            "rotation": [
-              0.0,
-              0.0,
-              -0.7071067811865475,
-              0.7071067811865476
-            ],
-            "translation": [
-              44.00000000000006,
-              -44.000000000000036,
-              0.0
-            ]
-          }
-        },
-        "id": "screws"
+        "id": "wheel"
       }
     },
     {
@@ -228,48 +107,7 @@
     {
       "Drawing": {
         "args": {
-          "balloons": [
-            {
-              "at": [
-                -62.0,
-                64.0
-              ],
-              "part": "screw",
-              "view": "secA"
-            },
-            {
-              "at": [
-                -30.0,
-                64.0
-              ],
-              "part": "bearing1",
-              "view": "secA"
-            },
-            {
-              "at": [
-                5.0,
-                64.0
-              ],
-              "part": "housing",
-              "view": "secA"
-            },
-            {
-              "at": [
-                80.0,
-                30.0
-              ],
-              "part": "shaft",
-              "view": "secA"
-            },
-            {
-              "at": [
-                -62.0,
-                -64.0
-              ],
-              "part": "cover",
-              "view": "secA"
-            }
-          ],
+          "auto_balloons": true,
           "block": [
             {
               "at": [
@@ -565,14 +403,6 @@
             "wide": null
           },
           "format": "A3",
-          "lines": [
-            {
-              "of": {
-                "Datum": "origin/y"
-              },
-              "view": "secA"
-            }
-          ],
           "name": "drawing",
           "notes": [],
           "numbers": {
@@ -598,31 +428,27 @@
           "views": [
             {
               "at": [
-                80.0,
+                90.0,
                 175.0
               ],
-              "id": "left",
+              "id": "right",
               "kind": {
                 "Base": {
-                  "side": "Left"
+                  "side": "Right"
                 }
               },
               "style": "HiddenRemoved"
             },
             {
               "at": [
-                205.0,
+                215.0,
                 175.0
-              ],
-              "caption_at": [
-                0.0,
-                -66.0
               ],
               "id": "secA",
               "kind": {
                 "Section": {
                   "letter": "A",
-                  "of": "left",
+                  "of": "right",
                   "section": "A",
                   "turn": 0.0
                 }
@@ -631,19 +457,15 @@
             },
             {
               "at": [
-                355.0,
+                335.0,
                 215.0
               ],
               "id": "iso",
               "kind": {
                 "Base": {
-                  "side": "IsometricFrontLeft"
+                  "side": "Isometric"
                 }
               },
-              "scale": [
-                1,
-                2
-              ],
               "style": "HiddenRemoved"
             }
           ]
@@ -653,6 +475,6 @@
     }
   ],
   "properties": {
-    "Title": "BEARING UNIT"
+    "Title": "CASTER"
   }
 }

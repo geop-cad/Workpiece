@@ -1,4 +1,4 @@
-use shapecraft_cad_part::Material;
+use workpiece_part::Material;
 
 use crate::{Model, Panel};
 
@@ -29,7 +29,7 @@ impl Materials {
             library: model.workspace.library.materials.clone(),
             of_part: part.and_then(|p| p.material.clone()),
             part: part.is_some(),
-            file: shapecraft_cad_part::LIBRARY_FILE,
+            file: workpiece_part::LIBRARY_FILE,
         })
     }
 }
@@ -39,7 +39,7 @@ impl Materials {
 #[derive(Debug, Clone, PartialEq)]
 pub struct PartProperties {
     /// The properties parts have, in order.
-    pub schema: Vec<shapecraft_cad_part::Property>,
+    pub schema: Vec<workpiece_part::Property>,
     /// What the focused part says of them itself, by name.
     pub said: std::collections::BTreeMap<String, String>,
     /// What is wrong with what it says: what it has to say and does
@@ -48,7 +48,7 @@ pub struct PartProperties {
     /// Whether a part is focused.
     pub part: bool,
     /// The unit of length the focused part's numbers are in.
-    pub unit: shapecraft_core::Unit,
+    pub unit: workpiece_core::Unit,
     /// The file the properties are kept in, in the working directory.
     pub file: &'static str,
 }
@@ -69,7 +69,7 @@ impl PartProperties {
             problems: part.map_or_else(Vec::new, |p| schema.problems(&p.properties)),
             part: part.is_some(),
             unit: model.unit(),
-            file: shapecraft_cad_part::SCHEMA_FILE,
+            file: workpiece_part::SCHEMA_FILE,
         })
     }
 }
@@ -78,7 +78,7 @@ impl PartProperties {
 #[derive(Debug, Clone, PartialEq)]
 pub struct SheetTemplates {
     /// The templates, in order.
-    pub templates: Vec<shapecraft_ops_drawing::Template>,
+    pub templates: Vec<workpiece_ops_drawing::Template>,
     /// The properties a cell of a title block can say: those every
     /// drawing has, and the parts' own.
     pub properties: Vec<String>,
@@ -99,7 +99,7 @@ impl SheetTemplates {
             templates: model.workspace.sheets.templates.clone(),
             properties: cell_properties(model),
             views: model.viewport.shown.world.views.keys().cloned().collect(),
-            file: shapecraft_ops_drawing::template::TEMPLATES_FILE,
+            file: workpiece_ops_drawing::template::TEMPLATES_FILE,
         })
     }
 }
@@ -107,7 +107,7 @@ impl SheetTemplates {
 /// The properties a cell of a title block can say.
 pub fn cell_properties(model: &Model) -> Vec<String> {
     let own = model.workspace.schema.properties.iter();
-    shapecraft_ops_drawing::template::BUILT_IN
+    workpiece_ops_drawing::template::BUILT_IN
         .iter()
         .map(|name| (*name).to_owned())
         .chain(own.map(|p| p.name.clone()))

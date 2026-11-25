@@ -1,12 +1,12 @@
-"""Rounds the edges shapecraft rounded with Open CASCADE, and compares what came out.
+"""Rounds the edges workpiece rounded with Open CASCADE, and compares what came out.
 
-    boolean-bench fillet-corpus DIR/shapecraft.tsv DIR/*.stp DIR/*.step
+    boolean-bench fillet-corpus DIR/workpiece.tsv DIR/*.stp DIR/*.step
     python3 rounds_occt.py DIR
 
-DIR holds the STEP files and shapecraft.tsv (a line an edge: where it is, the radius, the volume and
-area before and after). For each line the file is read, the edge nearest the point shapecraft named
+DIR holds the STEP files and workpiece.tsv (a line an edge: where it is, the radius, the volume and
+area before and after). For each line the file is read, the edge nearest the point workpiece named
 is found, and it is rounded with the same radius (BRepFilletAPI_MakeFillet), each in a process
-of its own. What the round changed, in volume and area, is held against what shapecraft's changed;
+of its own. What the round changed, in volume and area, is held against what workpiece's changed;
 DIR/compared.tsv has it edge by edge. Needs cadquery-ocp (found on sys.path, or in a "venv"
 folder beside this file). Run it where it cannot do harm: it executes a third-party kernel on
 files from the internet (README.md, "Rounds on public parts").
@@ -63,7 +63,7 @@ def all_solids(path):
 
 
 def find(solids, row):
-    """The solid and edge shapecraft means, and the scale of OCCT's lengths to shapecraft's (OCCT reads
+    """The solid and edge workpiece means, and the scale of OCCT's lengths to workpiece's (OCCT reads
     in millimetres whatever the file's unit is)."""
     for scale in (1.0, 25.4, 1000.0, 10.0, 1 / 25.4, 0.001):
         point = [float(row[k]) * scale for k in "xyz"]
@@ -126,7 +126,7 @@ def one(solids, row, result):
 
 
 def main():
-    rows = list(csv.DictReader(open(os.path.join(DIR, "shapecraft.tsv")), delimiter="\t"))
+    rows = list(csv.DictReader(open(os.path.join(DIR, "workpiece.tsv")), delimiter="\t"))
     solids = {}
     out = []
     for row in rows:
@@ -159,7 +159,7 @@ def main():
             result["occt"] = "crashed"
 
     # The comparison.
-    both = agree = only_shapecraft = only_occt = neither = chained = unmatched = 0
+    both = agree = only_workpiece = only_occt = neither = chained = unmatched = 0
     worst = []
     for r in out:
         g_ok, o_ok = r["status"] == "ok", r["occt"] == "ok"
@@ -179,7 +179,7 @@ def main():
             else:
                 worst.append((max(dv, da), r))
         elif g_ok:
-            only_shapecraft += 1
+            only_workpiece += 1
         elif o_ok:
             only_occt += 1
         else:
@@ -191,18 +191,18 @@ def main():
             f.write("\t".join(str(r.get(k, "")) for k in keys) + "\n")
     g_total = sum(r["status"] == "ok" for r in out)
     o_total = sum(r["occt"] == "ok" for r in out)
-    print(f"edges {len(out)}  shapecraft ok {g_total}  occt ok {o_total}")
+    print(f"edges {len(out)}  workpiece ok {g_total}  occt ok {o_total}")
     print(f"not matched {unmatched}  occt rounded a chain of edges {chained}")
-    single = both + only_shapecraft + only_occt + neither
-    print(f"single edges {single}: both ok {both} (agree within 0.1% {agree})  only shapecraft {only_shapecraft}  only occt {only_occt}  neither {neither}")
+    single = both + only_workpiece + only_occt + neither
+    print(f"single edges {single}: both ok {both} (agree within 0.1% {agree})  only workpiece {only_workpiece}  only occt {only_occt}  neither {neither}")
     ms = lambda key: sorted(float(r[key]) for r in out if r.get(key) not in ("", None))  # noqa: E731
     g_ms, o_ms = ms("ms"), ms("occt_ms")
-    print(f"median ms: shapecraft {g_ms[len(g_ms) // 2]:.0f}  occt {o_ms[len(o_ms) // 2]:.0f}")
+    print(f"median ms: workpiece {g_ms[len(g_ms) // 2]:.0f}  occt {o_ms[len(o_ms) // 2]:.0f}")
     for off, r in sorted(worst, key=lambda w: -w[0])[:10]:
         print(f"  differ {off:.3%}: {r['file']} edge {r['edge']}")
     for r in out:
         if r["status"] != "ok" and r["occt"] == "ok" and r["chain"] == 1:
-            print(f"  shapecraft refused: {r['file']} edge {r['edge']}: {r['why'][:150]}")
+            print(f"  workpiece refused: {r['file']} edge {r['edge']}: {r['why'][:150]}")
     for r in out:
         if r["occt"] not in ("ok", "edge not found") and r["status"] == "ok" and r["chain"] in ("", 1):
             print(f"  occt: {r['file']} edge {r['edge']}: {r['occt']}")

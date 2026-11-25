@@ -20,13 +20,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::Context;
 use glam::{Vec2, Vec3};
-use shapecraft_cad_part::{AnyEditState, Part, Workspace};
-use shapecraft_cad_rasterize::{Scene, handles};
-use shapecraft_core::ReferenceKind;
-use shapecraft_core::handles::{CanvasEvent, CanvasEventKind, Handle};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::{DatumPlane, ORIGIN, Visibility};
-use shapecraft_core::{Ray, Source, Widget, World};
+use workpiece_core::ReferenceKind;
+use workpiece_core::handles::{CanvasEvent, CanvasEventKind, Handle};
+use workpiece_core::math::Point3;
+use workpiece_core::world::{DatumPlane, ORIGIN, Visibility};
+use workpiece_core::{Ray, Source, Widget, World};
+use workpiece_part::{AnyEditState, Part, Workspace};
+use workpiece_rasterize::{Scene, handles};
 
 use crate::Message;
 use crate::edit::{self, Session};
@@ -40,7 +40,7 @@ use viewport::PointerAt;
 #[derive(Debug, Clone)]
 struct Pending {
     /// What stops it.
-    cancel: shapecraft_cad_part::Cancel,
+    cancel: workpiece_part::Cancel,
     /// Where what it made arrives.
     done: std::sync::Arc<std::sync::Mutex<std::sync::mpsc::Receiver<viewport::Shown>>>,
 }
@@ -116,7 +116,7 @@ pub struct Model {
     /// the cut that came with the sketch (to tell whether the user
     /// changed it since): the display is put back when the sketch is
     /// left.
-    sketch_section: Option<(display::Display, Option<shapecraft_core::world::Cutting>)>,
+    sketch_section: Option<(display::Display, Option<workpiece_core::world::Cutting>)>,
     /// Datums, bodies and sketches the user hid, as (part path, name).
     pub user_hidden: BTreeSet<(String, String)>,
     /// Datums the user showed although later steps use them (which hides
@@ -133,7 +133,7 @@ pub struct Model {
     /// part not in here was never saved.
     pub saved: BTreeMap<String, Part>,
     /// What builds the parts, and keeps what it built.
-    pub engine: shapecraft_cad_part::Engine,
+    pub engine: workpiece_part::Engine,
     /// Whether parts are built on the engine's threads, beside the
     /// interface, if the engine has any: what they make shows when
     /// [`poll`](Self::poll) finds it done.
@@ -141,7 +141,7 @@ pub struct Model {
     /// The build running beside the interface.
     pending: Option<Pending>,
     /// What is drawn of each world, kept while the world is the same.
-    pub scenes: std::sync::Arc<shapecraft_cad_rasterize::Scenes>,
+    pub scenes: std::sync::Arc<workpiece_rasterize::Scenes>,
     /// The viewport.
     pub viewport: Viewport,
     /// Undo and redo for the workspace.
@@ -167,7 +167,7 @@ pub struct Model {
     returning: Option<Returning>,
     /// What the views of sheets show, kept from one drawing of them to
     /// the next.
-    pub sheets_kept: shapecraft_ops_drawing::lay::Kept,
+    pub sheets_kept: workpiece_ops_drawing::lay::Kept,
     /// Whether the drawing that is edited shows what is missing on it
     /// as what it would be, and in which view (see
     /// [`Message::PreviewNotes`]).
@@ -191,7 +191,7 @@ pub struct Model {
 /// What a picture is traced from, kept by what tells it from another.
 #[derive(Default)]
 pub(crate) struct PictureKept(
-    pub(crate) std::sync::Mutex<Option<(u64, std::sync::Arc<shapecraft_render::Scene>)>>,
+    pub(crate) std::sync::Mutex<Option<(u64, std::sync::Arc<workpiece_render::Scene>)>>,
 );
 
 impl std::fmt::Debug for PictureKept {
@@ -362,7 +362,7 @@ impl Model {
                     "{note} is on the sheet already"
                 );
                 let placed = self.with_subject(|subject| {
-                    shapecraft_ops_drawing::lay::place(
+                    workpiece_ops_drawing::lay::place(
                         &sheet,
                         subject,
                         &self.sheets_kept,
@@ -373,7 +373,7 @@ impl Model {
                 let (view, by_itself) = placed
                     .flatten()
                     .with_context(|| format!("no view of the sheet sees {note} true"))?;
-                sheet.notes.push(shapecraft_ops_drawing::sheet::PlacedNote {
+                sheet.notes.push(workpiece_ops_drawing::sheet::PlacedNote {
                     note,
                     view,
                     at: at.unwrap_or(by_itself),
@@ -381,7 +381,7 @@ impl Model {
                     starts: [None; 2],
                     count: None,
                 });
-                let op = shapecraft_ops_drawing::Drawing {
+                let op = workpiece_ops_drawing::Drawing {
                     id: drawing.id,
                     args: sheet,
                 };
@@ -403,7 +403,7 @@ impl Model {
                     "the line of {} is on the view {view} already",
                     of.label()
                 );
-                sheet.lines.push(shapecraft_ops_drawing::sheet::SheetLine {
+                sheet.lines.push(workpiece_ops_drawing::sheet::SheetLine {
                     view: Some(view),
                     of,
                     ends: [0.0; 2],
@@ -413,7 +413,7 @@ impl Model {
                     label: None,
                     label_at: None,
                 });
-                let op = shapecraft_ops_drawing::Drawing {
+                let op = workpiece_ops_drawing::Drawing {
                     id: drawing.id,
                     args: sheet,
                 };
@@ -433,7 +433,7 @@ impl Model {
                 // (Kept where it is in the part itself, wherever the
                 // part is placed.)
                 let back = self.viewport.shown.pose.inverse();
-                let at = back.transform_point(shapecraft_core::math::Point3::from_array(at));
+                let at = back.transform_point(workpiece_core::math::Point3::from_array(at));
                 let key = (part.clone(), format!("note {name}"));
                 self.change(Some(key), |ws| {
                     let places = &mut ws.part_mut(&part)?.note_places;
@@ -639,9 +639,9 @@ impl Model {
                         id = part.fresh_id(&name);
                     }
                     part.program.push(
-                        shapecraft_ops_instances::AddPart {
+                        workpiece_ops_instances::AddPart {
                             id: id.clone(),
-                            args: shapecraft_ops_instances::AddPartArgs {
+                            args: workpiece_ops_instances::AddPartArgs {
                                 part: path.clone(),
                                 variant: None,
                                 hold: Default::default(),
@@ -711,7 +711,7 @@ impl Model {
                     *names = std::mem::take(names)
                         .into_iter()
                         .map(|(p, n)| {
-                            let mut source = shapecraft_core::Source::Datum(n);
+                            let mut source = workpiece_core::Source::Datum(n);
                             if p == part {
                                 source.rename(&id, &name);
                             }
@@ -1149,21 +1149,21 @@ impl Model {
 
     /// The drawing that is edited, if the step that is edited is one:
     /// the part it is of, and the step.
-    pub fn drawing(&self) -> Option<(String, shapecraft_ops_drawing::Drawing)> {
+    pub fn drawing(&self) -> Option<(String, workpiece_ops_drawing::Drawing)> {
         let part = self.focused_part()?;
         let step = self.editing.last()?;
         let op = self.workspace.part(&part).ok()?.operation(step)?;
-        let drawing = op.downcast_ref::<shapecraft_ops_drawing::Drawing>()?;
+        let drawing = op.downcast_ref::<workpiece_ops_drawing::Drawing>()?;
         Some((part, drawing.clone()))
     }
 
     /// The picture that is edited, if the step that is edited is one:
     /// the part it is of, and the step.
-    pub fn render(&self) -> Option<(String, shapecraft_ops_appearance::Render)> {
+    pub fn render(&self) -> Option<(String, workpiece_ops_appearance::Render)> {
         let part = self.focused_part()?;
         let step = self.editing.last()?;
         let op = self.workspace.part(&part).ok()?.operation(step)?;
-        let render = op.downcast_ref::<shapecraft_ops_appearance::Render>()?;
+        let render = op.downcast_ref::<workpiece_ops_appearance::Render>()?;
         Some((part, render.clone()))
     }
 
@@ -1199,7 +1199,7 @@ impl Model {
     /// from: the model as it shows, and what the part says of itself.
     pub fn with_subject<T>(
         &self,
-        with: impl FnOnce(&shapecraft_ops_drawing::lay::Subject<'_>) -> T,
+        with: impl FnOnce(&workpiece_ops_drawing::lay::Subject<'_>) -> T,
     ) -> Option<T> {
         let path = self.focused_part()?;
         let part = self.workspace.part(&path).ok()?;
@@ -1216,7 +1216,7 @@ impl Model {
             .iter()
             .map(|m| (m.name.clone(), m.density))
             .collect();
-        let subject = shapecraft_ops_drawing::lay::Subject {
+        let subject = workpiece_ops_drawing::lay::Subject {
             world: self.drawn(),
             unit: part.unit,
             material,
@@ -1334,7 +1334,7 @@ impl Model {
             scenes: self.scenes.clone(),
             ..Model::default()
         };
-        let cancel = shapecraft_cad_part::Cancel::new();
+        let cancel = workpiece_part::Cancel::new();
         let build = {
             let cancel = cancel.clone();
             move || {
@@ -1365,7 +1365,7 @@ impl Model {
                     // that broke is shown as that.
                     let shown = match under.run(build) {
                         Ok(shown) => shown,
-                        Err(shapecraft_core::Stopped::Cancelled) => return,
+                        Err(workpiece_core::Stopped::Cancelled) => return,
                         Err(broke) => viewport::Shown {
                             error: Some(format!("The part could not be shown: {broke}")),
                             ..Default::default()
@@ -1417,7 +1417,7 @@ impl Model {
     }
 
     /// The unit of length the focused part's numbers are in.
-    pub fn unit(&self) -> shapecraft_core::Unit {
+    pub fn unit(&self) -> workpiece_core::Unit {
         self.focused_part()
             .and_then(|part| self.workspace.part(&part).ok().map(|p| p.unit))
             .unwrap_or_default()
@@ -1501,7 +1501,7 @@ impl Model {
     /// the view looks from. What the user chose meanwhile (the cut put
     /// away, another one) stays until the sketch is left.
     fn cut_at_sketch(&mut self, plane: Option<&DatumPlane>) -> bool {
-        use shapecraft_core::world::Cutting;
+        use workpiece_core::world::Cutting;
         let Some(plane) = plane.filter(|_| self.settings.sketch_section) else {
             // Left: back to what it was, unless the sketch never cut.
             return match self.sketch_section.take() {
@@ -1610,12 +1610,12 @@ impl Model {
             };
             let local = pose.inverse();
             let camera = &self.viewport.camera;
-            let view = shapecraft_core::handles::SpaceView {
+            let view = workpiece_core::handles::SpaceView {
                 right: local.transform_vector(camera.right().as_dvec3()),
                 up: local.transform_vector(camera.up().as_dvec3()),
                 pixel: self.pixel(pose.transform_point(space.anchor)),
             };
-            let message = space.event(shapecraft_core::handles::SpaceEvent {
+            let message = space.event(workpiece_core::handles::SpaceEvent {
                 kind,
                 ray,
                 add,
@@ -1681,7 +1681,7 @@ impl Model {
     /// is, and where on it the pointer is. Connectors are picked in the
     /// world as it is with the edited step: a part just added is there
     /// to be pointed at.
-    fn picked(&self) -> Option<shapecraft_core::widgets::Picked> {
+    fn picked(&self) -> Option<workpiece_core::widgets::Picked> {
         let Candidate::Reference { instance, source } = self.viewport.hovered()? else {
             return None;
         };
@@ -1697,7 +1697,7 @@ impl Model {
             let inner = placed.world.clone();
             within = inner;
         }
-        Some(shapecraft_core::widgets::Picked {
+        Some(workpiece_core::widgets::Picked {
             instance: instance.clone(),
             source: source.clone(),
             at,
@@ -1707,7 +1707,7 @@ impl Model {
     }
 
     /// The connector field being picked, if one is.
-    fn connector_field(&self) -> Option<shapecraft_core::widgets::Scope> {
+    fn connector_field(&self) -> Option<workpiece_core::widgets::Scope> {
         let session = self.session()?;
         match edit::widget_at(&session.visualization.dialog, self.picking.as_ref()?)? {
             Widget::ConnectorInput(input) => Some(input.scope.clone()),
@@ -1717,14 +1717,14 @@ impl Model {
 
     /// The connector the pointer offers, while a joint's connector is
     /// being picked.
-    fn offered_anchor(&self) -> Option<shapecraft_ops_instances::Anchor> {
+    fn offered_anchor(&self) -> Option<workpiece_ops_instances::Anchor> {
         self.connector_field()?;
-        shapecraft_ops_instances::Anchor::picked(&self.picked()?)
+        workpiece_ops_instances::Anchor::picked(&self.picked()?)
     }
 
     /// The frame of the connector the pointer offers: where it is in
     /// the view.
-    fn offered_connector(&self) -> Option<shapecraft_core::Pose> {
+    fn offered_connector(&self) -> Option<workpiece_core::Pose> {
         let shown = &self.viewport.shown;
         let frame = self.offered_anchor()?.frame_in(&shown.world).ok()?;
         Some(shown.pose * frame)
@@ -1734,18 +1734,18 @@ impl Model {
     /// pointer offers: drawn faintly where its joint would bring it,
     /// before anything is picked. Nothing, unless the other connector of
     /// the joint is chosen already.
-    pub fn joint_preview(&self) -> shapecraft_cad_rasterize::Drawing {
-        let none = shapecraft_cad_rasterize::Drawing::default();
+    pub fn joint_preview(&self) -> workpiece_rasterize::Drawing {
+        let none = workpiece_rasterize::Drawing::default();
         let (Some(scope), Some(session)) = (self.connector_field(), self.session()) else {
             return none;
         };
         // (Of a part of the project, or one out of the standards.)
         let op = &session.op;
         let hold = op
-            .downcast_ref::<shapecraft_ops_instances::AddPart>()
+            .downcast_ref::<workpiece_ops_instances::AddPart>()
             .map(|add| &add.args.hold)
             .or_else(|| {
-                op.downcast_ref::<shapecraft_ops_standard::StandardPart>()
+                op.downcast_ref::<workpiece_ops_standard::StandardPart>()
                     .map(|standard| &standard.args.hold)
             });
         let (Some(hold), Some(offered)) = (hold, self.offered_anchor()) else {
@@ -1757,7 +1757,7 @@ impl Model {
         };
         // The connector on the assembly, and the one on the part (told
         // from inside it): one of them chosen, the other offered.
-        let on_part = matches!(scope, shapecraft_core::widgets::Scope::Inside(_));
+        let on_part = matches!(scope, workpiece_core::widgets::Scope::Inside(_));
         let (onto, own) = if on_part {
             (hold.onto.clone(), Some(offered.inside()))
         } else {
@@ -1773,7 +1773,7 @@ impl Model {
         self.scenes.draw(
             &placed.world,
             pose,
-            shapecraft_cad_rasterize::Style::Ghost,
+            workpiece_rasterize::Style::Ghost,
             &Visibility::placed(&placed.world, &self.workspace.library.shades()),
         )
     }
@@ -1781,16 +1781,16 @@ impl Model {
     /// Draws the frame `pose` in `scene`, the same size on screen
     /// wherever it is: its origin, and its axes in their colours, z the
     /// longest.
-    fn draw_connector(&self, scene: &mut Scene, pose: &shapecraft_core::Pose) {
-        use shapecraft_cad_rasterize::palette;
+    fn draw_connector(&self, scene: &mut Scene, pose: &workpiece_core::Pose) {
+        use workpiece_rasterize::palette;
         let o = pose.translation();
         let pixel = self.pixel(o);
         for (axis, color, reach) in [
-            (shapecraft_core::Axis::X, palette::X, 26.0),
-            (shapecraft_core::Axis::Y, palette::Y, 26.0),
-            (shapecraft_core::Axis::Z, palette::Z, 44.0),
+            (workpiece_core::Axis::X, palette::X, 26.0),
+            (workpiece_core::Axis::Y, palette::Y, 26.0),
+            (workpiece_core::Axis::Z, palette::Z, 44.0),
         ] {
-            scene.front.lines.push(shapecraft_cad_rasterize::Line {
+            scene.front.lines.push(workpiece_rasterize::Line {
                 a: o.as_vec3(),
                 b: (o + pose.axis(axis) * (pixel * reach)).as_vec3(),
                 width: [3.0, 3.0],
@@ -1798,7 +1798,7 @@ impl Model {
                 pick: None,
             });
         }
-        scene.front.vertices.push(shapecraft_cad_rasterize::Vertex {
+        scene.front.vertices.push(workpiece_rasterize::Vertex {
             position: o.as_vec3(),
             size: 11.0,
             color: palette::HANDLE_HOVER,
@@ -1832,13 +1832,13 @@ impl Model {
                 lines.extend(profile.edges.iter().map(|e| {
                     let points = e.curve.polyline(e.t0, e.t1);
                     let place =
-                        |p: &shapecraft_core::math::Point2| pose.transform_point(p.extend(0.0));
+                        |p: &workpiece_core::math::Point2| pose.transform_point(p.extend(0.0));
                     points.iter().map(place).collect()
                 }));
             }
             Source::Topology(name) => {
                 let topo = &world.topo;
-                let Some(body) = topo.resolve::<shapecraft_core::world::topo::BodyId>(name) else {
+                let Some(body) = topo.resolve::<workpiece_core::world::topo::BodyId>(name) else {
                     // An edge or a face picked in the world before the
                     // step is drawn from there: what shows is the world
                     // with the step, where it may be gone (an edge its
@@ -1848,7 +1848,7 @@ impl Model {
                         self.draw_outline(
                             scene,
                             &lines,
-                            shapecraft_cad_rasterize::palette::HANDLE_HOVER,
+                            workpiece_rasterize::palette::HANDLE_HOVER,
                         );
                     }
                     return;
@@ -1862,7 +1862,7 @@ impl Model {
                         .collect(),
                     ..Visibility::default()
                 };
-                let shown = shapecraft_core::world::visibility::shown_topology(topo, &hide_others);
+                let shown = workpiece_core::world::visibility::shown_topology(topo, &hide_others);
                 let of_body: BTreeSet<_> = topo
                     .body_faces(body)
                     .unwrap_or_default()
@@ -1872,7 +1872,7 @@ impl Model {
                     .filter_map(|&l| topo.loop_(l))
                     .flat_map(|l| &l.coedges)
                     .filter_map(|&c| match topo.coedge(c)?.kind {
-                        shapecraft_core::world::topo::CoedgeKind::Edge { edge, .. } => Some(edge),
+                        workpiece_core::world::topo::CoedgeKind::Edge { edge, .. } => Some(edge),
                         _ => None,
                     })
                     .collect();
@@ -1887,11 +1887,7 @@ impl Model {
             }
             _ => return,
         }
-        self.draw_outline(
-            scene,
-            &lines,
-            shapecraft_cad_rasterize::palette::HANDLE_HOVER,
-        );
+        self.draw_outline(scene, &lines, workpiece_rasterize::palette::HANDLE_HOVER);
     }
 
     /// Draws `lines` (in the focused part's coordinates) over the scene.
@@ -1899,7 +1895,7 @@ impl Model {
         let pose = self.viewport.shown.pose;
         let at = |p: Point3| pose.transform_point(p).as_vec3();
         for pair in lines.iter().flat_map(|points| points.windows(2)) {
-            scene.lines.lines.push(shapecraft_cad_rasterize::Line {
+            scene.lines.lines.push(workpiece_rasterize::Line {
                 a: at(pair[0]),
                 b: at(pair[1]),
                 width: [3.2; 2],
@@ -1928,7 +1924,7 @@ impl Model {
             .filter(|s| s.instance().is_none())
             .flat_map(|s| outline_of(world, s.name()))
             .collect();
-        self.draw_outline(scene, &lines, shapecraft_cad_rasterize::palette::SELECTION);
+        self.draw_outline(scene, &lines, workpiece_rasterize::palette::SELECTION);
     }
 
     // ---- the viewport ---------------------------------------------------
@@ -2163,24 +2159,24 @@ impl Model {
             pose = pose * placed.pose;
             world = &placed.world;
         }
-        let drag = shapecraft_ops_instances::assembly::Drag {
+        let drag = workpiece_ops_instances::assembly::Drag {
             instance: moving.instance.clone(),
             local: moving.local,
             target: pose.inverse().transform_point(ray.at(t)),
         };
-        let solved = shapecraft_ops_instances::assembly::solve(world, Some(&drag));
+        let solved = workpiece_ops_instances::assembly::solve(world, Some(&drag));
         if solved.poses.is_empty() {
             return Ok(());
         }
         let key = ("move".to_owned(), moving.instance.clone());
         self.change(Some(key), |ws| {
             let part = ws.part_mut(&moving.part)?;
-            let put: BTreeMap<String, shapecraft_core::Pose> = solved
+            let put: BTreeMap<String, workpiece_core::Pose> = solved
                 .poses
                 .iter()
                 .map(|(name, pose)| (name.clone(), *pose))
                 .collect();
-            shapecraft_ops_instances::assembly::keep(&mut part.cache, &put);
+            workpiece_ops_instances::assembly::keep(&mut part.cache, &put);
             Ok(())
         })?;
         // At once: every step and every scene is kept, only where the
@@ -2396,7 +2392,7 @@ impl Model {
         };
         let step = step.clone();
         let id = self.workspace.part(&part)?.fresh_id("sketch");
-        let sketch = shapecraft_ops_sketch::Sketch::from_selection(
+        let sketch = workpiece_ops_sketch::Sketch::from_selection(
             &*id,
             &self.viewport.shown.before,
             &[plane],
@@ -2493,7 +2489,7 @@ impl Model {
 /// there in the world `after` it: a vertex at its place, an edge along
 /// its curve, a face or a body at all.
 fn still_there(before: &World, after: &World, name: &str) -> bool {
-    use shapecraft_core::world::topo::{EdgeId, VertexId};
+    use workpiece_core::world::topo::{EdgeId, VertexId};
     let (was, is) = (&before.topo, &after.topo);
     let size = |p: Point3| 1e-6 * (1.0 + p.length());
     if let Some(vertex) = was.resolve::<VertexId>(name).and_then(|v| was.vertex(v)) {
@@ -2539,7 +2535,7 @@ fn still_there(before: &World, after: &World, name: &str) -> bool {
 /// The edge called `name` in `world` as points along it, or the edges
 /// around the face called so; nothing of anything else.
 fn outline_of(world: &World, name: &str) -> Vec<Vec<Point3>> {
-    use shapecraft_core::world::topo::{CoedgeKind, EdgeId, FaceId};
+    use workpiece_core::world::topo::{CoedgeKind, EdgeId, FaceId};
     let topo = &world.topo;
     let along = |edge: EdgeId| {
         let edge = topo.edge(edge)?;

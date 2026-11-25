@@ -1,5 +1,5 @@
-use shapecraft_core::Hotkey;
-use shapecraft_core::widgets::Button;
+use workpiece_core::Hotkey;
+use workpiece_core::widgets::Button;
 
 use super::Icon;
 use crate::{Message, Model, Tab};
@@ -127,26 +127,26 @@ impl Ribbon {
         // sketch, a datum, a body — a tool started then takes it.
         if let Some([id]) = model.step.as_deref() {
             let made = if world.profiles.contains_key(id) {
-                Some(shapecraft_core::Source::Profile(id.clone()))
+                Some(workpiece_core::Source::Profile(id.clone()))
             } else if world.datums.contains_key(id) {
-                Some(shapecraft_core::Source::Datum(id.clone()))
+                Some(workpiece_core::Source::Datum(id.clone()))
             } else {
                 world
                     .topo
                     .body_called(id)
-                    .map(|_| shapecraft_core::Source::Topology(id.clone()))
+                    .map(|_| workpiece_core::Source::Topology(id.clone()))
             };
             selection.extend(made.filter(|source| !selection.contains(source)));
         }
         let fresh_id = |stem: &str| part.fresh_id(stem);
-        let context = shapecraft_core::ToolContext {
+        let context = workpiece_core::ToolContext {
             fresh_id: &fresh_id,
             world,
             unit: part.unit,
             selection: &selection,
         };
         let mut of_tab = Vec::new();
-        for told in shapecraft_cad_part::registry().tools() {
+        for told in workpiece_part::registry().tools() {
             if told.tab != model.tab.label() {
                 continue;
             }

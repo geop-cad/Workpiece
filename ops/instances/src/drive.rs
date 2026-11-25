@@ -1,11 +1,11 @@
 //! The [`Drive`] operation: a joint held at a place along its travel.
 
 use anyhow::Context;
-use shapecraft_core::{Builder, EditContext, Measure, Operation};
+use workpiece_core::{Builder, EditContext, Measure, Operation};
 
 /// The joint, and where it is held.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct DriveArgs {
     /// The joint: the name of the step that made it.
@@ -81,10 +81,10 @@ impl Operation for Drive {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: what it makes is put in by the
         // builder.)
-        let mut out = shapecraft_boolean::Out::default();
+        let mut out = workpiece_boolean::Out::default();
         let name = self
             .args
             .joint

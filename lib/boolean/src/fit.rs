@@ -2,9 +2,9 @@
 //! edge in a face's (u, v), and what both need — where a point of space
 //! is on a surface, and which way in (u, v) a direction of space goes.
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::nurbs::{ControlPoint, NurbsCurve};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::nurbs::{ControlPoint, NurbsCurve};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
 
 use crate::solve::{At, Over, closest};
 

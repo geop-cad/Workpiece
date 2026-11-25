@@ -10,8 +10,8 @@
 use std::collections::BTreeMap;
 use std::f64::consts::{FRAC_PI_2, TAU};
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::{Cutting, Thread};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::{Cutting, Thread};
 
 use super::{Laid, Pen};
 use crate::sheet::Style;

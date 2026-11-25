@@ -10,7 +10,7 @@
             "distance": null,
             "flip": false
           },
-          "part": "body.shapecraft",
+          "part": "body.workpiece",
           "variant": null
         },
         "id": "body"
@@ -43,7 +43,7 @@
               }
             }
           },
-          "part": "jaw.shapecraft",
+          "part": "jaw.workpiece",
           "variant": null
         },
         "id": "jaw"
@@ -76,7 +76,7 @@
               }
             }
           },
-          "part": "screw.shapecraft",
+          "part": "screw.workpiece",
           "variant": null
         },
         "id": "screw"

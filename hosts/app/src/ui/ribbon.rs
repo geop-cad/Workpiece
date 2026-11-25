@@ -2,8 +2,8 @@
 //! the tools as icons with their names below.
 
 use eframe::egui;
-use shapecraft_cad_ui::Message;
-use shapecraft_cad_ui::view::{Icon, Ribbon, Tool};
+use workpiece_ui::Message;
+use workpiece_ui::view::{Icon, Ribbon, Tool};
 
 use super::tip;
 use crate::icons;

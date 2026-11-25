@@ -3,8 +3,8 @@
 
 use std::collections::BTreeSet;
 
-use shapecraft_core::handles::{SpaceShape, SpaceView, Tone};
-use shapecraft_core::math::Point3;
+use workpiece_core::handles::{SpaceShape, SpaceView, Tone};
+use workpiece_core::math::Point3;
 
 use crate::MeshArgs;
 use crate::ops;

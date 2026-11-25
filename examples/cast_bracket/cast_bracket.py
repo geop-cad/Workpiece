@@ -6,14 +6,14 @@ wall takes a Ø20 H7 bore; fillets round every inside corner so the casting flow
 """
 import os, sys
 try:
-    import shapecraft
+    import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from shapecraft import Part, profile, topo, view, projected, note, datum
+from workpiece import Part, profile, topo, view, projected, note, datum
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "cast_bracket.shapecraft")
-p = Part(material="Aluminium", title="CAST ANGLE BRACKET", file="cast_bracket.shapecraft")
+OUT = os.path.join(HERE, "cast_bracket.workpiece")
+p = Part(material="Aluminium", title="CAST ANGLE BRACKET", file="cast_bracket.workpiece")
 
 # The L, on ZX (u = z, v = x): a base 70 long and 12 thick, a wall 10 thick and 80 high.
 s = p.sketch("ZX", id="l_profile", show_in="right")

@@ -1,7 +1,7 @@
 //! Following step paths through placed parts.
 
-use shapecraft_cad_part::Workspace;
-use shapecraft_core::Pose;
+use workpiece_core::Pose;
+use workpiece_part::Workspace;
 
 /// A step of a part: `steps` operations of the part at `part` came before
 /// it.
@@ -15,7 +15,7 @@ pub struct Context {
     pub pose: Pose,
 }
 
-/// Where a path of [`AddPart`](shapecraft_ops_instances::AddPart) steps leads.
+/// Where a path of [`AddPart`](workpiece_ops_instances::AddPart) steps leads.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Located {
     /// The placed part's path in the workspace.
@@ -54,7 +54,7 @@ pub fn locate(workspace: &Workspace, active: &str, path: &[String]) -> anyhow::R
             pose: located.pose,
         });
         // Where the part is: where its joints or a drag left it.
-        let placed = shapecraft_ops_instances::assembly::placed(&part.cache, id);
+        let placed = workpiece_ops_instances::assembly::placed(&part.cache, id);
         located.pose = located.pose * placed;
         located.part = placed_part.to_owned();
         located.variant = placed_variant.map(str::to_owned);

@@ -1,8 +1,8 @@
 //! Quick checks of what is made here from solids alone. The thorough
 //! ones are the conformance suite's (`bench/conformance`).
 
-use shapecraft_boolean::{Solid, block, measure};
-use shapecraft_core::math::Point3;
+use workpiece_boolean::{Solid, block, measure};
+use workpiece_core::math::Point3;
 
 use crate::blend::Shape;
 
@@ -45,11 +45,11 @@ fn chamfers_of_three_sizes_meet_at_a_corner() -> anyhow::Result<()> {
     let volume = measure(&made).volume;
     assert!(all_at(2.0) < volume && volume < all_at(1.0), "{volume}");
     // Away from the corner each edge is cut by its own size.
-    let placer = shapecraft_boolean::Placer::new(&made);
+    let placer = workpiece_boolean::Placer::new(&made);
     let side = |p: [f64; 3]| placer.side(Point3::from_array(p), 1e-9);
-    assert_eq!(side([5.0, 11.4, 8.4]), Some(shapecraft_boolean::Side::In));
-    assert_eq!(side([5.0, 11.6, 8.6]), Some(shapecraft_boolean::Side::Out));
-    assert_eq!(side([9.1, 11.1, 4.0]), Some(shapecraft_boolean::Side::Out));
+    assert_eq!(side([5.0, 11.4, 8.4]), Some(workpiece_boolean::Side::In));
+    assert_eq!(side([5.0, 11.6, 8.6]), Some(workpiece_boolean::Side::Out));
+    assert_eq!(side([9.1, 11.1, 4.0]), Some(workpiece_boolean::Side::Out));
     // One too wide for its face is refused.
     blends[0].1 = Shape::Chamfer {
         first: 30.0,
@@ -68,7 +68,7 @@ fn a_side_turned_about_its_lower_edge_leans() -> anyhow::Result<()> {
         [4.0, 3.0, 2.0],
     )?;
     let side = (0..solid.faces.len())
-        .find(|&f| shapecraft_boolean::lies_on(&solid, f, Point3::new(4.0, 1.5, 1.0), 1e-9))
+        .find(|&f| workpiece_boolean::lies_on(&solid, f, Point3::new(4.0, 1.5, 1.0), 1e-9))
         .expect("the side");
     // About the edge along y through (4, 0, 0), its top inwards by one.
     let (sin, cos) = (0.5_f64).atan().sin_cos();
@@ -213,7 +213,7 @@ fn edges_that_lean_are_rounded_past_where_their_faces_end() -> anyhow::Result<()
     .into_iter()
     .map(|p| {
         (0..solid.faces.len())
-            .find(|&f| shapecraft_boolean::lies_on(&solid, f, p, 1e-9))
+            .find(|&f| workpiece_boolean::lies_on(&solid, f, p, 1e-9))
             .expect("a side")
     })
     .collect();
@@ -251,7 +251,7 @@ fn edges_that_lean_are_rounded_past_where_their_faces_end() -> anyhow::Result<()
 
 #[test]
 fn the_walls_of_a_shell_meet_sharply_inside_an_inside_edge() -> anyhow::Result<()> {
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     // A flange 6 × 5 × 1 with a house 4 × 3 × 2 on it, hollowed from
     // below to walls 3/8 thick: the hollow is two boxes, sharp where
     // the house's walls meet the flange's top from inside.
@@ -265,7 +265,7 @@ fn the_walls_of_a_shell_meet_sharply_inside_an_inside_edge() -> anyhow::Result<(
     let house = block("house", Point3::new(-2.0, -1.5, 1.0), axes, [4.0, 3.0, 2.0])?;
     let solid = combine(Op::Union, &flange, &house)?.solid;
     let bottom = (0..solid.faces.len())
-        .find(|&f| shapecraft_boolean::lies_on(&solid, f, Point3::ZERO, 1e-9))
+        .find(|&f| workpiece_boolean::lies_on(&solid, f, Point3::ZERO, 1e-9))
         .expect("the bottom");
     let t = 0.375;
     let hollow = crate::thick::shelled(&solid, t, &[bottom])?;
@@ -282,7 +282,7 @@ fn a_sweep_asks_for_no_section_past_its_ends() -> anyhow::Result<()> {
     // some ends (1.6, 2.7, 62.9959390278628): a section asked for there is
     // past the end, where a blend runs on past its edge's end rather
     // than ends at it.
-    let line = shapecraft_core::world::topo::Curve3::line(Point3::ZERO, Point3::X)?;
+    let line = workpiece_core::world::topo::Curve3::line(Point3::ZERO, Point3::X)?;
     for to in [1.6, 2.7, 62.995_939_027_862_8] {
         let mut flat = |t: f64| -> anyhow::Result<Vec<[f64; 4]>> {
             anyhow::ensure!((0.0..=to).contains(&t), "asked for {t}, past {to}");

@@ -6,14 +6,14 @@ twice), and the outer top edges chamfered. A section through the ports shows the
 """
 import os, sys
 try:
-    import shapecraft
+    import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from shapecraft import Part, axis, note, view, section_view, topo
+from workpiece import Part, axis, note, view, section_view, topo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "manifold_block.shapecraft")
-p = Part(material="Aluminium", title="MANIFOLD BLOCK", file="manifold_block.shapecraft")
+OUT = os.path.join(HERE, "manifold_block.workpiece")
+p = Part(material="Aluminium", title="MANIFOLD BLOCK", file="manifold_block.workpiece")
 
 # The block: 90 long (y), 60 deep (x), 50 high, standing on the origin.
 b = p.sketch("XY", id="block_outline", show_in="top")

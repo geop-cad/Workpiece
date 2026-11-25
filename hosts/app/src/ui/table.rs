@@ -3,10 +3,10 @@
 //! part's own value.
 
 use eframe::egui;
-use shapecraft_cad_part::{Parameter, Variant};
-use shapecraft_cad_ui::Message;
-use shapecraft_cad_ui::view::Table;
-use shapecraft_core::{Hotkey, Measure};
+use workpiece_core::{Hotkey, Measure};
+use workpiece_part::{Parameter, Variant};
+use workpiece_ui::Message;
+use workpiece_ui::view::Table;
 
 use super::tip;
 use crate::icons;

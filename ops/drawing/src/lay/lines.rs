@@ -8,8 +8,8 @@
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, OnceLock};
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::{Datum, World};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::{Datum, World};
 
 use super::views::Placed;
 use super::{Laid, LaidNote, Pen, Placing, Text};
@@ -103,10 +103,10 @@ fn circle_of(run: &[Point3]) -> Option<(Point3, Point3, f64, f64)> {
 fn find_rounds(world: &World) -> Vec<Round> {
     let mut faces: Vec<(String, Point3, Point3, f64, f64, f64, bool)> = Vec::new();
     for (id, body) in world.topo.bodies().iter() {
-        if body.kind != shapecraft_core::world::topo::BodyKind::Solid {
+        if body.kind != workpiece_core::world::topo::BodyKind::Solid {
             continue;
         }
-        let Ok(solid) = shapecraft_boolean::read(&world.topo, id) else {
+        let Ok(solid) = workpiece_boolean::read(&world.topo, id) else {
             continue;
         };
         for face in &solid.faces {
@@ -116,7 +116,7 @@ fn find_rounds(world: &World) -> Vec<Round> {
             let mut circles = Vec::new();
             let mut points = Vec::new();
             for step in face.loops.iter().flatten() {
-                let shapecraft_boolean::model::Walk::Edge { edge, .. } = step.walk else {
+                let workpiece_boolean::model::Walk::Edge { edge, .. } = step.walk else {
                     continue;
                 };
                 let edge = &solid.edges[edge];

@@ -20,7 +20,7 @@ pub enum Icon {
 
 impl Icon {
     /// The icon of an operation.
-    pub fn of(op: &shapecraft_cad_part::AnyOperation) -> Self {
+    pub fn of(op: &workpiece_part::AnyOperation) -> Self {
         // (As its kind was told of by the crate that has it.)
         Icon::Named(op.icon())
     }

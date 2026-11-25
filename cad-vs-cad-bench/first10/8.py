@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
-from shapecraft import *
-from shapecraft import view, projected
+from workpiece import *
+from workpiece import view, projected
 here = os.path.dirname(os.path.abspath(__file__))
 material(here, "Plain carbon steel", 7800)   # the drawing's density
 p = Part(unit="Millimetre", material="Plain carbon steel")
@@ -28,7 +28,7 @@ p.on_sheet("plate", show_in="front")
 p.hole(s, 12, kind="Counterbore", head=20, head_depth=8, id="mount_holes")
 
 # Lug A (bore 25): a 28 wide stem into R23 round, on the plane 12 in from the plate's left end.
-r = p.build("8.shapecraft")
+r = p.build("8.workpiece")
 end_a = r.faces(where=lambda f: f["flat"] and f["name"].startswith("plate/side") and f["normal"][0] < -0.99)[0]
 end_b = r.faces(where=lambda f: f["flat"] and f["name"].startswith("plate/side") and f["normal"][0] > 0.99)[0]
 xa = p.plane(topo(end_a), -12, id="lug_a_plane")
@@ -59,7 +59,7 @@ p.extrude(b, 15, flip=True, id="lug_b")
 p.on_sheet("lug_b", show_in="front")
 
 # Rib between the lugs: 8 wide at its top (z = 42), 8 degrees of draft each side down to the plate.
-r = p.build("8.shapecraft")
+r = p.build("8.workpiece")
 inner_a = r.faces(near=(-29, 0, 40), where=lambda f: f["flat"] and f["name"].startswith("lug_a"))[0]
 inner_b = r.faces(near=(29, 0, 40), where=lambda f: f["flat"] and f["name"].startswith("lug_b"))[0]
 rib_plane = p.plane(topo(inner_a), 0, id="rib_plane")
@@ -77,7 +77,7 @@ cv = g.line(M, N, construction=True); g.vertical(cv)
 g.angle(cv, lrt, 8, at=(28, -64)); g.angle(llt, cv, 8, at=(2, -64))
 p.op("Extrude", "rib", id="rib", sketch=profile(g), extent="ToFace", up_to=topo(inner_b), combine="Join")
 p.on_sheet("rib", on_drawing=False)
-r = p.build("8.shapecraft")
+r = p.build("8.workpiece")
 rib_top = r.edges(where=lambda e: e["name"].startswith("rib/start") and e["straight"] and abs(e["to"][2] - e["from"][2]) < 1e-6)[0]
 rib_foot = r.edges(where=lambda e: e["name"].startswith("rib/along") and abs(e["from"][2] - 15) < 1e-6)
 p.dimension(rib_top, show_in="plan", at=(-12, -26), id="rib_top")
@@ -94,4 +94,4 @@ p.drawing(format="A2", scale=(1, 1), views=[view("front", "Left", (300, 125), st
           comma=False, notes=[note(None, (0, 0), "C'BORE", dimension="cbore_depth"),
                               note(None, (0, 0), "RIB AT TOP", dimension="rib_top"), note(None, (0, 0), "RIB AT BOTTOM", dimension="rib_bottom"),
                               note("iso2", (-40, -62), "C'BORES ARE CONCENTRIC TO FILLETS", to=(-40, 35, 15))])
-r = p.build("8.shapecraft", render=True); r.show(); print(r.mass(7.8e-3))
+r = p.build("8.workpiece", render=True); r.show(); print(r.mass(7.8e-3))

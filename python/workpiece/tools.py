@@ -1,10 +1,10 @@
-"""The helper commands beside the layer: `python -m shapecraft.tools help|sheet|crop|tile`
-(or the console script `shapecraft-tools`).
+"""The helper commands beside the layer: `python -m workpiece.tools help|sheet|crop|tile`
+(or the console script `workpiece-tools`).
 
-    python -m shapecraft.tools help [topic]     one section of the README (no topic: the topics)
-    python -m shapecraft.tools sheet part.shapecraft
-    python -m shapecraft.tools crop sheet.pdf X Y W H -o out.png
-    python -m shapecraft.tools tile picture.png --grid 3x2 -o tiles
+    python -m workpiece.tools help [topic]     one section of the README (no topic: the topics)
+    python -m workpiece.tools sheet part.workpiece
+    python -m workpiece.tools crop sheet.pdf X Y W H -o out.png
+    python -m workpiece.tools tile picture.png --grid 3x2 -o tiles
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ def help_topic(topic: str | None = None) -> str:
     text = _bin.readme()
     lines, sections = text.splitlines(), _sections(text)
     if not topic:
-        return "topics (python -m shapecraft.tools help <topic>):\n" + "\n".join(
+        return "topics (python -m workpiece.tools help <topic>):\n" + "\n".join(
             f"{'  ' * (lv - 2)}{slug}  - {title}" for lv, title, slug, _, _ in sections)
     want = _slug(topic)
     hit = next((s for s in sections if s[2] == want), None) or next((s for s in sections if s[2].startswith(want)), None) \
@@ -59,7 +59,7 @@ def help_topic(topic: str | None = None) -> str:
 
 def main(argv: list) -> int:
     import argparse
-    ap = argparse.ArgumentParser(prog="python -m shapecraft.tools", description="Helpers beside the layer.")
+    ap = argparse.ArgumentParser(prog="python -m workpiece.tools", description="Helpers beside the layer.")
     sub = ap.add_subparsers(dest="command", required=True)
     h = sub.add_parser("help", help="print one section of README.md (no topic: list the topics)")
     h.add_argument("topic", nargs="?")

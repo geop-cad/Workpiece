@@ -1,4 +1,4 @@
-# ShapeCraft on brep-conformance
+# Workpiece on brep-conformance
 
 [brep-conformance](https://github.com/springcraft-ai/brep-conformance) is a kernel-neutral suite
 published with the kernel [springrep](https://github.com/springcraft-ai/springrep). It drives a kernel
@@ -6,7 +6,7 @@ through an adapter (one JSON request per line on stdin, one reply per line on st
 case at 1e-7 mm, and again at 1e-6, 1e-5 and 1e-3 mm. A kernel's headline is the share of all cases it
 passes at 1e-7 mm; cases it does not support count against it.
 
-This folder holds ShapeCraft's adapter (`src/`, the binary `shapecraft-adapter`) and the scripts that
+This folder holds Workpiece's adapter (`src/`, the binary `workpiece-adapter`) and the scripts that
 build and run the suite in a sandbox. How the results compare with other kernels' is in
 [`docs/benchmarks`](../../docs/benchmarks/README.md).
 
@@ -15,27 +15,27 @@ build and run the suite in a sandbox. How the results compare with other kernels
 The suite's rule is that an adapter answers each function with the kernel's one call for it and adds
 nothing: no composing of functions, no retries, no repair, no thresholds. A function without such a call
 is left out of `supports`, and its cases count as unsupported. The suite's maintainers run kernels they
-have registered, with adapters they review; ShapeCraft is not registered, so a run here is
+have registered, with adapters they review; Workpiece is not registered, so a run here is
 self-scored and its adapter has not been reviewed by them.
 
 What the adapter calls:
 
-| Function | ShapeCraft's call |
+| Function | Workpiece's call |
 |---|---|
 | `box`, `cylinder`, `sphere`, `torus`, `cone`, `slab` | The operations `AddBox`, `AddCylinder`, `AddSphere`, `AddTorus`, `AddCone`; `slab` is built in `src/main.rs` |
 | `extrude`, `revolve` | A `Sketch` of the profile, then `Extrude` or `Revolve` |
 | `screw` | A `Sketch`, then `SweptLoft` as a coil |
-| `loft`, `loft_through`, `sweep`, `sweep_path` | `shapecraft_shape::swept::through_sections`, `along_path` |
-| `union`, `intersection`, `difference`, `union_all`, `difference_all` | `shapecraft_boolean::combine`, `combine_all` |
-| `fillet`, `fillet_variable`, `fillet_conic`, `fillet_g2`, `fillet_setback`(+`_g2`), `fillet_radii`, `fillet_faces`, `full_round`, `chamfer`, `chamfer_two`, `chamfer_distances` | `shapecraft_shape::blend_chains`, `blend_solid` and the blend library's variants; corners closed |
+| `loft`, `loft_through`, `sweep`, `sweep_path` | `workpiece_shape::swept::through_sections`, `along_path` |
+| `union`, `intersection`, `difference`, `union_all`, `difference_all` | `workpiece_boolean::combine`, `combine_all` |
+| `fillet`, `fillet_variable`, `fillet_conic`, `fillet_g2`, `fillet_setback`(+`_g2`), `fillet_radii`, `fillet_faces`, `full_round`, `chamfer`, `chamfer_two`, `chamfer_distances` | `workpiece_shape::blend_chains`, `blend_solid` and the blend library's variants; corners closed |
 | `offset`, `shell`, `offset_faces`, `move_faces`, `thicken`, `draft` | `thick::thickened`, `faces_offset`, `faces_moved`, `thicken`, `drafted` |
-| `delete_faces` | `shapecraft_ops_faces::faces_deleted` |
-| `split`, `transform`, `affine` | `shapecraft_shape::halves`, `Solid::mapped`, `Solid::sheared` |
-| `write_step`, `read_step`, `sew` | `shapecraft_ops_step::export`, `import`, `import_sheets` with `shapecraft_boolean::stitched` |
-| `volume`, `area`, `centroid` | `shapecraft_boolean::measure` |
-| `classify`, `normal`, `closest`, `curvature`, `bounding_box`, `raycast` | `Placer` (`shapecraft_boolean::place`) |
-| `section`, `project`, `display`, `interference`, `distance` | `plane_section` and `shapecraft_shape::section`, `project`, `display`, `interference`, `distance` |
-| `check` | `shapecraft_boolean::write` into a fresh `Topo`, then `Topo::validate` |
+| `delete_faces` | `workpiece_ops_faces::faces_deleted` |
+| `split`, `transform`, `affine` | `workpiece_shape::halves`, `Solid::mapped`, `Solid::sheared` |
+| `write_step`, `read_step`, `sew` | `workpiece_ops_step::export`, `import`, `import_sheets` with `workpiece_boolean::stitched` |
+| `volume`, `area`, `centroid` | `workpiece_boolean::measure` |
+| `classify`, `normal`, `closest`, `curvature`, `bounding_box`, `raycast` | `Placer` (`workpiece_boolean::place`) |
+| `section`, `project`, `display`, `interference`, `distance` | `plane_section` and `workpiece_shape::section`, `project`, `display`, `interference`, `distance` |
+| `check` | `workpiece_boolean::write` into a fresh `Topo`, then `Topo::validate` |
 
 Not offered: `inertia`, `betti`, `section_area`, `mesh`.
 
@@ -43,7 +43,7 @@ Choices the adapter makes, within the rule:
 
 - **`hello` declares a tolerance of 1e-7 mm and no configuration.** The kernel's tolerances are relative to
   a solid's size; nothing is set.
-- **Every kernel error is answered as `failed`**, because ShapeCraft's errors do not say whether the input or
+- **Every kernel error is answered as `failed`**, because Workpiece's errors do not say whether the input or
   the kernel is at fault. Only the adapter's own "this point names no edge/face" is `invalid`.
 - **A point names an edge** through `geometry::on_curve` at 1e-6 mm, and a face through `lies_on` at 1e-6
   mm. A seam (an edge both of whose uses are by one face) is not counted as an edge, as the suite's own
@@ -64,26 +64,26 @@ Files:
 |---|---|
 | `build.sh` | Builds the adapter into `target/conformance` (`--head`: against the last commit) |
 | `sandbox.sh` | The `bwrap` line: no network, `/home` hidden, one folder writable |
-| `run.sh` | Runs the suite on `shapecraft` or `springrep` inside the sandbox |
+| `run.sh` | Runs the suite on `workpiece` or `springrep` inside the sandbox |
 | `summarize.py` | The tables, and the list of failing cases, from results files |
 
-Where things live: `SHAPECRAFT_BENCH_DIR` (default `~/.cache/shapecraft-bench`) holds the clones
+Where things live: `WORKPIECE_BENCH_DIR` (default `~/.cache/workpiece-bench`) holds the clones
 (`brep-conformance`, `brep-conformance-springrep`) and the sandbox `conformance-sandbox/` with the
 suite, springrep's adapter, the fetched crates and the results in `out/`. Nothing in it is part of the
 repository.
 
 ```sh
-# 1. ShapeCraft's adapter (our code, built outside the sandbox, into target/conformance)
+# 1. Workpiece's adapter (our code, built outside the sandbox, into target/conformance)
 bench/conformance/build.sh
 
 # 2. the whole suite, in the sandbox; about a minute with 14 workers
-OUT=shapecraft THREADS=14 bench/conformance/run.sh shapecraft
+OUT=workpiece THREADS=14 bench/conformance/run.sh workpiece
 #    one area: a test path, a directory, or a family's name
-OUT=try bench/conformance/run.sh shapecraft --family fillets/ --timeout 60
+OUT=try bench/conformance/run.sh workpiece --family fillets/ --timeout 60
 
 # 3. the tables and the failures
-python3 -I bench/conformance/summarize.py $SHAPECRAFT_BENCH_DIR/conformance-sandbox/out/shapecraft.json
-python3 -I bench/conformance/summarize.py --failures $SHAPECRAFT_BENCH_DIR/conformance-sandbox/out/shapecraft.json
+python3 -I bench/conformance/summarize.py $WORKPIECE_BENCH_DIR/conformance-sandbox/out/workpiece.json
+python3 -I bench/conformance/summarize.py --failures $WORKPIECE_BENCH_DIR/conformance-sandbox/out/workpiece.json
 
 # springrep (the maintainers' adapter, for comparison on this machine)
 bench/conformance/run.sh springrep
@@ -101,17 +101,17 @@ bwrap --unshare-all --die-with-parent \
   --ro-bind /etc/alternatives /etc/alternatives --ro-bind /etc/ld.so.cache /etc/ld.so.cache \
   --proc /proc --dev /dev --tmpfs /tmp --tmpfs /home --tmpfs /run \
   --ro-bind ~/.rustup/toolchains/1.99.1-x86_64-unknown-linux-gnu /toolchain \
-  --bind $SHAPECRAFT_BENCH_DIR/conformance-sandbox /work \
-  --ro-bind $SHAPECRAFT_BENCH_DIR/conformance-sandbox/cargo-home /work/cargo-home \
-  --ro-bind target/conformance/release /shapecraft-bin \
+  --bind $WORKPIECE_BENCH_DIR/conformance-sandbox /work \
+  --ro-bind $WORKPIECE_BENCH_DIR/conformance-sandbox/cargo-home /work/cargo-home \
+  --ro-bind target/conformance/release /workpiece-bin \
   --clearenv --setenv PATH /toolchain/bin:/usr/bin --setenv HOME /tmp \
   --setenv CARGO_HOME /work/cargo-home --setenv CARGO_NET_OFFLINE true --setenv LANG C.UTF-8 \
   --chdir /work \
   sh -c 'cd /work/out && exec /work/suite/target/release/brep-conformance \
-    --adapter /shapecraft-bin/shapecraft-adapter --threads 14 --out shapecraft.json --html shapecraft.html > shapecraft.log 2>&1'
+    --adapter /workpiece-bin/workpiece-adapter --threads 14 --out workpiece.json --html workpiece.html > workpiece.log 2>&1'
 ```
 
-The suite spawns the adapter, so ShapeCraft's adapter runs in the same sandbox, its binary mounted
+The suite spawns the adapter, so Workpiece's adapter runs in the same sandbox, its binary mounted
 read-only. `sandbox.sh` expects the Rust toolchain 1.99.1 in `~/.rustup/toolchains`; change `TC` in it
 for another.
 
@@ -121,8 +121,8 @@ The suite at the commit of its official 2.0.1 run, and springrep's adapter at th
 registry pinned for that run:
 
 ```sh
-export SHAPECRAFT_BENCH_DIR=$HOME/.cache/shapecraft-bench
-mkdir -p $SHAPECRAFT_BENCH_DIR && cd $SHAPECRAFT_BENCH_DIR
+export WORKPIECE_BENCH_DIR=$HOME/.cache/workpiece-bench
+mkdir -p $WORKPIECE_BENCH_DIR && cd $WORKPIECE_BENCH_DIR
 git clone https://github.com/springcraft-ai/brep-conformance
 git -C brep-conformance checkout dc7ac9ed1e588978767a45306f098f6f512f8bba
 git clone https://github.com/springcraft-ai/brep-conformance-springrep
@@ -175,7 +175,7 @@ built and run only inside the sandbox.
 ## Current results
 
 2026-11-25, suite 2.0.1 at commit `dc7ac9e` (3617 cases without the NIST ones, seed 1, 120 s per call, 14
-workers on a 32-thread AMD Ryzen 9 7950X shared with other jobs), ShapeCraft at `450425c` with
+workers on a 32-thread AMD Ryzen 9 7950X shared with other jobs), Workpiece at `450425c` with
 uncommitted changes. **All 3617 cases pass at 1e-7 mm; no failure, refusal, timeout or crash.** The
 whole run took 55 s and 68 s in two runs.
 

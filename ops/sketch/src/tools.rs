@@ -7,10 +7,10 @@
 //! far as the constraints allow, and a drag over nothing selects what is
 //! inside it.
 
-use shapecraft_core::Edit;
-use shapecraft_core::handles::{CanvasEvent, CanvasEventKind, CanvasView};
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::topo::nurbs::recognize::circumcenter;
+use workpiece_core::Edit;
+use workpiece_core::handles::{CanvasEvent, CanvasEventKind, CanvasView};
+use workpiece_core::math::Point2;
+use workpiece_core::world::topo::nurbs::recognize::circumcenter;
 
 use crate::geometry::{nearest_on_segment, sweep};
 use crate::model::{Id, Item, Kind, Shape, SketchArgs, SketchAxis};

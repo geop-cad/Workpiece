@@ -1,19 +1,19 @@
 //! [`AddCylinder`]: a cylinder standing on a frame.
 
 use anyhow::Context;
-use shapecraft_core::handles::LinearHandle;
-use shapecraft_core::math::{Axis, Point2, Point3};
-use shapecraft_core::widgets::VBox;
-use shapecraft_core::world::DatumFrame;
-use shapecraft_core::world::topo::{Curve3, NurbsSurface, Orientation};
-use shapecraft_core::{Builder, EditVisualization, Measure, Operation, Reference, World};
+use workpiece_core::handles::LinearHandle;
+use workpiece_core::math::{Axis, Point2, Point3};
+use workpiece_core::widgets::VBox;
+use workpiece_core::world::DatumFrame;
+use workpiece_core::world::topo::{Curve3, NurbsSurface, Orientation};
+use workpiece_core::{Builder, EditVisualization, Measure, Operation, Reference, World};
 
 use crate::brep::{SolidBuilder, circle, circle_knots, unit_circle};
 use crate::frame_handles;
 
 /// Where the cylinder goes and how big it is.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct AddCylinderArgs {
     /// The frame at the centre of the bottom; the cylinder rises along
@@ -70,7 +70,7 @@ impl Operation for AddCylinder {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let r = (*builder).measure(&self.args.radius, "the radius")?;
         let h = (*builder).measure(&self.args.height, "the height")?;
         frustum(builder, &self.id, &self.args.frame, r, r, h)
@@ -78,9 +78,9 @@ impl Operation for AddCylinder {
 
     fn visualize_edit(
         &self,
-        context: &shapecraft_core::EditContext<'_>,
+        context: &workpiece_core::EditContext<'_>,
         (): &(),
-    ) -> EditVisualization<shapecraft_core::Edit<AddCylinderArgs, ()>> {
+    ) -> EditVisualization<workpiece_core::Edit<AddCylinderArgs, ()>> {
         let world: &World = context.world;
         let args = self.args.clone();
         let with_radius = {
@@ -98,7 +98,7 @@ impl Operation for AddCylinder {
             }
         };
         // The fields the arguments give; the handles are its own.
-        let dialog = VBox::new(shapecraft_core::Arguments::fields(&self.args, context));
+        let dialog = VBox::new(workpiece_core::Arguments::fields(&self.args, context));
         // What a formula gives cannot be dragged.
         let handles = frame_handles(
             world,
@@ -120,7 +120,7 @@ impl Operation for AddCylinder {
                     .filter(|_| measure.is_plain())
             },
         );
-        EditVisualization::new(dialog, handles).map(shapecraft_core::Edit::args)
+        EditVisualization::new(dialog, handles).map(workpiece_core::Edit::args)
     }
 
     fn summary(&self) -> String {
@@ -129,7 +129,7 @@ impl Operation for AddCylinder {
             "r {} h {} on {}",
             op.args.radius,
             op.args.height,
-            shapecraft_core::reference::described(&op.args.frame)
+            workpiece_core::reference::described(&op.args.frame)
         )
     }
 }
@@ -144,7 +144,7 @@ pub(crate) fn frustum<'a>(
     r: f64,
     top: f64,
     h: f64,
-) -> anyhow::Result<shapecraft_core::Made<'a>> {
+) -> anyhow::Result<workpiece_core::Made<'a>> {
     anyhow::ensure!(r.is_finite() && r >= 0.0, "radius {r} is less than nothing");
     anyhow::ensure!(
         top.is_finite() && top >= 0.0,
@@ -166,11 +166,10 @@ pub(crate) fn frustum<'a>(
     let (pose, r, top) = if r > 0.0 {
         (pose, r, top)
     } else {
-        let over =
-            shapecraft_core::Pose::from_axes(Point3::new(0.0, 0.0, h), Point3::X, -Point3::Y);
+        let over = workpiece_core::Pose::from_axes(Point3::new(0.0, 0.0, h), Point3::X, -Point3::Y);
         (pose * over, top, 0.0)
     };
-    let shape = move |topo: &mut shapecraft_core::world::topo::Topo, name: &str| {
+    let shape = move |topo: &mut workpiece_core::world::topo::Topo, name: &str| {
         let mut solid = SolidBuilder::new(topo, name, pose)?;
         let (x, y) = (solid.turn(Point3::X), solid.turn(Point3::Y));
         let at = |z: f64| Point3::new(0.0, 0.0, z);
@@ -269,15 +268,15 @@ pub(crate) fn frustum<'a>(
         solid.solid(faces)?;
         Ok(())
     };
-    Ok(shapecraft_core::Made::body(id, shape))
+    Ok(workpiece_core::Made::body(id, shape))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::Standalone;
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::world::topo::FaceId;
+    use workpiece_core::Standalone;
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::world::topo::FaceId;
 
     #[test]
     fn cylinders_are_valid_named_solids() -> anyhow::Result<()> {
@@ -297,16 +296,16 @@ mod tests {
         // The top is a plane at the height, facing up.
         let top = b
             .world
-            .resolve(&Reference::<shapecraft_core::world::DatumPlane>::topology(
+            .resolve(&Reference::<workpiece_core::world::DatumPlane>::topology(
                 "pin/top",
             ))?;
         assert!(top.normal().abs_diff_eq(Point3::Z, 1e-12));
         assert!((top.origin().z - 1.0).abs() < 1e-12);
-        let bottom =
-            b.world
-                .resolve(&Reference::<shapecraft_core::world::DatumPlane>::topology(
-                    "pin/bottom",
-                ))?;
+        let bottom = b
+            .world
+            .resolve(&Reference::<workpiece_core::world::DatumPlane>::topology(
+                "pin/bottom",
+            ))?;
         assert!(bottom.normal().abs_diff_eq(-Point3::Z, 1e-12));
         assert!(topo.resolve::<FaceId>("pin/side").is_some());
         Ok(())

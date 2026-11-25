@@ -1,8 +1,8 @@
 import math, os, sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
-from shapecraft import Part, axis, topo, material, datum, view, projected, note
+from workpiece import Part, axis, topo, material, datum, view, projected, note
 here = os.path.dirname(os.path.abspath(__file__))
-out = os.path.join(here, "6.shapecraft")
+out = os.path.join(here, "6.workpiece")
 material(here, "1060 ALUM ALLOY", 2700)
 p = Part(unit="Millimetre", material="1060 ALUM ALLOY")
 

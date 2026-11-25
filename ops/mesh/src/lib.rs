@@ -27,9 +27,9 @@ mod ui;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use shapecraft_core::handles::{Gizmo, Handle, LinearHandle, Space};
-use shapecraft_core::math::Point3;
-use shapecraft_core::{Axis, Builder, EditContext, EditVisualization, Operation, Source, Widget};
+use workpiece_core::handles::{Gizmo, Handle, LinearHandle, Space};
+use workpiece_core::math::Point3;
+use workpiece_core::{Axis, Builder, EditContext, EditVisualization, Operation, Source, Widget};
 
 pub use poly::{Item, Poly};
 pub use prims::Primitive;
@@ -71,7 +71,7 @@ impl MeshArgs {
 
 /// A mesh is edited in the scene, by its own tools: it refers to
 /// nothing and has no fields.
-impl shapecraft_core::Arguments for MeshArgs {
+impl workpiece_core::Arguments for MeshArgs {
     fn references(&self) -> Vec<Source> {
         Vec::new()
     }
@@ -130,8 +130,8 @@ impl Operation for Mesh {
         &mut self.args
     }
 
-    fn make(&self, _: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
-        let mut out = shapecraft_boolean::io::Out::default();
+    fn make(&self, _: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
+        let mut out = workpiece_boolean::io::Out::default();
         let whole = self.args.whole();
         // (A mesh of no faces yet makes nothing.)
         if whole.faces.is_empty() {
@@ -262,8 +262,8 @@ impl Operation for Mesh {
 
 /// Tells `r` of this crate's operation: its kind, the tools that add
 /// it, and its icons.
-pub fn register(r: &mut shapecraft_core::Registry) {
-    use shapecraft_core::Tool;
+pub fn register(r: &mut workpiece_core::Registry) {
+    use workpiece_core::Tool;
     r.kind::<Mesh>("subd");
     r.tool(Tool {
         tab: "Modeling",

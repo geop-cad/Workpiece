@@ -4,9 +4,9 @@
 use std::collections::BTreeSet;
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::read;
-use shapecraft_core::world::DatumAxis;
-use shapecraft_core::{Builder, Measure, Operation, Reference};
+use workpiece_boolean::read;
+use workpiece_core::world::DatumAxis;
+use workpiece_core::{Builder, Measure, Operation, Reference};
 
 /// Which way the faces go.
 #[derive(
@@ -27,12 +27,12 @@ pub enum FaceWay {
 
 /// The faces, which way they go, and how far.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct MoveFaceArgs {
     /// The faces moved.
     #[arg(required)]
-    pub faces: Vec<shapecraft_core::Reference<shapecraft_core::world::topo::FaceId>>,
+    pub faces: Vec<workpiece_core::Reference<workpiece_core::world::topo::FaceId>>,
     /// Off themselves, or all along an axis.
     #[serde(default)]
     #[arg(choice)]
@@ -44,7 +44,7 @@ pub struct MoveFaceArgs {
     /// The plane the faces are replaced by, for [`FaceWay::ToPlane`].
     #[serde(default)]
     #[arg(when = "self.way == FaceWay::ToPlane")]
-    pub plane: Option<Reference<shapecraft_core::world::DatumPlane>>,
+    pub plane: Option<Reference<workpiece_core::world::DatumPlane>>,
     /// How far: out of the body, or along the axis.
     #[arg(when = "self.way != FaceWay::ToPlane")]
     pub distance: Measure,
@@ -100,7 +100,7 @@ impl Operation for MoveFace {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let args = &self.args;
         ensure!(!args.faces.is_empty(), "pick the faces to move");
         let distance = (*builder).measure(&args.distance, "the distance")?;
@@ -127,9 +127,9 @@ impl Operation for MoveFace {
         // (Nothing is changed here: the bodies it makes of those it reads
         // are written by the builder.)
         let topo = &builder.tracked().topo;
-        let mut out = shapecraft_core::Made::default();
+        let mut out = workpiece_core::Made::default();
         let mut found: BTreeSet<&str> = BTreeSet::new();
-        for (body, name) in shapecraft_shape::bodies::solids_with(topo, &picked) {
+        for (body, name) in workpiece_shape::bodies::solids_with(topo, &picked) {
             let solid = read(topo, body)?;
             let faces: Vec<usize> = (0..solid.faces.len())
                 .filter(|&f| {
@@ -148,7 +148,7 @@ impl Operation for MoveFace {
                     Some(by) => (by.length(), by.try_normalize()),
                     None => (distance, None),
                 };
-                out.annotations.push(shapecraft_shape::on::held(
+                out.annotations.push(workpiece_shape::on::held(
                     &self.id,
                     "distance",
                     (&solid, faces[0]),
@@ -158,14 +158,14 @@ impl Operation for MoveFace {
                 ));
             }
             let made = match (along, &plane) {
-                (_, Some(plane)) => shapecraft_shape::thick::faces_to_plane(
+                (_, Some(plane)) => workpiece_shape::thick::faces_to_plane(
                     &solid,
                     &faces,
                     plane.origin(),
                     plane.normal(),
                 ),
-                (Some(by), _) => shapecraft_shape::thick::faces_moved(&solid, &faces, by),
-                (None, _) => shapecraft_shape::thick::faces_offset(&solid, &faces, distance),
+                (Some(by), _) => workpiece_shape::thick::faces_moved(&solid, &faces, by),
+                (None, _) => workpiece_shape::thick::faces_offset(&solid, &faces, distance),
             }
             .with_context(|| format!("moving faces of {name}"))?;
             ensure!(!made.is_empty(), "nothing would be left of {name}");
@@ -192,7 +192,7 @@ impl Operation for MoveFace {
     }
 }
 
-impl shapecraft_core::Choices for FaceWay {
+impl workpiece_core::Choices for FaceWay {
     const ALL: &'static [Self] = &[FaceWay::Offset, FaceWay::Along, FaceWay::ToPlane];
 
     fn label(self) -> &'static str {

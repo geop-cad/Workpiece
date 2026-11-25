@@ -3,18 +3,18 @@
 use std::collections::BTreeSet;
 
 use anyhow::ensure;
-use shapecraft_boolean::read;
-use shapecraft_core::{Builder, Measure, Operation};
+use workpiece_boolean::read;
+use workpiece_core::{Builder, Measure, Operation};
 
 /// Where a body is opened, and how thick its wall is left.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct ShellArgs {
     /// The faces the body is open at; a body, picked itself, is
     /// hollowed with no opening.
     #[arg(label = "Open at", required)]
-    pub faces: Vec<shapecraft_core::Reference<shapecraft_core::FaceOrBody>>,
+    pub faces: Vec<workpiece_core::Reference<workpiece_core::FaceOrBody>>,
     /// How thick the wall is.
     pub thickness: Measure,
 }
@@ -58,7 +58,7 @@ impl Operation for Shell {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let args = &self.args;
         let thickness = (*builder).measure(&args.thickness, "the wall's thickness")?;
         ensure!(thickness > 0.0, "a wall has some thickness");
@@ -67,9 +67,9 @@ impl Operation for Shell {
         // (Nothing is changed here: the bodies it makes of those it reads
         // are written by the builder.)
         let topo = &builder.tracked().topo;
-        let mut out = shapecraft_core::Made::default();
+        let mut out = workpiece_core::Made::default();
         let mut found: BTreeSet<&str> = BTreeSet::new();
-        for (body, name) in shapecraft_shape::bodies::solids_with(topo, &picked) {
+        for (body, name) in workpiece_shape::bodies::solids_with(topo, &picked) {
             let solid = read(topo, body)?;
             let open: Vec<usize> = (0..solid.faces.len())
                 .filter(|&f| {
@@ -89,7 +89,7 @@ impl Operation for Shell {
             // are added by hand where they are wanted).
             let stays = (0..solid.faces.len()).find(|f| !open.contains(f));
             if let (true, Some(face)) = (out.annotations.is_empty(), stays) {
-                out.annotations.push(shapecraft_shape::on::held(
+                out.annotations.push(workpiece_shape::on::held(
                     &self.id,
                     "thickness",
                     (&solid, face),
@@ -98,7 +98,7 @@ impl Operation for Shell {
                     thickness,
                 ));
             }
-            let hollow = shapecraft_shape::thick::shelled(&solid, thickness, &open)?;
+            let hollow = workpiece_shape::thick::shelled(&solid, thickness, &open)?;
             out.removed.push(name.clone());
             out = out.and(name.clone(), hollow);
         }

@@ -10,10 +10,10 @@
 
 use std::sync::Arc;
 
-use shapecraft_boolean::Solid;
-use shapecraft_boolean::model::{Face, Use, Walk};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface, Topo};
+use workpiece_boolean::Solid;
+use workpiece_boolean::model::{Face, Use, Walk};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface, Topo};
 
 use crate::local::Flat;
 use crate::thick::{normal, offset_surface};
@@ -397,7 +397,7 @@ pub(crate) fn shrunk_same(
         });
     }
     let mut scratch = Topo::new();
-    shapecraft_boolean::write(&mut scratch, &out, "shell").ok()?;
+    workpiece_boolean::write(&mut scratch, &out, "shell").ok()?;
     scratch.validate().ok()?;
     Some(out)
 }
@@ -532,7 +532,7 @@ fn stretched(
 /// sides along a parameter the surface goes straight along: looked for
 /// near `guess`.
 fn place(surface: &NurbsSurface, p: Point3, guess: Point2) -> Point2 {
-    let (mut uv, off) = shapecraft_boolean::geometry::foot(surface, p, guess);
+    let (mut uv, off) = workpiece_boolean::geometry::foot(surface, p, guess);
     if off == 0.0 {
         return uv;
     }
@@ -650,7 +650,7 @@ pub(crate) fn offset_same(solid: &Solid, off: &[f64], size: f64, check: bool) ->
             let mut worst = 0.0_f64;
             for (k, (f, _)) in faces.iter().enumerate() {
                 let s = &surfaces[*f];
-                let (uv, _) = shapecraft_boolean::geometry::foot(s, p, guess[k]);
+                let (uv, _) = workpiece_boolean::geometry::foot(s, p, guess[k]);
                 guess[k] = uv;
                 let n = normal(s, uv);
                 let b = n.dot(s.point_at(uv.x, uv.y) - p);
@@ -719,7 +719,7 @@ pub(crate) fn offset_same(solid: &Solid, off: &[f64], size: f64, check: bool) ->
         }
         for (f, guess) in faces {
             let s = &surfaces[*f];
-            let (uv, _) = shapecraft_boolean::geometry::foot(s, points[v], *guess);
+            let (uv, _) = workpiece_boolean::geometry::foot(s, points[v], *guess);
             if s.point_at(uv.x, uv.y).distance(points[v]) > tol {
                 return None;
             }
@@ -812,8 +812,7 @@ pub(crate) fn offset_same(solid: &Solid, off: &[f64], size: f64, check: bool) ->
                         // point is wherever the line was.)
                         let foot = |t: f64| {
                             let was = old.point_at(t);
-                            let uv =
-                                shapecraft_boolean::geometry::foot(surface, it.point(t), was).0;
+                            let uv = workpiece_boolean::geometry::foot(surface, it.point(t), was).0;
                             let (_, du, dv) = surface.derivatives_at(was.x, was.y);
                             let ((u0, u1), (v0, v1)) = surface.domain();
                             Point2::new(
@@ -963,7 +962,7 @@ pub(crate) fn offset_same(solid: &Solid, off: &[f64], size: f64, check: bool) ->
     if check {
         // And sound, as the kernel's own checker sees it.
         let mut scratch = Topo::new();
-        shapecraft_boolean::write(&mut scratch, &out, "moved").ok()?;
+        workpiece_boolean::write(&mut scratch, &out, "moved").ok()?;
         scratch.validate().ok()?;
     }
     Some(out)

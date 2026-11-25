@@ -6,8 +6,8 @@ pub use fillet::{Chamfer, ChamferArgs, Fillet, FilletArgs};
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
 /// add them, and their icons.
-pub fn register(r: &mut shapecraft_core::Registry) {
-    use shapecraft_core::Tool;
+pub fn register(r: &mut workpiece_core::Registry) {
+    use workpiece_core::Tool;
     r.kind::<Fillet>("fillet");
     r.tool(Tool {
         tab: "Modeling",

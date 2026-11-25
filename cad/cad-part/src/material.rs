@@ -111,8 +111,8 @@ impl Material {
     }
 
     /// How it shows on the screen.
-    pub fn shade(&self) -> shapecraft_core::world::Shade {
-        shapecraft_core::world::Shade {
+    pub fn shade(&self) -> workpiece_core::world::Shade {
+        workpiece_core::world::Shade {
             colour: self.colour,
             texture: self.texture.code(),
             scale: (self.scale * 1000.0).round().clamp(1.0, 4e9) as u32,
@@ -275,7 +275,7 @@ impl Library {
     }
 
     /// How each material shows on the screen, by name.
-    pub fn shades(&self) -> shapecraft_core::world::Shades {
+    pub fn shades(&self) -> workpiece_core::world::Shades {
         self.materials
             .iter()
             .map(|m| (m.name.clone(), m.shade()))

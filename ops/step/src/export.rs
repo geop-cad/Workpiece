@@ -4,10 +4,10 @@
 use std::collections::BTreeMap;
 use std::fmt::Write;
 
-use shapecraft_boolean::model::{Face, Walk};
-use shapecraft_boolean::{Solid, measure};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::{Curve3, NurbsSurface};
+use workpiece_boolean::model::{Face, Walk};
+use workpiece_boolean::{Solid, measure};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::{Curve3, NurbsSurface};
 
 /// The instances of a file being written, numbered as they come.
 struct Writer {
@@ -365,7 +365,7 @@ fn shells(solid: &Solid) -> Vec<Vec<usize>> {
 pub fn export(
     name: &str,
     bodies: &[(String, Solid)],
-    unit: shapecraft_core::Unit,
+    unit: workpiece_core::Unit,
 ) -> anyhow::Result<String> {
     let mut w = Writer {
         text: String::new(),
@@ -390,14 +390,14 @@ pub fn export(
     ));
     let shape = w.add(&format!("PRODUCT_DEFINITION_SHAPE('','',#{definition})"));
     let length = match unit {
-        shapecraft_core::Unit::Millimetre => {
+        workpiece_core::Unit::Millimetre => {
             w.add("(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.MILLI.,.METRE.))")
         }
-        shapecraft_core::Unit::Centimetre => {
+        workpiece_core::Unit::Centimetre => {
             w.add("(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.CENTI.,.METRE.))")
         }
-        shapecraft_core::Unit::Metre => w.add("(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT($,.METRE.))"),
-        shapecraft_core::Unit::Inch => {
+        workpiece_core::Unit::Metre => w.add("(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT($,.METRE.))"),
+        workpiece_core::Unit::Inch => {
             // An inch is told as so many millimetres.
             let base = w.add("(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.MILLI.,.METRE.))");
             let size = w.add(&format!(
@@ -482,7 +482,7 @@ pub fn export(
         "SHAPE_DEFINITION_REPRESENTATION(#{shape},#{representation})"
     ));
     Ok(format!(
-        "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('ShapeCraft model'),'2;1');\nFILE_NAME({},'',(''),(''),'shapecraft','shapecraft','');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN {{ 1 0 10303 214 1 1 1 1 }}'));\nENDSEC;\nDATA;\n{}ENDSEC;\nEND-ISO-10303-21;\n",
+        "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('Workpiece model'),'2;1');\nFILE_NAME({},'',(''),(''),'workpiece','workpiece','');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN {{ 1 0 10303 214 1 1 1 1 }}'));\nENDSEC;\nDATA;\n{}ENDSEC;\nEND-ISO-10303-21;\n",
         string(name),
         w.text
     ))

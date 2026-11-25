@@ -4,18 +4,18 @@
 use std::collections::BTreeSet;
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::read;
-use shapecraft_core::world::DatumPlane;
-use shapecraft_core::{Builder, Measure, Operation, Reference};
+use workpiece_boolean::read;
+use workpiece_core::world::DatumPlane;
+use workpiece_core::{Builder, Measure, Operation, Reference};
 
 /// Which faces lean, about what, and by how much.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct DraftArgs {
     /// The faces that are drafted.
     #[arg(required)]
-    pub faces: Vec<shapecraft_core::Reference<shapecraft_core::world::topo::FaceId>>,
+    pub faces: Vec<workpiece_core::Reference<workpiece_core::world::topo::FaceId>>,
     /// The neutral plane: the faces turn about where they meet it, and
     /// the pull is along its normal.
     #[arg(label = "Neutral plane")]
@@ -76,7 +76,7 @@ impl Operation for Draft {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let args = &self.args;
         ensure!(!args.faces.is_empty(), "pick the faces to draft");
         let plane = args.neutral.as_ref().context("pick the neutral plane")?;
@@ -93,9 +93,9 @@ impl Operation for Draft {
         // (Nothing is changed here: the bodies it makes of those it reads
         // are written by the builder.)
         let topo = &builder.tracked().topo;
-        let mut out = shapecraft_core::Made::default();
+        let mut out = workpiece_core::Made::default();
         let mut found: BTreeSet<&str> = BTreeSet::new();
-        for (body, name) in shapecraft_shape::bodies::solids_with(topo, &picked) {
+        for (body, name) in workpiece_shape::bodies::solids_with(topo, &picked) {
             let solid = read(topo, body)?;
             let faces: Vec<usize> = (0..solid.faces.len())
                 .filter(|&f| {
@@ -109,7 +109,7 @@ impl Operation for Draft {
             if faces.is_empty() {
                 continue;
             }
-            let made = shapecraft_shape::thick::drafted(
+            let made = workpiece_shape::thick::drafted(
                 &solid,
                 &faces,
                 pull,
@@ -125,8 +125,8 @@ impl Operation for Draft {
                 if !out.annotations.is_empty() {
                     break;
                 }
-                use shapecraft_core::world::{Annotation, Measured};
-                let (on, way) = shapecraft_shape::on::middle(&solid, face);
+                use workpiece_core::world::{Annotation, Measured};
+                let (on, way) = workpiece_shape::on::middle(&solid, face);
                 if let Some(across) = (way - pull * way.dot(pull)).try_normalize() {
                     let at = on - pull * (on - plane.origin()).dot(pull);
                     let measured = Measured::Angle {
@@ -134,7 +134,7 @@ impl Operation for Draft {
                         first: pull,
                         second: pull * angle.cos() - across * angle.sin(),
                     };
-                    let reach = shapecraft_shape::on::size(&solid) * 0.15;
+                    let reach = workpiece_shape::on::size(&solid) * 0.15;
                     let held = Annotation::held(measured, angle.to_degrees(), &args.angle, reach);
                     out.annotations.push((format!("{}/angle", self.id), held));
                 }

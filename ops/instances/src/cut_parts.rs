@@ -4,10 +4,10 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use shapecraft_boolean::{Op, Solid, combine, read, remove, write};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::BodyKind;
-use shapecraft_core::{Builder, Operation, Pose, World};
+use workpiece_boolean::{Op, Solid, combine, read, remove, write};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::BodyKind;
+use workpiece_core::{Builder, Operation, Pose, World};
 
 /// The bodies that are cut away from the placed parts.
 #[derive(
@@ -17,13 +17,13 @@ use shapecraft_core::{Builder, Operation, Pose, World};
     Default,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct CutPartsArgs {
     /// Bodies of the assembly itself: what they take up is cut out of
     /// every placed part they run into, and they go.
     #[arg(label = "Cut away", required)]
-    pub tools: Vec<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub tools: Vec<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
 }
 
 /// Cuts bodies of the assembly out of the parts placed in it: a hole
@@ -109,10 +109,10 @@ impl Operation for CutParts {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: what it makes is put in by the
         // builder.)
-        let mut out = shapecraft_boolean::Out::default();
+        let mut out = workpiece_boolean::Out::default();
         anyhow::ensure!(!self.args.tools.is_empty(), "pick the bodies to cut away");
         // Of every placed part, how far it reaches is read; the part
         // itself only where what is cut away could run into it.
@@ -147,7 +147,7 @@ impl Operation for CutParts {
                 .with_context(|| format!("cutting through {name}"))?
             {
                 any = true;
-                let cut = shapecraft_core::world::Instance {
+                let cut = workpiece_core::world::Instance {
                     world: Arc::new(inner),
                     ..instance.clone()
                 };
@@ -172,9 +172,9 @@ impl Operation for CutParts {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::Standalone;
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::Instance;
+    use workpiece_core::Standalone;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::Instance;
 
     #[test]
     fn a_body_is_cut_out_of_the_parts_it_runs_into() -> anyhow::Result<()> {
@@ -182,7 +182,7 @@ mod tests {
         // a 4 × 1 × 1 bar through the first two takes 2 out of each.
         let axes = [Point3::X, Point3::Y, Point3::Z];
         let mut part = World::new();
-        let block = shapecraft_boolean::block("b", Point3::ZERO, axes, [2.0; 3])?;
+        let block = workpiece_boolean::block("b", Point3::ZERO, axes, [2.0; 3])?;
         write(&mut part.topo, &block, "b")?;
         let part = Arc::new(part);
         let mut b = Standalone::new();
@@ -197,12 +197,12 @@ mod tests {
             );
         }
         let bar =
-            shapecraft_boolean::block("bar", Point3::new(0.0, 0.5, 0.5), axes, [4.0, 1.0, 1.0])?;
+            workpiece_boolean::block("bar", Point3::new(0.0, 0.5, 0.5), axes, [4.0, 1.0, 1.0])?;
         write(&mut b.world.topo, &bar, "bar")?;
         let op = CutParts {
             id: "slot".into(),
             args: CutPartsArgs {
-                tools: vec![shapecraft_core::Source::Topology("bar".into()).into()],
+                tools: vec![workpiece_core::Source::Topology("bar".into()).into()],
             },
         };
         op.apply(&mut b)?;
@@ -210,7 +210,7 @@ mod tests {
             let world = &b.world.instances[name].world;
             assert_eq!(world.topo.validate(), Ok(()));
             let body = world.topo.bodies().ids().next().expect("a body");
-            Ok(shapecraft_boolean::measure(&read(&world.topo, body)?).volume)
+            Ok(workpiece_boolean::measure(&read(&world.topo, body)?).volume)
         };
         assert!((volume("left")? - 6.0).abs() < 1e-9);
         assert!((volume("right")? - 6.0).abs() < 1e-9);

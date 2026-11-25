@@ -1,7 +1,7 @@
 use anyhow::Context;
 use std::collections::BTreeMap;
 
-use shapecraft_core::{Builder, Cache, Measure, Parameters};
+use workpiece_core::{Builder, Cache, Measure, Parameters};
 
 use crate::AnyOperation;
 
@@ -41,8 +41,8 @@ pub struct Part {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub variants: Vec<Variant>,
     /// The unit of length its numbers are in.
-    #[serde(default, skip_serializing_if = "shapecraft_core::Unit::is_default")]
-    pub unit: shapecraft_core::Unit,
+    #[serde(default, skip_serializing_if = "workpiece_core::Unit::is_default")]
+    pub unit: workpiece_core::Unit,
     /// What the part is made of, where nothing else is said: a
     /// material, by its name in the library (see
     /// [`Library`](crate::Library)). Steps give single bodies and faces
@@ -177,9 +177,9 @@ impl Part {
     /// Puts the part placed by the step `id` at `pose`: where it is is
     /// kept in the cache, not among the step's arguments.
     #[must_use]
-    pub fn placing(mut self, id: &str, pose: &shapecraft_core::Pose) -> Self {
+    pub fn placing(mut self, id: &str, pose: &workpiece_core::Pose) -> Self {
         self.cache
-            .replace(id, shapecraft_ops_instances::assembly::kept(pose));
+            .replace(id, workpiece_ops_instances::assembly::kept(pose));
         self
     }
 
@@ -302,12 +302,12 @@ impl Part {
 mod tests {
     use super::*;
     use crate::Workspace;
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::Datum;
-    use shapecraft_core::{Pose, Reference, Widget, World};
-    use shapecraft_ops_datum::{AddFrame, AddPlane, AddPlaneArgs, PlaneMode};
-    use shapecraft_ops_instances::{AddPart, AddPartArgs};
     use std::collections::BTreeMap;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::Datum;
+    use workpiece_core::{Pose, Reference, Widget, World};
+    use workpiece_ops_datum::{AddFrame, AddPlane, AddPlaneArgs, PlaneMode};
+    use workpiece_ops_instances::{AddPart, AddPartArgs};
 
     /// A frame, and a plane offset from that frame's XY plane.
     fn part() -> Part {
@@ -319,7 +319,7 @@ mod tests {
                     args: AddPlaneArgs {
                         mode: PlaneMode::Offset,
                         references: vec![
-                            (Reference::<()>::frame_axis("frame", shapecraft_core::Axis::Z).source)
+                            (Reference::<()>::frame_axis("frame", workpiece_core::Axis::Z).source)
                                 .into(),
                         ],
                         distance: 2.0,
@@ -387,15 +387,15 @@ mod tests {
         let part = part();
         let op = &part.program[0];
         let world = std::sync::Arc::new(World::new());
-        let cache = shapecraft_core::Cache::default();
-        let context = shapecraft_core::EditContext::standalone(&world, &cache);
+        let cache = workpiece_core::Cache::default();
+        let context = workpiece_core::EditContext::standalone(&world, &cache);
         let Widget::VBox(fields) = op.visualize_edit(&context, None).dialog else {
             anyhow::bail!("expected the fields");
         };
         let Some(Widget::PoseInput(pose)) = fields.children.into_iter().nth(2) else {
             anyhow::bail!("expected the pose fields");
         };
-        let edit = pose.set_position(shapecraft_core::Axis::X, 5.0);
+        let edit = pose.set_position(workpiece_core::Axis::X, 5.0);
         let edited = edit.and_then(|e| e.op);
         let Some(frame) = edited.as_ref().and_then(|op| op.downcast_ref::<AddFrame>()) else {
             anyhow::bail!("expected the edited frame");
@@ -427,7 +427,7 @@ mod tests {
             AddPart {
                 id: "bolt1".into(),
                 args: AddPartArgs {
-                    part: "bolt.shapecraft".into(),
+                    part: "bolt.workpiece".into(),
                     variant: None,
                     hold: Default::default(),
                     bodies: Vec::new(),
@@ -439,9 +439,9 @@ mod tests {
         let p = p.placing("bolt1", &at);
         let text = p.to_text()?;
         let back = Part::from_text(&text)?;
-        assert_eq!(back.placed_parts(), ["bolt.shapecraft"]);
+        assert_eq!(back.placed_parts(), ["bolt.workpiece"]);
         // Where the part is comes back with the part's cache.
-        let placed = shapecraft_ops_instances::assembly::placed(&back.cache, "bolt1");
+        let placed = workpiece_ops_instances::assembly::placed(&back.cache, "bolt1");
         assert!(
             placed
                 .translation()

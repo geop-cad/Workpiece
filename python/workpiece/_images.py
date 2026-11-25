@@ -5,9 +5,9 @@
     tile("original.png", (3, 2), "tiles/")          # overlapping tiles at 2x, to read small text once
     view_crops(sheet_pdf, inventory, folder)        # one image per view (what a build writes)
 
-From the command line: `python -m shapecraft.tools crop|tile ...` (see `help images`).
+From the command line: `python -m workpiece.tools crop|tile ...` (see `help images`).
 Needs poppler's pdftoppm/pdfinfo for PDFs (not a Python package) and Pillow for PNGs
-(`pip install 'shapecraft-cad[images]'`); each says what is missing when it is.
+(`pip install 'workpiece[images]'`); each says what is missing when it is.
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def _pillow():
     try:
         from PIL import Image
     except ImportError:
-        raise RuntimeError("cropping and tiling pictures needs Pillow: pip install 'shapecraft-cad[images]'") from None
+        raise RuntimeError("cropping and tiling pictures needs Pillow: pip install 'workpiece[images]'") from None
     return Image
 
 

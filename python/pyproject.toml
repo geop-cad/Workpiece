@@ -3,9 +3,9 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "shapecraft-cad"
+name = "workpiece"
 dynamic = ["version"]
-description = "ShapeCraft: a parametric CAD kernel and desktop app, with a Python layer for writing parts as scripts."
+description = "Workpiece: a parametric CAD kernel and desktop app, with a Python layer for writing parts as scripts."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT OR Apache-2.0"
@@ -22,22 +22,22 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-# Cropping and tiling pictures (`shapecraft.crop`, `shapecraft.tile`). Reading PDF sheets also
+# Cropping and tiling pictures (`workpiece.crop`, `workpiece.tile`). Reading PDF sheets also
 # needs poppler's pdftoppm on the PATH, which pip cannot bring.
 images = ["Pillow"]
 
 [project.urls]
-Homepage = "https://github.com/geop-cad/ShapeCraft"
-Source = "https://github.com/geop-cad/ShapeCraft"
+Homepage = "https://github.com/geop-cad/Workpiece"
+Source = "https://github.com/geop-cad/Workpiece"
 
 [project.scripts]
-shapecraft = "shapecraft.cli:main"
-shapecraft-app = "shapecraft.__main__:main"
-shapecraft-tools = "shapecraft.tools:main"
+workpiece = "workpiece.cli:main"
+workpiece-app = "workpiece.__main__:main"
+workpiece-tools = "workpiece.tools:main"
 
 [tool.setuptools]
-packages = ["shapecraft"]
+packages = ["workpiece"]
 include-package-data = false
 
 [tool.setuptools.package-data]
-shapecraft = ["README.md", "bin/*"]
+workpiece = ["README.md", "bin/*"]

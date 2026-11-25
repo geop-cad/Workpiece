@@ -1,5 +1,5 @@
-use shapecraft_core::widgets::Button;
-use shapecraft_core::{Hotkey, Key, Placement, Widget};
+use workpiece_core::widgets::Button;
+use workpiece_core::{Hotkey, Key, Placement, Widget};
 
 use super::Icon;
 use crate::{Message, Model};
@@ -17,7 +17,7 @@ pub struct EditDialog {
     pub placement: Placement,
     /// For fields in the ribbon: those of what is selected in the step,
     /// for the panel at the side (see
-    /// [`shapecraft_core::EditVisualization::inspector`]).
+    /// [`workpiece_core::EditVisualization::inspector`]).
     pub inspector: Option<Widget<Message>>,
     /// The reference field being picked, by widget path.
     pub picking: Option<Vec<usize>>,

@@ -3,7 +3,7 @@
 
 use std::collections::BTreeMap;
 
-use shapecraft_core::math::Point2;
+use workpiece_core::math::Point2;
 
 use crate::model::{Id, Item, Kind, Shape, SketchArgs};
 

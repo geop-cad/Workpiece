@@ -30,7 +30,7 @@ SITE_URL = os.environ.get("SITE_URL", CONF["site_url"]).rstrip("/") + "/"
 GH = CONF["repository"]
 BLOB = f"{GH}/blob/{CONF['branch']}"
 TREE = f"{GH}/tree/{CONF['branch']}"
-NAME = "ShapeCraft"
+NAME = "Workpiece"
 TAGLINE = ("An open-source CAD kernel and desktop app, written in Rust: parametric modelling, "
            "a constraint sketcher, assemblies, ISO drawings and scripting.")
 
@@ -88,7 +88,7 @@ def page(title, description, body, root="", path="", extra_head="", script="", b
 <meta property="og:image" content="{SITE_URL}assets/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="ShapeCraft: a bracket modelled in the app, beside the name and what the program is">
+<meta property="og:image:alt" content="Workpiece: a bracket modelled in the app, beside the name and what the program is">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{e(title)}">
 <meta name="twitter:description" content="{e(description)}">
@@ -236,7 +236,7 @@ def flange_script():
     lines = [ln for ln in src.splitlines() if "sys.path.insert" not in ln]
     text = "\n".join(lines) + "\n"
     text = text.replace("import math, os, sys", "import math")
-    text = re.sub(r'out = sys\.argv\[1\] if len\(sys\.argv\) > 1 else "flange.shapecraft"', 'out = "flange.shapecraft"', text)
+    text = re.sub(r'out = sys\.argv\[1\] if len\(sys\.argv\) > 1 else "flange.workpiece"', 'out = "flange.workpiece"', text)
     text = text.replace("report.show()\n", "").replace('print("volume", report.volume)\n', 'print("volume", report.volume)  # mm^3\n')
     return text
 
@@ -262,7 +262,7 @@ def brep_section():
     b = BY_ID["brep-conformance"]
     cats = b["categories"]
     rows = [r for r in b["rows"] if r["origin"] != "reproduced"]
-    sc = next(r for r in b["rows"] if r["kernel"] == "shapecraft")
+    sc = next(r for r in b["rows"] if r["kernel"] == "workpiece")
     others = [r for r in rows if r is not sc]
     ref = others[0]["per_category"]
 
@@ -274,7 +274,7 @@ def brep_section():
     trs = []
     for r in others + [sc]:
         mine = r is sc
-        name = f'<a href="{e(r["link"])}">{e(r["kernel"] if r["kernel"] != "shapecraft" else "ShapeCraft")}</a>'
+        name = f'<a href="{e(r["link"])}">{e(r["kernel"] if r["kernel"] != "workpiece" else "Workpiece")}</a>'
         if mine:
             name = f'<strong>{name}</strong><br><span class="badge">self-scored, run here {e(r["date"])}, {r["cases"]} cases</span>'
         tds = "".join(f"<td>{cell(r, c)}</td>" for c in cats)
@@ -283,7 +283,7 @@ def brep_section():
         trs.append(f'<tr{cls}><th scope="row">{name}</th><td>{e(r["version"])}</td>'
                    f'<td>{e(r["licence"])}</td>{tds}<td><strong>{total}</strong></td></tr>')
     table = f"""<p class="small">Cases passed at 1e-7 mm in brep-conformance, suite {e(sc['suite_version'])}. The other rows are the maintainers' reports of
-{e(others[0]['date'])} (all {others[0]['cases']} cases, each run by them on one machine); ShapeCraft's row was run here on {sc['cases']} of those
+{e(others[0]['date'])} (all {others[0]['cases']} cases, each run by them on one machine); Workpiece's row was run here on {sc['cases']} of those
 cases, without the 33 that read NIST's STEP files, so its <em>step</em> and <em>all</em> cells have other denominators.</p>
 <div class="table-wrap" tabindex="0" role="region" aria-label="brep-conformance results by kernel">
 <table>
@@ -324,10 +324,10 @@ def step_table():
     ref = b["rows"][0]["per_category"]
     trs = []
     for r in b["rows"]:
-        mine = r["kernel"] == "shapecraft"
-        label = "ShapeCraft" if mine else r["kernel"]
+        mine = r["kernel"] == "workpiece"
+        label = "Workpiece" if mine else r["kernel"]
         name = f'<a href="{e(r["link"])}">{e(label)}</a>'
-        scored = "ShapeCraft's port of the benchmark's rule (self); not the benchmark's own scorer" if mine else "benchmark maintainers"
+        scored = "Workpiece's port of the benchmark's rule (self); not the benchmark's own scorer" if mine else "benchmark maintainers"
         if mine:
             name = f"<strong>{name}</strong>"
         cells = "".join(f'<td>{r["per_category"][c]["pass"]}</td>' for c in cats)
@@ -336,7 +336,7 @@ def step_table():
                    f'<td><strong>{r["pass"]}</strong></td><td>{e(scored)}</td></tr>')
     head = "".join(f'<th scope="col">{c}<br>{ref[c]["total"]}</th>' for c in cats)
     return f"""<p class="small">step-conformance: 27 STEP parts read and meshed at four tolerances, {b['rows'][0]['cases']} cells; cells passed.
-ShapeCraft's row was run here on {e(b['rows'][0]['date'])}; the other readers were run by the benchmark's maintainers on {e(b['rows'][1]['date'])}.</p>
+Workpiece's row was run here on {e(b['rows'][0]['date'])}; the other readers were run by the benchmark's maintainers on {e(b['rows'][1]['date'])}.</p>
 <div class="table-wrap" tabindex="0" role="region" aria-label="step-conformance results by reader">
 <table>
 <thead><tr><th scope="col">Reader</th><th scope="col">Version</th>{head}<th scope="col">all<br>{b['rows'][0]['cases']}</th><th scope="col">Scored by</th></tr></thead>
@@ -364,17 +364,17 @@ def benchmarks():
     if near:
         s1 += ", and " + ", ".join(f"{r['kernel']} passes {r['pass']} of {r['cases']}" for r in near)
     s1 += f"; the other kernels in the maintainers{apos} runs pass fewer (from {lowest['pass']} of {lowest['cases']} up). "
-    s1 += f"On step-conformance, ShapeCraft is level with {len(level)} published readers at {sstep['pass']} cells"
+    s1 += f"On step-conformance, Workpiece is level with {len(level)} published readers at {sstep['pass']} cells"
     if above:
         s1 += ", and " + ", ".join(f"{r['kernel']} passes {r['pass'] - sstep['pass']} more" for r in above)
     sentence = s1 + "."
-    speed = (f"On the same machine, in the same sandbox, springrep’s median per case was {rep['median_ms']} ms and ShapeCraft’s "
-             f"{sc['median_ms']} ms: ShapeCraft is not faster overall, and neither kernel is faster in every category.")
+    speed = (f"On the same machine, in the same sandbox, springrep’s median per case was {rep['median_ms']} ms and Workpiece’s "
+             f"{sc['median_ms']} ms: Workpiece is not faster overall, and neither kernel is faster in every category.")
     return f"""<section id="benchmarks" aria-labelledby="bench-h">
 <div class="wrap">
   <h2 id="bench-h">Benchmarks</h2>
-  <p class="lead">Measured with suites other people wrote or with public data. Every ShapeCraft number below is
-  <strong>self-scored</strong>: run by ShapeCraft&rsquo;s authors, not by the suites&rsquo; maintainers.
+  <p class="lead">Measured with suites other people wrote or with public data. Every Workpiece number below is
+  <strong>self-scored</strong>: run by Workpiece&rsquo;s authors, not by the suites&rsquo; maintainers.
   The table is drawn from <a href="{BLOB}/docs/benchmarks/results.json"><code>results.json</code></a> when the site is built.</p>
   <div class="facts">
     <div class="fact"><span class="big">{sc['pass']}<span class="of">/{sc['cases']}</span></span>
@@ -382,7 +382,7 @@ def benchmarks():
     <div class="fact"><span class="big">{brow['pass']}<span class="of">/{brow['cases']}</span></span>
       <span>cases of the boolean bench: {brow['refused']} refused with a reason, {brow['wrong']} wrong, {brow['crashed']} crashed</span></div>
     <div class="fact"><span class="big">{sstep['pass']}<span class="of">/{sstep['cases']}</span></span>
-      <span>step-conformance cells: the STEP importer, scored by ShapeCraft&rsquo;s port of the rule</span></div>
+      <span>step-conformance cells: the STEP importer, scored by Workpiece&rsquo;s port of the rule</span></div>
   </div>
   <div class="bars">
     <div><h3>brep-conformance, by category</h3><ul class="barlist">{bars}</ul></div>
@@ -396,9 +396,9 @@ def benchmarks():
   <ul class="plain">
     <li>{e(sentence)}</li>
     <li>{e(speed)}</li>
-    <li>The 33 brep-conformance cases that read NIST&rsquo;s STEP files were not run; ShapeCraft&rsquo;s adapter does not answer the functions <code>inertia</code>, <code>betti</code>, <code>section_area</code> and <code>mesh</code>.</li>
-    <li>The boolean bench is ShapeCraft&rsquo;s own suite, built on public data and brep-bench&rsquo;s cases; the 12 refused STEP files are listed in the method page. Booleans that cannot be done exactly are refused with a reason rather than approximated.</li>
-    <li>On step-conformance&rsquo;s shop parts the reference mesh is ShapeCraft&rsquo;s own, so those cells are a weaker check than the benchmark&rsquo;s. The three cells ShapeCraft fails are the freeform panel.</li>
+    <li>The 33 brep-conformance cases that read NIST&rsquo;s STEP files were not run; Workpiece&rsquo;s adapter does not answer the functions <code>inertia</code>, <code>betti</code>, <code>section_area</code> and <code>mesh</code>.</li>
+    <li>The boolean bench is Workpiece&rsquo;s own suite, built on public data and brep-bench&rsquo;s cases; the 12 refused STEP files are listed in the method page. Booleans that cannot be done exactly are refused with a reason rather than approximated.</li>
+    <li>On step-conformance&rsquo;s shop parts the reference mesh is Workpiece&rsquo;s own, so those cells are a weaker check than the benchmark&rsquo;s. The three cells Workpiece fails are the freeform panel.</li>
     <li>The rows say what each kernel passed in the suite&rsquo;s run, not what it can do outside the suite, and none of the benchmarks measures the sketcher, assemblies, drawings or the app.</li>
   </ul>
   <p>Method, machine, versions, sources, dates and every command to reproduce the numbers:
@@ -433,14 +433,14 @@ def downloads():
     <div>
       <h3>With pip{soon}</h3>
       <pre class="shell" tabindex="0"><code>pip install {e(PIP)}
-python -m shapecraft          # the desktop app</code></pre>
-      <p class="small">The wheel carries the <code>shapecraft</code> command line and the desktop app; the import name is <code>shapecraft</code>.</p>
+python -m workpiece          # the desktop app</code></pre>
+      <p class="small">The wheel carries the <code>workpiece</code> command line and the desktop app; the import name is <code>workpiece</code>.</p>
     </div>
     <div>
       <h3>From source</h3>
       <pre class="shell" tabindex="0"><code>git clone {e(GH)}.git
-cd ShapeCraft
-cargo run --release -p shapecraft-app</code></pre>
+cd Workpiece
+cargo run --release -p workpiece-app</code></pre>
       <p class="small">Needs Rust 1.95 or newer; <a href="docs/install.html">the install page</a> lists the system libraries on Linux.</p>
     </div>
   </div>
@@ -466,7 +466,7 @@ def features():
          ["Projected, section, detail and pictorial views; dimensions with ISO 129-1 tolerances; datums; balloons and parts lists.",
           "Third-angle or first-angle projection; cosmetic threads drawn as ISO 6410 has them.",
           "A drawing is a step of the part, so it follows the part. Export as PDF and DXF."]),
-        ("f-assembly.webp", "A brass butt hinge and a caster, both assemblies built in ShapeCraft", "Assemblies",
+        ("f-assembly.webp", "A brass butt hinge and a caster, both assemblies built in Workpiece", "Assemblies",
          ["Insert part files, STEP files and standard parts (screws, nuts, washers, ball bearings).",
           "Joints with limits and drives; gear, rack and screw mechanisms; drag parts within what the joints allow.",
           "Interference, bill of materials, exploded view."]),
@@ -490,7 +490,7 @@ def features():
     return "\n".join(cards)
 
 
-MINI = '''from shapecraft import Part
+MINI = '''from workpiece import Part
 
 p = Part()
 s = p.sketch("XY")
@@ -499,13 +499,13 @@ s.coincident(r.points[0], s.origin)
 s.distance_u(r.points[0], r.points[1], 60)
 s.distance_v(r.points[1], r.points[2], 40)
 p.extrude(s, 10)
-p.build("plate.shapecraft")
+p.build("plate.workpiece")
 '''
 
 
 def home():
     ex_note = ""
-    wasm = OUT / "app" / "shapecraft_bg.wasm"
+    wasm = OUT / "app" / "workpiece_bg.wasm"
     size = f" The first start downloads the program (about {wasm.stat().st_size / 1e6:.0f} MB before compression)." if wasm.exists() else ""
     body = f"""<section class="hero">
   <div class="wrap">
@@ -519,7 +519,7 @@ def home():
       <p class="small">Early prototype: the part file format and the APIs are not stable. Free, MIT or Apache-2.0. Nothing is uploaded: files you open stay in your browser.{e(size)}</p>
     </div>
     <figure class="hero-shot">
-      <img src="assets/hero.webp" alt="The ShapeCraft app showing a cast aluminium bracket, with the list of steps that built it on the left" width="1600" height="960" fetchpriority="high">
+      <img src="assets/hero.webp" alt="The Workpiece app showing a cast aluminium bracket, with the list of steps that built it on the left" width="1600" height="960" fetchpriority="high">
     </figure>
   </div>
 </section>
@@ -558,7 +558,7 @@ def home():
     </div>
     <p>The script is <a href="{BLOB}/agent/examples/flange.py"><code>agent/examples/flange.py</code></a> without its checkout-only path line. The <a href="docs/scripting.html">scripting chapter</a> has the rest; the examples above are longer scripts.</p>
     <pre class="shell" tabindex="0"><code>{"" if CONF.get("released") else "# both coming with the first release" + chr(10)}pip install {e(PIP)}
-python -m shapecraft flange.shapecraft   # opens the part in the desktop app</code></pre>
+python -m workpiece flange.workpiece   # opens the part in the desktop app</code></pre>
   </div>
 </section>
 

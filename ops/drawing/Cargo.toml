@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-ops-drawing"
+name = "workpiece-ops-drawing"
 description = "Drawings of the model: sheets with views, and what is said of the model placed on them, laid out to ISO."
 edition.workspace = true
 version.workspace = true
@@ -8,27 +8,27 @@ repository.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "shapecraft_ops_drawing"
+name = "workpiece_ops_drawing"
 
 [dependencies]
 anyhow.workspace = true
-shapecraft-boolean.workspace = true
-shapecraft-cad-rasterize.workspace = true
-shapecraft-core.workspace = true
-shapecraft-ops-appearance.workspace = true
-shapecraft-shape.workspace = true
-shapecraft-ops-sketch.workspace = true
+workpiece-boolean.workspace = true
+workpiece-rasterize.workspace = true
+workpiece-core.workspace = true
+workpiece-ops-appearance.workspace = true
+workpiece-shape.workspace = true
+workpiece-ops-sketch.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 
 [dev-dependencies]
-shapecraft-ops-basic-shapes.workspace = true
-shapecraft-ops-blend.workspace = true
-shapecraft-ops-annotate.workspace = true
-shapecraft-ops-testing.workspace = true
-shapecraft-ops-features.workspace = true
-shapecraft-ops-sketch.workspace = true
-shapecraft-ops-sweep.workspace = true
+workpiece-ops-basic-shapes.workspace = true
+workpiece-ops-blend.workspace = true
+workpiece-ops-annotate.workspace = true
+workpiece-ops-testing.workspace = true
+workpiece-ops-features.workspace = true
+workpiece-ops-sketch.workspace = true
+workpiece-ops-sweep.workspace = true
 
 [lints]
 workspace = true

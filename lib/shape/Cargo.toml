@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-shape"
+name = "workpiece-shape"
 description = "The geometry that operations on bodies share: sweeps, blends, offsets, sheets, and how a tool is combined with the bodies there are."
 edition.workspace = true
 version.workspace = true
@@ -8,12 +8,12 @@ repository.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "shapecraft_shape"
+name = "workpiece_shape"
 
 [dependencies]
 anyhow.workspace = true
-shapecraft-boolean.workspace = true
-shapecraft-core.workspace = true
+workpiece-boolean.workspace = true
+workpiece-core.workspace = true
 serde.workspace = true
 
 [lints]

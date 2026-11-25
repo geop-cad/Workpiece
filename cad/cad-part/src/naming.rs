@@ -11,9 +11,9 @@
 //! its place, if one is clearly it — nearer by half than any other, and
 //! not far from where the lost one was.
 
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::{CoedgeKind, EntityId, Topo};
-use shapecraft_core::{AnyOperation, Cache, Source, World};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::{CoedgeKind, EntityId, Topo};
+use workpiece_core::{AnyOperation, Cache, Source, World};
 
 /// A reference of a step that lost what it named and was pointed at
 /// what is now where that was.

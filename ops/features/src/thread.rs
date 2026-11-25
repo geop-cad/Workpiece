@@ -2,16 +2,16 @@
 //! of it (cosmetic), or cut into it as a helical V groove.
 
 use anyhow::Context;
-use shapecraft_boolean::read;
-use shapecraft_core::{Builder, Measure, Operation};
-use shapecraft_shape::thread::{Cylinder, cylinder};
-use shapecraft_shape::threaded;
+use workpiece_boolean::read;
+use workpiece_core::{Builder, Measure, Operation};
+use workpiece_shape::thread::{Cylinder, cylinder};
+use workpiece_shape::threaded;
 
 use crate::norm;
 
 /// The face threaded, and the thread's size.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 #[serde(default)]
 pub struct ThreadArgs {
@@ -19,7 +19,7 @@ pub struct ThreadArgs {
     #[arg(label = "Thread", options = "Cosmetic|Modelled")]
     pub modelled: bool,
     /// The cylindrical face: a rod's side, or a hole's wall.
-    pub face: Option<shapecraft_core::Reference<shapecraft_core::world::topo::FaceId>>,
+    pub face: Option<workpiece_core::Reference<workpiece_core::world::topo::FaceId>>,
     /// Whether its pitch and depth are entered, not taken from the
     /// standard for the face's diameter.
     #[arg(label = "Size", options = "ISO metric|Custom")]
@@ -94,7 +94,7 @@ impl Operation for Thread {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let args = &self.args;
         let picked = args
             .face
@@ -104,7 +104,7 @@ impl Operation for Thread {
         // (Nothing is changed here: the body it makes of the one it reads
         // is written by the builder.)
         let topo = &builder.tracked().topo;
-        for (body, name) in shapecraft_shape::bodies::solids_with(topo, &[picked]) {
+        for (body, name) in workpiece_shape::bodies::solids_with(topo, &[picked]) {
             let solid = read(topo, body)?;
             let face = solid.faces.iter().position(|f| {
                 f.name.as_deref() == Some(picked) || f.also.iter().any(|n| n == picked)
@@ -155,7 +155,7 @@ impl Operation for Thread {
             );
             if args.modelled {
                 let made = threaded(&solid, face, pitch, depth, args.left)?;
-                let mut out = shapecraft_core::Made::body(name.clone(), made);
+                let mut out = workpiece_core::Made::body(name.clone(), made);
                 out.removed.push(name);
                 return Ok(out);
             }
@@ -168,7 +168,7 @@ impl Operation for Thread {
             } else {
                 (radius * 2.0, radius * 2.0 - depth * 2.0)
             };
-            let said = shapecraft_core::world::Thread {
+            let said = workpiece_core::world::Thread {
                 face: picked.to_owned(),
                 origin: origin + axis * from,
                 axis,
@@ -185,21 +185,21 @@ impl Operation for Thread {
             // it is seen from the side, to a hole's rim seen end on.
             let middle = said.origin + axis * (said.length / 2.0);
             let hand = if args.left { "-LH" } else { "" };
-            let callout = shapecraft_core::world::Annotation {
+            let callout = workpiece_core::world::Annotation {
                 at: middle + axis.any_orthonormal_vector() * (radius * 3.0),
                 sketch: None,
-                note: shapecraft_core::world::Note::Hole {
+                note: workpiece_core::world::Note::Hole {
                     centre: if hole { said.origin } else { middle },
                     axis,
                     radius,
-                    lines: vec![vec![shapecraft_core::world::Callout::Text(format!(
+                    lines: vec![vec![workpiece_core::world::Callout::Text(format!(
                         "{}{hand}",
                         said.designation
                     ))]],
                     outside: !hole,
                 },
             };
-            return Ok(shapecraft_core::Made {
+            return Ok(workpiece_core::Made {
                 threads: vec![(self.id.clone(), said)],
                 annotations: vec![(format!("{}/callout", self.id), callout)],
                 ..Default::default()

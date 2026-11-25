@@ -1,13 +1,13 @@
 //! Dimensions of and between round things: the radii of what bends two
 //! ways, and distances to their sides.
 
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::{Datum, DatumFrame};
-use shapecraft_ops_annotate::{Bend, Dimension, DimensionArgs, DimensionKind};
-use shapecraft_ops_basic_shapes::{
+use workpiece_core::math::Point3;
+use workpiece_core::world::{Datum, DatumFrame};
+use workpiece_ops_annotate::{Bend, Dimension, DimensionArgs, DimensionKind};
+use workpiece_ops_basic_shapes::{
     AddCylinder, AddCylinderArgs, AddSphere, AddSphereArgs, AddTorus, AddTorusArgs,
 };
-use shapecraft_ops_testing::*;
+use workpiece_ops_testing::*;
 
 /// A frame `name` at `at`, the origin's directions kept.
 fn frame(b: &mut Standalone, name: &str, at: Point3) -> anyhow::Result<()> {
@@ -26,7 +26,7 @@ fn says(b: &mut Standalone, args: DimensionArgs) -> anyhow::Result<String> {
     Ok(b.world.annotations["d"].text())
 }
 
-fn of(names: &[&str]) -> Vec<Reference<shapecraft_core::Anything>> {
+fn of(names: &[&str]) -> Vec<Reference<workpiece_core::Anything>> {
     names
         .iter()
         .map(|n| Reference::new(Source::Topology((*n).to_owned())))

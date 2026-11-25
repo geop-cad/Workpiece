@@ -11,7 +11,7 @@
 //! and every cell within that of a sample, and the nearness asked for
 //! besides, is taken to be on the boundary.
 
-use shapecraft_core::math::Point3;
+use workpiece_core::math::Point3;
 
 use crate::bezier::{H, Piece};
 use crate::query::SolidData;
@@ -173,7 +173,7 @@ impl Grid {
         let top = [n[0] - 1, n[1] - 1, n[2] - 1];
         for (done, (patch, [su, sv])) in patches.iter().enumerate() {
             if done % 64 == 0 {
-                shapecraft_core::cancel::checkpoint();
+                workpiece_core::cancel::checkpoint();
             }
             let [nu, nv] = patch.n;
             // (Half a step to each side of a sample is within a cell's

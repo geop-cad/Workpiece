@@ -1,12 +1,12 @@
 //! What the operations of this crate make.
 
-use shapecraft_ops_sweep::{Extent, Extrude};
-use shapecraft_ops_testing::*;
-use shapecraft_shape::Combine;
+use workpiece_ops_sweep::{Extent, Extrude};
+use workpiece_ops_testing::*;
+use workpiece_shape::Combine;
 
 #[test]
 fn surfaces_are_copied_sewn_and_taken_apart() -> anyhow::Result<()> {
-    use shapecraft_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
+    use workpiece_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
     let act = |b: &mut Standalone, id: &str, way: SurfaceWay, picked: &[&str]| {
         Surface {
             id: id.into(),
@@ -39,7 +39,7 @@ fn surfaces_are_copied_sewn_and_taken_apart() -> anyhow::Result<()> {
         (kind(&b, "skin"), faces(&b, "skin")),
         (Some(BodyKind::Sheet), Some(2))
     );
-    let skin = shapecraft_boolean::read_sheet(&b.world.topo, body(&b, "skin"))?;
+    let skin = workpiece_boolean::read_sheet(&b.world.topo, body(&b, "skin"))?;
     assert_eq!(skin.edges.len(), 7);
     // All of the box as a surface, taken apart into six, and sewn again:
     // closed all around, a solid of the box's volume.
@@ -52,8 +52,8 @@ fn surfaces_are_copied_sewn_and_taken_apart() -> anyhow::Result<()> {
     act(&mut b, "again", SurfaceWay::Stitch, &pieces)?;
     check(&b);
     assert_eq!(kind(&b, "again"), Some(BodyKind::Solid));
-    let again = shapecraft_boolean::read(&b.world.topo, body(&b, "again"))?;
-    close(shapecraft_boolean::measure(&again).volume, 32.0, 1e-9);
+    let again = workpiece_boolean::read(&b.world.topo, body(&b, "again"))?;
+    close(workpiece_boolean::measure(&again).volume, 32.0, 1e-9);
     assert_eq!(
         (again.faces.len(), again.edges.len(), again.vertices.len()),
         (6, 12, 8)
@@ -63,8 +63,8 @@ fn surfaces_are_copied_sewn_and_taken_apart() -> anyhow::Result<()> {
     act(&mut b, "off", SurfaceWay::Offset, &["again"])?;
     check(&b);
     assert_eq!(faces(&b, "off"), Some(6));
-    let off = shapecraft_boolean::read_sheet(&b.world.topo, body(&b, "off"))?;
-    let area: f64 = (0..6).map(|f| shapecraft_boolean::face_area(&off, f)).sum();
+    let off = workpiece_boolean::read_sheet(&b.world.topo, body(&b, "off"))?;
+    let area: f64 = (0..6).map(|f| workpiece_boolean::face_area(&off, f)).sum();
     close(area, 64.0, 1e-9);
     // A face deleted from the two-faced surface leaves one.
     act(&mut b, "less", SurfaceWay::Delete, &["skin/face1"]).or_else(|_| {
@@ -80,7 +80,7 @@ fn surfaces_are_copied_sewn_and_taken_apart() -> anyhow::Result<()> {
 
 #[test]
 fn flat_holes_of_surfaces_are_filled() -> anyhow::Result<()> {
-    use shapecraft_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
+    use workpiece_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
     // A tube of radius 0.5, 2 long, open at both ends: filled, a rod.
     let mut b = Standalone::new();
     sketch(&mut b, "s", xy(), None, &[([0.0, 0.0], 0.5)])?;
@@ -101,9 +101,9 @@ fn flat_holes_of_surfaces_are_filled() -> anyhow::Result<()> {
         b.world.topo.body(body(&b, "tube")).map(|b| b.kind),
         Some(BodyKind::Solid)
     );
-    let rod = shapecraft_boolean::read(&b.world.topo, body(&b, "tube"))?;
+    let rod = workpiece_boolean::read(&b.world.topo, body(&b, "tube"))?;
     close(
-        shapecraft_boolean::measure(&rod).volume,
+        workpiece_boolean::measure(&rod).volume,
         PI * 0.25 * 2.0,
         1e-9,
     );
@@ -112,12 +112,12 @@ fn flat_holes_of_surfaces_are_filled() -> anyhow::Result<()> {
 
 #[test]
 fn edges_sweep_ruled_surfaces() -> anyhow::Result<()> {
-    use shapecraft_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
+    use workpiece_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
     // Two edges of the box's top that meet, run 3 up: two faces of one
     // surface, sharing the edge above the corner.
     let mut b = Standalone::new();
     base(&mut b)?;
-    let top = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let top = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     let face = top
         .faces
         .iter()
@@ -127,8 +127,8 @@ fn edges_sweep_ruled_surfaces() -> anyhow::Result<()> {
         .iter()
         .take(2)
         .filter_map(|step| match step.walk {
-            shapecraft_boolean::model::Walk::Edge { edge, .. } => top.edges[edge].name.clone(),
-            shapecraft_boolean::model::Walk::Pole { .. } => None,
+            workpiece_boolean::model::Walk::Edge { edge, .. } => top.edges[edge].name.clone(),
+            workpiece_boolean::model::Walk::Pole { .. } => None,
         })
         .collect();
     assert_eq!(edges.len(), 2);
@@ -147,10 +147,10 @@ fn edges_sweep_ruled_surfaces() -> anyhow::Result<()> {
     }
     .apply(&mut b)?;
     check(&b);
-    let fence = shapecraft_boolean::read_sheet(&b.world.topo, body(&b, "fence"))?;
+    let fence = workpiece_boolean::read_sheet(&b.world.topo, body(&b, "fence"))?;
     assert_eq!((fence.faces.len(), fence.edges.len()), (2, 7));
     let area: f64 = (0..2)
-        .map(|f| shapecraft_boolean::face_area(&fence, f))
+        .map(|f| workpiece_boolean::face_area(&fence, f))
         .sum();
     close(area, 24.0, 1e-9);
     Ok(())
@@ -158,7 +158,7 @@ fn edges_sweep_ruled_surfaces() -> anyhow::Result<()> {
 
 #[test]
 fn surfaces_run_on_and_go_back_to_what_they_were() -> anyhow::Result<()> {
-    use shapecraft_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
+    use workpiece_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
     let act = |b: &mut Standalone, id: &str, way: SurfaceWay, picked: &str, distance: f64| {
         Surface {
             id: id.into(),
@@ -172,9 +172,9 @@ fn surfaces_run_on_and_go_back_to_what_they_were() -> anyhow::Result<()> {
         .apply(b)
     };
     let area = |b: &Standalone, name: &str| -> anyhow::Result<f64> {
-        let sheet = shapecraft_boolean::read_sheet(&b.world.topo, body(b, name))?;
+        let sheet = workpiece_boolean::read_sheet(&b.world.topo, body(b, name))?;
         Ok((0..sheet.faces.len())
-            .map(|f| shapecraft_boolean::face_area(&sheet, f))
+            .map(|f| workpiece_boolean::face_area(&sheet, f))
             .sum())
     };
     // The top of the 4 × 4 × 2 box as a surface: run on by 1 all
@@ -204,10 +204,10 @@ fn surfaces_run_on_and_go_back_to_what_they_were() -> anyhow::Result<()> {
 
 #[test]
 fn four_edges_bound_a_surface() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::topo::Curve3;
-    use shapecraft_shape::between;
     use std::sync::Arc;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::topo::Curve3;
+    use workpiece_shape::between;
     // A square frame, two of its sides arched up by 1: the surface runs
     // along all four.
     let arch = |a: Point3, b: Point3| {
@@ -228,8 +228,8 @@ fn four_edges_bound_a_surface() -> anyhow::Result<()> {
         ),
     ];
     let sheet = between(&sides, "roof")?;
-    let mut topo = shapecraft_core::world::Topo::new();
-    shapecraft_boolean::write_sheet(&mut topo, &sheet, "roof")?;
+    let mut topo = workpiece_core::world::Topo::new();
+    workpiece_boolean::write_sheet(&mut topo, &sheet, "roof")?;
     assert_eq!(topo.validate(), Ok(()));
     let surface = &sheet.faces[0].surface;
     let ((u0, u1), (v0, v1)) = surface.domain();
@@ -247,13 +247,13 @@ fn four_edges_bound_a_surface() -> anyhow::Result<()> {
             at(f64::from(k) / 4000.0).distance(at(f64::from(k + 1) / 4000.0))
         })
         .sum::<f64>();
-    close(shapecraft_boolean::face_area(&sheet, 0), arc * 4.0, 1e-5);
+    close(workpiece_boolean::face_area(&sheet, 0), arc * 4.0, 1e-5);
     Ok(())
 }
 
 #[test]
 fn surfaces_are_trimmed_and_split_by_planes() -> anyhow::Result<()> {
-    use shapecraft_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
+    use workpiece_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
     let act = |b: &mut Standalone, id: &str, way: SurfaceWay, picked: &str, plane: bool| {
         Surface {
             id: id.into(),
@@ -269,9 +269,9 @@ fn surfaces_are_trimmed_and_split_by_planes() -> anyhow::Result<()> {
         .apply(b)
     };
     let area = |b: &Standalone, name: &str| -> anyhow::Result<f64> {
-        let sheet = shapecraft_boolean::read_sheet(&b.world.topo, body(b, name))?;
+        let sheet = workpiece_boolean::read_sheet(&b.world.topo, body(b, name))?;
         Ok((0..sheet.faces.len())
-            .map(|f| shapecraft_boolean::face_area(&sheet, f))
+            .map(|f| workpiece_boolean::face_area(&sheet, f))
             .sum())
     };
     // The top of the 4 × 4 × 2 box, about the origin: trimmed to the
@@ -297,7 +297,7 @@ fn surfaces_are_trimmed_and_split_by_planes() -> anyhow::Result<()> {
     close(area(&t, "tube")?, PI, 1e-6);
     // The trimmed tube moved 5 along x, as a body is: as large, and
     // 5 on.
-    let mut shift = shapecraft_ops_bodies::Transform {
+    let mut shift = workpiece_ops_bodies::Transform {
         id: "shift".into(),
         args: Default::default(),
     };
@@ -306,13 +306,13 @@ fn surfaces_are_trimmed_and_split_by_planes() -> anyhow::Result<()> {
     shift.apply(&mut t)?;
     check(&t);
     close(area(&t, "tube")?, PI, 1e-6);
-    let moved = shapecraft_boolean::read_sheet(&t.world.topo, body(&t, "tube"))?;
+    let moved = workpiece_boolean::read_sheet(&t.world.topo, body(&t, "tube"))?;
     assert!(moved.extent().0.x > 4.0);
     act(&mut b, "gone", SurfaceWay::Trim, "cut", true)?;
     assert!(
         b.world
             .topo
-            .resolve::<shapecraft_core::world::topo::BodyId>("cut")
+            .resolve::<workpiece_core::world::topo::BodyId>("cut")
             .is_none(),
         "all of it was in front"
     );
@@ -321,12 +321,12 @@ fn surfaces_are_trimmed_and_split_by_planes() -> anyhow::Result<()> {
 
 #[test]
 fn edges_inside_surfaces_are_rounded() -> anyhow::Result<()> {
-    use shapecraft_shape::{faces_of, rounded};
+    use workpiece_shape::{faces_of, rounded};
     // The top (4 × 4) and the front (4 × 2) of the box, as one
     // surface: the edge between them rounded to 0.5.
     let mut b = Standalone::new();
     base(&mut b)?;
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     let face = |name: &str| {
         let found = solid
             .faces
@@ -340,19 +340,19 @@ fn edges_inside_surfaces_are_rounded() -> anyhow::Result<()> {
         .find(|&e| {
             let steps = sheet.faces.iter().flat_map(|f| f.loops.iter().flatten());
             let walked = steps.filter(
-                |s| matches!(s.walk, shapecraft_boolean::model::Walk::Edge { edge, .. } if edge == e),
+                |s| matches!(s.walk, workpiece_boolean::model::Walk::Edge { edge, .. } if edge == e),
             );
             walked.count() == 2
         })
         .expect("the edge between them");
     let r = 0.5;
     let made = rounded(&sheet, &[inner], r, "round")?;
-    let mut topo = shapecraft_core::world::Topo::new();
-    shapecraft_boolean::write_sheet(&mut topo, &made, "sheet")?;
+    let mut topo = workpiece_core::world::Topo::new();
+    workpiece_boolean::write_sheet(&mut topo, &made, "sheet")?;
     assert_eq!(topo.validate(), Ok(()));
     assert_eq!(made.faces.len(), 3);
     let area: f64 = (0..made.faces.len())
-        .map(|f| shapecraft_boolean::face_area(&made, f))
+        .map(|f| workpiece_boolean::face_area(&made, f))
         .sum();
     close(
         area,
@@ -364,8 +364,8 @@ fn edges_inside_surfaces_are_rounded() -> anyhow::Result<()> {
 
 #[test]
 fn curves_in_space_are_bodies_of_their_own() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_ops_surface::{Curve, CurveArgs, CurveWay, through};
+    use workpiece_core::math::Point3;
+    use workpiece_ops_surface::{Curve, CurveArgs, CurveWay, through};
     // A curve through points goes through them.
     let points = [
         Point3::new(0.0, 0.0, 0.0),
@@ -380,7 +380,7 @@ fn curves_in_space_are_bodies_of_their_own() -> anyhow::Result<()> {
     let wire = |b: &Standalone, name: &str| -> Vec<(Point3, Point3)> {
         let topo = &b.world.topo;
         let it = topo.body(body(b, name)).expect("the curve");
-        assert_eq!(it.kind, shapecraft_core::world::topo::BodyKind::Wire);
+        assert_eq!(it.kind, workpiece_core::world::topo::BodyKind::Wire);
         let ends = it.free_edges.iter().map(|&e| {
             let edge = topo.edge(e).expect("an edge");
             let curve = topo.curve(edge.curve).expect("its curve");
@@ -449,11 +449,11 @@ fn curves_in_space_are_bodies_of_their_own() -> anyhow::Result<()> {
     // A straight curve 1 above the box's top, from inside it to well
     // past its side, thrown down z onto the top: as much of it as is
     // over the top, 1.5 long, on the top.
-    let over = shapecraft_core::world::topo::Curve3::line(
+    let over = workpiece_core::world::topo::Curve3::line(
         Point3::new(0.5, 0.0, 3.0),
         Point3::new(9.0, 0.0, 3.0),
     )?;
-    shapecraft_ops_surface::write_wire(
+    workpiece_ops_surface::write_wire(
         &mut b.world.topo,
         "over",
         &[(std::sync::Arc::new(over), (0.0, 1.0))],
@@ -475,7 +475,7 @@ fn curves_in_space_are_bodies_of_their_own() -> anyhow::Result<()> {
     let shadow = wire(&b, "shadow");
     let long: f64 = shadow.iter().map(|(a, b)| a.distance(*b)).sum();
     close(long, 1.5, 1e-9);
-    let top = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?
+    let top = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?
         .extent()
         .1
         .z;
@@ -500,12 +500,12 @@ fn curves_in_space_are_bodies_of_their_own() -> anyhow::Result<()> {
             at(k).distance(at(k + 1))
         })
         .sum();
-    shapecraft_ops_surface::write_wire(
+    workpiece_ops_surface::write_wire(
         &mut s.world.topo,
         "way",
         &[(std::sync::Arc::new(bent), range)],
     )?;
-    let mut sweep = shapecraft_ops_sweep::SweptLoft {
+    let mut sweep = workpiece_ops_sweep::SweptLoft {
         id: "pipe".into(),
         args: Default::default(),
     };
@@ -513,9 +513,9 @@ fn curves_in_space_are_bodies_of_their_own() -> anyhow::Result<()> {
     sweep.args.path = Some(Source::Topology("way".into()).into());
     sweep.apply(&mut s)?;
     check(&s);
-    let pipe = shapecraft_boolean::read(&s.world.topo, body(&s, "pipe"))?;
+    let pipe = workpiece_boolean::read(&s.world.topo, body(&s, "pipe"))?;
     close(
-        shapecraft_boolean::measure(&pipe).volume,
+        workpiece_boolean::measure(&pipe).volume,
         PI * 0.04 * length,
         0.05,
     );
@@ -558,7 +558,7 @@ fn curves_in_space_are_bodies_of_their_own() -> anyhow::Result<()> {
 
 #[test]
 fn a_surface_step_saved_with_its_way_beside_its_arguments_still_reads() -> anyhow::Result<()> {
-    use shapecraft_ops_surface::{Surface, SurfaceWay};
+    use workpiece_ops_surface::{Surface, SurfaceWay};
     let old = r#"{"id":"s","way":"Stitch","args":{"picked":[]}}"#;
     let read: Surface = serde_json::from_str(old)?;
     assert_eq!(read.args.way, SurfaceWay::Stitch);

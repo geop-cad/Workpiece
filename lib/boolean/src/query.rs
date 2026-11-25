@@ -12,8 +12,8 @@
 //! crosses the faces an odd number of times, the crossings found by the
 //! contact search of a segment with each surface.
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::NurbsSurface;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::NurbsSurface;
 
 use crate::Refusal;
 use crate::bezier::{Bounds, Piece, bernstein, curve_pieces, roots, surface_pieces};
@@ -415,7 +415,7 @@ fn crossings_within(
 ) -> Option<usize> {
     let size = data.bounds.size().max(f64::MIN_POSITIVE);
     let end = origin + d * reach;
-    let segment = shapecraft_core::world::topo::Curve3::line(origin, end).ok()?;
+    let segment = workpiece_core::world::topo::Curve3::line(origin, end).ok()?;
     let ray = [Piece::segment(origin, end)];
     let ray_bounds = ray[0].bounds();
     let fine = size * 1e-11;
@@ -506,7 +506,7 @@ pub(crate) fn meetings(
         .length()
         + size * 0.1;
     let end = origin + d * reach;
-    let segment = shapecraft_core::world::topo::Curve3::line(origin, end).ok()?;
+    let segment = workpiece_core::world::topo::Curve3::line(origin, end).ok()?;
     let ray = [Piece::segment(origin, end)];
     let ray_bounds = ray[0].bounds();
     let fine = size * 1e-11;

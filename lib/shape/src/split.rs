@@ -3,10 +3,10 @@
 use std::sync::Arc;
 
 use anyhow::Context;
-use shapecraft_boolean::model::Walk;
-use shapecraft_boolean::{Op, Solid, combine};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::Curve3;
+use workpiece_boolean::model::Walk;
+use workpiece_boolean::{Op, Solid, combine};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::Curve3;
 
 /// What of `solid` is in front of the plane through `origin` across
 /// `normal`, and what is behind it. Either is empty if the plane misses
@@ -69,7 +69,7 @@ pub fn halves_by(solid: &Solid, sheet: &Solid) -> anyhow::Result<[Solid; 2]> {
         for k in 0..=8 {
             let t = edge.range.0 + (edge.range.1 - edge.range.0) * k as f64 / 8.0;
             ensure!(
-                shapecraft_boolean::holds(solid, edge.point(t)) != Some(true),
+                workpiece_boolean::holds(solid, edge.point(t)) != Some(true),
                 "the face ends inside the body: it has to go all the way through it"
             );
         }
@@ -87,7 +87,7 @@ pub fn halves_by(solid: &Solid, sheet: &Solid) -> anyhow::Result<[Solid; 2]> {
             &format!("split/w{k}"),
         )?);
     }
-    let (block, closed) = shapecraft_boolean::stitched(&parts, (hi - lo).length() * 1e-7)?;
+    let (block, closed) = workpiece_boolean::stitched(&parts, (hi - lo).length() * 1e-7)?;
     ensure!(closed, "the face does not sweep a closed block to split by");
     Ok([
         combine(Op::Intersect, solid, &block)?.solid,
@@ -123,7 +123,7 @@ pub fn section(solid: &Solid, origin: Point3, normal: Point3) -> anyhow::Result<
     let a = normal.any_orthonormal_vector();
     let b = normal.cross(a);
     // A block behind the plane; its face `f0` is in it.
-    let behind = shapecraft_boolean::block(
+    let behind = workpiece_boolean::block(
         "section",
         origin - (a + b) * far,
         [b, a, -normal],
@@ -132,7 +132,7 @@ pub fn section(solid: &Solid, origin: Point3, normal: Point3) -> anyhow::Result<
     let front = combine(Op::Cut, solid, &behind)
         .context("cutting the body at the plane")?
         .solid;
-    let in_plane = |face: &shapecraft_boolean::model::Face| {
+    let in_plane = |face: &workpiece_boolean::model::Face| {
         // (A face left in several pieces: `section/f0#2`, ….)
         let named = |n: &String| n == "section/f0" || n.starts_with("section/f0#");
         face.name.as_ref().is_some_and(named) || face.also.iter().any(named)
@@ -155,7 +155,7 @@ pub fn section(solid: &Solid, origin: Point3, normal: Point3) -> anyhow::Result<
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_boolean::geometry::chords;
+    use workpiece_boolean::geometry::chords;
 
     #[test]
     fn a_ball_is_cut_in_a_circle() -> anyhow::Result<()> {

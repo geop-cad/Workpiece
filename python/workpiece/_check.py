@@ -7,7 +7,7 @@
 
 Written once by whoever first reads the original; later passes and the grader reuse it. The
 build then prints a scorecard (views, numbers, notes, mass, problems) and lints the script
-(derived numbers, private members, reading its own outputs). Used by the package (`shapecraft/__init__.py`); no need to
+(derived numbers, private members, reading its own outputs). Used by the package (`workpiece/__init__.py`); no need to
 import this directly except for `original`.
 """
 
@@ -328,13 +328,13 @@ _READS = re.compile(r"open\(|\.read_text|\.read_bytes|json\.load|os\.path\.exist
 
 def lint_source(source: str) -> list:
     """Private members of the layer used (`._x` of what the layer returns), and a script reading
-    its own output files (.shapecraft, .views, reports) before its first build."""
+    its own output files (.workpiece, .views, reports) before its first build."""
     out = []
     lines = source.splitlines()
     first_build = next((n for n, l in enumerate(lines) if ".build(" in l.split("#", 1)[0]), len(lines))
     for n, line in enumerate(lines[:first_build], 1):
         code = line.split("#", 1)[0]
-        if _READS.search(code) and re.search(r"\.shapecraft|\.views|report\.json|\bout\b", code):
+        if _READS.search(code) and re.search(r"\.workpiece|\.views|report\.json|\bout\b", code):
             out.append(f"line {n}: the script reads its own output before building: build first, and read what `build` returns")
     for n, line in enumerate(lines, 1):
         code = line.split("#", 1)[0]

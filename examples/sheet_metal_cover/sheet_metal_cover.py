@@ -7,10 +7,10 @@ Change a value on the command line and the cover, its drawings and its flat patt
 """
 import os, sys
 try:
-    import shapecraft
+    import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from shapecraft import Part, axis, note, topo, view, projected
+from workpiece import Part, axis, note, topo, view, projected
 
 # The named values the cover is built from (mm); NAME=value on the command line overrides one.
 values = dict(LENGTH=160, WIDTH=100, HEIGHT=40, LIP=12, THICKNESS=1.5, BEND_RADIUS=2,
@@ -21,8 +21,8 @@ for arg in sys.argv[1:]:
 globals().update(values)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "sheet_metal_cover.shapecraft")
-p = Part(material="Steel", title="VENTED COVER", file="sheet_metal_cover.shapecraft")
+OUT = os.path.join(HERE, "sheet_metal_cover.workpiece")
+p = Part(material="Steel", title="VENTED COVER", file="sheet_metal_cover.workpiece")
 
 # The base: LENGTH along x, WIDTH along y, THICKNESS thick.
 s = p.sketch("XY", id="base_outline", show_in="top")

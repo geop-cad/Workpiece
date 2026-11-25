@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-cad-ui"
+name = "workpiece-ui"
 description = "Application state (model) and what is shown for it (view)."
 edition.workspace = true
 version.workspace = true
@@ -8,31 +8,31 @@ repository.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "shapecraft_cad_ui"
+name = "workpiece_ui"
 
 [dependencies]
 anyhow.workspace = true
 glam.workspace = true
-shapecraft-core.workspace = true
-shapecraft-ops-drawing.workspace = true
-shapecraft-ops-mesh.workspace = true
-shapecraft-ops-appearance.workspace = true
-shapecraft-render.workspace = true
-shapecraft-boolean.workspace = true
-shapecraft-ops-basic-shapes.workspace = true
-shapecraft-ops-datum.workspace = true
-shapecraft-ops-instances.workspace = true
-shapecraft-ops-sketch.workspace = true
-shapecraft-ops-annotate.workspace = true
-shapecraft-ops-blend.workspace = true
-shapecraft-ops-faces.workspace = true
-shapecraft-ops-bodies.workspace = true
-shapecraft-ops-standard.workspace = true
-shapecraft-ops-sweep.workspace = true
-shapecraft-shape.workspace = true
-shapecraft-ops-step.workspace = true
-shapecraft-cad-part.workspace = true
-shapecraft-cad-rasterize.workspace = true
+workpiece-core.workspace = true
+workpiece-ops-drawing.workspace = true
+workpiece-ops-mesh.workspace = true
+workpiece-ops-appearance.workspace = true
+workpiece-render.workspace = true
+workpiece-boolean.workspace = true
+workpiece-ops-basic-shapes.workspace = true
+workpiece-ops-datum.workspace = true
+workpiece-ops-instances.workspace = true
+workpiece-ops-sketch.workspace = true
+workpiece-ops-annotate.workspace = true
+workpiece-ops-blend.workspace = true
+workpiece-ops-faces.workspace = true
+workpiece-ops-bodies.workspace = true
+workpiece-ops-standard.workspace = true
+workpiece-ops-sweep.workspace = true
+workpiece-shape.workspace = true
+workpiece-ops-step.workspace = true
+workpiece-part.workspace = true
+workpiece-rasterize.workspace = true
 # Previews of parts are PNG pictures.
 png = "0.18.1"
 

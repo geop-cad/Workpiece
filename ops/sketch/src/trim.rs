@@ -8,8 +8,8 @@
 
 use std::f64::consts::TAU;
 
-use shapecraft_core::handles::CanvasView;
-use shapecraft_core::math::Point2;
+use workpiece_core::handles::CanvasView;
+use workpiece_core::math::Point2;
 
 use crate::geometry::{angle, sweep};
 use crate::model::{Id, Item, Kind, Shape, SketchArgs};

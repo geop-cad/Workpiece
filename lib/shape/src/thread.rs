@@ -3,9 +3,9 @@
 use std::f64::consts::TAU;
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::{Op, Solid, combine};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::Curve3;
+use workpiece_boolean::{Op, Solid, combine};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::Curve3;
 
 use crate::swept::{Outline, polygon, steady, swept};
 

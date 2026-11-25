@@ -2,9 +2,9 @@
 //! materials, each to be changed.
 
 use eframe::egui;
-use shapecraft_cad_part::{Material, Texture};
-use shapecraft_cad_ui::Message;
-use shapecraft_cad_ui::view::Materials;
+use workpiece_part::{Material, Texture};
+use workpiece_ui::Message;
+use workpiece_ui::view::Materials;
 
 use crate::theme::color;
 
@@ -153,7 +153,7 @@ impl MaterialsPanel {
                     });
                 ui.horizontal(|ui| {
                     if ui.button("+").on_hover_text("A new material").clicked() {
-                        let fresh = shapecraft_cad_part::Library {
+                        let fresh = workpiece_part::Library {
                             materials: library.clone(),
                         }
                         .fresh_name();

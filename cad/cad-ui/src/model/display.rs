@@ -3,11 +3,11 @@
 
 use std::sync::Arc;
 
-use shapecraft_core::Pose;
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::World;
-use shapecraft_core::world::topo::BodyKind;
-pub(crate) use shapecraft_shape::cut::corners;
+use workpiece_core::Pose;
+use workpiece_core::math::Point3;
+use workpiece_core::world::World;
+use workpiece_core::world::topo::BodyKind;
+pub(crate) use workpiece_shape::cut::corners;
 
 /// What the model's faces are painted to show.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -35,7 +35,7 @@ pub struct Display {
     /// Cut open by a plane that no step of the part has (the plane a
     /// sketch is drawn on): what is on the side its normal points to
     /// is cut away. Shown instead of `cut`.
-    pub plane: Option<shapecraft_core::world::Cutting>,
+    pub plane: Option<workpiece_core::world::Cutting>,
     /// How far apart the placed parts are drawn: each this many times as
     /// far from the middle of them all as it is.
     pub explode: f64,
@@ -56,7 +56,7 @@ fn extent(world: &World, pose: Pose, into: &mut Option<(Point3, Point3)>) {
         if body.kind != BodyKind::Solid {
             continue;
         }
-        let Ok(solid) = shapecraft_boolean::read(topo, id) else {
+        let Ok(solid) = workpiece_boolean::read(topo, id) else {
             continue;
         };
         let (lo, hi) = solid.extent();
@@ -73,7 +73,7 @@ fn extent(world: &World, pose: Pose, into: &mut Option<(Point3, Point3)>) {
 /// The joints of `world` that have limits to their travel, by their
 /// place among its joints.
 fn limited(world: &World) -> Vec<usize> {
-    let has = |j: &shapecraft_core::world::Joint| {
+    let has = |j: &workpiece_core::world::Joint| {
         (j.kind.turns() && j.limits.angle.is_some())
             || (j.kind.slides() && j.limits.distance.is_some())
     };
@@ -136,7 +136,7 @@ impl Display {
                 Some(range) => joint.limits.angle = held(range),
                 None => joint.limits.distance = joint.limits.distance.and_then(held),
             }
-            let solved = shapecraft_ops_instances::assembly::solve(&shown, None);
+            let solved = workpiece_ops_instances::assembly::solve(&shown, None);
             for (name, pose) in solved.poses {
                 if let Some(instance) = shown.instances.get_mut(&name) {
                     instance.pose = pose;
@@ -171,7 +171,7 @@ impl Display {
             if let Some((lo, hi)) = around {
                 let far = (hi - lo).length() * 4.0 + lo.length() + hi.length() + 1.0;
                 let far = far + cutting.origin.length();
-                shown = shapecraft_ops_drawing::opened(&shown, cutting, far);
+                shown = workpiece_ops_drawing::opened(&shown, cutting, far);
                 restamp(&mut shown, &format!("{cutting:?}"));
             }
         }

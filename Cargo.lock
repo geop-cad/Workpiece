@@ -2568,486 +2568,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "shapecraft-app"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bytemuck",
- "eframe",
- "egui_extras",
- "glam",
- "js-sys",
- "png 0.18.1",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-part",
- "shapecraft-cad-rasterize",
- "shapecraft-cad-ui",
- "shapecraft-core",
- "shapecraft-ops-appearance",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-blend",
- "shapecraft-ops-bodies",
- "shapecraft-ops-datum",
- "shapecraft-ops-drawing",
- "shapecraft-ops-instances",
- "shapecraft-ops-sketch",
- "shapecraft-ops-step",
- "shapecraft-render",
- "shapecraft-shape",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "web-time",
- "winresource",
-]
-
-[[package]]
-name = "shapecraft-boolean"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "shapecraft-boolean-bench"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "glam",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-sketch",
- "shapecraft-ops-standard",
- "shapecraft-ops-step",
- "shapecraft-ops-surface",
- "shapecraft-ops-sweep",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-cad-part"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-core",
- "shapecraft-ops-annotate",
- "shapecraft-ops-appearance",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-blend",
- "shapecraft-ops-bodies",
- "shapecraft-ops-datum",
- "shapecraft-ops-drawing",
- "shapecraft-ops-faces",
- "shapecraft-ops-features",
- "shapecraft-ops-instances",
- "shapecraft-ops-mesh",
- "shapecraft-ops-sheet-metal",
- "shapecraft-ops-sketch",
- "shapecraft-ops-standard",
- "shapecraft-ops-step",
- "shapecraft-ops-surface",
- "shapecraft-ops-sweep",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "shapecraft-cad-rasterize"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "glam",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
-]
-
-[[package]]
-name = "shapecraft-cad-ui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "glam",
- "png 0.18.1",
- "shapecraft-boolean",
- "shapecraft-cad-part",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-annotate",
- "shapecraft-ops-appearance",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-blend",
- "shapecraft-ops-bodies",
- "shapecraft-ops-datum",
- "shapecraft-ops-drawing",
- "shapecraft-ops-faces",
- "shapecraft-ops-instances",
- "shapecraft-ops-mesh",
- "shapecraft-ops-sketch",
- "shapecraft-ops-standard",
- "shapecraft-ops-step",
- "shapecraft-ops-sweep",
- "shapecraft-render",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "glam",
- "png 0.18.1",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-part",
- "shapecraft-cad-ui",
- "shapecraft-core",
- "shapecraft-ops-drawing",
- "shapecraft-ops-instances",
- "shapecraft-ops-sketch",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-conformance-adapter"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "glam",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-faces",
- "shapecraft-ops-sketch",
- "shapecraft-ops-step",
- "shapecraft-ops-sweep",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "glam",
- "serde",
- "serde_json",
- "shapecraft-derive",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "shapecraft-derive"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "shapecraft-ops-annotate"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "shapecraft-boolean",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-testing",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-ops-appearance"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-testing",
-]
-
-[[package]]
-name = "shapecraft-ops-basic-shapes"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "shapecraft-core",
-]
-
-[[package]]
-name = "shapecraft-ops-blend"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-bodies",
- "shapecraft-ops-sketch",
- "shapecraft-ops-testing",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-ops-bodies"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-sketch",
- "shapecraft-ops-sweep",
- "shapecraft-ops-testing",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-ops-datum"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "glam",
- "serde",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
-]
-
-[[package]]
-name = "shapecraft-ops-drawing"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-annotate",
- "shapecraft-ops-appearance",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-blend",
- "shapecraft-ops-features",
- "shapecraft-ops-sketch",
- "shapecraft-ops-sweep",
- "shapecraft-ops-testing",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-ops-faces"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-sketch",
- "shapecraft-ops-sweep",
- "shapecraft-ops-testing",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-ops-features"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-datum",
- "shapecraft-ops-sketch",
- "shapecraft-ops-sweep",
- "shapecraft-ops-testing",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-ops-instances"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "glam",
- "serde",
- "shapecraft-boolean",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-shape",
- "shapecraft-solver",
-]
-
-[[package]]
-name = "shapecraft-ops-mesh"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "glam",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-core",
- "shapecraft-ops-testing",
-]
-
-[[package]]
-name = "shapecraft-ops-sheet-metal"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-sketch",
- "shapecraft-ops-testing",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-ops-sketch"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "epaint_default_fonts",
- "glam",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-solver",
- "ttf-parser",
-]
-
-[[package]]
-name = "shapecraft-ops-standard"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-instances",
- "shapecraft-ops-sketch",
- "shapecraft-ops-testing",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-ops-step"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "miniz_oxide 0.8.9",
- "serde",
- "shapecraft-boolean",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "thiserror 2.0.21",
-]
-
-[[package]]
-name = "shapecraft-ops-surface"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-bodies",
- "shapecraft-ops-sketch",
- "shapecraft-ops-sweep",
- "shapecraft-ops-testing",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-ops-sweep"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
- "shapecraft-boolean",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-sketch",
- "shapecraft-ops-testing",
- "shapecraft-shape",
-]
-
-[[package]]
-name = "shapecraft-ops-testing"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "shapecraft-boolean",
- "shapecraft-cad-rasterize",
- "shapecraft-core",
- "shapecraft-ops-basic-shapes",
- "shapecraft-ops-sketch",
-]
-
-[[package]]
-name = "shapecraft-render"
-version = "0.1.0"
-dependencies = [
- "glam",
-]
-
-[[package]]
-name = "shapecraft-shape"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "shapecraft-boolean",
- "shapecraft-core",
-]
-
-[[package]]
-name = "shapecraft-solver"
-version = "0.1.0"
-
-[[package]]
 name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4190,6 +3710,486 @@ name = "wit-bindgen"
 version = "0.57.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
+
+[[package]]
+name = "workpiece-app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bytemuck",
+ "eframe",
+ "egui_extras",
+ "glam",
+ "js-sys",
+ "png 0.18.1",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "web-time",
+ "winresource",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-appearance",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-blend",
+ "workpiece-ops-bodies",
+ "workpiece-ops-datum",
+ "workpiece-ops-drawing",
+ "workpiece-ops-instances",
+ "workpiece-ops-sketch",
+ "workpiece-ops-step",
+ "workpiece-part",
+ "workpiece-rasterize",
+ "workpiece-render",
+ "workpiece-shape",
+ "workpiece-ui",
+]
+
+[[package]]
+name = "workpiece-boolean"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "thiserror 2.0.21",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+]
+
+[[package]]
+name = "workpiece-boolean-bench"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-sketch",
+ "workpiece-ops-standard",
+ "workpiece-ops-step",
+ "workpiece-ops-surface",
+ "workpiece-ops-sweep",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam",
+ "png 0.18.1",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-drawing",
+ "workpiece-ops-instances",
+ "workpiece-ops-sketch",
+ "workpiece-part",
+ "workpiece-shape",
+ "workpiece-ui",
+]
+
+[[package]]
+name = "workpiece-conformance-adapter"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-faces",
+ "workpiece-ops-sketch",
+ "workpiece-ops-step",
+ "workpiece-ops-sweep",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "workpiece-derive",
+]
+
+[[package]]
+name = "workpiece-derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "workpiece-ops-annotate"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-testing",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-ops-appearance"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-testing",
+]
+
+[[package]]
+name = "workpiece-ops-basic-shapes"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "workpiece-core",
+]
+
+[[package]]
+name = "workpiece-ops-blend"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-bodies",
+ "workpiece-ops-sketch",
+ "workpiece-ops-testing",
+ "workpiece-rasterize",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-ops-bodies"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-sketch",
+ "workpiece-ops-sweep",
+ "workpiece-ops-testing",
+ "workpiece-rasterize",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-ops-datum"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam",
+ "serde",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+]
+
+[[package]]
+name = "workpiece-ops-drawing"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-annotate",
+ "workpiece-ops-appearance",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-blend",
+ "workpiece-ops-features",
+ "workpiece-ops-sketch",
+ "workpiece-ops-sweep",
+ "workpiece-ops-testing",
+ "workpiece-rasterize",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-ops-faces"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-sketch",
+ "workpiece-ops-sweep",
+ "workpiece-ops-testing",
+ "workpiece-rasterize",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-ops-features"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-datum",
+ "workpiece-ops-sketch",
+ "workpiece-ops-sweep",
+ "workpiece-ops-testing",
+ "workpiece-rasterize",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-ops-instances"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam",
+ "serde",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-shape",
+ "workpiece-solver",
+]
+
+[[package]]
+name = "workpiece-ops-mesh"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-testing",
+]
+
+[[package]]
+name = "workpiece-ops-sheet-metal"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-sketch",
+ "workpiece-ops-testing",
+ "workpiece-rasterize",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-ops-sketch"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "epaint_default_fonts",
+ "glam",
+ "serde",
+ "serde_json",
+ "ttf-parser",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-solver",
+]
+
+[[package]]
+name = "workpiece-ops-standard"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-instances",
+ "workpiece-ops-sketch",
+ "workpiece-ops-testing",
+ "workpiece-rasterize",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-ops-step"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "miniz_oxide 0.8.9",
+ "serde",
+ "thiserror 2.0.21",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+]
+
+[[package]]
+name = "workpiece-ops-surface"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-bodies",
+ "workpiece-ops-sketch",
+ "workpiece-ops-sweep",
+ "workpiece-ops-testing",
+ "workpiece-rasterize",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-ops-sweep"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-sketch",
+ "workpiece-ops-testing",
+ "workpiece-rasterize",
+ "workpiece-shape",
+]
+
+[[package]]
+name = "workpiece-ops-testing"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-sketch",
+ "workpiece-rasterize",
+]
+
+[[package]]
+name = "workpiece-part"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-annotate",
+ "workpiece-ops-appearance",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-blend",
+ "workpiece-ops-bodies",
+ "workpiece-ops-datum",
+ "workpiece-ops-drawing",
+ "workpiece-ops-faces",
+ "workpiece-ops-features",
+ "workpiece-ops-instances",
+ "workpiece-ops-mesh",
+ "workpiece-ops-sheet-metal",
+ "workpiece-ops-sketch",
+ "workpiece-ops-standard",
+ "workpiece-ops-step",
+ "workpiece-ops-surface",
+ "workpiece-ops-sweep",
+]
+
+[[package]]
+name = "workpiece-rasterize"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam",
+ "workpiece-core",
+ "workpiece-ops-basic-shapes",
+]
+
+[[package]]
+name = "workpiece-render"
+version = "0.1.0"
+dependencies = [
+ "glam",
+]
+
+[[package]]
+name = "workpiece-shape"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "workpiece-boolean",
+ "workpiece-core",
+]
+
+[[package]]
+name = "workpiece-solver"
+version = "0.1.0"
+
+[[package]]
+name = "workpiece-ui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam",
+ "png 0.18.1",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-annotate",
+ "workpiece-ops-appearance",
+ "workpiece-ops-basic-shapes",
+ "workpiece-ops-blend",
+ "workpiece-ops-bodies",
+ "workpiece-ops-datum",
+ "workpiece-ops-drawing",
+ "workpiece-ops-faces",
+ "workpiece-ops-instances",
+ "workpiece-ops-mesh",
+ "workpiece-ops-sketch",
+ "workpiece-ops-standard",
+ "workpiece-ops-step",
+ "workpiece-ops-sweep",
+ "workpiece-part",
+ "workpiece-rasterize",
+ "workpiece-render",
+ "workpiece-shape",
+]
 
 [[package]]
 name = "x11-dl"

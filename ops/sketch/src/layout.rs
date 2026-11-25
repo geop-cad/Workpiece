@@ -9,8 +9,8 @@
 //! camera: the view comes in as sizes (a pixel's length in the plane)
 //! and the way the screen's right and up point in the plane.
 
-use shapecraft_core::handles::{CanvasShape, CanvasView, Tone};
-use shapecraft_core::math::Point2;
+use workpiece_core::handles::{CanvasShape, CanvasView, Tone};
+use workpiece_core::math::Point2;
 
 use crate::draw::dimension_text;
 use crate::geometry::{angle, unit};
@@ -276,7 +276,7 @@ impl Dim<'_> {
 /// The dimension `of` an annotation says a sketch's, laid out as the
 /// sketcher lays it out: `None` for a sketch it has not the geometry of.
 pub fn annotation(
-    of: &shapecraft_core::world::SketchOf,
+    of: &workpiece_core::world::SketchOf,
     view: &CanvasView,
     tone: Tone,
 ) -> Option<Vec<CanvasShape>> {

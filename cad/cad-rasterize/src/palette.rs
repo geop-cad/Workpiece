@@ -36,7 +36,7 @@ pub const X: Color = [0.578, 0.080, 0.070, 1.0];
 pub const Y: Color = [0.114, 0.352, 0.084, 1.0];
 /// The z axis (steel blue, `#4A78C8`).
 pub const Z: Color = [0.069, 0.188, 0.578, 1.0];
-/// x, y and z, by [`Axis::index`](shapecraft_core::Axis::index).
+/// x, y and z, by [`Axis::index`](workpiece_core::Axis::index).
 pub const AXES: [Color; 3] = [X, Y, Z];
 
 /// `color` with opacity `alpha`.

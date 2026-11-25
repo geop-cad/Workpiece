@@ -1,15 +1,15 @@
-//! What an edit's handles look like: their [pieces](shapecraft_core::handles::shape)
+//! What an edit's handles look like: their [pieces](workpiece_core::handles::shape)
 //! as knobs, arrows and rings, the same size on screen wherever they are.
 //! Each primitive picks its handle (and the gizmo part it moves).
 
 use std::collections::BTreeMap;
 
-use shapecraft_core::Pose;
-use shapecraft_core::handles::shape::Shape;
-use shapecraft_core::handles::{
+use workpiece_core::Pose;
+use workpiece_core::handles::shape::Shape;
+use workpiece_core::handles::{
     Canvas, CanvasShape, CanvasView, Handle, Space, SpaceShape, SpaceView, Tone,
 };
-use shapecraft_core::math::{Point2, Point3};
+use workpiece_core::math::{Point2, Point3};
 
 use crate::palette::{self, AXES, HANDLE};
 use crate::{Color, Label, Line, Pick, PickId, Scene, Vertex};
@@ -23,7 +23,7 @@ const RING_SEGMENTS: usize = 64;
 const DASH: f64 = 7.0;
 const DASH_GAP: f64 = 4.0;
 /// A canvas's arrowheads: long and slender, as on a drawing.
-use shapecraft_core::handles::{HEAD_LENGTH, HEAD_WIDTH};
+use workpiece_core::handles::{HEAD_LENGTH, HEAD_WIDTH};
 
 /// How a canvas is seen through a camera whose screen-right and
 /// screen-up directions are `right` and `up` (in the coordinates `pose`
@@ -347,8 +347,8 @@ impl Painter<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::Axis;
-    use shapecraft_core::handles::{Gizmo, GizmoPart, LinearHandle};
+    use workpiece_core::Axis;
+    use workpiece_core::handles::{Gizmo, GizmoPart, LinearHandle};
 
     #[test]
     fn gizmo_parts_are_picked_apart() {
@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn canvases_draw_their_shapes_in_the_plane() {
-        use shapecraft_core::world::DatumPlane;
+        use workpiece_core::world::DatumPlane;
         let shapes = |_: &CanvasView| {
             vec![
                 CanvasShape::Polyline {

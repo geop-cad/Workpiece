@@ -4,8 +4,8 @@
 use std::collections::HashMap;
 
 use anyhow::Context;
-use shapecraft_boolean::Solid;
-use shapecraft_core::math::Point3;
+use workpiece_boolean::Solid;
+use workpiece_core::math::Point3;
 
 /// More triangles than this are not made faces of: a mesh that fine is
 /// a picture of a part, not a part to work on.
@@ -180,10 +180,10 @@ fn faceted_of(
         }
     }
     // As it is, if it closes; else mended first.
-    match shapecraft_boolean::faceted(id, &merged, &faces) {
+    match workpiece_boolean::faceted(id, &merged, &faces) {
         Ok(solid) => Ok(solid),
         Err(open) if !mend => Err(open.into()),
-        Err(_) => Ok(shapecraft_boolean::faceted(
+        Err(_) => Ok(workpiece_boolean::faceted(
             id,
             &merged,
             &mended(&merged, &faces),

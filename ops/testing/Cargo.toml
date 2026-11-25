@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-ops-testing"
+name = "workpiece-ops-testing"
 description = "What the tests of the operations on bodies share."
 edition.workspace = true
 version.workspace = true
@@ -9,15 +9,15 @@ rust-version.workspace = true
 publish = false
 
 [lib]
-name = "shapecraft_ops_testing"
+name = "workpiece_ops_testing"
 
 [dependencies]
 anyhow.workspace = true
-shapecraft-boolean.workspace = true
-shapecraft-cad-rasterize.workspace = true
-shapecraft-core.workspace = true
-shapecraft-ops-basic-shapes.workspace = true
-shapecraft-ops-sketch.workspace = true
+workpiece-boolean.workspace = true
+workpiece-rasterize.workspace = true
+workpiece-core.workspace = true
+workpiece-ops-basic-shapes.workspace = true
+workpiece-ops-sketch.workspace = true
 
 [lints]
 workspace = true

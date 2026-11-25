@@ -2,23 +2,23 @@
 //! them.
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::{Op, combine, read};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::Curve3;
-use shapecraft_core::{Builder, Measure, Operation};
+use workpiece_boolean::{Op, combine, read};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::Curve3;
+use workpiece_core::{Builder, Measure, Operation};
 
-use shapecraft_shape::bodies;
-use shapecraft_shape::sweep::Frame;
-use shapecraft_shape::swept::along_path;
+use workpiece_shape::bodies;
+use workpiece_shape::sweep::Frame;
+use workpiece_shape::swept::along_path;
 
 /// The rib's top, how thick it is, and what it stiffens.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct RibArgs {
     /// The sketch whose curves, one after the other, are the rib's free
     /// edge: the rib lies in the sketch's plane.
-    pub sketch: Option<shapecraft_core::Reference<shapecraft_core::Sketched>>,
+    pub sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>,
     /// How thick the rib is: half to either side of the sketch's plane.
     pub thickness: Measure,
     /// Whether it grows to the other side of its curves.
@@ -28,7 +28,7 @@ pub struct RibArgs {
     /// The body it stiffens; `None` for every solid body.
     #[serde(default)]
     #[arg(label = "Body", empty = "All bodies")]
-    pub target: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
 }
 
 impl Default for RibArgs {
@@ -73,10 +73,10 @@ impl Operation for Rib {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let thickness = (*builder).measure(&args.thickness, "the thickness")?;
         ensure!(thickness > 0.0, "a rib has some thickness");
@@ -91,9 +91,9 @@ impl Operation for Rib {
         // ones before it leave, and joined to them, as separate steps
         // would.
         let mut joined: Vec<(
-            Option<shapecraft_core::world::topo::BodyId>,
+            Option<workpiece_core::world::topo::BodyId>,
             String,
-            shapecraft_boolean::Solid,
+            workpiece_boolean::Solid,
         )> = Vec::new();
         for (body, name) in &targets {
             joined.push((Some(*body), name.clone(), read(topo, *body)?));
@@ -114,7 +114,7 @@ impl Operation for Rib {
                 .context("the rib's curves end where they start")?;
             // The way it is told to grow; or, if nothing stops it there,
             // the other.
-            let grown = |way: Point3| -> anyhow::Result<shapecraft_boolean::Solid> {
+            let grown = |way: Point3| -> anyhow::Result<workpiece_boolean::Solid> {
                 // (From the point of the curves that stands farthest back
                 // from the body: a bent chain's middle may, not only its
                 // ends.)
@@ -214,13 +214,13 @@ impl Operation for Rib {
         let (curves, normal) = &runs[0];
         let (a, b) = curves[0].domain();
         let middle = curves[0].point_at((a + b) / 2.0);
-        let measured = shapecraft_core::world::Measured::Length {
+        let measured = workpiece_core::world::Measured::Length {
             from: middle - normal * (thickness / 2.0),
             to: middle + normal * (thickness / 2.0),
             along: None,
         };
         let held =
-            shapecraft_core::world::Annotation::held(measured, thickness, &args.thickness, 0.0);
+            workpiece_core::world::Annotation::held(measured, thickness, &args.thickness, 0.0);
         out.made
             .annotations
             .push((format!("{}/thickness", self.id), held));
@@ -238,12 +238,12 @@ impl Operation for Rib {
 /// curve goes on into the one that carries on its way (within 25°); the
 /// rest end there. A curve in space is one run.
 fn runs(
-    world: &shapecraft_core::World,
-    source: &shapecraft_core::Reference<shapecraft_core::Sketched>,
+    world: &workpiece_core::World,
+    source: &workpiece_core::Reference<workpiece_core::Sketched>,
 ) -> anyhow::Result<Vec<(Vec<Curve3>, Point3)>> {
     let name = source.name();
     let Some(profile) = world.profiles.get(name) else {
-        let (curves, closes, normal) = shapecraft_shape::paths::path(world, source, Point3::ZERO)?;
+        let (curves, closes, normal) = workpiece_shape::paths::path(world, source, Point3::ZERO)?;
         ensure!(!closes, "a rib's curves have two ends, on the body");
         return Ok(vec![(curves, normal)]);
     };
@@ -256,7 +256,7 @@ fn runs(
     // An end of a curve: which, and which of its two ends.
     type End = (usize, bool);
     let forward = (0..edges.len())
-        .map(|e| shapecraft_shape::paths::curve(profile, &frame, (e, false)))
+        .map(|e| workpiece_shape::paths::curve(profile, &frame, (e, false)))
         .collect::<anyhow::Result<Vec<_>>>()?;
     // Where the curve leaves from that end.
     let leaving = |(e, last): End| {
@@ -315,7 +315,7 @@ fn runs(
         loop {
             let (e, from_last) = end;
             used[e] = true;
-            curves.push(shapecraft_shape::paths::curve(
+            curves.push(workpiece_shape::paths::curve(
                 profile,
                 &frame,
                 (e, from_last),

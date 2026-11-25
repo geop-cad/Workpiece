@@ -4,15 +4,15 @@
 use std::f64::consts::TAU;
 
 use anyhow::Context;
-use shapecraft_boolean::{Op, Solid, combine};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::widgets::{Choice, HBox};
-use shapecraft_core::world::topo::Curve3;
-use shapecraft_core::{Builder, Edit, EditContext, EditVisualization, Operation, Widget};
-use shapecraft_ops_instances::placing::{self, Hold};
+use workpiece_boolean::{Op, Solid, combine};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::widgets::{Choice, HBox};
+use workpiece_core::world::topo::Curve3;
+use workpiece_core::{Builder, Edit, EditContext, EditVisualization, Operation, Widget};
+use workpiece_ops_instances::placing::{self, Hold};
 
-use shapecraft_shape::swept::{Outline, Sides, Weighted, circle, polygon, steady, swept};
-use shapecraft_shape::ui;
+use workpiece_shape::swept::{Outline, Sides, Weighted, circle, polygon, steady, swept};
+use workpiece_shape::ui;
 
 /// What kind of part.
 #[derive(
@@ -155,10 +155,10 @@ impl StandardKind {
 
     /// How a section treats it (ISO 128-50): a screw cut along its axis
     /// is drawn whole; a nut, a washer and a bearing's rings are cut.
-    pub fn sectioned(self) -> shapecraft_core::world::Sectioned {
+    pub fn sectioned(self) -> workpiece_core::world::Sectioned {
         match self.family() {
-            Family::Screws => shapecraft_core::world::Sectioned::WholeAlong(Point3::Z),
-            _ => shapecraft_core::world::Sectioned::Cut,
+            Family::Screws => workpiece_core::world::Sectioned::WholeAlong(Point3::Z),
+            _ => workpiece_core::world::Sectioned::Cut,
         }
     }
 
@@ -434,7 +434,7 @@ impl Filter {
 
 /// Which part it is, and how it is held where it is put.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 #[serde(default)]
 pub struct StandardPartArgs {
@@ -501,7 +501,7 @@ impl Operation for StandardPart {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let args = &self.args;
         if args.kind.long() {
             anyhow::ensure!(
@@ -515,17 +515,17 @@ impl Operation for StandardPart {
         // its xy plane and its shank below.
         // Of steel, as fasteners and bearings are; called in a parts
         // list by its designation.
-        let mut world = shapecraft_core::World {
+        let mut world = workpiece_core::World {
             material: Some("Steel".into()),
             designation: Some(args.kind.designation(&args.size, args.length)),
             sectioned: args.kind.sectioned(),
-            ..shapecraft_core::World::new()
+            ..workpiece_core::World::new()
         };
         for (solid, name) in bodies(&self.id, args.kind, &args.size, args.length)? {
-            shapecraft_boolean::write(&mut world.topo, &solid, &name)?;
+            workpiece_boolean::write(&mut world.topo, &solid, &name)?;
         }
-        let mut made = shapecraft_core::Made::default();
-        shapecraft_ops_instances::placing::place(
+        let mut made = workpiece_core::Made::default();
+        workpiece_ops_instances::placing::place(
             &mut made,
             builder,
             &self.id,
@@ -550,7 +550,7 @@ impl Operation for StandardPart {
             .collect();
         all.push(catalogue_field(&self.args, filter).map(Edit::args));
         // (A screw or a nut is fastened where it is put, most likely.)
-        let prefer = Some(shapecraft_core::world::JointKind::Fastened);
+        let prefer = Some(workpiece_core::world::JointKind::Fastened);
         for field in placing::hold_fields(&self.args.hold, context.step, prefer) {
             let args = self.args.clone();
             all.push(field.map(move |hold| {
@@ -562,7 +562,7 @@ impl Operation for StandardPart {
         }
         let (place, handles) = placing::pose_edit(&self.id, context, &self.args.hold);
         all.extend(place);
-        EditVisualization::new(shapecraft_core::widgets::VBox::new(all), handles)
+        EditVisualization::new(workpiece_core::widgets::VBox::new(all), handles)
     }
 
     fn summary(&self) -> String {

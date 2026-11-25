@@ -5,10 +5,10 @@ use crate::sheet::{Format, Projection};
 use crate::template::{Cell, Content};
 use std::collections::BTreeMap;
 
-use shapecraft_core::Unit;
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::World;
-use shapecraft_core::world::topo::BodyKind;
+use workpiece_core::Unit;
+use workpiece_core::math::Point2;
+use workpiece_core::world::World;
+use workpiece_core::world::topo::BodyKind;
 
 use super::{Laid, Pen, Subject, scale_text};
 
@@ -242,7 +242,7 @@ fn weigh(
         if body.kind != BodyKind::Solid {
             continue;
         }
-        let (Some(name), Ok(solid)) = (topo.name_of(id), shapecraft_boolean::read(topo, id)) else {
+        let (Some(name), Ok(solid)) = (topo.name_of(id), workpiece_boolean::read(topo, id)) else {
             continue;
         };
         let density = world
@@ -250,7 +250,7 @@ fn weigh(
             .material
             .and_then(|m| densities.get(&m).copied());
         match density {
-            Some(d) => all.kg += shapecraft_boolean::measure(&solid).volume * cubic * d,
+            Some(d) => all.kg += workpiece_boolean::measure(&solid).volume * cubic * d,
             None => all.unweighed.push(format!("{within}{name}")),
         }
     }
@@ -298,7 +298,7 @@ fn shown_only(world: &World, names: &[&String]) -> World {
         })
         .collect();
     for body in others {
-        shapecraft_boolean::remove(&mut only.topo, body);
+        workpiece_boolean::remove(&mut only.topo, body);
     }
     only.instances.retain(|name, _| names.contains(&name));
     only

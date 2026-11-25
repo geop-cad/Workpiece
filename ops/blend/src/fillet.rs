@@ -1,22 +1,22 @@
 //! Fillet and chamfer: rounding and cutting off the edges of bodies.
 
-use shapecraft_core::EdgesOf;
-use shapecraft_core::{Builder, Measure, Operation};
+use workpiece_core::EdgesOf;
+use workpiece_core::{Builder, Measure, Operation};
 
-use shapecraft_shape::blend::{self, By, Section, Shape};
+use workpiece_shape::blend::{self, By, Section, Shape};
 
-fn names(edges: &[shapecraft_core::Reference<EdgesOf>]) -> Vec<String> {
+fn names(edges: &[workpiece_core::Reference<EdgesOf>]) -> Vec<String> {
     edges.iter().map(|s| s.name().to_owned()).collect()
 }
 
 /// What a fillet rounds, and how.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct FilletArgs {
     /// The edges rounded; a face or a body stands for all its edges.
     #[arg(required)]
-    pub edges: Vec<shapecraft_core::Reference<shapecraft_core::EdgesOf>>,
+    pub edges: Vec<workpiece_core::Reference<workpiece_core::EdgesOf>>,
     /// What the size is the size of.
     #[arg(choice, label = "Measured by")]
     pub by: By,
@@ -77,10 +77,10 @@ impl Operation for Fillet {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let size = (*builder).measure(&args.size, "the fillet's size")?;
         let rho = match args.section {
@@ -109,9 +109,9 @@ impl Operation for Fillet {
         // places of its edges where a view sees it true. A radius as a
         // radius, whatever its section; a width as the straight line
         // from rail to rail; a distance across the first face.
-        use shapecraft_core::world::{Annotation, Measured, Note};
+        use workpiece_core::world::{Annotation, Measured, Note};
         let corners = said_at(&blended);
-        let measured = |c: &shapecraft_shape::on::Corner| match args.by {
+        let measured = |c: &workpiece_shape::on::Corner| match args.by {
             By::Radius => Some(Measured::Radius {
                 centre: c.ball(size),
                 axis: c.along,
@@ -156,7 +156,7 @@ impl Operation for Fillet {
         let op = self;
         let a = &op.args;
         let section = match a.section {
-            shapecraft_shape::Section::Circular => String::new(),
+            workpiece_shape::Section::Circular => String::new(),
             other => format!(", {}", other.label().to_lowercase()),
         };
         format!(
@@ -170,12 +170,12 @@ impl Operation for Fillet {
 
 /// What a chamfer cuts off, and how far.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct ChamferArgs {
     /// The edges cut off; a face or a body stands for all its edges.
     #[arg(required)]
-    pub edges: Vec<shapecraft_core::Reference<shapecraft_core::EdgesOf>>,
+    pub edges: Vec<workpiece_core::Reference<workpiece_core::EdgesOf>>,
     /// Whether it starts at another distance across the second face.
     #[arg(label = "Distances", options = "Equal|Two")]
     pub two: bool,
@@ -214,14 +214,12 @@ const EDGES_SAID_AT: usize = 12;
 /// Where a blend's own size is said: the corners of the edges it
 /// blended (the first [`EDGES_SAID_AT`] of them) where a view sees a
 /// size at them true.
-fn said_at(
-    blended: &[(shapecraft_boolean::Solid, Vec<usize>)],
-) -> Vec<shapecraft_shape::on::Corner> {
+fn said_at(blended: &[(workpiece_boolean::Solid, Vec<usize>)]) -> Vec<workpiece_shape::on::Corner> {
     blended
         .iter()
         .flat_map(|(solid, edges)| edges.iter().map(move |&e| (solid, e)))
         .take(EDGES_SAID_AT)
-        .flat_map(|(solid, e)| shapecraft_shape::on::corners_of(solid, e))
+        .flat_map(|(solid, e)| workpiece_shape::on::corners_of(solid, e))
         .collect()
 }
 
@@ -254,10 +252,10 @@ impl Operation for Chamfer {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let first = (*builder).measure(&args.distance, "the chamfer's distance")?;
         let second = if args.two {
@@ -286,8 +284,8 @@ impl Operation for Chamfer {
         // other places of its edges where a view sees it true.
         let corners = said_at(&blended);
         if !corners.is_empty() {
-            use shapecraft_core::world::{Annotation, Measured, Note};
-            let length = |c: &shapecraft_shape::on::Corner, k: usize, by: f64| Measured::Length {
+            use workpiece_core::world::{Annotation, Measured, Note};
+            let length = |c: &workpiece_shape::on::Corner, k: usize, by: f64| Measured::Length {
                 from: c.at,
                 to: c.at + c.into[k] * by,
                 along: None,

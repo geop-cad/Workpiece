@@ -7,8 +7,8 @@
 use std::collections::HashMap;
 
 use glam::Vec3;
-use shapecraft_core::Source;
-use shapecraft_core::handles::GizmoPart;
+use workpiece_core::Source;
+use workpiece_core::handles::GizmoPart;
 
 /// Linear RGBA.
 pub type Color = [f32; 4];

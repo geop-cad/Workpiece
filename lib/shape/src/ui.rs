@@ -3,12 +3,12 @@
 
 use std::rc::Rc;
 
-use shapecraft_core::handles::{Canvas, CanvasEventKind, CanvasShape, Handle, Tone};
-use shapecraft_core::math::Point2;
-use shapecraft_core::widgets::{ReferenceInput, ToolButton};
-use shapecraft_core::world::topo::BodyId;
-use shapecraft_core::world::{AreaPick, Profile};
-use shapecraft_core::{Hotkey, Reference, Sketched, Widget, World};
+use workpiece_core::handles::{Canvas, CanvasEventKind, CanvasShape, Handle, Tone};
+use workpiece_core::math::Point2;
+use workpiece_core::widgets::{ReferenceInput, ToolButton};
+use workpiece_core::world::topo::BodyId;
+use workpiece_core::world::{AreaPick, Profile};
+use workpiece_core::{Hotkey, Reference, Sketched, Widget, World};
 
 use crate::sweep;
 
@@ -112,7 +112,7 @@ pub fn area_picker<A: 'static>(
             shapes
         }
     };
-    let on_event = move |event: shapecraft_core::handles::CanvasEvent| {
+    let on_event = move |event: workpiece_core::handles::CanvasEvent| {
         if event.kind != CanvasEventKind::Click {
             return None;
         }
@@ -145,6 +145,6 @@ pub fn sketch_fields<A: 'static>(
         format!("{areas} picked (click to change)")
     };
     let label =
-        shapecraft_core::widgets::Label::new("Areas", said, shapecraft_core::widgets::Mood::Plain);
+        workpiece_core::widgets::Label::new("Areas", said, workpiece_core::widgets::Mood::Plain);
     vec![sketch_field(sketch, with), label.into()]
 }

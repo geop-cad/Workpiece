@@ -4,9 +4,9 @@
 //! it.
 
 use anyhow::Context;
-use shapecraft_core::world::{DatumPlane, Viewpoint};
-use shapecraft_core::{Builder, Choices, Made, Operation, Reference};
-use shapecraft_ops_appearance::View;
+use workpiece_core::world::{DatumPlane, Viewpoint};
+use workpiece_core::{Builder, Choices, Made, Operation, Reference};
+use workpiece_ops_appearance::View;
 
 use crate::sheet::Side;
 
@@ -56,7 +56,7 @@ impl Choices for Looking {
 
 /// How a camera view looks at the model.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct CameraViewArgs {
     /// What says how it looks.
@@ -108,8 +108,8 @@ impl Default for CameraViewArgs {
 
 /// The axis `axis` of a camera turned by the quaternion `q` (x, y, z,
 /// w), in the model.
-fn turned(q: [f32; 4], axis: [f64; 3]) -> shapecraft_core::math::Point3 {
-    use shapecraft_core::math::Point3;
+fn turned(q: [f32; 4], axis: [f64; 3]) -> workpiece_core::math::Point3 {
+    use workpiece_core::math::Point3;
     let [x, y, z, w] = q.map(f64::from);
     let u = Point3::new(x, y, z);
     let v = Point3::from_array(axis);
@@ -129,8 +129,8 @@ pub struct CameraView {
 
 impl CameraView {
     /// How it looks at `world`.
-    pub fn viewpoint(&self, world: &shapecraft_core::World) -> anyhow::Result<Viewpoint> {
-        use shapecraft_core::math::Point3;
+    pub fn viewpoint(&self, world: &workpiece_core::World) -> anyhow::Result<Viewpoint> {
+        use workpiece_core::math::Point3;
         let args = &self.args;
         let turn = args.turn.to_radians();
         let seen = match args.looking {
@@ -215,7 +215,7 @@ impl Operation for CameraView {
         match self.args.looking {
             Looking::Plane => format!(
                 "onto {}",
-                shapecraft_core::reference::described(&self.args.plane)
+                workpiece_core::reference::described(&self.args.plane)
             ),
             looking => looking.label().to_lowercase(),
         }

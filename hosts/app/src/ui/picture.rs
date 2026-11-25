@@ -8,10 +8,10 @@ use std::time::Duration;
 use web_time::Instant;
 
 use eframe::egui;
-use shapecraft_cad_ui::Message;
-use shapecraft_cad_ui::model::Camera;
-use shapecraft_cad_ui::view::{Picture, Viewport};
-use shapecraft_render::{Film, Lighting, Scene};
+use workpiece_render::{Film, Lighting, Scene};
+use workpiece_ui::Message;
+use workpiece_ui::model::Camera;
+use workpiece_ui::view::{Picture, Viewport};
 
 use crate::theme::color;
 
@@ -22,7 +22,7 @@ struct Job {
     /// What tells it from another: the scene's stamp and all the rest.
     key: (u64, String),
     scene: Arc<Scene>,
-    camera: shapecraft_render::Camera,
+    camera: workpiece_render::Camera,
     lighting: Lighting,
     size: [usize; 2],
     samples: u32,
@@ -107,7 +107,7 @@ fn work(lock: &Lock, ctx: &egui::Context, doing: &mut Option<(Job, Film)>, job: 
     if let Some(job) = job {
         if job.file.is_none() {
             let mut coarse = Film::new((job.size[0] / 3).max(8), (job.size[1] / 3).max(8));
-            shapecraft_render::pass(&job.scene, &job.camera, &job.lighting, &mut coarse);
+            workpiece_render::pass(&job.scene, &job.camera, &job.lighting, &mut coarse);
             publish(&job, &coarse, 0, None);
         }
         let film = Film::new(job.size[0], job.size[1]);
@@ -115,7 +115,7 @@ fn work(lock: &Lock, ctx: &egui::Context, doing: &mut Option<(Job, Film)>, job: 
         return;
     }
     if let Some((job, film)) = doing {
-        shapecraft_render::pass(&job.scene, &job.camera, &job.lighting, film);
+        workpiece_render::pass(&job.scene, &job.camera, &job.lighting, film);
         let done = film.passes() >= job.samples;
         let written = match &job.file {
             Some(path) if done => Some(
@@ -193,7 +193,7 @@ impl PicturePanel {
         self.lock
             .get_or_insert_with(|| {
                 let lock: Lock = Arc::default();
-                if shapecraft_core::HAS_THREADS {
+                if workpiece_core::HAS_THREADS {
                     let (theirs, ctx) = (lock.clone(), ctx.clone());
                     std::thread::spawn(move || trace(&theirs, &ctx));
                 }
@@ -222,8 +222,8 @@ impl PicturePanel {
 
     fn job(&self, picture: &Picture, camera: &Camera, size: [usize; 2]) -> Job {
         let shot = &picture.shot;
-        let camera = shapecraft_cad_ui::view::camera(camera, &picture.scene);
-        let lighting = shapecraft_cad_ui::view::lighting(shot);
+        let camera = workpiece_ui::view::camera(camera, &picture.scene);
+        let lighting = workpiece_ui::view::lighting(shot);
         let file = self.saving.clone();
         let samples = shot.samples.clamp(1, 1 << 16) as u32;
         let said = format!("{camera:?}{lighting:?}{size:?}{samples}{file:?}");
@@ -278,7 +278,7 @@ impl PicturePanel {
             }
             // Without threads, a piece of the tracing is done each
             // frame.
-            if !shapecraft_core::HAS_THREADS
+            if !workpiece_core::HAS_THREADS
                 && let Some(job) = next(&state, &self.doing)
             {
                 drop(state);

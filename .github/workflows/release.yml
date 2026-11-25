@@ -4,11 +4,11 @@ name: Release
 # platform, and attaches all of it to a DRAFT GitHub release. The release stays a draft until
 # someone publishes it by hand; nothing goes to PyPI from here (publish-pypi.yml, by hand).
 #
-#   Linux x86_64   shapecraft-<version>-linux-x86_64.tar.gz   built on glibc 2.28
-#   Windows x86_64 shapecraft-<version>-windows-x86_64.zip    app has an icon and a version resource, no console window
-#   macOS arm64    ShapeCraft-<version>-macos-arm64.dmg       ShapeCraft.app + the command line
-#   macOS x86_64   ShapeCraft-<version>-macos-x86_64.dmg
-#   Python         shapecraft_cad-<version>-*.whl and the sdist
+#   Linux x86_64   workpiece-<version>-linux-x86_64.tar.gz   built on glibc 2.28
+#   Windows x86_64 workpiece-<version>-windows-x86_64.zip    app has an icon and a version resource, no console window
+#   macOS arm64    Workpiece-<version>-macos-arm64.dmg       Workpiece.app + the command line
+#   macOS x86_64   Workpiece-<version>-macos-x86_64.dmg
+#   Python         workpiece-<version>-*.whl and the sdist
 #
 # Every archive holds the programs, LICENSE-MIT, LICENSE-APACHE, README.md, CHANGELOG.md,
 # THIRD-PARTY.txt (crates and fonts, from `cargo metadata`) and the examples folder.
@@ -182,5 +182,5 @@ jobs:
           gh release create "$GITHUB_REF_NAME" files/* \
             --repo "$GITHUB_REPOSITORY" \
             --draft \
-            --title "ShapeCraft ${{ needs.version.outputs.version }}" \
-            --notes "See CHANGELOG.md. The archives are unsigned; the wheels are for pip install shapecraft-cad."
+            --title "Workpiece ${{ needs.version.outputs.version }}" \
+            --notes "See CHANGELOG.md. The archives are unsigned; the wheels are for pip install workpiece."

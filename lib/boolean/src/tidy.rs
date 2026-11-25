@@ -6,8 +6,8 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
 
 use crate::model::{Face, Solid, Use, Walk};
 
@@ -416,8 +416,8 @@ fn join_edges(solid: &mut Solid, gone_faces: &[bool], gone_edges: &mut [bool]) {
 
 /// Whether the piece of `curve` over `range` is straight: its control
 /// points in one line, one after the other, to within `within`.
-fn straight<P: shapecraft_core::world::topo::ControlPoint>(
-    curve: &shapecraft_core::world::topo::NurbsCurve<P>,
+fn straight<P: workpiece_core::world::topo::ControlPoint>(
+    curve: &workpiece_core::world::topo::NurbsCurve<P>,
     range: (f64, f64),
     within: f64,
 ) -> bool {
@@ -451,11 +451,11 @@ fn straight<P: shapecraft_core::world::topo::ControlPoint>(
 
 /// `first` and then `second` as one curve, of the higher of their
 /// degrees; `second`'s parameters `stretch` times as long.
-fn end_to_end<P: shapecraft_core::world::topo::ControlPoint>(
-    first: &shapecraft_core::world::topo::NurbsCurve<P>,
-    second: &shapecraft_core::world::topo::NurbsCurve<P>,
+fn end_to_end<P: workpiece_core::world::topo::ControlPoint>(
+    first: &workpiece_core::world::topo::NurbsCurve<P>,
+    second: &workpiece_core::world::topo::NurbsCurve<P>,
     stretch: f64,
-) -> Option<shapecraft_core::world::topo::NurbsCurve<P>> {
+) -> Option<workpiece_core::world::topo::NurbsCurve<P>> {
     let degree = first.degree().max(second.degree());
     first
         .elevated(degree)
@@ -485,11 +485,11 @@ fn join_two(solid: &mut Solid, gone_faces: &[bool], a: usize, b: usize, v: usize
     // A piece of a curve over a range, the way it goes on from the one
     // edge into the other: the first edge's towards the vertex, the
     // second's away from it.
-    fn piece<P: shapecraft_core::world::topo::ControlPoint>(
-        curve: &shapecraft_core::world::topo::NurbsCurve<P>,
+    fn piece<P: workpiece_core::world::topo::ControlPoint>(
+        curve: &workpiece_core::world::topo::NurbsCurve<P>,
         range: (f64, f64),
         turned: bool,
-    ) -> Option<shapecraft_core::world::topo::NurbsCurve<P>> {
+    ) -> Option<workpiece_core::world::topo::NurbsCurve<P>> {
         let piece = curve.trimmed(range.0, range.1).ok()?;
         Some(if turned { piece.reversed() } else { piece })
     }

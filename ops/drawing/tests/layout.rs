@@ -5,14 +5,14 @@
 //! views are drawn: tangent edges thin, half sections, dashes along a
 //! curve, what overlaps told as a problem.
 
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::{Annotation, Cutting, Measured, Note, Tolerance};
-use shapecraft_ops_drawing::Sheet;
-use shapecraft_ops_drawing::lay::{Kept, Laid, Pen, Subject, Wanted, lay_out, place_all};
-use shapecraft_ops_drawing::sheet::{
+use workpiece_core::math::Point3;
+use workpiece_core::world::{Annotation, Cutting, Measured, Note, Tolerance};
+use workpiece_ops_drawing::Sheet;
+use workpiece_ops_drawing::lay::{Kept, Laid, Pen, Subject, Wanted, lay_out, place_all};
+use workpiece_ops_drawing::sheet::{
     Half, HalfSide, PlacedNote, SheetView, Side, Style, TangentEdges, ViewKind, Words,
 };
-use shapecraft_ops_testing::*;
+use workpiece_ops_testing::*;
 
 /// A block 4 × 4 × 4 about the origin, and one 2 × 2 × 2 about
 /// (`at`, 0, 0).
@@ -30,10 +30,10 @@ fn blocks(at: f64) -> anyhow::Result<Standalone> {
     };
     block(&mut b, "large", ORIGIN, 4.0)?;
     let there =
-        shapecraft_core::world::DatumFrame::new(Point3::new(at, 0.0, 0.0), Point3::X, Point3::Y)?;
+        workpiece_core::world::DatumFrame::new(Point3::new(at, 0.0, 0.0), Point3::X, Point3::Y)?;
     b.world
         .datums
-        .insert("there".into(), shapecraft_core::world::Datum::Frame(there));
+        .insert("there".into(), workpiece_core::world::Datum::Frame(there));
     block(&mut b, "small", "there", 2.0)?;
     Ok(b)
 }
@@ -99,7 +99,7 @@ fn lay(b: &Standalone, sheet: &Sheet) -> Laid {
     let properties = Default::default();
     let subject = Subject {
         world: &b.world,
-        unit: shapecraft_core::Unit::default(),
+        unit: workpiece_core::Unit::default(),
         material: None,
         name: "blocks",
         properties: &properties,
@@ -303,7 +303,7 @@ fn a_length_with_one_end_out_of_a_detail_is_a_half_dimension() -> anyhow::Result
     let properties = Default::default();
     let subject = Subject {
         world: &b.world,
-        unit: shapecraft_core::Unit::default(),
+        unit: workpiece_core::Unit::default(),
         material: None,
         name: "blocks",
         properties: &properties,
@@ -428,7 +428,7 @@ fn two_radii_about_one_middle_each_have_a_leader_of_their_own() -> anyhow::Resul
     let properties = Default::default();
     let subject = Subject {
         world: &b.world,
-        unit: shapecraft_core::Unit::default(),
+        unit: workpiece_core::Unit::default(),
         material: None,
         name: "blocks",
         properties: &properties,
@@ -503,7 +503,7 @@ fn words_that_belong_to_a_dimension_stand_under_its_value() -> anyhow::Result<()
     let rect = laid
         .notes
         .iter()
-        .find(|n| n.kind == shapecraft_ops_drawing::lay::Placing::Words)
+        .find(|n| n.kind == workpiece_ops_drawing::lay::Placing::Words)
         .expect("the words")
         .rect;
     assert!(
@@ -557,7 +557,7 @@ fn a_note_put_by_itself_keeps_clear_of_another_view() -> anyhow::Result<()> {
     let properties = Default::default();
     let subject = Subject {
         world: &b.world,
-        unit: shapecraft_core::Unit::default(),
+        unit: workpiece_core::Unit::default(),
         material: None,
         name: "blocks",
         properties: &properties,
@@ -578,7 +578,7 @@ fn a_note_put_by_itself_keeps_clear_of_another_view() -> anyhow::Result<()> {
 
 /// A post 4 across and 3 high with its top rim rounded 0.5.
 fn post() -> anyhow::Result<Standalone> {
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
     let mut b = Standalone::new();
     AddCylinder {
         id: "post".into(),
@@ -589,9 +589,9 @@ fn post() -> anyhow::Result<Standalone> {
         },
     }
     .apply(&mut b)?;
-    shapecraft_ops_blend::Fillet {
+    workpiece_ops_blend::Fillet {
         id: "round".into(),
-        args: shapecraft_ops_blend::FilletArgs {
+        args: workpiece_ops_blend::FilletArgs {
             edges: Reference::each(vec![Source::Topology("post/top-rim".into())]),
             size: Measure::new(0.5),
             ..Default::default()
@@ -815,8 +815,8 @@ fn assembly() -> anyhow::Result<Standalone> {
     for (name, y) in [("left", 0.0), ("right", 20.0)] {
         b.world.instances.insert(
             name.into(),
-            shapecraft_core::world::Instance {
-                pose: shapecraft_core::Pose::from_translation(Point3::new(0.0, y, 0.0)),
+            workpiece_core::world::Instance {
+                pose: workpiece_core::Pose::from_translation(Point3::new(0.0, y, 0.0)),
                 world: parts.clone(),
                 fixed: true,
             },
@@ -902,16 +902,16 @@ fn a_pictorial_view_cut_by_a_section_is_hatched_where_it_cuts() -> anyhow::Resul
 
 #[test]
 fn a_half_section_divides_at_the_axis_of_what_it_cuts_through() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
     // The blocks, and a post 1 in radius standing on (20, 0, 0): cut
     // through the post's axis, the halves divide there, not at the
     // view's middle nor at the section's origin.
     let mut b = blocks(10.0)?;
     let far =
-        shapecraft_core::world::DatumFrame::new(Point3::new(20.0, 0.0, 0.0), Point3::X, Point3::Y)?;
+        workpiece_core::world::DatumFrame::new(Point3::new(20.0, 0.0, 0.0), Point3::X, Point3::Y)?;
     b.world
         .datums
-        .insert("far".into(), shapecraft_core::world::Datum::Frame(far));
+        .insert("far".into(), workpiece_core::world::Datum::Frame(far));
     AddCylinder {
         id: "post".into(),
         args: AddCylinderArgs {
@@ -978,8 +978,8 @@ fn a_half_section_divides_at_the_axis_of_what_it_cuts_through() -> anyhow::Resul
 
 #[test]
 fn an_assembly_s_parts_list_counts_its_parts_and_balloons_point_at_them() -> anyhow::Result<()> {
-    use shapecraft_ops_drawing::lay::Placing;
-    use shapecraft_ops_drawing::sheet::Balloon;
+    use workpiece_ops_drawing::lay::Placing;
+    use workpiece_ops_drawing::sheet::Balloon;
     // Two of the same part (the blocks), and one other (a block alone).
     let mut b = assembly()?;
     let lid = std::sync::Arc::new(
@@ -995,8 +995,8 @@ fn an_assembly_s_parts_list_counts_its_parts_and_balloons_point_at_them() -> any
     lid_world.stamp = 7;
     b.world.instances.insert(
         "lid".into(),
-        shapecraft_core::world::Instance {
-            pose: shapecraft_core::Pose::from_translation(Point3::new(0.0, 40.0, 0.0)),
+        workpiece_core::world::Instance {
+            pose: workpiece_core::Pose::from_translation(Point3::new(0.0, 40.0, 0.0)),
             world: std::sync::Arc::new(lid_world),
             fixed: true,
         },
@@ -1013,7 +1013,7 @@ fn an_assembly_s_parts_list_counts_its_parts_and_balloons_point_at_them() -> any
     let lay_with = |sheet: &Sheet| {
         let subject = Subject {
             world: &b.world,
-            unit: shapecraft_core::Unit::default(),
+            unit: workpiece_core::Unit::default(),
             material: None,
             name: "assembly",
             properties: &properties,
@@ -1057,9 +1057,9 @@ fn an_assembly_s_parts_list_counts_its_parts_and_balloons_point_at_them() -> any
     // Its columns as the sheet says: with how dense each is.
     let with_density = Sheet {
         parts_columns: vec![
-            shapecraft_ops_drawing::sheet::PartsColumn::Item,
-            shapecraft_ops_drawing::sheet::PartsColumn::Name,
-            shapecraft_ops_drawing::sheet::PartsColumn::Density,
+            workpiece_ops_drawing::sheet::PartsColumn::Item,
+            workpiece_ops_drawing::sheet::PartsColumn::Name,
+            workpiece_ops_drawing::sheet::PartsColumn::Density,
         ],
         ..asked.clone()
     };
@@ -1134,7 +1134,7 @@ fn lettering_is_as_high_as_the_sheet_says() -> anyhow::Result<()> {
 #[test]
 fn a_hole_s_count_is_as_the_sheet_says_and_a_reference_depth_only_where_asked() -> anyhow::Result<()>
 {
-    use shapecraft_core::world::Callout;
+    use workpiece_core::world::Callout;
     // Two counterbored holes alike (the model's count), the counterbore's
     // floor up to a face: its depth a reference, in brackets.
     let mut b = blocks(10.0)?;
@@ -1209,7 +1209,7 @@ fn a_hole_s_count_is_as_the_sheet_says_and_a_reference_depth_only_where_asked() 
 
 #[test]
 fn a_hole_through_says_thru_and_words_of_its_callout_stand_under_it() -> anyhow::Result<()> {
-    use shapecraft_core::world::Callout;
+    use workpiece_core::world::Callout;
     // A counterbored hole into the large block's front face, through:
     // its callout two lines, the bore's without a depth.
     let mut b = blocks(10.0)?;
@@ -1538,7 +1538,7 @@ fn a_radius_of_a_round_the_view_does_not_draw_points_at_its_outline() -> anyhow:
 
 #[test]
 fn words_can_have_several_leaders() -> anyhow::Result<()> {
-    use shapecraft_ops_drawing::sheet::Target;
+    use workpiece_ops_drawing::sheet::Target;
     let b = blocks(10.0)?;
     let words: Words = serde_json::from_value(serde_json::json!({
         "view": "front", "at": [40.0, 30.0], "text": "NOT TANGENT",
@@ -1557,7 +1557,7 @@ fn words_can_have_several_leaders() -> anyhow::Result<()> {
     let n = laid
         .notes
         .iter()
-        .find(|n| n.kind == shapecraft_ops_drawing::lay::Placing::Words)
+        .find(|n| n.kind == workpiece_ops_drawing::lay::Placing::Words)
         .expect("the words");
     assert_eq!(n.tips.len(), 2);
     assert!(n.tips[0].distance(n.tips[1]) > 1.0);
@@ -1574,9 +1574,7 @@ fn words_of_several_lines_stand_one_under_the_other() -> anyhow::Result<()> {
         dimension: None,
         text: "ALL WIRES\nCUT TO MATCH".into(),
         height: 3.5,
-        to: vec![shapecraft_ops_drawing::sheet::Target::Model([
-            0.0, 2.0, 2.0,
-        ])],
+        to: vec![workpiece_ops_drawing::sheet::Target::Model([0.0, 2.0, 2.0])],
     }];
     let laid = lay(&b, &asked);
     let row = |t: &str| laid.texts.iter().find(|x| x.text == t).expect(t);
@@ -1600,8 +1598,8 @@ fn a_section_along_a_sketched_line_cuts_as_far_as_the_line_goes() -> anyhow::Res
         x: Point3::X,
         y: Point3::Y,
         path: vec![
-            shapecraft_core::math::Point2::new(0.0, 0.0),
-            shapecraft_core::math::Point2::new(0.0, 3.0),
+            workpiece_core::math::Point2::new(0.0, 0.0),
+            workpiece_core::math::Point2::new(0.0, 3.0),
         ],
         bounded,
     };
@@ -1650,8 +1648,8 @@ fn a_placed_part_s_own_dimension_stands_on_the_assembly_s_sheet() -> anyhow::Res
     for (name, y) in [("left", 0.0), ("right", 20.0)] {
         b.world.instances.insert(
             name.into(),
-            shapecraft_core::world::Instance {
-                pose: shapecraft_core::Pose::from_translation(Point3::new(0.0, y, 0.0)),
+            workpiece_core::world::Instance {
+                pose: workpiece_core::Pose::from_translation(Point3::new(0.0, y, 0.0)),
                 world: part.clone(),
                 fixed: true,
             },
@@ -1680,7 +1678,7 @@ fn a_placed_part_s_own_dimension_stands_on_the_assembly_s_sheet() -> anyhow::Res
     assert!(
         laid.notes
             .iter()
-            .any(|n| n.kind == shapecraft_ops_drawing::lay::Placing::Note && n.linear.is_some())
+            .any(|n| n.kind == workpiece_ops_drawing::lay::Placing::Note && n.linear.is_some())
     );
     Ok(())
 }
@@ -1843,7 +1841,7 @@ fn title_blocks_say_the_title_the_kind_and_the_mass_of_what_is_placed_too() -> a
     let lay_with = |b: &Standalone, properties: &std::collections::BTreeMap<String, String>| {
         let subject = Subject {
             world: &b.world,
-            unit: shapecraft_core::Unit::default(),
+            unit: workpiece_core::Unit::default(),
             material: b.world.material.clone(),
             name: "blocks",
             properties,
@@ -1870,8 +1868,8 @@ fn title_blocks_say_the_title_the_kind_and_the_mass_of_what_is_placed_too() -> a
     for (name, world) in [("left", parts.clone()), ("right", parts)] {
         b.world.instances.insert(
             name.into(),
-            shapecraft_core::world::Instance {
-                pose: shapecraft_core::Pose::IDENTITY,
+            workpiece_core::world::Instance {
+                pose: workpiece_core::Pose::IDENTITY,
                 world,
                 fixed: true,
             },
@@ -1882,8 +1880,8 @@ fn title_blocks_say_the_title_the_kind_and_the_mass_of_what_is_placed_too() -> a
     assert_eq!(cell(&laid, "Document type"), "Assembly drawing");
     b.world.instances.insert(
         "unknown".into(),
-        shapecraft_core::world::Instance {
-            pose: shapecraft_core::Pose::IDENTITY,
+        workpiece_core::world::Instance {
+            pose: workpiece_core::Pose::IDENTITY,
             world: std::sync::Arc::new(blocks(10.0)?.world),
             fixed: true,
         },
@@ -1894,7 +1892,7 @@ fn title_blocks_say_the_title_the_kind_and_the_mass_of_what_is_placed_too() -> a
 
 #[test]
 fn a_section_along_a_pin_leaves_it_whole_and_catalogue_parts_are_one_item() -> anyhow::Result<()> {
-    use shapecraft_core::world::{Instance, Sectioned};
+    use workpiece_core::world::{Instance, Sectioned};
     // Two pins of one designation (blocks standing for them), drawn whole
     // where a cut runs along their z; a plain part beside them.
     let pin = |sectioned| {
@@ -1912,7 +1910,7 @@ fn a_section_along_a_pin_leaves_it_whole_and_catalogue_parts_are_one_item() -> a
         b.world.instances.insert(
             name.into(),
             Instance {
-                pose: shapecraft_core::Pose::IDENTITY,
+                pose: workpiece_core::Pose::IDENTITY,
                 world,
                 fixed: true,
             },
@@ -1920,18 +1918,18 @@ fn a_section_along_a_pin_leaves_it_whole_and_catalogue_parts_are_one_item() -> a
     }
     b.world.instances.get_mut("plate").expect("it").world =
         std::sync::Arc::new(blocks(10.0)?.world);
-    let volume = |w: &shapecraft_core::World| -> f64 {
+    let volume = |w: &workpiece_core::World| -> f64 {
         let topo = &w.topo;
         topo.bodies()
             .ids()
-            .filter_map(|id| shapecraft_boolean::read(topo, id).ok())
-            .map(|s| shapecraft_boolean::measure(&s).volume)
+            .filter_map(|id| workpiece_boolean::read(topo, id).ok())
+            .map(|s| workpiece_boolean::measure(&s).volume)
             .sum()
     };
     let whole = volume(&b.world.instances["pin1"].world);
     // Along z (the plane y = 0.5): the pins whole, the plate cut.
     let along = Cutting::plane(Point3::new(0.0, 0.5, 0.0), Point3::Y);
-    let cut = shapecraft_shape::cut::cut_left_of(
+    let cut = workpiece_shape::cut::cut_left_of(
         &b.world,
         along.origin,
         along.x,
@@ -1943,7 +1941,7 @@ fn a_section_along_a_pin_leaves_it_whole_and_catalogue_parts_are_one_item() -> a
     assert!(volume(&cut.instances["plate"].world) < whole - 1.0);
     // Across z: cut like anything else.
     let across = Cutting::plane(Point3::new(0.0, 0.0, 0.5), Point3::Z);
-    let cut = shapecraft_shape::cut::cut_left_of(
+    let cut = workpiece_shape::cut::cut_left_of(
         &b.world,
         across.origin,
         across.x,
@@ -1953,7 +1951,7 @@ fn a_section_along_a_pin_leaves_it_whole_and_catalogue_parts_are_one_item() -> a
     );
     assert!(volume(&cut.instances["pin1"].world) < whole - 1.0);
     // The parts list: the pins one item of two, by their designation.
-    let items = shapecraft_ops_drawing::lay::parts::items(&b.world, &Default::default());
+    let items = workpiece_ops_drawing::lay::parts::items(&b.world, &Default::default());
     assert_eq!(items.len(), 2, "{items:?}");
     let pins = items
         .iter()

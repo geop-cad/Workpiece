@@ -1,21 +1,21 @@
 //! [`Weld`]: a bead along edges where the parts of an assembly meet.
 
 use anyhow::Context;
-use shapecraft_boolean::{Op, Solid, combine, read};
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::topo::{BodyKind, Curve3, EdgeId};
-use shapecraft_core::{Builder, Measure, Operation, Pose, Source, World};
-use shapecraft_shape::swept::{Outline, circle, steady, swept};
+use workpiece_boolean::{Op, Solid, combine, read};
+use workpiece_core::math::Point2;
+use workpiece_core::world::topo::{BodyKind, Curve3, EdgeId};
+use workpiece_core::{Builder, Measure, Operation, Pose, Source, World};
+use workpiece_shape::swept::{Outline, circle, steady, swept};
 
 /// The edges welded along, and how big the bead is.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct WeldArgs {
     /// The edges the bead runs along: of the placed parts, where they
     /// meet.
     #[arg(label = "Along", required)]
-    pub edges: Vec<shapecraft_core::Reference<shapecraft_core::world::topo::EdgeId>>,
+    pub edges: Vec<workpiece_core::Reference<workpiece_core::world::topo::EdgeId>>,
     /// The bead's size: how far it reaches from the edge.
     pub size: Measure,
 }
@@ -110,10 +110,10 @@ impl Operation for Weld {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: what it makes is put in by the
         // builder.)
-        let mut out = shapecraft_boolean::Out::default();
+        let mut out = workpiece_boolean::Out::default();
         anyhow::ensure!(!self.args.edges.is_empty(), "pick the edges to weld along");
         let size = (*builder).measure(&self.args.size, "the bead's size")?;
         anyhow::ensure!(size > 0.0, "a bead has some size");
@@ -179,10 +179,10 @@ impl Operation for Weld {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::Standalone;
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::Instance;
     use std::sync::Arc;
+    use workpiece_core::Standalone;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::Instance;
 
     #[test]
     fn a_bead_fills_the_corner_between_two_parts() -> anyhow::Result<()> {
@@ -191,8 +191,8 @@ mod tests {
         let axes = [Point3::X, Point3::Y, Point3::Z];
         let part = |size: [f64; 3]| -> anyhow::Result<Arc<World>> {
             let mut world = World::new();
-            let block = shapecraft_boolean::block("b", Point3::ZERO, axes, size)?;
-            shapecraft_boolean::write(&mut world.topo, &block, "b")?;
+            let block = workpiece_boolean::block("b", Point3::ZERO, axes, size)?;
+            workpiece_boolean::write(&mut world.topo, &block, "b")?;
             Ok(Arc::new(world))
         };
         let (plate, wall) = (part([4.0, 4.0, 1.0])?, part([1.0, 4.0, 3.0])?);
@@ -231,7 +231,7 @@ mod tests {
         assert_eq!(b.world.topo.validate(), Ok(()));
         let body = b.world.topo.resolve("bead").context("the bead")?;
         let bead = read(&b.world.topo, body)?;
-        let volume = shapecraft_boolean::measure(&bead).volume;
+        let volume = workpiece_boolean::measure(&bead).volume;
         assert!(
             (volume - std::f64::consts::PI * 0.25).abs() < 1e-9,
             "{volume}"

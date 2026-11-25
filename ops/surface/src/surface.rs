@@ -2,14 +2,14 @@
 //! sewn into one (a solid, if they close), a sheet taken apart.
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::model::Walk;
-use shapecraft_boolean::{Solid, read, read_sheet, stitched};
-use shapecraft_core::widgets::ReferenceList;
-use shapecraft_core::world::topo::{BodyId, BodyKind, Topo};
-use shapecraft_core::{Builder, EditContext, Measure, Operation, ReferenceKind, Widget};
+use workpiece_boolean::model::Walk;
+use workpiece_boolean::{Solid, read, read_sheet, stitched};
+use workpiece_core::widgets::ReferenceList;
+use workpiece_core::world::topo::{BodyId, BodyKind, Topo};
+use workpiece_core::{Builder, EditContext, Measure, Operation, ReferenceKind, Widget};
 
-use shapecraft_shape::ui;
-use shapecraft_shape::{between, faces_of, filled, rounded, ruled, trimmed, whole};
+use workpiece_shape::ui;
+use workpiece_shape::{between, faces_of, filled, rounded, ruled, trimmed, whole};
 
 /// Every solid and sheet body of `topo`, read: its id, its name,
 /// whether it is a sheet, and its faces.
@@ -33,7 +33,7 @@ fn bodies(topo: &Topo) -> Vec<(BodyId, String, bool, Solid)> {
 
 /// What a surface operation works on.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct SurfaceArgs {
     /// What it does.
@@ -42,15 +42,15 @@ pub struct SurfaceArgs {
     pub way: SurfaceWay,
     /// Faces, or whole bodies.
     #[arg(with = "picked_field")]
-    pub picked: Vec<shapecraft_core::Reference<shapecraft_core::Anything>>,
+    pub picked: Vec<workpiece_core::Reference<workpiece_core::Anything>>,
     /// The way a ruled surface runs from its edges.
     #[serde(default)]
     #[arg(label = "Along", when = "self.way == SurfaceWay::Ruled")]
-    pub axis: Option<shapecraft_core::Reference<shapecraft_core::world::DatumAxis>>,
+    pub axis: Option<workpiece_core::Reference<workpiece_core::world::DatumAxis>>,
     /// The plane surfaces are trimmed to or split by.
     #[serde(default)]
     #[arg(when = "matches!(self.way, SurfaceWay::Trim | SurfaceWay::Split)")]
-    pub plane: Option<shapecraft_core::Reference<shapecraft_core::world::DatumPlane>>,
+    pub plane: Option<workpiece_core::Reference<workpiece_core::world::DatumPlane>>,
     /// Whether it is what is behind the plane that goes.
     #[serde(default)]
     #[arg(flip, row, when = "self.way == SurfaceWay::Trim")]
@@ -180,10 +180,10 @@ impl Operation for Surface {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let picked: Vec<&str> = self.args.picked.iter().map(|r| r.name()).collect();
         ensure!(!picked.is_empty(), "pick the faces or surfaces");
         let distance = (*builder).measure(&self.args.distance, "the distance")?;
@@ -194,7 +194,7 @@ impl Operation for Surface {
             let mut sides = Vec::new();
             for wanted in &picked {
                 let found = all.iter().find_map(|(_, _, _, solid)| {
-                    let named = |e: &&shapecraft_boolean::model::Edge| {
+                    let named = |e: &&workpiece_boolean::model::Edge| {
                         e.name.as_deref() == Some(*wanted) || e.also.iter().any(|n| n == wanted)
                     };
                     solid.edges.iter().find(named).cloned()
@@ -220,7 +220,7 @@ impl Operation for Surface {
             let mut sheets = Vec::new();
             for wanted in &picked {
                 let found = bodies(topo).into_iter().find_map(|(_, _, _, solid)| {
-                    let named = |e: &&shapecraft_boolean::model::Edge| {
+                    let named = |e: &&workpiece_boolean::model::Edge| {
                         e.name.as_deref() == Some(*wanted) || e.also.iter().any(|n| n == wanted)
                     };
                     solid.edges.iter().find(named).cloned()
@@ -337,7 +337,7 @@ impl Operation for Surface {
                     for &f in faces {
                         let id = format!("{}/f{}", self.id, sheets.len());
                         if out.made.annotations.is_empty() {
-                            out.made.annotations.push(shapecraft_shape::on::held(
+                            out.made.annotations.push(workpiece_shape::on::held(
                                 &self.id,
                                 "distance",
                                 (of, f),
@@ -346,7 +346,7 @@ impl Operation for Surface {
                                 distance.abs(),
                             ));
                         }
-                        let slab = shapecraft_shape::thick::slab(of, f, distance, &id)
+                        let slab = workpiece_shape::thick::slab(of, f, distance, &id)
                             .with_context(|| format!("offsetting {:?}", of.faces[f].name))?;
                         let far = format!("{id}/far");
                         let found = slab
@@ -452,7 +452,7 @@ impl Operation for Surface {
                             if free.is_empty() {
                                 faces_of(sheet, &[f])
                             } else {
-                                shapecraft_shape::thick::run_on(sheet, f, &free)
+                                workpiece_shape::thick::run_on(sheet, f, &free)
                                     .with_context(|| format!("running {name} on"))?
                             }
                         };
@@ -560,9 +560,9 @@ fn picked_field(args: &SurfaceArgs, _: &EditContext<'_>) -> Vec<Widget<SurfaceAr
         | SurfaceWay::Fill => vec![ReferenceKind::Body],
         _ => vec![ReferenceKind::Face, ReferenceKind::Body],
     };
-    let picked = shapecraft_core::Reference::sources(&args.picked);
+    let picked = workpiece_core::Reference::sources(&args.picked);
     let set = ui::set(args, |a, picked| {
-        a.picked = shapecraft_core::Reference::each(picked)
+        a.picked = workpiece_core::Reference::each(picked)
     });
     vec![
         ReferenceList::new("Of", kinds, picked, set)

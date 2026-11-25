@@ -2,11 +2,11 @@
 //! tolerance — a distance, a length, a diameter or radius, an angle.
 
 use anyhow::{Context, ensure};
-use shapecraft_core::math::Point3;
-use shapecraft_core::widgets::{Choice, NumericInput, TextInput};
-use shapecraft_core::world::topo::{EdgeId, Topo};
-use shapecraft_core::world::{Annotation, DatumAxis, DatumPlane, Measured, Note, Tolerance, World};
-use shapecraft_core::{
+use workpiece_core::math::Point3;
+use workpiece_core::widgets::{Choice, NumericInput, TextInput};
+use workpiece_core::world::topo::{EdgeId, Topo};
+use workpiece_core::world::{Annotation, DatumAxis, DatumPlane, Measured, Note, Tolerance, World};
+use workpiece_core::{
     Builder, EditContext, Operation, Pose, Position, Reference, ReferenceKind, Resolve, Source,
     Widget,
 };
@@ -32,7 +32,7 @@ pub enum DimensionKind {
     Angle,
 }
 
-impl shapecraft_core::Choices for DimensionKind {
+impl workpiece_core::Choices for DimensionKind {
     const ALL: &'static [Self] = &[
         DimensionKind::Auto,
         DimensionKind::Distance,
@@ -70,7 +70,7 @@ pub enum Bend {
 
 /// What is measured, of what, and how exactly it has to be.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct DimensionArgs {
     /// What is measured.
@@ -80,7 +80,7 @@ pub struct DimensionArgs {
     /// (one edge for its length), one round face for a diameter or a
     /// radius.
     #[arg(with = "of_field")]
-    pub of: Vec<Reference<shapecraft_core::Anything>>,
+    pub of: Vec<Reference<workpiece_core::Anything>>,
     /// For an angle: the other one of the two the directions make —
     /// what is left of a half turn (45° where the faces themselves
     /// stand 135° apart: how far a chamfer leans off its wall).
@@ -224,8 +224,8 @@ fn ends(world: &World, source: &Source) -> Option<(Point3, Point3)> {
 /// axis, the axis, and its radius.
 fn round(world: &World, source: &Source) -> Option<(Point3, Point3, f64)> {
     let (world, name, pose) = within(world, source)?;
-    let (solid, face) = shapecraft_shape::on::face(&world.topo, name).ok()?;
-    let round = shapecraft_shape::thread::cylinder(&solid, face).ok()?;
+    let (solid, face) = workpiece_shape::on::face(&world.topo, name).ok()?;
+    let round = workpiece_shape::thread::cylinder(&solid, face).ok()?;
     let middle = (round.reach.0 + round.reach.1) / 2.0;
     Some((
         pose.transform_point(round.origin + round.axis * middle),
@@ -325,12 +325,12 @@ fn rounded_in(topo: &Topo, name: &str) -> Option<Rounded> {
             bend: None,
         });
     }
-    let (solid, face) = shapecraft_shape::on::face(topo, name).ok()?;
-    if let Ok(round) = shapecraft_shape::thread::cylinder(&solid, face) {
+    let (solid, face) = workpiece_shape::on::face(topo, name).ok()?;
+    if let Ok(round) = workpiece_shape::thread::cylinder(&solid, face) {
         // All of the body's faces on this cylinder, together (a full
         // one may be of two halves).
         let on_it = |f: usize| {
-            shapecraft_shape::thread::cylinder(&solid, f)
+            workpiece_shape::thread::cylinder(&solid, f)
                 .ok()
                 .filter(|c| {
                     (c.radius - round.radius).abs() < 1e-9 * (1.0 + round.radius)
@@ -341,7 +341,7 @@ fn rounded_in(topo: &Topo, name: &str) -> Option<Rounded> {
         };
         let area: f64 = (0..solid.faces.len())
             .filter(|&f| on_it(f).is_some())
-            .map(|f| shapecraft_boolean::face_area(&solid, f))
+            .map(|f| workpiece_boolean::face_area(&solid, f))
             .sum();
         let long = (round.reach.1 - round.reach.0).abs();
         let whole = area >= std::f64::consts::TAU * round.radius * long * 0.99;
@@ -408,7 +408,7 @@ fn rounded_in(topo: &Topo, name: &str) -> Option<Rounded> {
 /// radii.
 fn coaxial(
     world: &World,
-    of: &[Reference<shapecraft_core::Anything>],
+    of: &[Reference<workpiece_core::Anything>],
 ) -> Option<(Point3, Point3, f64, f64)> {
     let [a, b] = of else { return None };
     let ((p, axis, r), (q, other, s)) = (round(world, &a.source)?, round(world, &b.source)?);
@@ -424,14 +424,14 @@ fn coaxial(
 /// Nothing if neither is round, or they do not lie so.
 fn between_rounds(
     world: &World,
-    of: &[Reference<shapecraft_core::Anything>],
+    of: &[Reference<workpiece_core::Anything>],
     args: &DimensionArgs,
 ) -> Option<(Point3, Point3)> {
     let (far, centres, same_side) = (args.far, args.centres, args.same_side);
     let [a, b] = of else { return None };
     // (A flat face or a straight edge is that; a round face is round,
     // though it also names its axis.)
-    let flat = |r: &Reference<shapecraft_core::Anything>| {
+    let flat = |r: &Reference<workpiece_core::Anything>| {
         DatumPlane::resolve(world, &r.source).is_ok()
             || (DatumAxis::resolve(world, &r.source).is_ok() && is_edge(world, &r.source))
             || matches!(r.source, Source::Datum(_) | Source::FrameAxis { .. })
@@ -583,8 +583,8 @@ fn reach_along(
 fn lies(world: &World, source: &Source, plane: &DatumPlane) -> Point3 {
     within(world, source)
         .and_then(|(world, name, pose)| {
-            let (solid, face) = shapecraft_shape::on::face(&world.topo, name).ok()?;
-            Some(pose.transform_point(shapecraft_shape::on::middle(&solid, face).0))
+            let (solid, face) = workpiece_shape::on::face(&world.topo, name).ok()?;
+            Some(pose.transform_point(workpiece_shape::on::middle(&solid, face).0))
         })
         .unwrap_or_else(|| plane.origin())
 }
@@ -594,7 +594,7 @@ fn lies(world: &World, source: &Source, plane: &DatumPlane) -> Point3 {
 /// view shows of it in profile. Nothing for anything else.
 fn ruling(world: &World, source: &Source) -> Option<DatumAxis> {
     let (inner, name, pose) = within(world, source)?;
-    let (solid, face) = shapecraft_shape::on::face(&inner.topo, name).ok()?;
+    let (solid, face) = workpiece_shape::on::face(&inner.topo, name).ok()?;
     let surface = &solid.faces[face].surface;
     if DatumPlane::resolve(world, source).is_ok() {
         return None;
@@ -628,8 +628,8 @@ fn ruling(world: &World, source: &Source) -> Option<DatumAxis> {
 fn lies_any(world: &World, source: &Source, fallback: Point3) -> Point3 {
     within(world, source)
         .and_then(|(world, name, pose)| {
-            let (solid, face) = shapecraft_shape::on::face(&world.topo, name).ok()?;
-            Some(pose.transform_point(shapecraft_shape::on::middle(&solid, face).0))
+            let (solid, face) = workpiece_shape::on::face(&world.topo, name).ok()?;
+            Some(pose.transform_point(workpiece_shape::on::middle(&solid, face).0))
         })
         .unwrap_or(fallback)
 }
@@ -785,7 +785,7 @@ fn measured(world: &World, args: &DimensionArgs) -> anyhow::Result<(Measured, f6
             // where it is, not at the plane's origin, far off.)
             let face = |source: &Source| {
                 within(world, source).is_some_and(|(world, name, _)| {
-                    shapecraft_shape::on::face(&world.topo, name).is_ok()
+                    workpiece_shape::on::face(&world.topo, name).is_ok()
                 })
             };
             let (from, to) = match (&a, &b) {
@@ -1027,7 +1027,7 @@ impl Operation for Dimension {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let world = builder.tracked();
         let (measured, value) = measured(world, &self.args)?;
         // Its text stands off what it measures, by a share of how large
@@ -1054,7 +1054,7 @@ impl Operation for Dimension {
             },
             at,
         };
-        Ok(shapecraft_core::Made {
+        Ok(workpiece_core::Made {
             annotations: vec![(self.id.clone(), note)],
             ..Default::default()
         })
@@ -1067,7 +1067,7 @@ impl Operation for Dimension {
         &self,
         context: &EditContext<'_>,
         (): &(),
-    ) -> shapecraft_core::EditVisualization<shapecraft_core::Edit<DimensionArgs, ()>> {
+    ) -> workpiece_core::EditVisualization<workpiece_core::Edit<DimensionArgs, ()>> {
         let about = measured(context.world, &self.args)
             .ok()
             .map(|(measured, _)| {
@@ -1143,7 +1143,7 @@ fn of_field(args: &DimensionArgs, _: &EditContext<'_>) -> Vec<Widget<DimensionAr
         ..args.clone()
     };
     vec![
-        shapecraft_core::widgets::ReferenceList::new(label, kinds, picked, set)
+        workpiece_core::widgets::ReferenceList::new(label, kinds, picked, set)
             .required()
             .into(),
     ]

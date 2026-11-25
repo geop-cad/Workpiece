@@ -2,7 +2,7 @@
 //! with WebGL into the page's canvas. What a browser does differently is
 //! here, in one place:
 //!
-//! - files live in memory ([`shapecraft_core::files`]); "Open from this
+//! - files live in memory ([`workpiece_core::files`]); "Open from this
 //!   computer" reads files the user picks into it, and what is saved or
 //!   exported is also handed over as a download. Nothing is uploaded.
 //! - `?open=<url or name>` fetches a part file (and the parts it places,
@@ -19,12 +19,12 @@ use std::cell::RefCell;
 use std::collections::BTreeSet;
 
 use eframe::egui;
-use shapecraft_cad_part::Part;
-use shapecraft_cad_ui::Message;
-use shapecraft_core::files;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen_futures::{JsFuture, spawn_local};
+use workpiece_core::files;
+use workpiece_part::Part;
+use workpiece_ui::Message;
 
 use crate::theme::color;
 
@@ -34,10 +34,10 @@ use crate::theme::color;
 const EXAMPLES: &str = "../examples/index.json";
 
 /// The file types "Open from this computer" offers.
-const ACCEPT: &str = ".shapecraft,.step,.stp,.igs,.iges,.stl,.3mf";
+const ACCEPT: &str = ".workpiece,.step,.stp,.igs,.iges,.stl,.3mf";
 
 /// What the about text says of files.
-const ABOUT: &str = "ShapeCraft runs in this browser: parts build on your computer. \
+const ABOUT: &str = "Workpiece runs in this browser: parts build on your computer. \
 Files you open are read into the page's memory and nothing is uploaded anywhere; \
 saving or exporting downloads the file.";
 
@@ -58,7 +58,7 @@ enum Event {
 ///
 /// ```json
 /// { "examples": [ { "name": "flange", "title": "Flange",
-///   "description": "…", "file": "flange/flange.shapecraft",
+///   "description": "…", "file": "flange/flange.workpiece",
 ///   "thumbnail": "flange/flange.png", "tags": ["revolve"] } ] }
 /// ```
 ///
@@ -147,7 +147,7 @@ fn query(name: &str) -> Option<String> {
         .filter(|v| !v.is_empty())
 }
 
-/// Starts the application in the page's canvas `shapecraft`.
+/// Starts the application in the page's canvas `workpiece`.
 pub fn start() {
     page(|p| p.started = now());
     spawn_local(async {
@@ -155,10 +155,10 @@ pub fn start() {
         guard_panics();
         let Some(canvas) = window()
             .document()
-            .and_then(|d| d.get_element_by_id("shapecraft"))
+            .and_then(|d| d.get_element_by_id("workpiece"))
             .and_then(|e| e.dyn_into::<web_sys::HtmlCanvasElement>().ok())
         else {
-            log("ShapeCraft: the page has no canvas with the id shapecraft");
+            log("Workpiece: the page has no canvas with the id workpiece");
             return;
         };
         let options = eframe::WebOptions {
@@ -178,7 +178,7 @@ pub fn start() {
                     loading.remove();
                 }
             }
-            Err(e) => log(&format!("ShapeCraft did not start: {e:?}")),
+            Err(e) => log(&format!("Workpiece did not start: {e:?}")),
         }
         // Read the examples, and open what the address asks for.
         spawn_local(read_examples());
@@ -230,7 +230,7 @@ async fn open_named(open: String, drawing: bool) {
     match fetch_part(&url).await {
         Ok(path) => {
             log(&format!(
-                "ShapeCraft: fetched {url} in {:.0} ms",
+                "Workpiece: fetched {url} in {:.0} ms",
                 now() - asked
             ));
             send(Event::Open { path, drawing });
@@ -261,7 +261,7 @@ async fn read_examples() {
     match examples().await {
         Ok(list) => send(Event::Examples(list)),
         // (A site without examples just shows none.)
-        Err(e) => log(&format!("ShapeCraft: no examples: {e}")),
+        Err(e) => log(&format!("Workpiece: no examples: {e}")),
     }
 }
 
@@ -319,7 +319,7 @@ async fn fetch_part(url: &str) -> Result<String, String> {
                 bytes
             }
         };
-        if !shapecraft_cad_part::is_step(&path) {
+        if !workpiece_part::is_step(&path) {
             let text = String::from_utf8_lossy(&bytes);
             let part = Part::from_text(&text).map_err(|e| format!("reading {path}: {e:#}"))?;
             todo.extend(part.placed_parts());
@@ -379,7 +379,7 @@ async fn read_picked(list: web_sys::FileList, folder: bool) {
         if let Err(e) = files::write(&name, &bytes) {
             return send(Event::Failed(format!("reading {name}: {e}")));
         }
-        if name.ends_with(&format!(".{}", shapecraft_ops_instances::PART_EXTENSION)) {
+        if name.ends_with(&format!(".{}", workpiece_ops_instances::PART_EXTENSION)) {
             let placed = Part::from_text(&String::from_utf8_lossy(&bytes))
                 .map(|p| p.placed_parts())
                 .unwrap_or_default();
@@ -451,7 +451,7 @@ async fn thumbnail(example: Example) {
         Some(url) => fetch(url).await.ok().and_then(|png| decode_png(&png)),
         None => fetch(&example.file).await.ok().and_then(|bytes| {
             let part = Part::from_text(&String::from_utf8_lossy(&bytes)).ok()?;
-            shapecraft_cad_ui::preview::pixels(part.fresh_preview()?)
+            workpiece_ui::preview::pixels(part.fresh_preview()?)
         }),
     };
     send(Event::Thumbnail(example.name, pixels));
@@ -484,12 +484,12 @@ fn decode_png(bytes: &[u8]) -> Option<(usize, usize, Vec<u8>)> {
 }
 
 /// Opens the first drawing of the active part.
-fn open_drawing(model: &mut shapecraft_cad_ui::Model) -> anyhow::Result<()> {
+fn open_drawing(model: &mut workpiece_ui::Model) -> anyhow::Result<()> {
     let Some(part) = model.active_part.clone() else {
         return Ok(());
     };
     let drawing = model.workspace.part(&part)?.program.iter().find_map(|op| {
-        op.downcast_ref::<shapecraft_ops_drawing::Drawing>()
+        op.downcast_ref::<workpiece_ops_drawing::Drawing>()
             .map(|_| op.id().to_owned())
     });
     match drawing {
@@ -504,7 +504,7 @@ impl crate::App {
         if !page(|p| std::mem::replace(&mut p.drawn, true)) {
             let started = page(|p| p.started);
             log(&format!(
-                "ShapeCraft: first frame {:.0} ms after the start",
+                "Workpiece: first frame {:.0} ms after the start",
                 now() - started
             ));
         }
@@ -531,7 +531,7 @@ impl crate::App {
                 let asked = now();
                 let opened = self.file(crate::FileAction::Open(path.clone()));
                 log(&format!(
-                    "ShapeCraft: opened and built {path} in {:.0} ms",
+                    "Workpiece: opened and built {path} in {:.0} ms",
                     now() - asked
                 ));
                 let opened = opened.and_then(|()| match drawing {
@@ -606,7 +606,7 @@ pub fn start_screen(ui: &mut egui::Ui) {
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.add_space(24.0);
         ui.vertical_centered(|ui| {
-            ui.heading("ShapeCraft");
+            ui.heading("Workpiece");
             ui.label("A parametric CAD program, here running in your browser.");
             ui.add_space(4.0);
             ui.weak(ABOUT);

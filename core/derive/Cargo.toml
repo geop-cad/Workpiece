@@ -1,6 +1,6 @@
 [package]
-name = "shapecraft-derive"
-description = "Derive macros of shapecraft-core."
+name = "workpiece-derive"
+description = "Derive macros of workpiece-core."
 edition.workspace = true
 version.workspace = true
 license.workspace = true

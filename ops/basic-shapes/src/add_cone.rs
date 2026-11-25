@@ -1,11 +1,11 @@
 //! [`AddCone`]: a cone, or one cut off, standing on a frame.
 
-use shapecraft_core::world::DatumFrame;
-use shapecraft_core::{Builder, Measure, Operation, Reference};
+use workpiece_core::world::DatumFrame;
+use workpiece_core::{Builder, Measure, Operation, Reference};
 
 /// Where the cone goes and how big it is.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct AddConeArgs {
     /// The frame at the centre of the base; the cone rises along its z
@@ -61,7 +61,7 @@ impl Operation for AddCone {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let r = (*builder).measure(&self.args.radius, "the radius")?;
         let top = (*builder).measure(&self.args.top, "the radius at the top")?;
         let h = (*builder).measure(&self.args.height, "the height")?;
@@ -77,8 +77,8 @@ impl Operation for AddCone {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::Standalone;
-    use shapecraft_core::world::ORIGIN;
+    use workpiece_core::Standalone;
+    use workpiece_core::world::ORIGIN;
 
     #[test]
     fn cones_come_to_a_point_or_are_cut_off() -> anyhow::Result<()> {

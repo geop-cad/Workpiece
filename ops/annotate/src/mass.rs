@@ -3,10 +3,10 @@
 //! view shows them as the ellipsoid that weighs and turns alike.
 
 use anyhow::Context;
-use shapecraft_boolean::{read, spread};
-use shapecraft_core::world::topo::{BodyId, BodyKind};
-use shapecraft_core::world::{MassProperties as Asked, Spread};
-use shapecraft_core::{Builder, Made, Operation, Reference};
+use workpiece_boolean::{read, spread};
+use workpiece_core::world::topo::{BodyId, BodyKind};
+use workpiece_core::world::{MassProperties as Asked, Spread};
+use workpiece_core::{Builder, Made, Operation, Reference};
 
 /// Which bodies are asked about.
 #[derive(
@@ -16,7 +16,7 @@ use shapecraft_core::{Builder, Made, Operation, Reference};
     Default,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct MassPropertiesArgs {
     /// The bodies, taken together; none for every solid body.

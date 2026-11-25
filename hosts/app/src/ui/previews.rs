@@ -6,8 +6,8 @@ use std::collections::HashMap;
 use std::sync::mpsc;
 
 use eframe::egui;
-use shapecraft_cad_part::{Cancel, Engine, Part, Workspace};
-use shapecraft_cad_ui::preview;
+use workpiece_part::{Cancel, Engine, Part, Workspace};
+use workpiece_ui::preview;
 
 use crate::files;
 
@@ -51,17 +51,17 @@ pub struct Previews {
 
 /// What tells this version of the file at `path` from another.
 fn written(path: &str) -> Option<u64> {
-    shapecraft_core::files::stamp(path)
+    workpiece_core::files::stamp(path)
 }
 
 /// The preview of the part file at `path`: the one it holds, if that is
 /// of the part as it is, or one taken of it as it builds now (with the
 /// parts it places, and the materials of the working directory).
 fn of_file(path: &str) -> Option<Pixels> {
-    if shapecraft_cad_part::is_step(path) {
+    if workpiece_part::is_step(path) {
         return None;
     }
-    let part = Part::from_text(&shapecraft_core::files::read_to_string(path).ok()?).ok()?;
+    let part = Part::from_text(&workpiece_core::files::read_to_string(path).ok()?).ok()?;
     if let Some(kept) = part.fresh_preview() {
         return preview::pixels(kept);
     }
@@ -79,7 +79,7 @@ fn of_file(path: &str) -> Option<Pixels> {
 impl Default for Previews {
     fn default() -> Self {
         let results = mpsc::channel();
-        let jobs = shapecraft_core::HAS_THREADS.then(|| {
+        let jobs = workpiece_core::HAS_THREADS.then(|| {
             let (jobs, todo) = mpsc::channel::<String>();
             let done = results.0.clone();
             std::thread::spawn(move || {

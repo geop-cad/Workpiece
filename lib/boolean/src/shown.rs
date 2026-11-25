@@ -13,9 +13,9 @@
 
 use std::collections::{HashMap, HashSet};
 
-use shapecraft_core::cancel::checkpoint;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::NurbsSurface;
+use workpiece_core::cancel::checkpoint;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::NurbsSurface;
 
 use crate::model::{Face, Solid, Walk};
 use crate::query::{self, FaceData, SolidData};

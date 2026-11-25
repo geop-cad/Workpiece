@@ -1,16 +1,16 @@
 //! What the operations of this crate make.
 
-use shapecraft_ops_testing::*;
+use workpiece_ops_testing::*;
 
 #[test]
 fn a_flange_is_bent_up_along_a_plates_edge() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_ops_sheet_metal::{flanged, flat_length};
     use std::f64::consts::FRAC_PI_2;
+    use workpiece_core::math::Point3;
+    use workpiece_ops_sheet_metal::{flanged, flat_length};
     // A plate 4 × 4 × 0.2: along its top edge at x = 4, a bend of inside
     // radius 0.3 through a right angle, and a flange 1 long.
     let axes = [Point3::X, Point3::Y, Point3::Z];
-    let plate = shapecraft_boolean::block("p", Point3::ZERO, axes, [4.0, 4.0, 0.2])?;
+    let plate = workpiece_boolean::block("p", Point3::ZERO, axes, [4.0, 4.0, 0.2])?;
     let edge = (0..plate.edges.len())
         .find(|&e| {
             let ends = plate.edges[e].ends.map(|v| plate.vertices[v].point);
@@ -19,12 +19,12 @@ fn a_flange_is_bent_up_along_a_plates_edge() -> anyhow::Result<()> {
         .expect("the edge");
     let (t, r, l) = (0.2, 0.3, 1.0);
     let bent = flanged(&plate, edge, (t, r, FRAC_PI_2, l), false, "flange")?;
-    let mut topo = shapecraft_core::world::Topo::new();
-    shapecraft_boolean::write(&mut topo, &bent, "p")?;
+    let mut topo = workpiece_core::world::Topo::new();
+    workpiece_boolean::write(&mut topo, &bent, "p")?;
     assert_eq!(topo.validate(), Ok(()));
     let bend = PI / 4.0 * ((r + t) * (r + t) - r * r) * 4.0;
     close(
-        shapecraft_boolean::measure(&bent).volume,
+        workpiece_boolean::measure(&bent).volume,
         3.2 + bend + l * t * 4.0,
         1e-9,
     );
@@ -38,10 +38,10 @@ fn a_flange_is_bent_up_along_a_plates_edge() -> anyhow::Result<()> {
     let top = (0..bent.faces.len())
         .max_by(|a, b| {
             let up = |f: &usize| {
-                let n = shapecraft_boolean::face_area(&bent, *f);
+                let n = workpiece_boolean::face_area(&bent, *f);
                 let flat = bent.faces[*f].surface.degrees() == (1, 1);
                 let high = bent.faces[*f].loops[0].iter().all(|s| match s.walk {
-                    shapecraft_boolean::model::Walk::Edge { edge, .. } => bent.edges[edge]
+                    workpiece_boolean::model::Walk::Edge { edge, .. } => bent.edges[edge]
                         .ends
                         .iter()
                         .all(|v| (bent.vertices[*v].point.z - 0.2).abs() < 1e-9),
@@ -53,7 +53,7 @@ fn a_flange_is_bent_up_along_a_plates_edge() -> anyhow::Result<()> {
         })
         .expect("the top");
     let k = 0.44;
-    let (flat, bends) = shapecraft_ops_sheet_metal::unfolded(&bent, top, t, k, "flat")?;
+    let (flat, bends) = workpiece_ops_sheet_metal::unfolded(&bent, top, t, k, "flat")?;
     // One bend, its centre line across the plate (along y, 4 long) where
     // the bend's neutral layer is half laid out: up, through 90°.
     assert_eq!(bends.len(), 1);
@@ -64,12 +64,12 @@ fn a_flange_is_bent_up_along_a_plates_edge() -> anyhow::Result<()> {
     close(bends[0].angle, FRAC_PI_2, 1e-9);
     close(bends[0].radius, r, 1e-9);
     assert!(bends[0].up);
-    let mut topo = shapecraft_core::world::Topo::new();
-    shapecraft_boolean::write(&mut topo, &flat, "flat")?;
+    let mut topo = workpiece_core::world::Topo::new();
+    workpiece_boolean::write(&mut topo, &flat, "flat")?;
     assert_eq!(topo.validate(), Ok(()));
     let long = 4.0 + flat_length(r, t, FRAC_PI_2, l, k);
     close(
-        shapecraft_boolean::measure(&flat).volume,
+        workpiece_boolean::measure(&flat).volume,
         long * 4.0 * t,
         1e-9,
     );

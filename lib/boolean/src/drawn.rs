@@ -10,9 +10,9 @@
 //! whether the ray from its middle toward the viewer meets the solid
 //! again.
 
-use shapecraft_core::cancel::checkpoint;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve3, NurbsSurface};
+use workpiece_core::cancel::checkpoint;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve3, NurbsSurface};
 
 use crate::Refusal;
 use crate::bezier::Piece;

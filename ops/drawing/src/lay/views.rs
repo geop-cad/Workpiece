@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use crate::Sheet;
 use crate::sheet::{Beside, HalfSide, Projection, SheetView, Style, TangentEdges, ViewKind};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::{Cutting, World};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::{Cutting, World};
 
 use super::notes::Outline;
 use super::{Fill, Kept, Laid, LaidView, Pen, Subject, millimetres, scale_text};
@@ -995,7 +995,7 @@ fn see(
         }
         None => world,
     };
-    shape(world, shapecraft_core::Pose::IDENTITY, &mut shape_of);
+    shape(world, workpiece_core::Pose::IDENTITY, &mut shape_of);
     let flat = |p: Point3| {
         let d = p - middle;
         Point2::new(d.dot(right), d.dot(up))
@@ -1452,7 +1452,7 @@ fn named(world: &World, names: &[String]) -> World {
         })
         .collect();
     for body in others {
-        shapecraft_boolean::remove(&mut only.topo, body);
+        workpiece_boolean::remove(&mut only.topo, body);
     }
     only.instances = world
         .instances
@@ -1495,7 +1495,7 @@ fn names(world: &World, name: &str) -> bool {
 /// How far the solid bodies of `world` reach from its origin.
 fn world_reach(world: &World) -> f64 {
     let mut shape_of = Shape::default();
-    shape(world, shapecraft_core::Pose::IDENTITY, &mut shape_of);
+    shape(world, workpiece_core::Pose::IDENTITY, &mut shape_of);
     shape_of
         .runs
         .iter()
@@ -1506,7 +1506,7 @@ fn world_reach(world: &World) -> f64 {
 /// The middle of the box around the solid bodies of `world`.
 fn world_middle(world: &World) -> Point3 {
     let mut shape_of = Shape::default();
-    shape(world, shapecraft_core::Pose::IDENTITY, &mut shape_of);
+    shape(world, workpiece_core::Pose::IDENTITY, &mut shape_of);
     let all = shape_of.runs.iter().flatten();
     let (lo, hi) = all.fold(
         (
@@ -1551,7 +1551,7 @@ pub(crate) fn see_all(sheet: &Sheet, subject: &Subject<'_>, kept: &Kept) {
     jobs.sort_by(|a, b| a.key.cmp(&b.key));
     jobs.dedup_by(|a, b| a.key == b.key);
     // (Without threads, each view sees for itself as it is laid.)
-    if jobs.len() < 2 || !shapecraft_core::HAS_THREADS {
+    if jobs.len() < 2 || !workpiece_core::HAS_THREADS {
         return;
     }
     let world = subject.world;

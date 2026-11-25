@@ -3,8 +3,8 @@
 
 use std::f64::consts::{FRAC_PI_2, TAU};
 
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::topo::Curve2;
+use workpiece_core::math::Point2;
+use workpiece_core::world::topo::Curve2;
 
 use crate::model::{Id, Shape, SketchArgs};
 

@@ -2,7 +2,7 @@
 //! and those the crates of operations tell of.
 
 use eframe::egui;
-use shapecraft_cad_ui::view::Icon;
+use workpiece_ui::view::Icon;
 
 /// The image of `icon`.
 pub fn image(icon: Icon) -> egui::ImageSource<'static> {
@@ -20,7 +20,7 @@ pub fn image(icon: Icon) -> egui::ImageSource<'static> {
 /// The image of the icon an operation calls `name` (a point for a name
 /// there is no icon for).
 pub fn named(name: &str) -> egui::ImageSource<'static> {
-    if let Some(svg) = shapecraft_cad_part::registry().svg(name) {
+    if let Some(svg) = workpiece_part::registry().svg(name) {
         return egui::ImageSource::Bytes {
             uri: format!("bytes://icons/{name}.svg").into(),
             bytes: egui::load::Bytes::Static(svg.as_bytes()),

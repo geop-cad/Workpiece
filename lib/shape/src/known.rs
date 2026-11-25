@@ -4,8 +4,8 @@
 //! two, a cylinder by extruding an arc, a cone by revolving a slanted
 //! line).
 
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::NurbsSurface;
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::NurbsSurface;
 
 /// A surface of a usual kind.
 #[derive(Debug, Clone, Copy, PartialEq)]

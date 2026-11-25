@@ -22,7 +22,7 @@
 //! parts they place are started on a [`Pool`] of threads; a part is built
 //! by one thread, a build that needs a part another thread is building
 //! helps with other work until it is there. A [`Cancel`] stops a build
-//! at the next [checkpoint](shapecraft_core::cancel::checkpoint) the step
+//! at the next [checkpoint](workpiece_core::cancel::checkpoint) the step
 //! being applied passes; a step that panics is a step that failed.
 
 use std::borrow::Cow;
@@ -30,7 +30,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use shapecraft_core::{Builder, Cache, Parameters, World};
+use workpiece_core::{Builder, Cache, Parameters, World};
 
 use crate::effect::{self, Effect};
 use crate::naming;
@@ -43,7 +43,7 @@ pub type Key = u64;
 /// How many worlds are kept.
 const KEPT: usize = 512;
 
-pub use shapecraft_core::{Cancel, Cancelled};
+pub use workpiece_core::{Cancel, Cancelled};
 
 /// What a build made: the world, and the part's cache as the build
 /// leaves it (what its steps worked out, to start the next build from).
@@ -62,7 +62,7 @@ pub struct Built {
 /// `input` (see [`effect::input`]).
 #[derive(Clone)]
 struct Met {
-    reads: Arc<[shapecraft_core::Read]>,
+    reads: Arc<[workpiece_core::Read]>,
     input: u64,
     effect: Arc<Effect>,
 }
@@ -163,7 +163,7 @@ impl Engine {
             cancel: cancel.clone(),
             world: World::new(),
             cache: Cache::default(),
-            trace: shapecraft_core::Trace::default(),
+            trace: workpiece_core::Trace::default(),
             parameters: Parameters::new(),
             stack: Vec::new(),
             variant: None,
@@ -194,7 +194,7 @@ struct Run {
     /// The world being built: the innermost part on `stack`.
     world: World,
     /// What the step being applied reads of it.
-    trace: shapecraft_core::Trace,
+    trace: workpiece_core::Trace,
     cache: Cache,
     parameters: Parameters,
     /// The paths of the parts being built, outermost first.
@@ -220,7 +220,7 @@ fn hash(of: impl Hash) -> Key {
 
 /// What a file is, as far as can be told without reading it.
 fn file_stamp(path: &str) -> Key {
-    shapecraft_core::files::stamp(path).unwrap_or(0)
+    workpiece_core::files::stamp(path).unwrap_or(0)
 }
 
 impl Run {
@@ -381,7 +381,7 @@ impl Run {
                 cancel: self.cancel.clone(),
                 world: World::new(),
                 cache: Cache::default(),
-                trace: shapecraft_core::Trace::default(),
+                trace: workpiece_core::Trace::default(),
                 parameters: Parameters::new(),
                 stack: self.stack.clone(),
                 variant: None,
@@ -447,7 +447,7 @@ impl Run {
                 cache.replace(op.id(), entries);
             }
         }
-        shapecraft_ops_instances::assembly::settle(&mut world, &mut cache);
+        workpiece_ops_instances::assembly::settle(&mut world, &mut cache);
         let built = Built {
             world: Arc::new(world),
             cache,
@@ -526,8 +526,8 @@ impl Run {
                     // (A part said not to be sectioned — a shaft, a pin —
                     // is drawn whole where a section runs through it.)
                     sectioned: match part.properties.get("Sectioned").map(String::as_str) {
-                        Some("No") => shapecraft_core::world::Sectioned::Whole,
-                        _ => shapecraft_core::world::Sectioned::Cut,
+                        Some("No") => workpiece_core::world::Sectioned::Whole,
+                        _ => workpiece_core::world::Sectioned::Cut,
                     },
                     ..World::new()
                 },
@@ -567,7 +567,7 @@ impl Run {
             // the part keeps of it is settled after its last step.)
             if unsettled && !op.settles() {
                 let mut scratch = self.cache.clone();
-                shapecraft_ops_instances::assembly::settle(&mut self.world, &mut scratch);
+                workpiece_ops_instances::assembly::settle(&mut self.world, &mut scratch);
                 unsettled = false;
             }
             let held = (self.world.instances.len(), self.world.joints.len());
@@ -601,7 +601,7 @@ impl Run {
                 let cancel = self.cancel.clone();
                 let applied = match cancel.run(|| op.apply(self)) {
                     Ok(applied) => applied,
-                    Err(shapecraft_core::Stopped::Cancelled) => Err(Cancelled.into()),
+                    Err(workpiece_core::Stopped::Cancelled) => Err(Cancelled.into()),
                     Err(broke) => Err(anyhow::anyhow!("{broke}")),
                 };
                 if let Err(e) = applied {
@@ -614,8 +614,8 @@ impl Run {
                 let looked = self.world.topo.watched();
                 (&*self as &dyn Builder).looked(looked);
                 for source in op.references() {
-                    if !matches!(source, shapecraft_core::Source::Topology(_)) {
-                        self.trace.note(shapecraft_core::Read::Source(source));
+                    if !matches!(source, workpiece_core::Source::Topology(_)) {
+                        self.trace.note(workpiece_core::Read::Source(source));
                     }
                 }
                 let (reads, said) = self.trace.take();
@@ -699,12 +699,12 @@ impl Run {
 
 impl Builder for Run {
     fn world(&self) -> &World {
-        self.trace.note(shapecraft_core::Read::Everything);
+        self.trace.note(workpiece_core::Read::Everything);
         &self.world
     }
 
     fn world_mut(&mut self) -> &mut World {
-        self.trace.note(shapecraft_core::Read::Everything);
+        self.trace.note(workpiece_core::Read::Everything);
         &mut self.world
     }
 
@@ -716,7 +716,7 @@ impl Builder for Run {
         &mut self.world
     }
 
-    fn trace(&self) -> Option<&shapecraft_core::Trace> {
+    fn trace(&self) -> Option<&workpiece_core::Trace> {
         Some(&self.trace)
     }
 
@@ -746,7 +746,7 @@ impl Builder for Run {
             cancel: self.cancel.clone(),
             world: World::new(),
             cache: Cache::default(),
-            trace: shapecraft_core::Trace::default(),
+            trace: workpiece_core::Trace::default(),
             parameters: Parameters::new(),
             stack: self.stack.clone(),
             variant: None,
@@ -759,7 +759,7 @@ impl Builder for Run {
 
     fn spanning(&self, steps: &[String]) -> anyhow::Result<(Arc<World>, Arc<World>)> {
         use anyhow::Context;
-        self.trace.note(shapecraft_core::Read::Everything);
+        self.trace.note(workpiece_core::Read::Everything);
         let (path, above) = self.stack.split_last().context("no part is being built")?;
         let part = self.resolve(path)?.into_owned();
         let mut span: Option<(usize, usize)> = None;
@@ -781,7 +781,7 @@ impl Builder for Run {
                 cancel: self.cancel.clone(),
                 world: World::new(),
                 cache: Cache::default(),
-                trace: shapecraft_core::Trace::default(),
+                trace: workpiece_core::Trace::default(),
                 parameters: Parameters::new(),
                 stack: above.to_vec(),
                 variant: None,
@@ -796,7 +796,7 @@ impl Builder for Run {
 
     fn redone(&self, steps: &[String], on: World) -> anyhow::Result<World> {
         use anyhow::Context;
-        self.trace.note(shapecraft_core::Read::Everything);
+        self.trace.note(workpiece_core::Read::Everything);
         let path = self.stack.last().context("no part is being built")?;
         let part = self.resolve(path)?.into_owned();
         let mut span: Option<(usize, usize)> = None;
@@ -817,7 +817,7 @@ impl Builder for Run {
             cancel: self.cancel.clone(),
             world: on,
             cache: Cache::default(),
-            trace: shapecraft_core::Trace::default(),
+            trace: workpiece_core::Trace::default(),
             parameters: self.parameters.clone(),
             stack: self.stack.clone(),
             variant: self.variant.clone(),
@@ -837,11 +837,11 @@ impl Builder for Run {
 mod tests {
     use super::*;
     use crate::AnyOperation;
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::{Measure, Pose, Reference};
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
-    use shapecraft_ops_instances::{AddPart, AddPartArgs};
     use std::collections::BTreeMap;
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::{Measure, Pose, Reference};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
+    use workpiece_ops_instances::{AddPart, AddPartArgs};
 
     fn block(id: &str, size: f64) -> AnyOperation {
         AddBox {
@@ -887,10 +887,10 @@ mod tests {
 
     #[test]
     fn features_are_repeated_by_what_their_steps_did() -> anyhow::Result<()> {
-        use shapecraft_core::math::Axis;
-        use shapecraft_core::{Source, world::topo::BodyId};
-        use shapecraft_ops_bodies::{Along, FeaturePattern, FeaturePatternArgs};
-        use shapecraft_ops_features::{Hole, HoleArgs, HolePlace};
+        use workpiece_core::math::Axis;
+        use workpiece_core::{Source, world::topo::BodyId};
+        use workpiece_ops_bodies::{Along, FeaturePattern, FeaturePatternArgs};
+        use workpiece_ops_features::{Hole, HoleArgs, HolePlace};
         // A block 4 wide with a hole ⌀0.5 through it, 1 in from two of
         // its sides.
         let hole = Hole {
@@ -903,7 +903,7 @@ mod tests {
                 second: Some(Source::Topology("body/back".into()).into()),
                 second_offset: Measure::new(1.0),
                 diameter: Measure::new(0.5),
-                extent: shapecraft_ops_sweep::Extent::ThroughAll,
+                extent: workpiece_ops_sweep::Extent::ThroughAll,
                 ..Default::default()
             },
         };
@@ -915,7 +915,7 @@ mod tests {
         let volume = |built: &Built| -> anyhow::Result<f64> {
             let topo = &built.world.topo;
             let body = topo.resolve::<BodyId>("body").expect("the body");
-            Ok(shapecraft_boolean::measure(&shapecraft_boolean::read(topo, body)?).volume)
+            Ok(workpiece_boolean::measure(&workpiece_boolean::read(topo, body)?).volume)
         };
         let one = std::f64::consts::PI * 0.25 * 0.25 * 4.0;
         let drilled = build(&engine, &ws, "plate")?;
@@ -930,7 +930,7 @@ mod tests {
             .map(|(name, _)| name.to_owned())
             .find(|name| {
                 let topo = &drilled.world.topo;
-                topo.resolve::<shapecraft_core::world::topo::FaceId>(name)
+                topo.resolve::<workpiece_core::world::topo::FaceId>(name)
                     .is_some()
             })
             .expect("a face of the hole");
@@ -954,14 +954,14 @@ mod tests {
 
     #[test]
     fn a_cut_repeated_cuts_what_its_tool_meets_there() -> anyhow::Result<()> {
-        use shapecraft_core::math::{Axis, Point2};
-        use shapecraft_core::{Source, world::topo::BodyId};
-        use shapecraft_ops_bodies::{Along, FeaturePattern, FeaturePatternArgs};
-        use shapecraft_ops_sweep::{Extent, Extrude};
+        use workpiece_core::math::{Axis, Point2};
+        use workpiece_core::{Source, world::topo::BodyId};
+        use workpiece_ops_bodies::{Along, FeaturePattern, FeaturePatternArgs};
+        use workpiece_ops_sweep::{Extent, Extrude};
         // A block 4 across around the origin, and a slot 1 wide cut
         // through it from x = 1 to x = 3: half of the slot's outline is
         // past the block, so only 1 × 1 × 4 is cut.
-        let mut sketch = shapecraft_ops_sketch::Sketch::new("s");
+        let mut sketch = workpiece_ops_sketch::Sketch::new("s");
         sketch.args.plane = Some(Reference::frame_axis(ORIGIN, Axis::Z));
         let corners = [[1.0, -0.5], [3.0, -0.5], [3.0, 0.5], [1.0, 0.5]]
             .map(|p| sketch.args.add_point(Point2::from_array(p)));
@@ -992,7 +992,7 @@ mod tests {
         let volume = |built: &Built| -> anyhow::Result<f64> {
             let topo = &built.world.topo;
             let body = topo.resolve::<BodyId>("body").expect("the body");
-            Ok(shapecraft_boolean::measure(&shapecraft_boolean::read(topo, body)?).volume)
+            Ok(workpiece_boolean::measure(&workpiece_boolean::read(topo, body)?).volume)
         };
         let once = build(&engine, &ws, "part")?;
         assert!((volume(&once)? - (64.0 - 4.0)).abs() < 1e-9);
@@ -1005,7 +1005,7 @@ mod tests {
             .map(|(name, _)| name.to_owned())
             .find(|name| {
                 let topo = &once.world.topo;
-                topo.resolve::<shapecraft_core::world::topo::FaceId>(name)
+                topo.resolve::<workpiece_core::world::topo::FaceId>(name)
                     .is_some()
             })
             .expect("a face of the slot");
@@ -1021,11 +1021,11 @@ mod tests {
     /// A rectangle `[u0, v0, u1, v1]` sketched on `plane`, called `id`.
     fn rectangle(
         id: &str,
-        plane: Reference<shapecraft_core::world::DatumPlane>,
+        plane: Reference<workpiece_core::world::DatumPlane>,
         r: [f64; 4],
     ) -> AnyOperation {
-        use shapecraft_core::math::Point2;
-        let mut sketch = shapecraft_ops_sketch::Sketch::new(id);
+        use workpiece_core::math::Point2;
+        let mut sketch = workpiece_ops_sketch::Sketch::new(id);
         sketch.args.plane = Some(plane);
         let corners = [[r[0], r[1]], [r[2], r[1]], [r[2], r[3]], [r[0], r[3]]]
             .map(|p| sketch.args.add_point(Point2::from_array(p)));
@@ -1037,7 +1037,7 @@ mod tests {
 
     /// An extrusion of the sketch `of`, `by` far, cutting or joining.
     fn extruded(id: &str, of: &str, by: f64, cut: bool) -> AnyOperation {
-        let mut extrude = shapecraft_ops_sweep::Extrude::of(id, Some(of.into()), false);
+        let mut extrude = workpiece_ops_sweep::Extrude::of(id, Some(of.into()), false);
         extrude.args.distance = Measure::new(by);
         extrude.args.combine = serde_json::from_str(if cut { "\"Cut\"" } else { "\"Join\"" })
             .expect("a way to combine");
@@ -1046,11 +1046,11 @@ mod tests {
 
     /// A fillet of radius `r` of all edges of the face `face`.
     fn rounded(id: &str, face: &str, r: f64) -> AnyOperation {
-        use shapecraft_ops_blend::{Fillet, FilletArgs};
+        use workpiece_ops_blend::{Fillet, FilletArgs};
         Fillet {
             id: id.into(),
             args: FilletArgs {
-                edges: vec![shapecraft_core::Source::Topology(face.to_owned()).into()],
+                edges: vec![workpiece_core::Source::Topology(face.to_owned()).into()],
                 size: Measure::new(r),
                 ..Default::default()
             },
@@ -1063,9 +1063,9 @@ mod tests {
     fn flat_at(built: &Built, step: &str, along: usize, at: f64) -> String {
         let topo = &built.world.topo;
         let body = topo
-            .resolve::<shapecraft_core::world::topo::BodyId>("body")
+            .resolve::<workpiece_core::world::topo::BodyId>("body")
             .expect("the body");
-        let solid = shapecraft_boolean::read(topo, body).expect("a solid");
+        let solid = workpiece_boolean::read(topo, body).expect("a solid");
         let face = solid.faces.iter().find(|f| {
             f.name.as_deref().is_some_and(|n| n.starts_with(step))
                 && f.surface
@@ -1080,9 +1080,9 @@ mod tests {
     fn face_of(built: &Built, step: &str) -> String {
         let topo = &built.world.topo;
         let body = topo
-            .resolve::<shapecraft_core::world::topo::BodyId>("body")
+            .resolve::<workpiece_core::world::topo::BodyId>("body")
             .expect("the body");
-        let solid = shapecraft_boolean::read(topo, body).expect("a solid");
+        let solid = workpiece_boolean::read(topo, body).expect("a solid");
         let face = solid
             .faces
             .iter()
@@ -1094,23 +1094,23 @@ mod tests {
     fn body_volume(built: &Built) -> f64 {
         let topo = &built.world.topo;
         let body = topo
-            .resolve::<shapecraft_core::world::topo::BodyId>("body")
+            .resolve::<workpiece_core::world::topo::BodyId>("body")
             .expect("the body");
-        shapecraft_boolean::measure(&shapecraft_boolean::read(topo, body).expect("a solid")).volume
+        workpiece_boolean::measure(&workpiece_boolean::read(topo, body).expect("a solid")).volume
     }
 
     fn mirrored(
         id: &str,
         faces: &[&str],
-        plane: Reference<shapecraft_core::world::DatumPlane>,
+        plane: Reference<workpiece_core::world::DatumPlane>,
     ) -> AnyOperation {
-        use shapecraft_ops_bodies::{FeatureMirror, FeatureMirrorArgs};
+        use workpiece_ops_bodies::{FeatureMirror, FeatureMirrorArgs};
         FeatureMirror {
             id: id.into(),
             args: FeatureMirrorArgs {
                 features: faces
                     .iter()
-                    .map(|f| shapecraft_core::Source::Topology((*f).to_owned()).into())
+                    .map(|f| workpiece_core::Source::Topology((*f).to_owned()).into())
                     .collect(),
                 plane: Some(plane),
             },
@@ -1127,8 +1127,8 @@ mod tests {
 
     #[test]
     fn a_pocket_and_its_fillet_mirrored_are_two_pockets_by_hand() -> anyhow::Result<()> {
-        use shapecraft_core::math::Axis;
-        let top = || Reference::<shapecraft_core::world::DatumPlane>::topology("body/top");
+        use workpiece_core::math::Axis;
+        let top = || Reference::<workpiece_core::world::DatumPlane>::topology("body/top");
         let engine = Engine::inline();
         let mut by_hand = Workspace::new(BTreeMap::from([(
             "part".to_owned(),
@@ -1183,9 +1183,9 @@ mod tests {
 
     #[test]
     fn a_counterbored_hole_mirrored_is_a_hole_by_hand() -> anyhow::Result<()> {
-        use shapecraft_core::math::Axis;
-        use shapecraft_core::{Source, world::topo::FaceId};
-        use shapecraft_ops_features::{Hole, HoleArgs, HoleKind, HolePlace};
+        use workpiece_core::math::Axis;
+        use workpiece_core::{Source, world::topo::FaceId};
+        use workpiece_ops_features::{Hole, HoleArgs, HoleKind, HolePlace};
         let hole = |id: &str, side: &str| -> AnyOperation {
             Hole {
                 id: id.into(),
@@ -1200,7 +1200,7 @@ mod tests {
                     kind: HoleKind::Counterbore,
                     head: Measure::new(1.0),
                     head_depth: Measure::new(0.5),
-                    extent: shapecraft_ops_sweep::Extent::ThroughAll,
+                    extent: workpiece_ops_sweep::Extent::ThroughAll,
                     ..Default::default()
                 },
             }
@@ -1242,7 +1242,7 @@ mod tests {
         // A boss on the top face reaching 0.5 past the right face and
         // so out over it, mirrored in that face (a plane 2 from the
         // middle): a second boss from 1.5 to 3.5, which joins the first.
-        let top = || Reference::<shapecraft_core::world::DatumPlane>::topology("body/top");
+        let top = || Reference::<workpiece_core::world::DatumPlane>::topology("body/top");
         let engine = Engine::inline();
         let part =
             |program| Workspace::new(BTreeMap::from([("part".to_owned(), Part::new(program))]));
@@ -1317,14 +1317,14 @@ mod tests {
 
     #[test]
     fn what_a_step_refers_to_is_found_where_it_was_once_its_name_is_lost() -> anyhow::Result<()> {
-        use shapecraft_core::world::topo::EntityId;
-        use shapecraft_ops_blend::{Fillet, FilletArgs};
+        use workpiece_core::world::topo::EntityId;
+        use workpiece_ops_blend::{Fillet, FilletArgs};
         let round = |edge: &str| -> AnyOperation {
             Fillet {
                 id: "round".into(),
                 args: FilletArgs {
-                    edges: vec![shapecraft_core::Source::Topology(edge.to_owned()).into()],
-                    size: shapecraft_core::Measure::new(0.1),
+                    edges: vec![workpiece_core::Source::Topology(edge.to_owned()).into()],
+                    size: workpiece_core::Measure::new(0.1),
                     ..Default::default()
                 },
             }
@@ -1377,7 +1377,7 @@ mod tests {
             anyhow::bail!("expected the edge found again");
         };
         assert_eq!(repair.step, "round");
-        assert_eq!(repair.to, shapecraft_core::Source::Topology(edge.clone()));
+        assert_eq!(repair.to, workpiece_core::Source::Topology(edge.clone()));
         assert!(first.repaired.is_empty());
         // With nothing kept of where it was, it is lost: never guessed.
         ws.part_mut("part")?.cache = Cache::default();
@@ -1390,11 +1390,11 @@ mod tests {
 
     #[test]
     fn what_cuts_through_parts_reads_only_those_it_could_run_into() -> anyhow::Result<()> {
-        use shapecraft_ops_instances::{CutParts, CutPartsArgs};
+        use workpiece_ops_instances::{CutParts, CutPartsArgs};
         let cut: AnyOperation = CutParts {
             id: "cut".into(),
             args: CutPartsArgs {
-                tools: vec![shapecraft_core::Source::Topology("tool".into()).into()],
+                tools: vec![workpiece_core::Source::Topology("tool".into()).into()],
             },
         }
         .into();
@@ -1407,7 +1407,7 @@ mod tests {
         ])
         .placing(
             "far",
-            &Pose::from_translation(shapecraft_core::math::Point3::X * 10.0),
+            &Pose::from_translation(workpiece_core::math::Point3::X * 10.0),
         );
         let engine = Engine::inline();
         let mut ws = Workspace::new(BTreeMap::from([
@@ -1433,12 +1433,12 @@ mod tests {
 
     #[test]
     fn a_step_is_applied_again_only_if_what_it_reads_changed() -> anyhow::Result<()> {
-        use shapecraft_ops_blend::{Fillet, FilletArgs};
+        use workpiece_ops_blend::{Fillet, FilletArgs};
         let round = |body: &str| -> AnyOperation {
             Fillet {
                 id: format!("round-{body}"),
                 args: FilletArgs {
-                    edges: vec![shapecraft_core::Source::Topology(body.to_owned()).into()],
+                    edges: vec![workpiece_core::Source::Topology(body.to_owned()).into()],
                     mitered: true,
                     ..Default::default()
                 },
@@ -1460,7 +1460,7 @@ mod tests {
         assert_eq!(engine.applied(), 4, "only the changed block");
         let faces = |built: &Built, body: &str| {
             let topo = &built.world.topo;
-            let id = topo.resolve::<shapecraft_core::world::topo::BodyId>(body);
+            let id = topo.resolve::<workpiece_core::world::topo::BodyId>(body);
             id.and_then(|b| topo.body_faces(b)).map(|f| f.len())
         };
         assert_eq!(faces(&second, "two"), faces(&first, "two"));
@@ -1485,9 +1485,9 @@ mod tests {
         let mut ws = workspace(2);
         let first = build(&engine, &ws, "all")?;
         // The part moved by a drag: only its place in the cache changes.
-        let moved = Pose::from_translation(shapecraft_core::math::Point3::new(5.0, 0.0, 0.0));
+        let moved = Pose::from_translation(workpiece_core::math::Point3::new(5.0, 0.0, 0.0));
         let put = BTreeMap::from([("a0".to_owned(), moved)]);
-        shapecraft_ops_instances::assembly::keep(&mut ws.part_mut("all")?.cache, &put);
+        workpiece_ops_instances::assembly::keep(&mut ws.part_mut("all")?.cache, &put);
         let second = build(&engine, &ws, "all")?;
         assert_eq!(second.world.instances["a0"].pose, moved);
         assert_eq!(second.world.instances["b0"].pose, Pose::IDENTITY);
@@ -1503,9 +1503,9 @@ mod tests {
 
     #[test]
     fn a_step_can_stand_on_a_placed_part_and_follows_it() -> anyhow::Result<()> {
-        use shapecraft_core::Source;
-        use shapecraft_core::world::Datum;
-        use shapecraft_ops_datum::{AddPlane, AddPlaneArgs, PlaneMode};
+        use workpiece_core::Source;
+        use workpiece_core::world::Datum;
+        use workpiece_ops_datum::{AddPlane, AddPlaneArgs, PlaneMode};
         // A plane a little above the top of a block placed in the part.
         let top = Source::placed(&["a".to_owned()], Source::Topology("body/top".into()));
         let plane = AddPlane {
@@ -1533,13 +1533,13 @@ mod tests {
             assert!(
                 plane
                     .normal()
-                    .abs_diff_eq(shapecraft_core::math::Point3::Z, 1e-9)
+                    .abs_diff_eq(workpiece_core::math::Point3::Z, 1e-9)
             );
             Ok(plane.origin().z)
         };
         assert!((height(&ws)? - 2.5).abs() < 1e-9);
         // The block is lifted: the plane goes with it.
-        let lifted = Pose::from_translation(shapecraft_core::math::Point3::new(0.0, 0.0, 10.0));
+        let lifted = Pose::from_translation(workpiece_core::math::Point3::new(0.0, 0.0, 10.0));
         let part = ws.part_mut("on")?.clone().placing("a", &lifted);
         ws.parts.insert("on".into(), part);
         assert!((height(&ws)? - 12.5).abs() < 1e-9);
@@ -1548,11 +1548,11 @@ mod tests {
 
     #[test]
     fn steps_after_a_joint_see_the_parts_where_it_holds_them() -> anyhow::Result<()> {
-        use shapecraft_core::Source;
-        use shapecraft_core::world::{Datum, JointKind};
-        use shapecraft_ops_datum::{AddPlane, AddPlaneArgs, PlaneMode};
-        use shapecraft_ops_instances::connector::Snap;
-        use shapecraft_ops_instances::{Anchor, Hold};
+        use workpiece_core::Source;
+        use workpiece_core::world::{Datum, JointKind};
+        use workpiece_ops_datum::{AddPlane, AddPlaneArgs, PlaneMode};
+        use workpiece_ops_instances::connector::Snap;
+        use workpiece_ops_instances::{Anchor, Hold};
         // A block of 1 fastened, its bottom against the top of a block of
         // 2 (at z = 1), `offset` off that top's middle; then a plane on
         // its top.
@@ -1614,7 +1614,7 @@ mod tests {
             // moved by the offset in the top's own frame (x and y the
             // part's, z up).
             let [u, v, w] = offset;
-            let at = shapecraft_core::math::Point3::new(u, v, 1.5 + w);
+            let at = workpiece_core::math::Point3::new(u, v, 1.5 + w);
             let pin = built.world.instances["pin"].pose.translation();
             assert!(pin.abs_diff_eq(at, 1e-7), "{pin} for {offset:?}");
             // The plane, a step after, is on its top where the joint
@@ -1661,9 +1661,9 @@ mod tests {
         // A file that is no STEP file still stands for a part: building
         // it fails where the import does, not for there being no part.
         let ws = Workspace::default();
-        assert!(ws.resolve("missing.shapecraft").is_err());
+        assert!(ws.resolve("missing.workpiece").is_err());
         let part = ws.resolve("bracket.STEP")?;
-        assert!(matches!(&part.program[..], [op] if op.is::<shapecraft_ops_step::ImportStep>()));
+        assert!(matches!(&part.program[..], [op] if op.is::<workpiece_ops_step::ImportStep>()));
         let err = build(&Engine::inline(), &ws, "bracket.step").expect_err("no such file");
         assert!(format!("{err:#}").contains("bracket.step"), "{err:#}");
         Ok(())
@@ -1673,8 +1673,8 @@ mod tests {
 #[cfg(test)]
 mod step_tests {
     use super::*;
-    use shapecraft_ops_instances::{AddPart, AddPartArgs};
     use std::collections::BTreeMap;
+    use workpiece_ops_instances::{AddPart, AddPartArgs};
 
     /// A rod of radius and height in inches, as most systems write a
     /// cylinder.
@@ -1682,7 +1682,7 @@ mod step_tests {
 
     #[test]
     fn a_step_file_placed_twice_is_imported_once_and_stays_imported() -> anyhow::Result<()> {
-        let dir = std::env::temp_dir().join(format!("shapecraft-engine-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("workpiece-engine-{}", std::process::id()));
         std::fs::create_dir_all(&dir)?;
         let file = dir.join("rod.step").to_string_lossy().into_owned();
         std::fs::write(&file, ROD)?;

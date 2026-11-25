@@ -4,7 +4,7 @@
 # from docs/book) as docs/, the examples as examples/ and, once app/build.sh has built it, the
 # application for the browser as app/. SITE_URL (default: site.json's) is where it is served from.
 # Needs mdbook on the PATH. MDBOOK_OUTPUT__HTML__SITE_URL sets where the book is served from.
-# SHAPECRAFT_APP names the folder app/build.sh wrote, if not app/dist.
+# WORKPIECE_APP names the folder app/build.sh wrote, if not app/dist.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/.." && pwd)
@@ -18,14 +18,14 @@ mdbook build "$REPO/docs/book" -d "$OUT/docs"
 # the scripts keep beside the part files).
 if [ -d "$REPO/examples" ]; then
   (cd "$REPO/examples" && find . -name '*.views' -prune -o -type f \
-    \( -name '*.shapecraft' -o -name '*.json' -o -name '*.png' -o -name '*.pdf' -o -name '*.svg' \
+    \( -name '*.workpiece' -o -name '*.json' -o -name '*.png' -o -name '*.pdf' -o -name '*.svg' \
     -o -name '*.py' -o -name '*.step' -o -name '*.stp' \) -print) | while read -r f; do
     mkdir -p "$OUT/examples/$(dirname "$f")"
     cp "$REPO/examples/$f" "$OUT/examples/$f"
   done
 fi
 # The application, as app/build.sh wrote it.
-APP=${SHAPECRAFT_APP:-$HERE/app/dist}
+APP=${WORKPIECE_APP:-$HERE/app/dist}
 if [ -f "$APP/index.html" ]; then
   cp -r "$APP" "$OUT/app"
 else

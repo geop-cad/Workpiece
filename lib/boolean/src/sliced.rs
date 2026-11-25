@@ -13,7 +13,7 @@
 //! or a face, along a face — is not decided here: nothing is returned,
 //! and whoever asked falls back to cutting the solid.
 
-use shapecraft_core::math::{Point2, Point3};
+use workpiece_core::math::{Point2, Point3};
 
 use crate::model::{Face, Solid, Walk};
 
@@ -114,7 +114,7 @@ pub fn plane_section(
 /// plane. `None` if it touches the plane, ends in it or lies in it.
 fn roots(
     plane: &Plane,
-    curve: &shapecraft_core::world::topo::Curve3,
+    curve: &workpiece_core::world::topo::Curve3,
     range: (f64, f64),
 ) -> Option<Vec<f64>> {
     let nothing = plane.nothing();
@@ -349,7 +349,7 @@ impl Walker<'_> {
         let longest = plane.size / 6.0;
         for count in 0..100_000 {
             if count % 256 == 255 {
-                shapecraft_core::cancel::checkpoint();
+                workpiece_core::cancel::checkpoint();
             }
             let way = here.way * sign;
             // An end just ahead: the cut is there.

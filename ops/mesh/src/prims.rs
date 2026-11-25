@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::f64::consts::TAU;
 
-use shapecraft_core::math::Point3;
+use workpiece_core::math::Point3;
 
 use crate::poly::Poly;
 

@@ -1,14 +1,14 @@
 //! Centre lines and the traces of datums: what a view offers of them,
 //! putting one on, and the line types they are drawn with (ISO 128-2).
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::{Datum, DatumAxis, DatumPlane};
-use shapecraft_ops_drawing::Sheet;
-use shapecraft_ops_drawing::lay::{Kept, Laid, Pen, Placing, Subject, lay_out};
-use shapecraft_ops_drawing::sheet::{Centres, LineOf, SheetLine, SheetView, Side, Style, ViewKind};
-use shapecraft_ops_features::{Hole, HoleArgs};
-use shapecraft_ops_sketch::{Shape, Sketch};
-use shapecraft_ops_testing::*;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::{Datum, DatumAxis, DatumPlane};
+use workpiece_ops_drawing::Sheet;
+use workpiece_ops_drawing::lay::{Kept, Laid, Pen, Placing, Subject, lay_out};
+use workpiece_ops_drawing::sheet::{Centres, LineOf, SheetLine, SheetView, Side, Style, ViewKind};
+use workpiece_ops_features::{Hole, HoleArgs};
+use workpiece_ops_sketch::{Shape, Sketch};
+use workpiece_ops_testing::*;
 
 /// A block 4 × 4 × 2 with a hole through at (1, 1), a datum plane
 /// square to x and a datum axis along y.
@@ -25,7 +25,7 @@ fn drilled_block() -> anyhow::Result<Standalone> {
         args: HoleArgs {
             sketch: Some(Source::Profile("points".into()).into()),
             diameter: Measure::new(0.5),
-            extent: shapecraft_ops_sweep::Extent::ThroughAll,
+            extent: workpiece_ops_sweep::Extent::ThroughAll,
             ..HoleArgs::default()
         },
     }
@@ -56,7 +56,7 @@ fn lay(b: &Standalone, sheet: &Sheet, missing: bool) -> Laid {
     let properties = Default::default();
     let subject = Subject {
         world: &b.world,
-        unit: shapecraft_core::Unit::default(),
+        unit: workpiece_core::Unit::default(),
         material: None,
         name: "block",
         properties: &properties,
@@ -166,15 +166,9 @@ fn line_types_are_iso_128_2() {
     assert_eq!(Pen::ChainWide.dashes(wide), vec![12.0, 1.5, 0.25, 1.5]);
     assert!(Pen::Wide.dashes(wide).is_empty() && Pen::Narrow.dashes(wide).is_empty());
     // An A1 sheet's group is 0.7 / 0.35.
-    let drafting = shapecraft_ops_drawing::sheet::Drafting::default();
-    assert_eq!(
-        drafting.wide(shapecraft_ops_drawing::sheet::Format::A1),
-        0.7
-    );
-    assert_eq!(
-        drafting.wide(shapecraft_ops_drawing::sheet::Format::A3),
-        0.5
-    );
+    let drafting = workpiece_ops_drawing::sheet::Drafting::default();
+    assert_eq!(drafting.wide(workpiece_ops_drawing::sheet::Format::A1), 0.7);
+    assert_eq!(drafting.wide(workpiece_ops_drawing::sheet::Format::A3), 0.5);
 }
 
 #[test]
@@ -186,8 +180,8 @@ fn the_holes_of_parts_placed_in_an_assembly_have_centre_lines() -> anyhow::Resul
     for (name, x) in [("one", 0.0), ("two", 10.0)] {
         b.world.instances.insert(
             name.into(),
-            shapecraft_core::world::Instance {
-                pose: shapecraft_core::Pose::from_translation(Point3::new(x, 0.0, 0.0)),
+            workpiece_core::world::Instance {
+                pose: workpiece_core::Pose::from_translation(Point3::new(x, 0.0, 0.0)),
                 world: part.clone(),
                 fixed: true,
             },
@@ -349,7 +343,7 @@ fn a_line_said_of_one_hole_is_drawn_as_said_over_every_centre_line() -> anyhow::
 
 #[test]
 fn a_plane_of_symmetry_is_drawn_with_its_words_where_asked() -> anyhow::Result<()> {
-    use shapecraft_ops_drawing::sheet::{LabelAt, LineEnd};
+    use workpiece_ops_drawing::sheet::{LabelAt, LineEnd};
     // The origin's ZX plane, seen edge on from above: its trace, marked
     // CL SYM at its start, then at its end.
     let b = drilled_block()?;

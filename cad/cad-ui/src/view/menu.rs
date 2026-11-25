@@ -1,7 +1,7 @@
-use shapecraft_cad_part::AnyOperation;
-use shapecraft_core::widgets::Button;
-use shapecraft_core::{Hotkey, Key, Placement};
-use shapecraft_ops_datum::{AddAxis, AddFrame, AddPlane};
+use workpiece_core::widgets::Button;
+use workpiece_core::{Hotkey, Key, Placement};
+use workpiece_ops_datum::{AddAxis, AddFrame, AddPlane};
+use workpiece_part::AnyOperation;
 
 use super::Icon;
 use crate::{Message, Model};
@@ -162,15 +162,15 @@ fn offered(model: &Model, item: &dyn Fn(Icon, &str, Hotkey, Message) -> MenuItem
     let world = &model.viewport.shown.world;
     let selection = model.selected_sources();
     let fresh_id = |stem: &str| part.fresh_id(stem);
-    let context = shapecraft_core::ToolContext {
+    let context = workpiece_core::ToolContext {
         fresh_id: &fresh_id,
         world,
         unit: part.unit,
         selection: &selection,
     };
     let datums = datum_operations(model);
-    let registry = shapecraft_cad_part::registry();
-    let mut tools: Vec<&shapecraft_core::Tool> = registry.tools().iter().collect();
+    let registry = workpiece_part::registry();
+    let mut tools: Vec<&workpiece_core::Tool> = registry.tools().iter().collect();
     // (Those of the tab that shows first; each once, though it may be
     // on several tabs.)
     tools.sort_by_key(|tool| tool.tab != model.tab.label());

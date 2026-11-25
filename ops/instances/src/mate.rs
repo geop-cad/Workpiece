@@ -2,11 +2,11 @@
 
 use anyhow::Context;
 use glam::DQuat;
-use shapecraft_core::widgets::{
+use workpiece_core::widgets::{
     Choice, ConnectorInput, HBox, Label, Mood, NumericInput, Picked, Scope,
 };
-use shapecraft_core::world::{Connector, Joint, JointKind, Limits, World};
-use shapecraft_core::{Builder, EditContext, Operation, Pose, Source};
+use workpiece_core::world::{Connector, Joint, JointKind, Limits, World};
+use workpiece_core::{Builder, EditContext, Operation, Pose, Source};
 
 use crate::connector::{self, Snap};
 
@@ -119,7 +119,7 @@ impl Anchor {
     Default,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct MateArgs {
     /// How the second connector may move against the first.
@@ -209,8 +209,8 @@ impl Operation for Mate {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
-        Ok(shapecraft_core::Made {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
+        Ok(workpiece_core::Made {
             joints: vec![{
                 // (It reads the parts its connectors are on.)
                 let on = [&self.args.a, &self.args.b];
@@ -259,8 +259,8 @@ impl Operation for Mate {
 
 /// The fields of how a joint moves, after its connectors: which way
 /// they face, and the limits its kind can have.
-pub fn motion_fields(args: &MateArgs) -> Vec<shapecraft_core::Widget<MateArgs>> {
-    let mut fields: Vec<shapecraft_core::Widget<MateArgs>> = vec![
+pub fn motion_fields(args: &MateArgs) -> Vec<workpiece_core::Widget<MateArgs>> {
+    let mut fields: Vec<workpiece_core::Widget<MateArgs>> = vec![
         Choice::new(
             "Facing",
             vec!["The same way".to_owned(), "Each other".to_owned()],
@@ -329,7 +329,7 @@ pub fn joint_fields(
     args: &MateArgs,
     labels: [&str; 2],
     scopes: [Scope; 2],
-) -> Vec<shapecraft_core::Widget<MateArgs>> {
+) -> Vec<workpiece_core::Widget<MateArgs>> {
     let pick = |first: bool, inside: bool| {
         let args = args.clone();
         move |picked: Picked| {
@@ -346,7 +346,7 @@ pub fn joint_fields(
     let said = |anchor: &Option<Anchor>| anchor.as_ref().map(Anchor::describe);
     let inside = |scope: &Scope| matches!(scope, Scope::Inside(_));
     let [first, second] = scopes;
-    let mut fields: Vec<shapecraft_core::Widget<MateArgs>> = vec![
+    let mut fields: Vec<workpiece_core::Widget<MateArgs>> = vec![
         ConnectorInput::new(labels[0], said(&args.a), pick(true, inside(&first)))
             .within(first)
             .into(),
@@ -394,10 +394,7 @@ impl MateArgs {
 }
 
 /// The fields of its two connectors, and of what the joint lets go.
-fn connector_fields(
-    args: &MateArgs,
-    _: &EditContext<'_>,
-) -> Vec<shapecraft_core::Widget<MateArgs>> {
+fn connector_fields(args: &MateArgs, _: &EditContext<'_>) -> Vec<workpiece_core::Widget<MateArgs>> {
     joint_fields(args, ["First", "Second"], [Scope::Any, Scope::Any])
 }
 
@@ -405,10 +402,10 @@ fn connector_fields(
 mod tests {
     use super::*;
     use crate::assembly;
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::{Datum, DatumFrame, Instance};
-    use shapecraft_core::{Axis, Standalone};
     use std::sync::Arc;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::{Datum, DatumFrame, Instance};
+    use workpiece_core::{Axis, Standalone};
 
     /// A part with a frame "peg" at `at`.
     fn part(at: Point3) -> anyhow::Result<Arc<World>> {
@@ -475,9 +472,9 @@ mod tests {
         // driven.
         let mut drive = crate::Drive::new("drive");
         drive.args.joint = Some("hinge".into());
-        drive.args.at = shapecraft_core::Measure::new(45.0);
+        drive.args.at = workpiece_core::Measure::new(45.0);
         assert!(drive.apply(&mut b).is_err(), "past the limits");
-        drive.args.at = shapecraft_core::Measure::new(20.0);
+        drive.args.at = workpiece_core::Measure::new(20.0);
         drive.apply(&mut b)?;
         assembly::settle(&mut b.world, &mut b.cache);
         let one = b.world.instances["lid"].pose.axis(Axis::X);

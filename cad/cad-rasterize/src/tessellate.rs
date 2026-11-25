@@ -8,9 +8,9 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::nurbs::SEGMENTS_PER_SPAN;
-use shapecraft_core::world::topo::{BodyId, CoedgeKind, FaceId, NurbsSurface, Orientation, Topo};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::nurbs::SEGMENTS_PER_SPAN;
+use workpiece_core::world::topo::{BodyId, CoedgeKind, FaceId, NurbsSurface, Orientation, Topo};
 
 /// The parameters to sample a direction of `surface` at (`along_v`: its
 /// v, else its u): every distinct knot, and between two of them as many
@@ -627,7 +627,7 @@ fn sample(topo: &Topo, id: FaceId) -> Option<FaceMesh> {
             .or_insert_with(|| (surface.point_at(c.x, c.y), normals_of.at(c.x, c.y)))
     };
     for corners in flat {
-        shapecraft_core::cancel::checkpoint();
+        workpiece_core::cancel::checkpoint();
         let at = corners.map(&mut corner);
         let positions = at.map(|c| c.0);
         let [a, b, c] = positions;
@@ -673,7 +673,7 @@ pub fn volume(topo: &Topo, body: BodyId) -> f64 {
 fn solids(topo: &Topo) -> Vec<(String, Vec<[Point3; 3]>)> {
     let mut all = Vec::new();
     for (id, body) in topo.bodies().iter() {
-        if body.kind != shapecraft_core::world::topo::BodyKind::Solid {
+        if body.kind != workpiece_core::world::topo::BodyKind::Solid {
             continue;
         }
         let mut triangles = Vec::new();
@@ -750,13 +750,13 @@ fn zip(files: &[(&str, Vec<u8>)]) -> Vec<u8> {
 /// The solid bodies of `topo` as a 3MF file, its numbers in `unit`: each an
 /// object of its own, a mesh of its sampled faces' triangles sharing
 /// their corners.
-pub fn three_mf(topo: &Topo, unit: shapecraft_core::Unit) -> Vec<u8> {
+pub fn three_mf(topo: &Topo, unit: workpiece_core::Unit) -> Vec<u8> {
     use std::fmt::Write;
     let unit = match unit {
-        shapecraft_core::Unit::Millimetre => "millimeter",
-        shapecraft_core::Unit::Centimetre => "centimeter",
-        shapecraft_core::Unit::Metre => "meter",
-        shapecraft_core::Unit::Inch => "inch",
+        workpiece_core::Unit::Millimetre => "millimeter",
+        workpiece_core::Unit::Centimetre => "centimeter",
+        workpiece_core::Unit::Metre => "meter",
+        workpiece_core::Unit::Inch => "inch",
     };
     let mut model = format!(
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<model unit=\"{unit}\" xml:lang=\"en-US\" xmlns=\"http://schemas.microsoft.com/3dmanufacturing/core/2015/02\">\n <resources>\n",
@@ -814,7 +814,7 @@ pub fn three_mf(topo: &Topo, unit: shapecraft_core::Unit) -> Vec<u8> {
 pub fn stl(topo: &Topo) -> Vec<u8> {
     let triangles: Vec<[Point3; 3]> = solids(topo).into_iter().flat_map(|(_, t)| t).collect();
     let mut out = vec![0_u8; 80];
-    out[..14].copy_from_slice(b"shapecraft stl");
+    out[..13].copy_from_slice(b"workpiece stl");
     out.extend((triangles.len() as u32).to_le_bytes());
     for [a, b, c] in triangles {
         let normal = (b - a).cross(c - a).normalize_or_zero();
@@ -932,7 +932,7 @@ mod tests {
         assert_eq!(u16::from_le_bytes([end[10], end[11]]), 2);
         let at = u32::from_le_bytes([end[16], end[17], end[18], end[19]]) as usize;
         assert_eq!(&file[at..at + 4], b"PK\x01\x02");
-        let model = three_mf(&Topo::new(), shapecraft_core::Unit::Inch);
+        let model = three_mf(&Topo::new(), workpiece_core::Unit::Inch);
         assert!(model.windows(16).any(|w| w == b"3D/3dmodel.model"));
     }
 }

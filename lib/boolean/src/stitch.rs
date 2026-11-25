@@ -93,7 +93,7 @@ pub fn stitched(sheets: &[Solid], within: f64) -> Result<(Solid, bool), Refusal>
             let near = within + ea.tolerance + eb.tolerance;
             // Where on `a` the places along `b` are; whether they are on
             // it at all, and which way they run.
-            let on_a = |p: shapecraft_core::math::Point3| {
+            let on_a = |p: workpiece_core::math::Point3| {
                 let (t0, t1) = ea.range;
                 let mut best = (f64::INFINITY, t0);
                 for k in 0..=64 {

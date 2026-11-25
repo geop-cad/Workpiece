@@ -2,9 +2,9 @@
 //! tool.
 
 use anyhow::Context;
-use shapecraft_boolean::{Op, Solid, combine, read};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::{BodyId, BodyKind, FaceId, Topo};
+use workpiece_boolean::{Op, Solid, combine, read};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::{BodyId, BodyKind, FaceId, Topo};
 
 /// What a new solid does to the bodies there are.
 #[derive(
@@ -234,7 +234,7 @@ pub fn first_common(
     Ok(cut)
 }
 
-impl shapecraft_core::Choices for Combine {
+impl workpiece_core::Choices for Combine {
     const ALL: &'static [Self] = &Self::ALL;
 
     fn label(self) -> &'static str {
@@ -260,4 +260,4 @@ pub fn solids_with<S: AsRef<str>>(topo: &Topo, names: &[S]) -> Vec<(BodyId, Stri
         .collect()
 }
 
-pub use shapecraft_boolean::Out;
+pub use workpiece_boolean::Out;

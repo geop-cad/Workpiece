@@ -4,10 +4,10 @@
 use std::collections::BTreeSet;
 use std::rc::Rc;
 
-use shapecraft_core::hotkey::{Hotkey, Key};
-use shapecraft_core::math::Point3;
-use shapecraft_core::widgets::{Choice, Group, Label, Mood, NumericInput, ToolButton};
-use shapecraft_core::{Edit, Widget};
+use workpiece_core::hotkey::{Hotkey, Key};
+use workpiece_core::math::Point3;
+use workpiece_core::widgets::{Choice, Group, Label, Mood, NumericInput, ToolButton};
+use workpiece_core::{Edit, Widget};
 
 use crate::MeshArgs;
 use crate::ops::{self, Done};
@@ -798,7 +798,7 @@ impl Session {
             Edit::state(next)
         });
         children.push(Group::new("Move", vec![axes.into(), snap.into(), falloff.into()]).into());
-        shapecraft_core::widgets::HBox::new(children).into()
+        workpiece_core::widgets::HBox::new(children).into()
     }
 
     /// What the context menu offers for what is picked.
@@ -852,7 +852,7 @@ impl<T, const N: usize> ToVecOf<T> for [T; N] {
 }
 
 /// Tells `r` of the icons of the mesh's tools.
-pub(crate) fn icons(r: &mut shapecraft_core::Registry) {
+pub(crate) fn icons(r: &mut workpiece_core::Registry) {
     r.icon("subd", include_str!("../icons/subd.svg"));
     r.icon("mesh", include_str!("../icons/mesh.svg"));
     r.icon("mesh-points", include_str!("../icons/mesh-points.svg"));

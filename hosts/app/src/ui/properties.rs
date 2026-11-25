@@ -2,9 +2,9 @@
 //! properties parts have.
 
 use eframe::egui;
-use shapecraft_cad_part::{Kind, Property, Schema};
-use shapecraft_cad_ui::Message;
-use shapecraft_cad_ui::view::PartProperties;
+use workpiece_part::{Kind, Property, Schema};
+use workpiece_ui::Message;
+use workpiece_ui::view::PartProperties;
 
 use super::materials::field;
 use crate::theme::color;
@@ -107,7 +107,7 @@ fn values(ui: &mut egui::Ui, shown: &PartProperties, out: &mut Vec<Message>) {
                 .selected_text(unit.label())
                 .width(150.0)
                 .show_ui(ui, |ui| {
-                    for each in shapecraft_core::Unit::ALL {
+                    for each in workpiece_core::Unit::ALL {
                         ui.selectable_value(&mut unit, each, each.label());
                     }
                 });

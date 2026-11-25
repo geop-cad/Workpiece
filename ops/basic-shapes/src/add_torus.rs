@@ -1,16 +1,16 @@
 //! [`AddTorus`]: a ring around a frame's z axis.
 
 use anyhow::Context;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::DatumFrame;
-use shapecraft_core::world::topo::{NurbsSurface, Orientation};
-use shapecraft_core::{Builder, Measure, Operation, Reference};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::DatumFrame;
+use workpiece_core::world::topo::{NurbsSurface, Orientation};
+use workpiece_core::{Builder, Measure, Operation, Reference};
 
 use crate::brep::{SolidBuilder, circle, circle_knots, unit_circle};
 
 /// Where the torus goes and how big it is.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct AddTorusArgs {
     /// The frame at its centre; it goes around the frame's z axis.
@@ -64,7 +64,7 @@ impl Operation for AddTorus {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let major = (*builder).measure(&self.args.radius, "the radius")?;
         let minor = (*builder).measure(&self.args.tube, "the tube's radius")?;
         anyhow::ensure!(
@@ -79,7 +79,7 @@ impl Operation for AddTorus {
         // (It reads its frame, and no more; what it makes of that is
         // written by the builder.)
         let pose = builder.resolve(frame)?.pose();
-        let shape = move |topo: &mut shapecraft_core::world::topo::Topo, name: &str| {
+        let shape = move |topo: &mut workpiece_core::world::topo::Topo, name: &str| {
             let mut solid = SolidBuilder::new(topo, name, pose)?;
             let (x, y, z) = (
                 solid.turn(Point3::X),
@@ -127,7 +127,7 @@ impl Operation for AddTorus {
             solid.solid(vec![face])?;
             Ok(())
         };
-        Ok(shapecraft_core::Made::body(&self.id, shape))
+        Ok(workpiece_core::Made::body(&self.id, shape))
     }
 
     fn summary(&self) -> String {
@@ -138,8 +138,8 @@ impl Operation for AddTorus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::Standalone;
-    use shapecraft_core::world::ORIGIN;
+    use workpiece_core::Standalone;
+    use workpiece_core::world::ORIGIN;
 
     #[test]
     fn tori_are_valid_solids_of_one_face() -> anyhow::Result<()> {

@@ -1,7 +1,7 @@
 name: Wheels
 
 # Builds the two programs for every platform, and a Python wheel around each (the PyPI
-# distribution `shapecraft-cad`, import name `shapecraft`), plus an sdist that builds from
+# distribution `workpiece`, import name `workpiece`), plus an sdist that builds from
 # source with cargo. Runs by hand (Actions > Wheels > Run workflow) and is called by release.yml
 # on a tag, which packs the archives from the programs built here.
 #
@@ -49,10 +49,10 @@ jobs:
             quay.io/pypa/manylinux_2_28_x86_64 bash -ec '
               curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
               . /io/.cargo-home/env
-              cargo build --release --locked -p shapecraft-cli -p shapecraft-app'
+              cargo build --release --locked -p workpiece-cli -p workpiece-app'
       - name: Check the glibc the programs need
         run: |
-          for f in shapecraft shapecraft-app; do
+          for f in workpiece workpiece-app; do
             need=$(objdump -T target/release/$f | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1)
             echo "$f needs $need"
             test "$(printf '%s\n' "$need" GLIBC_2.28 | sort -V | tail -1)" = GLIBC_2.28
@@ -62,8 +62,8 @@ jobs:
           python-version: "3.12"
       - name: Build the wheel
         env:
-          SHAPECRAFT_PREBUILT: ${{ github.workspace }}/target/release
-          SHAPECRAFT_WHEEL_PLAT: manylinux_2_28_x86_64
+          WORKPIECE_PREBUILT: ${{ github.workspace }}/target/release
+          WORKPIECE_WHEEL_PLAT: manylinux_2_28_x86_64
         run: |
           python -m pip install build
           python -m build --wheel --outdir dist python
@@ -73,8 +73,8 @@ jobs:
         with:
           name: bin-linux-x86_64
           path: |
-            target/release/shapecraft
-            target/release/shapecraft-app
+            target/release/workpiece
+            target/release/workpiece-app
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
@@ -95,15 +95,15 @@ jobs:
         shell: bash
         env:
           RUSTFLAGS: --remap-path-prefix=${{ github.workspace }}=/src
-        run: cargo build --release --locked -p shapecraft-cli -p shapecraft-app
+        run: cargo build --release --locked -p workpiece-cli -p workpiece-app
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Build the wheel
         shell: bash
         env:
-          SHAPECRAFT_PREBUILT: ${{ github.workspace }}/target/release
-          SHAPECRAFT_WHEEL_PLAT: win_amd64
+          WORKPIECE_PREBUILT: ${{ github.workspace }}/target/release
+          WORKPIECE_WHEEL_PLAT: win_amd64
         run: |
           python -m pip install build
           python -m build --wheel --outdir dist python
@@ -114,8 +114,8 @@ jobs:
         with:
           name: bin-windows-x86_64
           path: |
-            target/release/shapecraft.exe
-            target/release/shapecraft-app.exe
+            target/release/workpiece.exe
+            target/release/workpiece-app.exe
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:
@@ -148,14 +148,14 @@ jobs:
       - name: Build the programs
         env:
           RUSTFLAGS: --remap-path-prefix=${{ github.workspace }}=/src
-        run: cargo build --release --locked --target ${{ matrix.target }} -p shapecraft-cli -p shapecraft-app
+        run: cargo build --release --locked --target ${{ matrix.target }} -p workpiece-cli -p workpiece-app
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - name: Build the wheel
         env:
-          SHAPECRAFT_PREBUILT: ${{ github.workspace }}/target/${{ matrix.target }}/release
-          SHAPECRAFT_WHEEL_PLAT: ${{ matrix.plat }}
+          WORKPIECE_PREBUILT: ${{ github.workspace }}/target/${{ matrix.target }}/release
+          WORKPIECE_WHEEL_PLAT: ${{ matrix.plat }}
         run: |
           python -m pip install build
           python -m build --wheel --outdir dist python
@@ -165,8 +165,8 @@ jobs:
         with:
           name: bin-macos-${{ matrix.arch }}
           path: |
-            target/${{ matrix.target }}/release/shapecraft
-            target/${{ matrix.target }}/release/shapecraft-app
+            target/${{ matrix.target }}/release/workpiece
+            target/${{ matrix.target }}/release/workpiece-app
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         with:

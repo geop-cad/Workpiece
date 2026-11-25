@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "generated": "2026-11-25",
- "shapecraft_commit": "450425c + uncommitted changes",
+ "workpiece_commit": "450425c + uncommitted changes",
  "machine": "AMD Ryzen 9 7950X, 16 cores / 32 threads, 124 GB, Ubuntu 22.04, Linux 6.8; shared with other jobs (load average 6 to 28)",
  "benchmarks": [
   {
@@ -9,10 +9,10 @@
    "title": "brep-conformance",
    "rows": [
     {
-     "kernel": "shapecraft",
+     "kernel": "workpiece",
      "version": "0.1.0",
      "licence": "MIT OR Apache-2.0",
-     "link": "https://github.com/geop-cad/ShapeCraft",
+     "link": "https://github.com/geop-cad/Workpiece",
      "origin": "run here",
      "scored_by": "self",
      "suite_version": "2.0.1",
@@ -120,7 +120,7 @@
      "licence": "MIT",
      "link": "https://github.com/springcraft-ai/springrep",
      "origin": "reproduced",
-     "scored_by": "ShapeCraft, from the suite's own report",
+     "scored_by": "Workpiece, from the suite's own report",
      "suite_version": "2.0.1",
      "suite_commit": null,
      "date": "2026-11-25",
@@ -610,10 +610,10 @@
    "title": "The boolean bench",
    "rows": [
     {
-     "kernel": "shapecraft",
+     "kernel": "workpiece",
      "version": "450425c + uncommitted changes",
      "licence": "MIT OR Apache-2.0",
-     "link": "https://github.com/geop-cad/ShapeCraft",
+     "link": "https://github.com/geop-cad/Workpiece",
      "origin": "run here",
      "scored_by": "self",
      "date": "2026-11-25",
@@ -885,7 +885,7 @@
      "pass": 1902
     }
    ],
-   "source": "https://github.com/geop-cad/ShapeCraft/tree/main/bench/boolean",
+   "source": "https://github.com/geop-cad/Workpiece/tree/main/bench/boolean",
    "metric": "cases passed, refused, wrong or crashed"
   },
   {
@@ -893,12 +893,12 @@
    "title": "step-conformance",
    "rows": [
     {
-     "kernel": "shapecraft",
+     "kernel": "workpiece",
      "version": "450425c + uncommitted changes",
      "licence": "MIT OR Apache-2.0",
-     "link": "https://github.com/geop-cad/ShapeCraft",
+     "link": "https://github.com/geop-cad/Workpiece",
      "origin": "run here",
-     "scored_by": "self (ShapeCraft's port of the benchmark's rule, bench/boolean/src/conformance.rs; not the benchmark's scorer)",
+     "scored_by": "self (Workpiece's port of the benchmark's rule, bench/boolean/src/conformance.rs; not the benchmark's scorer)",
      "date": "2026-11-25",
      "cases": 108,
      "per_category": {
@@ -916,7 +916,7 @@
       }
      },
      "machine": "AMD Ryzen 9 7950X, 16 cores / 32 threads, 124 GB, Ubuntu 22.04, Linux 6.8; shared with other jobs (load average 6 to 28)",
-     "note": "the shop parts are compared with ShapeCraft's own fine mesh, since the benchmark's reference reader (OpenCascade) is not run here",
+     "note": "the shop parts are compared with Workpiece's own fine mesh, since the benchmark's reference reader (OpenCascade) is not run here",
      "pass": 105
     },
     {

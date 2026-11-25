@@ -19,10 +19,10 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::Solid;
-use shapecraft_boolean::model::{Edge, Face, Use, Vertex, Walk};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
+use workpiece_boolean::Solid;
+use workpiece_boolean::model::{Edge, Face, Use, Vertex, Walk};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
 
 use crate::sweep::{basis, through};
 
@@ -816,7 +816,7 @@ fn closed_over(solid: &Solid, distance: f64, id: &str) -> Option<Solid> {
             also: Vec::new(),
             smooth: Vec::new(),
         });
-        if shapecraft_boolean::measure(&out).volume < 0.0 {
+        if workpiece_boolean::measure(&out).volume < 0.0 {
             out.faces[0].outward = false;
         }
         return Some(out);
@@ -1052,7 +1052,7 @@ fn spine(solid: &Solid, face: usize, off: f64) -> Option<(f64, impl Fn(Point3) -
             .iter()
             .min_by(|a, b| a.0.distance(p).total_cmp(&b.0.distance(p)))
             .map_or(Point2::ZERO, |s| s.1);
-        let (uv, _) = shapecraft_boolean::geometry::foot(&surface, p, seed);
+        let (uv, _) = workpiece_boolean::geometry::foot(&surface, p, seed);
         surface.point_at(uv.x, uv.y) + normal(&surface, uv) * (off * radius)
     };
     Some((radius, to))
@@ -2024,9 +2024,9 @@ pub fn tube(solid: &Solid, edge: usize, radius: f64, id: &str) -> anyhow::Result
         closed,
         tolerance: (size * 1e-9).max(1e-9),
     };
-    let mut scratch = shapecraft_core::world::topo::Topo::new();
+    let mut scratch = workpiece_core::world::topo::Topo::new();
     let body = sweep::loft(&mut scratch, id, &loft)?;
-    let mut tube = shapecraft_boolean::read(&scratch, body)?;
+    let mut tube = workpiece_boolean::read(&scratch, body)?;
     // Its ends lie in the balls about the edge's ends, which it runs on
     // into smoothly.
     let rims: Vec<usize> = (0..tube.edges.len())
@@ -2148,7 +2148,7 @@ fn thickened_reaching(
 ) -> anyhow::Result<Solid> {
     let shell = open.is_some();
     let open = open.unwrap_or(&[]);
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     ensure!(distance != 0.0 && distance.is_finite(), "by some distance");
     let d = distance.abs();
     let grows = distance > 0.0;
@@ -3275,7 +3275,7 @@ pub fn run_on_surface(
 /// on its way is added to the solid where it moves out of it, and taken
 /// from it where it moves in.
 pub fn faces_moved(solid: &Solid, faces: &[usize], by: Point3) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     ensure!(!faces.is_empty(), "pick the faces to move");
     let size = {
         let (lo, hi) = solid.extent();
@@ -3355,7 +3355,7 @@ fn flat_faces_moved(solid: &Solid, faces: &[usize], by: Point3, size: f64) -> Op
 /// on. `None` if they are not closed over, or if what closes them over
 /// would not slide in itself that way.
 fn feature_moved(solid: &Solid, faces: &[usize], by: Point3) -> Option<Solid> {
-    use shapecraft_boolean::{Op, combine, measure};
+    use workpiece_boolean::{Op, combine, measure};
     let size = {
         let (lo, hi) = solid.extent();
         (hi - lo).length()
@@ -3385,7 +3385,7 @@ fn feature_moved(solid: &Solid, faces: &[usize], by: Point3) -> Option<Solid> {
                 let p = face.surface.point_at(uv.x, uv.y);
                 own &= faces
                     .iter()
-                    .any(|&g| shapecraft_boolean::lies_on(solid, g, p, near));
+                    .any(|&g| workpiece_boolean::lies_on(solid, g, p, near));
                 slides &= normal(&face.surface, uv).dot(by).abs() <= by.length() * 1e-9;
             }
         }
@@ -3462,7 +3462,7 @@ pub fn faces_to_plane(
     origin: Point3,
     normal: Point3,
 ) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     ensure!(!faces.is_empty(), "pick the faces to replace");
     let normal = normal.try_normalize().context("a plane has a normal")?;
     let reach = {
@@ -3507,7 +3507,7 @@ pub fn faces_to_plane(
 }
 
 /// The unit normal of `face` at (u, v), out of its body.
-fn normal_out(face: &shapecraft_boolean::model::Face, uv: Point2) -> Point3 {
+fn normal_out(face: &workpiece_boolean::model::Face, uv: Point2) -> Point3 {
     let n = normal(&face.surface, uv);
     if face.outward { n } else { -n }
 }
@@ -3525,7 +3525,7 @@ fn stays_within(solid: &Solid, face: usize, distance: f64) -> anyhow::Result<()>
         (hi - lo).length()
     };
     let near = solid.tolerance().max(size * 1e-9);
-    let placer = shapecraft_boolean::Placer::new(solid);
+    let placer = workpiece_boolean::Placer::new(solid);
     for step in f.loops.iter().flatten() {
         let Walk::Edge { edge, .. } = step.walk else {
             continue;
@@ -3540,7 +3540,7 @@ fn stays_within(solid: &Solid, face: usize, distance: f64) -> anyhow::Result<()>
             let uv = step.pcurve.point_at(t);
             let moved = f.surface.point_at(uv.x, uv.y) + normal_out(f, uv) * distance;
             ensure!(
-                placer.side(moved, near) != Some(shapecraft_boolean::Side::Out),
+                placer.side(moved, near) != Some(workpiece_boolean::Side::Out),
                 "the face {} is moved past the faces it meets: its edge {} would leave the body",
                 f.name.as_deref().unwrap_or("picked"),
                 solid.edges[edge].name.as_deref().unwrap_or("there")
@@ -3554,7 +3554,7 @@ fn stays_within(solid: &Solid, face: usize, distance: f64) -> anyhow::Result<()>
 /// along their normals: out of the solid, or (less than nothing) into
 /// it — a hole widened, a boss made thinner, a wall pushed out.
 pub fn faces_offset(solid: &Solid, faces: &[usize], distance: f64) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     ensure!(!faces.is_empty(), "pick the faces to offset");
     ensure!(distance != 0.0 && distance.is_finite(), "by some distance");
     for &face in faces {
@@ -3624,7 +3624,7 @@ pub fn thicken(
     both: bool,
     sharp: bool,
 ) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     ensure!(distance != 0.0 && distance.is_finite(), "by some distance");
     ensure!(!faces.is_empty(), "pick the faces to thicken");
     let d = distance.abs();
@@ -3838,7 +3838,7 @@ pub fn drafted(
     angle: f64,
     both: bool,
 ) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     let pull = pull.try_normalize().context("the pull has no direction")?;
     ensure!(
         angle.abs() > 1e-9 && angle.abs() < 1.5,

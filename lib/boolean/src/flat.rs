@@ -2,8 +2,8 @@
 //! plane: told from the edge's Bézier points alone, where that is
 //! certain.
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::NurbsSurface;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::NurbsSurface;
 
 use crate::bezier::{Piece, roots};
 
@@ -225,8 +225,8 @@ fn casteljau(cp: &[[f64; 4]], t: f64) -> [f64; 4] {
 /// they are not. `None` if there is no such face.
 pub(crate) fn evened(solid: &crate::model::Solid) -> Option<crate::model::Solid> {
     use crate::model::{Use, Walk};
-    use shapecraft_core::world::topo::Curve2;
     use std::sync::Arc;
+    use workpiece_core::world::topo::Curve2;
     let mut out = solid.clone();
     let mut changed = false;
     for (f, face) in solid.faces.iter().enumerate() {
@@ -437,7 +437,7 @@ pub(crate) fn evened(solid: &crate::model::Solid) -> Option<crate::model::Solid>
 mod tests {
     use super::*;
     use crate::bezier::curve_pieces;
-    use shapecraft_core::world::topo::Curve3;
+    use workpiece_core::world::topo::Curve3;
 
     #[test]
     fn an_edge_is_told_through_in_or_clear_of_a_flat_face() -> anyhow::Result<()> {

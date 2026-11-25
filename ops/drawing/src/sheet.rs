@@ -189,8 +189,8 @@ impl Side {
 
     /// How it looks at the model: what is to the right, what is up,
     /// and what points at who looks.
-    pub fn basis(self) -> [shapecraft_core::math::Point3; 3] {
-        use shapecraft_core::math::Point3;
+    pub fn basis(self) -> [workpiece_core::math::Point3; 3] {
+        use workpiece_core::math::Point3;
         let (up, towards) = match self {
             Side::Front => (Point3::Z, Point3::X),
             Side::Back => (Point3::Z, -Point3::X),
@@ -381,7 +381,7 @@ impl HalfSide {
 
     /// Whether the point `p` of a view (from its middle line) is in
     /// this half.
-    pub fn holds(self, p: shapecraft_core::math::Point2) -> bool {
+    pub fn holds(self, p: workpiece_core::math::Point2) -> bool {
         match self {
             HalfSide::Left => p.x <= 0.0,
             HalfSide::Right => p.x >= 0.0,
@@ -504,7 +504,7 @@ pub struct Sheet {
     /// (a comma, no more decimals than needed): inch drawings write
     /// `.750`.
     #[serde(default)]
-    pub numbers: shapecraft_core::world::Numbers,
+    pub numbers: workpiece_core::world::Numbers,
     /// What is said of the model, where it stands on the sheet.
     pub notes: Vec<PlacedNote>,
     /// The dimensions that are the sheet's own.
@@ -513,7 +513,7 @@ pub struct Sheet {
     /// lettering, with their constraints and dimensions — as a sketch,
     /// in millimetres from the sheet's lower left corner.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub drawn: Option<shapecraft_ops_sketch::SketchArgs>,
+    pub drawn: Option<workpiece_ops_sketch::SketchArgs>,
     /// Words written on the sheet beside a view: `(2) PLACES`, `THRU`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub words: Vec<Words>,
@@ -914,16 +914,16 @@ pub const SCALES: [[u32; 2]; 13] = [
 impl Sheet {
     /// What is drawn on it by hand, as a sketch (an empty one, while
     /// nothing is).
-    pub fn hand(&self) -> shapecraft_ops_sketch::Sketch {
+    pub fn hand(&self) -> workpiece_ops_sketch::Sketch {
         match &self.drawn {
-            Some(args) => shapecraft_ops_sketch::Sketch {
+            Some(args) => workpiece_ops_sketch::Sketch {
                 id: "drawn".to_owned(),
                 args: args.clone(),
             },
             None => {
                 // (Nothing to measure from but what is drawn: no
                 // origin, no axes.)
-                let mut sketch = shapecraft_ops_sketch::Sketch::new("drawn");
+                let mut sketch = workpiece_ops_sketch::Sketch::new("drawn");
                 sketch.args.entities.clear();
                 sketch.args.points.clear();
                 sketch
@@ -937,8 +937,8 @@ impl Sheet {
     /// what is projected as far from what it is projected from as the
     /// model is large.
     pub fn of(
-        world: &shapecraft_core::world::World,
-        unit: shapecraft_core::Unit,
+        world: &workpiece_core::world::World,
+        unit: workpiece_core::Unit,
         name: &str,
         template: &Template,
     ) -> Sheet {
@@ -955,11 +955,11 @@ impl Sheet {
             // round things, and datums, are put on as wanted.)
             centres: Centres::Holes,
             // (Inch drawings say THRU of a hole through.)
-            thru: unit == shapecraft_core::Unit::Inch,
+            thru: unit == workpiece_core::Unit::Inch,
             // (Inch drawings write three decimals after a point, and no
             // zero before it.)
             numbers: match unit {
-                shapecraft_core::Unit::Inch => shapecraft_core::world::Numbers {
+                workpiece_core::Unit::Inch => workpiece_core::world::Numbers {
                     decimals: Some(3),
                     bare: true,
                     point: true,
@@ -977,9 +977,9 @@ impl Sheet {
         let size = match points.next() {
             Some(first) => {
                 let (lo, hi) = points.fold((first, first), |(lo, hi), p| (lo.min(p), hi.max(p)));
-                (hi - lo).max(shapecraft_core::math::Point3::splat(1e-9)) * unit.millimetres()
+                (hi - lo).max(workpiece_core::math::Point3::splat(1e-9)) * unit.millimetres()
             }
-            None => shapecraft_core::math::Point3::splat(50.0),
+            None => workpiece_core::math::Point3::splat(50.0),
         };
         let fit = (w * 0.26 / size.x.max(size.y)).min(h * 0.26 / size.z.max(size.y));
         let scale = SCALES

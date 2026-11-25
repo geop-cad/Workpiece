@@ -176,20 +176,20 @@ pub fn arguments(input: TokenStream) -> TokenStream {
         };
         if said.nested {
             sources.push(quote! {
-                out.extend(::shapecraft_core::Arguments::references(&self.#ident));
+                out.extend(::workpiece_core::Arguments::references(&self.#ident));
             });
             sources_mut.push(quote! {
-                out.extend(::shapecraft_core::Arguments::references_mut(&mut self.#ident));
+                out.extend(::workpiece_core::Arguments::references_mut(&mut self.#ident));
             });
             continue;
         }
         let refers = refers(&field.ty);
         if refers {
             sources.push(quote! {
-                ::shapecraft_core::arguments::Field::sources(&self.#ident, &mut out);
+                ::workpiece_core::arguments::Field::sources(&self.#ident, &mut out);
             });
             sources_mut.push(quote! {
-                ::shapecraft_core::arguments::Field::sources_mut(&mut self.#ident, &mut out);
+                ::workpiece_core::arguments::Field::sources_mut(&mut self.#ident, &mut out);
             });
         }
         let (row, when) = (said.row, said.when.clone());
@@ -206,7 +206,7 @@ pub fn arguments(input: TokenStream) -> TokenStream {
             };
             widgets.push(quote! {
                 if #when {
-                    let made: ::std::vec::Vec<::shapecraft_core::Widget<Self>> = #with(self, context);
+                    let made: ::std::vec::Vec<::workpiece_core::Widget<Self>> = #with(self, context);
                     for (k, widget) in made.into_iter().enumerate() {
                         fields.push((#row && k == 0, widget));
                     }
@@ -231,18 +231,18 @@ pub fn arguments(input: TokenStream) -> TokenStream {
         };
         let (call, extra) = match said.among.as_deref().map(syn::parse_str::<syn::Expr>) {
             Some(Ok(among)) => (
-                quote! { ::shapecraft_core::arguments::among },
+                quote! { ::workpiece_core::arguments::among },
                 quote! { &#among[..], },
             ),
             Some(Err(e)) => return e.to_compile_error().into(),
             None => (
-                quote! { ::shapecraft_core::arguments::Field::widget },
+                quote! { ::workpiece_core::arguments::Field::widget },
                 quote! {},
             ),
         };
         let (call, extra) = match said.one_of.as_deref().map(syn::parse_str::<syn::Expr>) {
             Some(Ok(names)) => (
-                quote! { ::shapecraft_core::arguments::one_of },
+                quote! { ::workpiece_core::arguments::one_of },
                 quote! { #names, },
             ),
             Some(Err(e)) => return e.to_compile_error().into(),
@@ -264,7 +264,7 @@ pub fn arguments(input: TokenStream) -> TokenStream {
                 let widget = #call(
                     &self.#ident,
                     #extra
-                    &::shapecraft_core::arguments::FieldOptions {
+                    &::workpiece_core::arguments::FieldOptions {
                         label: #label,
                         required: #required,
                         empty: #empty,
@@ -284,15 +284,15 @@ pub fn arguments(input: TokenStream) -> TokenStream {
     }
     let (generics, types, wher) = input.generics.split_for_impl();
     quote! {
-        impl #generics ::shapecraft_core::Arguments for #name #types #wher {
-            fn references(&self) -> ::std::vec::Vec<::shapecraft_core::Source> {
+        impl #generics ::workpiece_core::Arguments for #name #types #wher {
+            fn references(&self) -> ::std::vec::Vec<::workpiece_core::Source> {
                 #[allow(unused_mut)]
                 let mut out = ::std::vec::Vec::new();
                 #(#sources)*
                 out
             }
 
-            fn references_mut(&mut self) -> ::std::vec::Vec<&mut ::shapecraft_core::Source> {
+            fn references_mut(&mut self) -> ::std::vec::Vec<&mut ::workpiece_core::Source> {
                 #[allow(unused_mut)]
                 let mut out = ::std::vec::Vec::new();
                 #(#sources_mut)*
@@ -301,13 +301,13 @@ pub fn arguments(input: TokenStream) -> TokenStream {
 
             fn fields(
                 &self,
-                context: &::shapecraft_core::EditContext<'_>,
-            ) -> ::std::vec::Vec<::shapecraft_core::Widget<Self>> {
+                context: &::workpiece_core::EditContext<'_>,
+            ) -> ::std::vec::Vec<::workpiece_core::Widget<Self>> {
                 let _ = context;
                 #[allow(unused_mut)]
                 let mut fields = ::std::vec::Vec::new();
                 #(#widgets)*
-                ::shapecraft_core::arguments::rows(fields)
+                ::workpiece_core::arguments::rows(fields)
             }
         }
     }

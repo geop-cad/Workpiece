@@ -5,7 +5,7 @@
 //! draws, in order: opaque faces, lines and vertices with depth; then the
 //! translucent rest (ghosts, filled planes) without writing depth; then
 //! datum frames and the handles on top of everything. Lines and vertices are the quads of
-//! [`shapecraft_cad_rasterize::quads`], pushed out to their pixel width in the
+//! [`workpiece_rasterize::quads`], pushed out to their pixel width in the
 //! vertex shader. Highlighting happens in the shaders, by pick id.
 //!
 //! Every OpenGL call is `unsafe` in glow, so this module allows unsafe
@@ -15,7 +15,7 @@
 
 use eframe::egui;
 use eframe::glow::{self, HasContext};
-use shapecraft_cad_rasterize::{Scene, quads};
+use workpiece_rasterize::{Scene, quads};
 
 /// One scene as GPU vertex data.
 #[derive(Debug, Default)]
@@ -120,9 +120,9 @@ pub struct Frame {
 }
 
 /// Colors, linear RGBA.
-const HOVER: [f32; 4] = shapecraft_cad_rasterize::palette::HOVER;
-const SELECTION: [f32; 4] = shapecraft_cad_rasterize::palette::SELECTION;
-const HANDLE_HOVER: [f32; 4] = shapecraft_cad_rasterize::palette::HANDLE_HOVER;
+const HOVER: [f32; 4] = workpiece_rasterize::palette::HOVER;
+const SELECTION: [f32; 4] = workpiece_rasterize::palette::SELECTION;
+const HANDLE_HOVER: [f32; 4] = workpiece_rasterize::palette::HANDLE_HOVER;
 
 const COMMON: &str = r"
 #ifdef GL_ES

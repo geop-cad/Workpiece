@@ -1,12 +1,12 @@
 //! Builds a part file step by step without a window, and says how each
-//! step went: `cargo run --release -p shapecraft-cad-part --example build --
-//! playground/part9.shapecraft` (and, with a second path, writes its solids
+//! step went: `cargo run --release -p workpiece-part --example build --
+//! playground/part9.workpiece` (and, with a second path, writes its solids
 //! there as STEP).
 
 use std::collections::BTreeMap;
 use std::time::Instant;
 
-use shapecraft_cad_part::{Part, Workspace};
+use workpiece_part::{Part, Workspace};
 
 fn main() -> anyhow::Result<()> {
     let path = std::env::args()
@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
                 // (What it made, for one who asks: `NAMES=extrude3/`.)
                 if let Ok(prefix) = std::env::var("NAMES") {
                     for (name, id) in world.topo.names().with_prefix(&prefix) {
-                        let at = shapecraft_core::world::topo::VertexId::try_from(id)
+                        let at = workpiece_core::world::topo::VertexId::try_from(id)
                             .ok()
                             .and_then(|v| world.topo.vertex(v))
                             .map(|v| {
@@ -59,17 +59,17 @@ fn main() -> anyhow::Result<()> {
         let topo = &world.topo;
         let mut bodies = Vec::new();
         for (id, _) in topo.bodies().iter() {
-            let Ok(solid) = shapecraft_boolean::read(topo, id) else {
+            let Ok(solid) = workpiece_boolean::read(topo, id) else {
                 continue;
             };
             let name = topo.name_of(id).unwrap_or("body").to_owned();
             println!(
                 "{name}: volume {}",
-                shapecraft_boolean::measure(&solid).volume
+                workpiece_boolean::measure(&solid).volume
             );
             bodies.push((name, solid));
         }
-        std::fs::write(&out, shapecraft_ops_step::export("part", &bodies, unit)?)?;
+        std::fs::write(&out, workpiece_ops_step::export("part", &bodies, unit)?)?;
         println!("written to {out}");
     }
     Ok(())
@@ -77,9 +77,9 @@ fn main() -> anyhow::Result<()> {
 
 /// Says, of every solid of `topo`, the vertices where just two edges
 /// meet that go on in one direction: what could be one edge.
-fn needless(topo: &shapecraft_core::world::topo::Topo) {
+fn needless(topo: &workpiece_core::world::topo::Topo) {
     for (id, _) in topo.bodies().iter() {
-        let Ok(solid) = shapecraft_boolean::read(topo, id) else {
+        let Ok(solid) = workpiece_boolean::read(topo, id) else {
             continue;
         };
         for (v, vertex) in solid.vertices.iter().enumerate() {
@@ -91,7 +91,7 @@ fn needless(topo: &shapecraft_core::world::topo::Topo) {
             if at.len() != 2 || at.iter().any(|e| e.ends[0] == e.ends[1]) {
                 continue;
             }
-            let way = |e: &shapecraft_boolean::model::Edge| {
+            let way = |e: &workpiece_boolean::model::Edge| {
                 let (a, b) = e.range;
                 let t = if e.ends[0] == v { a } else { b };
                 let d = e.curve.derivative_at(t).1.normalize();

@@ -21,11 +21,11 @@
 use std::collections::BTreeSet;
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::model::Walk;
-use shapecraft_boolean::{Op, Solid, combine, measure, read};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{BodyId, Curve2, Topo};
-use shapecraft_core::world::{DatumPlane, Profile, ProfileEdge, ProfileRegion, ProfileVertex};
+use workpiece_boolean::model::Walk;
+use workpiece_boolean::{Op, Solid, combine, measure, read};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{BodyId, Curve2, Topo};
+use workpiece_core::world::{DatumPlane, Profile, ProfileEdge, ProfileRegion, ProfileVertex};
 
 use crate::roll::{EndCut, Rolled, Station, Stretch};
 use crate::sweep::{self, Make, Turn};
@@ -215,9 +215,9 @@ fn past_face(
     far: f64,
     id: &str,
 ) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::model::{Edge, Face, Use, Vertex};
-    use shapecraft_core::world::topo::Curve3;
     use std::sync::Arc;
+    use workpiece_boolean::model::{Edge, Face, Use, Vertex};
+    use workpiece_core::world::topo::Curve3;
     let f = &solid.faces[face];
     // (Run on past each rim by half of itself, where it goes on as
     // itself so far: not where it closes on itself or comes to a point.)
@@ -276,7 +276,7 @@ fn past_face(
             d(a).total_cmp(&d(b))
         })
         .context("a face has an outline")?;
-    let uv = shapecraft_boolean::geometry::foot(&surface, at, start).0;
+    let uv = workpiece_boolean::geometry::foot(&surface, at, start).0;
     let ((u0, u1), (v0, v1)) = surface.domain();
     let facing = |p: Point2| crate::thick::normal(&surface, p).dot(away);
     let sense = facing(uv).signum();
@@ -424,7 +424,7 @@ fn past_face(
 /// `solid` with the edge that passes through `p` (within `within`, not
 /// at either of its ends) cut in two there: a vertex at `p`.
 fn split_at(solid: &mut Solid, p: Point3, within: f64) {
-    use shapecraft_boolean::model::{Edge, Use, Vertex};
+    use workpiece_boolean::model::{Edge, Use, Vertex};
     let found = (0..solid.edges.len()).find_map(|e| {
         let edge = &solid.edges[e];
         if edge
@@ -963,7 +963,7 @@ fn turned(
         foot + across * by.cos() + axis.cross(across) * by.sin()
     };
     if (1..4).any(|k| {
-        !shapecraft_boolean::lies_on(
+        !workpiece_boolean::lies_on(
             solid,
             common,
             around(top_a, f64::from(k) / 4.0),
@@ -1092,7 +1092,7 @@ fn less(tool: &Solid, other: &Solid) -> anyhow::Result<Solid> {
         // (Its edges along those it ran on smoothly along: by name, or
         // — a piece of one cut in several, which only the first keeps
         // the name of — by lying along one.)
-        let known: Vec<&shapecraft_boolean::model::Edge> =
+        let known: Vec<&workpiece_boolean::model::Edge> =
             was.smooth.iter().map(|&e| &tool.edges[e]).collect();
         let used: Vec<usize> = face
             .loops
@@ -1113,7 +1113,7 @@ fn less(tool: &Solid, other: &Solid) -> anyhow::Result<Solid> {
                         let within = (k.tolerance + edge.tolerance) * 4.0;
                         [0.25, 0.5, 0.75].into_iter().all(|f| {
                             let t = edge.range.0 + (edge.range.1 - edge.range.0) * f;
-                            !shapecraft_boolean::geometry::on_curve(
+                            !workpiece_boolean::geometry::on_curve(
                                 &k.curve,
                                 k.range,
                                 edge.point(t),
@@ -1255,7 +1255,7 @@ pub fn blend_chains(
         let (lo, hi) = solid.extent();
         (hi - lo).length() * 1e-7
     };
-    let rest: Vec<&shapecraft_boolean::model::Edge> = all
+    let rest: Vec<&workpiece_boolean::model::Edge> = all
         .iter()
         .filter(|e| !first.contains(e))
         .map(|&e| &solid.edges[e])
@@ -1264,8 +1264,8 @@ pub fn blend_chains(
         .filter(|&e| {
             let edge = &staged.edges[e];
             let middle = edge.point(edge.middle());
-            let along = |was: &&shapecraft_boolean::model::Edge| {
-                !shapecraft_boolean::geometry::on_curve(&was.curve, was.range, middle, within)
+            let along = |was: &&workpiece_boolean::model::Edge| {
+                !workpiece_boolean::geometry::on_curve(&was.curve, was.range, middle, within)
                     .is_empty()
             };
             rest.iter().any(along) && sharp(&staged, e)
@@ -1300,7 +1300,7 @@ pub fn blend_solid(
 /// cut each other off: three flat cuts end in the point their planes
 /// share.
 pub fn blend_each(solid: &Solid, id: &str, blends: &[(usize, Shape)]) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::{Op, combine};
+    use workpiece_boolean::{Op, combine};
     ensure!(!blends.is_empty(), "pick the edges to blend");
     // Rounds that differ in size only, all in one: where three of them
     // meet at a corner, they are brought to one size there and closed
@@ -1499,7 +1499,7 @@ fn blend_back(
         let faces = middle.faces(&rolled);
         for (side, (&face, next)) in faces.iter().zip(&rolled.next_faces).enumerate() {
             let on =
-                |f: usize| shapecraft_boolean::lies_on(solid, f, middle.rails[side], size * 1e-7);
+                |f: usize| workpiece_boolean::lies_on(solid, f, middle.rails[side], size * 1e-7);
             ensure!(
                 on(face) || next.iter().any(|f| on(*f)),
                 "the blend is wider than a face beside the edge"
@@ -1511,7 +1511,7 @@ fn blend_back(
     let holder = std::cell::OnceCell::new();
     let holds = |p: Point3| {
         holder
-            .get_or_init(|| shapecraft_boolean::Holder::new(solid))
+            .get_or_init(|| workpiece_boolean::Holder::new(solid))
             .holds(p)
     };
     let mut rolls: Vec<Option<anyhow::Result<(Rolled, Station)>>> = edges
@@ -1766,7 +1766,7 @@ pub fn blend_faces(
     };
     for side in 0..2 {
         ensure!(
-            shapecraft_boolean::lies_on(solid, rolled.faces[side], middle.rails[side], size * 1e-7),
+            workpiece_boolean::lies_on(solid, rolled.faces[side], middle.rails[side], size * 1e-7),
             "the blend is wider than one of the two faces"
         );
     }
@@ -1844,7 +1844,7 @@ pub fn full_round(
         (lo, hi) = (hi, hi * 2.0);
     }
     for _ in 0..200 {
-        shapecraft_core::cancel::checkpoint();
+        workpiece_core::cancel::checkpoint();
         let mid = (lo + hi) / 2.0;
         if mid <= lo || mid >= hi {
             break;
@@ -2513,7 +2513,7 @@ impl Section {
     }
 }
 
-impl shapecraft_core::Choices for By {
+impl workpiece_core::Choices for By {
     const ALL: &'static [Self] = &[By::Radius, By::Width, By::Distance];
 
     fn label(self) -> &'static str {
@@ -2521,7 +2521,7 @@ impl shapecraft_core::Choices for By {
     }
 }
 
-impl shapecraft_core::Choices for Section {
+impl workpiece_core::Choices for Section {
     const ALL: &'static [Self] = &[Section::Circular, Section::Conic, Section::Curvature];
 
     fn label(self) -> &'static str {
@@ -2630,7 +2630,7 @@ mod tests {
                 (0..solid.edges.len())
                     .find(|&e| {
                         let edge = &solid.edges[e];
-                        !shapecraft_boolean::geometry::on_curve(&edge.curve, edge.range, *p, 1e-7)
+                        !workpiece_boolean::geometry::on_curve(&edge.curve, edge.range, *p, 1e-7)
                             .is_empty()
                     })
                     .expect("an edge there")
@@ -2680,7 +2680,7 @@ mod tests {
     /// The face of `solid` through `p`.
     fn face_at(solid: &Solid, p: Point3) -> usize {
         (0..solid.faces.len())
-            .find(|&f| shapecraft_boolean::lies_on(solid, f, p, 1e-7))
+            .find(|&f| workpiece_boolean::lies_on(solid, f, p, 1e-7))
             .expect("a face there")
     }
 
@@ -2721,7 +2721,7 @@ mod tests {
             (volume - about).abs() < r.powi(3),
             "{volume} against {about}"
         );
-        let holds = |x: f64, y: f64, z: f64| shapecraft_boolean::holds(&made, Point3::new(x, y, z));
+        let holds = |x: f64, y: f64, z: f64| workpiece_boolean::holds(&made, Point3::new(x, y, z));
         // In the inside edge's round, below the top's.
         assert_eq!(holds(t + 0.2 * r, t + 0.2 * r, h - 1.5 * r), Some(true));
         // Over it, what the top's round takes all the way around.
@@ -2834,10 +2834,10 @@ mod tests {
         let faces = [(2.0, 3.5), (4.0, 3.5), (3.0, 3.0)]
             .map(|(x, y)| face_at(&notched, Point3::new(x, y, 2.5)));
         let moved = crate::thick::faces_moved(&notched, &faces, Point3::X * 4.5)?;
-        let placer = shapecraft_boolean::Placer::new(&moved);
+        let placer = workpiece_boolean::Placer::new(&moved);
         let side = |x: f64| placer.side(Point3::new(x, 3.5, 2.5), 1e-9);
-        assert_eq!(side(3.0), Some(shapecraft_boolean::Side::In));
-        assert_eq!(side(7.5), Some(shapecraft_boolean::Side::Out));
+        assert_eq!(side(3.0), Some(workpiece_boolean::Side::In));
+        assert_eq!(side(7.5), Some(workpiece_boolean::Side::Out));
         let volume = measure(&moved).volume;
         assert!((volume - 190.0).abs() < 1e-9, "{volume}");
         Ok(())
@@ -2876,19 +2876,19 @@ mod tests {
         let volume = measure(&made).volume;
         let least = full - along(r, back) - back.powi(3);
         assert!(least < volume && volume < full - along(r, back), "{volume}");
-        let placer = shapecraft_boolean::Placer::new(&made);
+        let placer = workpiece_boolean::Placer::new(&made);
         let at = |p: Point3| placer.side(p, 1e-9);
         assert_eq!(
             at(corner - Point3::new(r, r, 1e-4)),
-            Some(shapecraft_boolean::Side::Out)
+            Some(workpiece_boolean::Side::Out)
         );
         assert_eq!(
             at(corner - Point3::new(4.0, 0.2, 0.2)),
-            Some(shapecraft_boolean::Side::Out)
+            Some(workpiece_boolean::Side::Out)
         );
         assert_eq!(
             at(corner - Point3::new(4.0, 0.3, 0.3)),
-            Some(shapecraft_boolean::Side::In)
+            Some(workpiece_boolean::Side::In)
         );
         // Of three sizes: between what the largest leaves all round and
         // what the smallest does.
@@ -2899,11 +2899,11 @@ mod tests {
         let volume = measure(&made).volume;
         assert!(all_at(2.0) < volume && volume < all_at(1.0), "{volume}");
         // (And no crease where they meet: a ball closes the corner.)
-        let placer = shapecraft_boolean::Placer::new(&made);
+        let placer = workpiece_boolean::Placer::new(&made);
         let on_ball = corner - Point3::splat(2.0) + Point3::splat(2.0 / 3.0_f64.sqrt());
         assert_eq!(
             placer.side(on_ball, 1e-7),
-            Some(shapecraft_boolean::Side::On)
+            Some(workpiece_boolean::Side::On)
         );
         Ok(())
     }
@@ -2950,7 +2950,7 @@ mod tests {
     /// Of `solid` made into a body: whether it is sound, and its volume.
     fn sound(solid: &Solid) -> f64 {
         let mut topo = Topo::new();
-        shapecraft_boolean::write(&mut topo, solid, "it").expect("written");
+        workpiece_boolean::write(&mut topo, solid, "it").expect("written");
         assert_eq!(topo.validate(), Ok(()));
         measure(solid).volume
     }

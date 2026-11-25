@@ -2,8 +2,8 @@
 //! with an eye to show or hide it.
 
 use eframe::egui;
-use shapecraft_cad_ui::Message;
-use shapecraft_cad_ui::view::{Item, Overview};
+use workpiece_ui::Message;
+use workpiece_ui::view::{Item, Overview};
 
 use crate::icons;
 use crate::theme::color;

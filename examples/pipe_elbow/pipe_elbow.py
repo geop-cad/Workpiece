@@ -7,14 +7,14 @@ halves the bend makes the second flange with its holes.
 """
 import math, os, sys
 try:
-    import shapecraft
+    import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from shapecraft import Part, axis, datum, view, section_view, topo
+from workpiece import Part, axis, datum, view, section_view, topo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "pipe_elbow.shapecraft")
-p = Part(material="Stainless steel", title="ELBOW 90° DN50", file="pipe_elbow.shapecraft")
+OUT = os.path.join(HERE, "pipe_elbow.workpiece")
+p = Part(material="Stainless steel", title="ELBOW 90° DN50", file="pipe_elbow.workpiece")
 
 # The section: a Ø60 / Ø50 ring on the origin, square to z.
 sec = p.sketch("XY", id="section", on_drawing=False)    # (its sizes are measured on the tube in the section)

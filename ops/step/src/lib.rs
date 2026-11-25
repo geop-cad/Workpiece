@@ -43,7 +43,7 @@ pub use operation::{ImportStep, ImportStepArgs};
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
 /// add them, and their icons.
-pub fn register(r: &mut shapecraft_core::Registry) {
+pub fn register(r: &mut workpiece_core::Registry) {
     r.kind::<ImportStep>("import");
     r.icon("import", include_str!("../icons/import.svg"));
 }

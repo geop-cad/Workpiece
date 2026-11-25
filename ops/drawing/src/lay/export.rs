@@ -4,7 +4,7 @@
 
 use std::fmt::Write;
 
-use shapecraft_core::math::Point2;
+use workpiece_core::math::Point2;
 
 use super::{Laid, PREVIEW, Pen};
 

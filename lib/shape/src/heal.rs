@@ -5,9 +5,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::model::{Edge, Face, Use, Walk};
-use shapecraft_boolean::{Op, Solid, combine, measure};
-use shapecraft_core::math::Point2;
+use workpiece_boolean::model::{Edge, Face, Use, Walk};
+use workpiece_boolean::{Op, Solid, combine, measure};
+use workpiece_core::math::Point2;
 
 /// `solid` without its faces `faces`: where they met the faces that
 /// stay, those are closed over — each rim of what is deleted has to lie
@@ -50,7 +50,7 @@ fn run_on_to_meet(solid: &Solid, gone: &BTreeSet<usize>) -> anyhow::Result<Solid
         }
     }
     let mut size = 0.0_f64;
-    let mut corners: Vec<shapecraft_core::math::Point3> = Vec::new();
+    let mut corners: Vec<workpiece_core::math::Point3> = Vec::new();
     for &e in &theirs {
         let edge = &solid.edges[e];
         for k in 0..=8 {
@@ -134,9 +134,9 @@ fn run_on_to_meet(solid: &Solid, gone: &BTreeSet<usize>) -> anyhow::Result<Solid
             }
         }
         let near = solid.tolerance().max(size * 1e-9);
-        let mut run: Vec<std::sync::Arc<shapecraft_core::world::topo::NurbsSurface>> = Vec::new();
+        let mut run: Vec<std::sync::Arc<workpiece_core::world::topo::NurbsSurface>> = Vec::new();
         for (&f, edges) in &beside {
-            shapecraft_core::cancel::checkpoint();
+            workpiece_core::cancel::checkpoint();
             for &e in edges {
                 let wider = run_on(solid, f, &[(e, reach * 3.0)])?;
                 // (As thick as it can be, if not that: a bore no further
@@ -150,9 +150,9 @@ fn run_on_to_meet(solid: &Solid, gone: &BTreeSet<usize>) -> anyhow::Result<Solid
                     }
                 };
                 run.push(wider.faces[0].surface.clone());
-                let placer = shapecraft_boolean::Placer::new(&past);
-                let within = |p: &shapecraft_core::math::Point3| {
-                    placer.side(*p, near) == Some(shapecraft_boolean::Side::In)
+                let placer = workpiece_boolean::Placer::new(&past);
+                let within = |p: &workpiece_core::math::Point3| {
+                    placer.side(*p, near) == Some(workpiece_boolean::Side::In)
                 };
                 if !moved.iter().any(within) {
                     continue;
@@ -188,7 +188,7 @@ fn run_on_to_meet(solid: &Solid, gone: &BTreeSet<usize>) -> anyhow::Result<Solid
                                 u0 + (u1 - u0) * (0.5 + f64::from(g % 3)) / 3.0,
                                 v0 + (v1 - v0) * (0.5 + f64::from(g / 3)) / 3.0,
                             );
-                            shapecraft_boolean::geometry::foot(surface, p, guess).1 <= near * 16.0
+                            workpiece_boolean::geometry::foot(surface, p, guess).1 <= near * 16.0
                         })
                     })
                 })

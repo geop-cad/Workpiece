@@ -3,12 +3,12 @@
 //! themselves.
 
 use anyhow::Context;
-use shapecraft_core::math::{Axis, Point2, Point3};
-use shapecraft_core::world::{DatumPlane, ORIGIN};
-use shapecraft_core::{Reference, Source};
-use shapecraft_ops_drawing::sheet::{SheetView, Style, ViewKind};
-use shapecraft_ops_drawing::{Along, CameraView, Drawing, Looking, Section, SectionArgs, Sheet};
-use shapecraft_ops_sketch::Sketch;
+use workpiece_core::math::{Axis, Point2, Point3};
+use workpiece_core::world::{DatumPlane, ORIGIN};
+use workpiece_core::{Reference, Source};
+use workpiece_ops_drawing::sheet::{SheetView, Style, ViewKind};
+use workpiece_ops_drawing::{Along, CameraView, Drawing, Looking, Section, SectionArgs, Sheet};
+use workpiece_ops_sketch::Sketch;
 
 use super::Model;
 use crate::Message;
@@ -46,12 +46,12 @@ impl Model {
 
     /// The camera as it is, or where it is flying to, as a step keeps
     /// it.
-    pub(crate) fn stance(&self) -> shapecraft_ops_appearance::View {
+    pub(crate) fn stance(&self) -> workpiece_ops_appearance::View {
         let camera = self
             .viewport
             .transition
             .map_or(self.viewport.camera, |t| t.to);
-        shapecraft_ops_appearance::View {
+        workpiece_ops_appearance::View {
             target: camera.target.to_array(),
             rotation: camera.rotation.to_array(),
             distance: camera.distance,
@@ -106,9 +106,9 @@ impl Model {
                 .clone(),
             None => {
                 let mut first = sheets.templates.first().cloned().unwrap_or_else(|| {
-                    shapecraft_ops_drawing::Template::three_views(
+                    workpiece_ops_drawing::Template::three_views(
                         "ISO A3",
-                        shapecraft_ops_drawing::sheet::Format::A3,
+                        workpiece_ops_drawing::sheet::Format::A3,
                         false,
                     )
                 });
@@ -171,7 +171,7 @@ impl Model {
         anyhow::ensure!(line.len() >= 2, "a section cuts along a line: two points");
         let (basis, middle) = self
             .with_subject(|subject| {
-                shapecraft_ops_drawing::lay::looking(sheet, subject, &self.sheets_kept, view)
+                workpiece_ops_drawing::lay::looking(sheet, subject, &self.sheets_kept, view)
             })
             .flatten()
             .with_context(|| format!("the sheet has no view {view}"))?;
@@ -371,7 +371,7 @@ impl Model {
             .iter()
             .map(|m| (m.name.clone(), m.density))
             .collect();
-        use shapecraft_ops_drawing::lay::{mass_text, solid_bodies, weight};
+        use workpiece_ops_drawing::lay::{mass_text, solid_bodies, weight};
         let weighed = || weight(world, part.unit, &densities);
         let (kg, unweighed) = match world.stamp {
             0 => {

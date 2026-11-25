@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use shapecraft_core::handles::{CanvasEvent, CanvasEventKind, CanvasView, Handle};
-use shapecraft_core::math::{Axis, Point2};
-use shapecraft_core::world::ORIGIN;
-use shapecraft_core::{Placement, Standalone, Widget};
-use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
+use workpiece_core::handles::{CanvasEvent, CanvasEventKind, CanvasView, Handle};
+use workpiece_core::math::{Axis, Point2};
+use workpiece_core::world::ORIGIN;
+use workpiece_core::{Placement, Standalone, Widget};
+use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
 
 use super::*;
 use crate::draw::dimension_text;
@@ -558,7 +558,7 @@ fn boxed() -> anyhow::Result<Standalone> {
         id: "box".into(),
         args: AddBoxArgs {
             frame: Some(Reference::datum(ORIGIN)),
-            size: [2.0, 4.0, 6.0].map(shapecraft_core::Measure::new),
+            size: [2.0, 4.0, 6.0].map(workpiece_core::Measure::new),
         },
     }
     .apply(&mut b)?;
@@ -694,7 +694,7 @@ fn projections_are_what_the_edges_are_and_follow_the_model() -> anyhow::Result<(
         id: "box".into(),
         args: AddBoxArgs {
             frame: Some(Reference::datum(ORIGIN)),
-            size: [6.0, 8.0, 6.0].map(shapecraft_core::Measure::new),
+            size: [6.0, 8.0, 6.0].map(workpiece_core::Measure::new),
         },
     }
     .apply(&mut bigger)?;
@@ -831,7 +831,7 @@ fn dimensions_read_like_a_drawing_and_sketches_round_trip() -> anyhow::Result<()
     let shapes = draw::shapes(&b.args, &b.state, &b.args.diagnose(), &b.view);
     let arrows = shapes
         .iter()
-        .filter(|s| matches!(s, shapecraft_core::handles::CanvasShape::Arrowhead { .. }))
+        .filter(|s| matches!(s, workpiece_core::handles::CanvasShape::Arrowhead { .. }))
         .count();
     assert_eq!(arrows, 2);
 
@@ -898,7 +898,7 @@ fn dimensions_take_formulas_over_the_parts_parameters() -> anyhow::Result<()> {
 
 #[test]
 fn regions_are_named_by_their_boundaries() -> anyhow::Result<()> {
-    use shapecraft_core::world::{AreaAnchor, AreaError, DatumPlane};
+    use workpiece_core::world::{AreaAnchor, AreaError, DatumPlane};
     let profile_of = |args: &SketchArgs| profile::profile(args, DatumPlane::xy());
 
     // A rectangle with a hole: the plate around the hole, and the disk.
@@ -1055,7 +1055,7 @@ fn tangent_corner(split: bool, off: f64, mirror: bool) -> (SketchArgs, [Id; 2]) 
 
 #[test]
 fn areas_are_traced_where_curves_meet_tangent() -> anyhow::Result<()> {
-    use shapecraft_core::world::{AreaAnchor, DatumPlane};
+    use workpiece_core::world::{AreaAnchor, DatumPlane};
     // The sliver's area, and the whole plate's.
     let (sliver, whole) = (16.84, 3924.36);
     for split in [true, false] {
@@ -1106,8 +1106,8 @@ fn areas_are_traced_where_curves_meet_tangent() -> anyhow::Result<()> {
 
 #[test]
 fn curves_leaving_a_point_tangent_are_ordered_by_their_bend() {
-    use shapecraft_core::world::DatumPlane;
     use std::f64::consts::PI;
+    use workpiece_core::world::DatumPlane;
     // A big round (R97) through the origin, upright there, in two pieces:
     // a long one up, one down. A short small round (R12) leaves the origin
     // upright too, tangent to both, bending sooner to the right. The first
@@ -1157,7 +1157,7 @@ fn curves_leaving_a_point_tangent_are_ordered_by_their_bend() {
         .map(|i| on(cb, big, PI - 1.0 + 1.5 * i as f64 / n as f64))
         .collect();
     let (sliver, whole) = (shoelace(&sliver), shoelace(&whole));
-    let anchor = |left| shapecraft_core::world::AreaAnchor {
+    let anchor = |left| workpiece_core::world::AreaAnchor {
         entity: format!("e{across}"),
         left,
         at: 0.5,
@@ -1174,7 +1174,7 @@ fn curves_leaving_a_point_tangent_are_ordered_by_their_bend() {
 }
 
 /// The canvas of the sketch `b` is editing, as its edit shows it.
-fn canvas_of(b: &Bench) -> shapecraft_core::handles::Canvas<Edit<SketchArgs, SketchState>> {
+fn canvas_of(b: &Bench) -> workpiece_core::handles::Canvas<Edit<SketchArgs, SketchState>> {
     let sketch = Sketch {
         id: "s".into(),
         args: b.args.clone(),
@@ -1192,8 +1192,8 @@ fn canvas_of(b: &Bench) -> shapecraft_core::handles::Canvas<Edit<SketchArgs, Ske
         .expect("a canvas")
 }
 
-fn texts(b: &Bench, tone: shapecraft_core::handles::Tone) -> Vec<String> {
-    use shapecraft_core::handles::CanvasShape;
+fn texts(b: &Bench, tone: workpiece_core::handles::Tone) -> Vec<String> {
+    use workpiece_core::handles::CanvasShape;
     canvas_of(b)
         .shapes(&b.view)
         .into_iter()
@@ -1228,7 +1228,7 @@ fn field<'a, M: 'static>(panel: &'a Widget<M>, label: &str) -> Option<&'a Widget
 
 #[test]
 fn dimensions_preview_where_they_go_and_take_their_value_in_their_panel() {
-    use shapecraft_core::handles::Tone;
+    use workpiece_core::handles::Tone;
     let mut b = Bench::new();
     b.tool(Tool::Rectangle);
     b.click(0.0, 0.0);
@@ -1314,7 +1314,7 @@ fn a_value_that_conflicts_is_not_taken_and_driven_ones_have_no_field() {
 
 #[test]
 fn tools_show_what_they_would_snap_to_before_the_first_click() {
-    use shapecraft_core::handles::{CanvasShape, Tone};
+    use workpiece_core::handles::{CanvasShape, Tone};
     let mut b = Bench::new();
     b.tool(Tool::Line);
     b.click(0.0, 0.0);
@@ -1386,7 +1386,7 @@ fn sketches_start_with_what_lies_in_their_plane() -> anyhow::Result<()> {
 
 #[test]
 fn tools_snap_to_crossings_and_draw_construction_geometry() {
-    use shapecraft_core::handles::Tone;
+    use workpiece_core::handles::Tone;
     let mut b = Bench::new();
     b.tool(Tool::Line);
     b.click(0.0, 0.0);
@@ -1430,7 +1430,7 @@ fn tools_snap_to_crossings_and_draw_construction_geometry() {
 
 #[test]
 fn the_planes_axes_are_construction_lines_without_end() {
-    use shapecraft_core::handles::Tone;
+    use workpiece_core::handles::Tone;
     let mut b = Bench::new();
     let axis = |b: &Bench, which: SketchAxis| {
         let found = b.args.entities.iter().find(|(_, e)| e.axis == Some(which));
@@ -1478,7 +1478,7 @@ fn the_planes_axes_are_construction_lines_without_end() {
 
 #[test]
 fn chains_go_straight_on_from_arcs_and_points_align_with_hovered_ones() {
-    use shapecraft_core::handles::Tone;
+    use workpiece_core::handles::Tone;
     let mut b = Bench::new();
     // A line, a tangent arc (hover back over the end), then a line
     // nearly straight on from the arc: it is made tangent to it.
@@ -1603,7 +1603,7 @@ fn points_align_with_two_hovered_ones_and_splines_close_on_their_start() {
 
 #[test]
 fn with_a_grid_free_clicks_land_on_it() {
-    use shapecraft_core::handles::CanvasShape;
+    use workpiece_core::handles::CanvasShape;
     let mut b = Bench::new();
     // At this zoom the grid's lines are 0.2 apart.
     assert!((tools::grid_step(&b.view) - 0.2).abs() < 1e-12);
@@ -1743,7 +1743,7 @@ fn circles_by_two_and_three_points_and_ellipses() {
     b.click(1.0, 1.0);
     b.click(4.0, 1.0);
     b.click(2.0, 2.0);
-    let profile = crate::profile::profile(&b.args, shapecraft_core::world::DatumPlane::xy());
+    let profile = crate::profile::profile(&b.args, workpiece_core::world::DatumPlane::xy());
     assert_eq!(profile.regions.len(), 1);
     assert!(
         (profile.regions[0].area - 3.0 * std::f64::consts::PI).abs() < 0.05,
@@ -1936,7 +1936,7 @@ fn splines_go_through_their_clicks_when_asked() {
         b.click(x, y);
     }
     b.tool(Tool::Select);
-    let profile = crate::profile::profile(&b.args, shapecraft_core::world::DatumPlane::xy());
+    let profile = crate::profile::profile(&b.args, workpiece_core::world::DatumPlane::xy());
     let edge = profile.edges.first().expect("the spline");
     // Every click is on the curve.
     for (x, y) in clicks {
@@ -1957,13 +1957,13 @@ fn the_plane_cuts_the_model_into_curves_of_the_sketch() -> anyhow::Result<()> {
     // The box (4 × 6 × 4, on the origin) cut by the plane y = 0: a
     // square outline of four lines.
     let builder = boxed()?;
-    use shapecraft_core::math::Point3;
-    let plane = shapecraft_core::world::DatumPlane::new(Point3::ZERO, Point3::Y, Point3::X)?;
+    use workpiece_core::math::Point3;
+    let plane = workpiece_core::world::DatumPlane::new(Point3::ZERO, Point3::Y, Point3::X)?;
     let found = crate::project::sections(&builder.world, &plane);
     assert_eq!(found.len(), 4);
     let mut long = 0.0;
     for f in &found {
-        let shapecraft_core::world::topo::nurbs::Recognized::Line(a, b) = f.shape else {
+        let workpiece_core::world::topo::nurbs::Recognized::Line(a, b) = f.shape else {
             panic!("a line");
         };
         long += a.distance(b);
@@ -1971,7 +1971,7 @@ fn the_plane_cuts_the_model_into_curves_of_the_sketch() -> anyhow::Result<()> {
     let size = {
         let topo = &builder.world.topo;
         let body = topo.bodies().ids().next().expect("the box");
-        let solid = shapecraft_boolean::read(topo, body)?;
+        let solid = workpiece_boolean::read(topo, body)?;
         let (lo, hi) = solid.extent();
         hi - lo
     };
@@ -2062,7 +2062,7 @@ fn what_the_plane_cuts_is_offered_but_not_drawn_until_projected() -> anyhow::Res
 
 #[test]
 fn text_is_written_as_closed_outlines() -> anyhow::Result<()> {
-    use shapecraft_core::world::topo::nurbs::Recognized;
+    use workpiece_core::world::topo::nurbs::Recognized;
     // An "I" 2 high is one outline, from the baseline to 2 up; an "O"
     // is two (its outside and its hole), of curves.
     let ends = |shape: &Recognized| match shape {
@@ -2279,10 +2279,10 @@ fn round_things_are_dimensioned_to_their_sides_and_about_an_axis() {
     assert!(a.solve());
     assert_eq!(a.diagnose().dof, 0);
     assert!(a.diagnose().redundant.is_empty() && a.diagnose().conflicting.is_empty());
-    let plane = shapecraft_core::world::DatumPlane::new(
-        shapecraft_core::math::Point3::ZERO,
-        shapecraft_core::math::Point3::Z,
-        shapecraft_core::math::Point3::X,
+    let plane = workpiece_core::world::DatumPlane::new(
+        workpiece_core::math::Point3::ZERO,
+        workpiece_core::math::Point3::Z,
+        workpiece_core::math::Point3::X,
     )
     .expect("a plane");
     let said = crate::annotate::annotations("s", a, &plane);
@@ -2317,7 +2317,7 @@ fn round_things_are_dimensioned_to_their_sides_and_about_an_axis() {
 #[test]
 fn what_is_drawn_elsewhere_snaps_as_a_sketch_does() {
     use crate::tools::Snappable;
-    use shapecraft_core::handles::CanvasView;
+    use workpiece_core::handles::CanvasView;
     let p = Point2::new;
     // A cross of two lines and a circle beside it; a pixel is 0.1.
     let snappable = Snappable::new(
@@ -2346,12 +2346,12 @@ fn what_is_drawn_elsewhere_snaps_as_a_sketch_does() {
 
 #[test]
 fn a_datum_plane_projects_as_where_it_crosses_the_sketch() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::topo::nurbs::Recognized;
-    use shapecraft_core::world::{Datum, DatumPlane};
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::topo::nurbs::Recognized;
+    use workpiece_core::world::{Datum, DatumPlane};
     // The plane x = 3 seen from a sketch on the plane z = 0: the line
     // x = 3; one parallel to the sketch does not cross it.
-    let mut world = shapecraft_core::World::default();
+    let mut world = workpiece_core::World::default();
     world.datums.insert(
         "upright".into(),
         Datum::Plane(DatumPlane::new(
@@ -2401,10 +2401,10 @@ fn loose_square(gap: f64) -> SketchArgs {
 
 #[test]
 fn ends_at_one_place_close_an_area_and_a_gap_does_not() {
-    let plane = shapecraft_core::world::DatumPlane::new(
-        shapecraft_core::math::Point3::ZERO,
-        shapecraft_core::math::Point3::Z,
-        shapecraft_core::math::Point3::X,
+    let plane = workpiece_core::world::DatumPlane::new(
+        workpiece_core::math::Point3::ZERO,
+        workpiece_core::math::Point3::Z,
+        workpiece_core::math::Point3::X,
     )
     .expect("a plane");
     let areas = |a: &SketchArgs| crate::profile::profile(a, plane).regions.len();
@@ -2455,7 +2455,7 @@ fn the_canvas_draws_a_dimension_as_the_shared_layout_has_it() {
             &b.args,
             &b.args.constraints[&id],
             &view,
-            shapecraft_core::handles::Tone::Dimension,
+            workpiece_core::handles::Tone::Dimension,
         );
         assert!(
             laid.len() >= 4,

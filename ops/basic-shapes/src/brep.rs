@@ -2,9 +2,9 @@
 //! each named after the operation that makes it, and the NURBS circles the
 //! round shapes are made of.
 
-use shapecraft_core::Pose;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{
+use workpiece_core::Pose;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{
     Body, BodyId, BodyKind, Coedge, CoedgeId, Curve2, Curve3, Edge, EdgeId, Face, FaceId, FaceUse,
     Loop, Lump, NurbsSurface, Orientation, Shell, Topo, Vertex, VertexId,
 };
@@ -87,7 +87,7 @@ impl<'a> SolidBuilder<'a> {
 
     fn name(
         &mut self,
-        id: impl Into<shapecraft_core::world::topo::EntityId>,
+        id: impl Into<workpiece_core::world::topo::EntityId>,
         name: &str,
     ) -> anyhow::Result<()> {
         let full = format!("{}/{name}", self.prefix);

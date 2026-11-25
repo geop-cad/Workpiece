@@ -2,8 +2,8 @@
 //! what colour they have.
 
 use anyhow::ensure;
-use shapecraft_core::world::Look;
-use shapecraft_core::{Builder, FaceOrBody, Made, Operation, Reference};
+use workpiece_core::world::Look;
+use workpiece_core::{Builder, FaceOrBody, Made, Operation, Reference};
 
 /// What gets a look, and the look.
 #[derive(
@@ -13,7 +13,7 @@ use shapecraft_core::{Builder, FaceOrBody, Made, Operation, Reference};
     Default,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct AppearanceArgs {
     /// The bodies and the faces it is given to.

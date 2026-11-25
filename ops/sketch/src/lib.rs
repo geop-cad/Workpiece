@@ -1,12 +1,12 @@
 //! The sketch operation: constrained 2D geometry on a plane.
 //!
 //! Lines, arcs, circles and splines exist only here. What a sketch leaves
-//! in the world is a [`Profile`](shapecraft_core::world::Profile): NURBS curves
+//! in the world is a [`Profile`](workpiece_core::world::Profile): NURBS curves
 //! with names and tolerances, for features to build on.
 //!
 //! * [`model`]: points, entities, constraints and dimensions: the
 //!   operation's arguments.
-//! * [`solve`]: the constraints' equations, solved with `shapecraft-solver`.
+//! * [`solve`]: the constraints' equations, solved with `workpiece-solver`.
 //! * [`tools`]: what the pointer does on the sketch's canvas, and the
 //!   edit session's state.
 //! * [`modify`]: what the buttons do with what is selected.
@@ -14,7 +14,7 @@
 //! The arguments hold what the user drew, solved as they drew it. When
 //! the model under a sketch changes (a projected edge moves), the sketch
 //! is solved again where it is applied, and the solved positions go to
-//! the part's [`Cache`](shapecraft_core::Cache): the arguments stay what the
+//! the part's [`Cache`](workpiece_core::Cache): the arguments stay what the
 //! user made, and the next build and the next edit start from the cache,
 //! so the sketch stays on the solution it is on. (An edit by the user
 //! makes the arguments the newer starting point: a cached solution of
@@ -48,10 +48,10 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use anyhow::Context;
-use shapecraft_core::handles::Canvas;
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::DatumPlane;
-use shapecraft_core::{
+use workpiece_core::handles::Canvas;
+use workpiece_core::math::Point2;
+use workpiece_core::world::DatumPlane;
+use workpiece_core::{
     Builder, Cache, Edit, EditContext, EditVisualization, Operation, Parameters, Reference,
     ReferenceKind, Source, World,
 };
@@ -74,7 +74,7 @@ impl Sketch {
     pub fn project(
         &mut self,
         world: &World,
-        source: &shapecraft_core::Source,
+        source: &workpiece_core::Source,
     ) -> anyhow::Result<Vec<Id>> {
         let plane = self
             .args
@@ -240,7 +240,7 @@ impl Sketch {
                 continue;
             };
             if let Some(formula) = &dimension.formula {
-                let value = shapecraft_core::measure::evaluate(formula, parameters)
+                let value = workpiece_core::measure::evaluate(formula, parameters)
                     .with_context(|| format!("dimension {:?}", constraint.kind))?;
                 anyhow::ensure!(
                     value > 0.0,
@@ -306,7 +306,7 @@ impl Operation for Sketch {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         anyhow::ensure!(
             !builder.tracked().profiles.contains_key(&self.id),
             "sketch {:?} exists",
@@ -330,7 +330,7 @@ impl Operation for Sketch {
             .chain(radii)
             .chain([("args".to_owned(), self.fingerprint())])
             .collect();
-        Ok(shapecraft_core::Made {
+        Ok(workpiece_core::Made {
             // (Its dimensions are said of the model: a drawing shows
             // them.)
             annotations: annotate::annotations(&self.id, &args, &plane),
@@ -386,7 +386,7 @@ impl Operation for Sketch {
             if drawn == 1 { "curve" } else { "curves" },
             on.as_ref().map_or_else(
                 || "(not picked)".to_owned(),
-                shapecraft_core::Source::described
+                workpiece_core::Source::described
             )
         )
     }
@@ -436,8 +436,8 @@ impl Sketch {
     /// `view` says: its curves, its dimensions and its lettering.
     pub fn drawn(
         &self,
-        view: &shapecraft_core::handles::CanvasView,
-    ) -> Vec<shapecraft_core::handles::CanvasShape> {
+        view: &workpiece_core::handles::CanvasView,
+    ) -> Vec<workpiece_core::handles::CanvasShape> {
         draw::shapes(
             &self.args,
             &SketchState::default(),
@@ -452,8 +452,8 @@ mod tests;
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
 /// add them, and their icons.
-pub fn register(r: &mut shapecraft_core::Registry) {
-    use shapecraft_core::Tool;
+pub fn register(r: &mut workpiece_core::Registry) {
+    use workpiece_core::Tool;
     r.kind::<Sketch>("sketch");
     r.tool(Tool {
         tab: "Modeling",

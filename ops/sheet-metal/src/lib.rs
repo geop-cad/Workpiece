@@ -6,8 +6,8 @@ pub use flange::{Flange, FlangeArgs, Unfold, UnfoldArgs, flanged, flat_length, u
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
 /// add them, and their icons.
-pub fn register(r: &mut shapecraft_core::Registry) {
-    use shapecraft_core::Tool;
+pub fn register(r: &mut workpiece_core::Registry) {
+    use workpiece_core::Tool;
     r.kind::<Flange>("flange");
     r.tool(Tool {
         tab: "Sheet metal",

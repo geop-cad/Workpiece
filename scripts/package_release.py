@@ -4,8 +4,8 @@
     python3 scripts/package_release.py PLATFORM --bin DIR --version 0.1.0 --third-party THIRD-PARTY.txt --out DIR
 
 PLATFORM is linux-x86_64 (.tar.gz), windows-x86_64 (.zip), macos-arm64 or macos-x86_64 (.dmg
-holding ShapeCraft.app; the macOS ones need a Mac: they use sips, iconutil, codesign, hdiutil).
-DIR holds `shapecraft` and `shapecraft-app` (with `.exe` on Windows). Each archive carries the
+holding Workpiece.app; the macOS ones need a Mac: they use sips, iconutil, codesign, hdiutil).
+DIR holds `workpiece` and `workpiece-app` (with `.exe` on Windows). Each archive carries the
 programs, the two licence files, README.md, CHANGELOG.md, THIRD-PARTY.txt, and the examples
 folder if the repository has one.
 
@@ -24,7 +24,7 @@ import tarfile
 import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BUNDLE_ID = "io.github.geop-cad.shapecraft"
+BUNDLE_ID = "io.github.geop-cad.workpiece"
 
 
 def copy_docs(stage: str, third_party: str) -> None:
@@ -56,28 +56,28 @@ def icns(png: str, out: str) -> None:
 
 
 def macos_app(stage: str, bin_dir: str, version: str) -> str:
-    app = os.path.join(stage, "ShapeCraft.app")
+    app = os.path.join(stage, "Workpiece.app")
     macos, resources = os.path.join(app, "Contents", "MacOS"), os.path.join(app, "Contents", "Resources")
     os.makedirs(macos)
     os.makedirs(resources)
-    for name in ("shapecraft-app", "shapecraft"):
+    for name in ("workpiece-app", "workpiece"):
         shutil.copy(os.path.join(bin_dir, name), macos)
         os.chmod(os.path.join(macos, name), 0o755)
-    icns(os.path.join(ROOT, "hosts", "app", "assets", "shapecraft.png"), os.path.join(resources, "shapecraft.icns"))
+    icns(os.path.join(ROOT, "hosts", "app", "assets", "workpiece.png"), os.path.join(resources, "workpiece.icns"))
     plist = {
-        "CFBundleName": "ShapeCraft",
-        "CFBundleDisplayName": "ShapeCraft",
+        "CFBundleName": "Workpiece",
+        "CFBundleDisplayName": "Workpiece",
         "CFBundleIdentifier": BUNDLE_ID,
-        "CFBundleExecutable": "shapecraft-app",
-        "CFBundleIconFile": "shapecraft",
+        "CFBundleExecutable": "workpiece-app",
+        "CFBundleIconFile": "workpiece",
         "CFBundlePackageType": "APPL",
         "CFBundleShortVersionString": version.split("-")[0],
         "CFBundleVersion": version.split("-")[0],
         "NSHighResolutionCapable": True,
         "LSMinimumSystemVersion": "11.0",
         "CFBundleDocumentTypes": [{
-            "CFBundleTypeName": "ShapeCraft part",
-            "CFBundleTypeExtensions": ["shapecraft"],
+            "CFBundleTypeName": "Workpiece part",
+            "CFBundleTypeExtensions": ["workpiece"],
             "CFBundleTypeRole": "Editor",
         }],
     }
@@ -85,7 +85,7 @@ def macos_app(stage: str, bin_dir: str, version: str) -> str:
         plistlib.dump(plist, f)
     identity = os.environ.get("MACOS_SIGN_IDENTITY")
     if identity:
-        for name in ("shapecraft", "shapecraft-app"):
+        for name in ("workpiece", "workpiece-app"):
             run("codesign", "--force", "--options", "runtime", "--timestamp", "--sign", identity, os.path.join(macos, name))
         run("codesign", "--force", "--options", "runtime", "--timestamp", "--sign", identity, app)
     else:
@@ -102,7 +102,7 @@ def main() -> int:
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
-    name = f"shapecraft-{a.version}-{a.platform}"
+    name = f"workpiece-{a.version}-{a.platform}"
     work = os.path.join(a.out, "stage")
     shutil.rmtree(work, ignore_errors=True)
     stage = os.path.join(work, name)
@@ -115,16 +115,16 @@ def main() -> int:
         os.symlink("/Applications", os.path.join(stage_dmg, "Applications"))
         # The command line beside the app, for a terminal.
         os.makedirs(os.path.join(stage_dmg, "bin"))
-        shutil.copy(os.path.join(a.bin, "shapecraft"), os.path.join(stage_dmg, "bin"))
+        shutil.copy(os.path.join(a.bin, "workpiece"), os.path.join(stage_dmg, "bin"))
         copy_docs(stage_dmg, a.third_party)
-        out = os.path.join(a.out, f"ShapeCraft-{a.version}-{a.platform}.dmg")
+        out = os.path.join(a.out, f"Workpiece-{a.version}-{a.platform}.dmg")
         if os.path.exists(out):
             os.remove(out)
-        run("hdiutil", "create", "-volname", f"ShapeCraft {a.version}", "-srcfolder", stage_dmg, "-ov", "-format", "UDZO", out)
+        run("hdiutil", "create", "-volname", f"Workpiece {a.version}", "-srcfolder", stage_dmg, "-ov", "-format", "UDZO", out)
         if os.environ.get("MACOS_SIGN_IDENTITY"):
             run("codesign", "--force", "--timestamp", "--sign", os.environ["MACOS_SIGN_IDENTITY"], out)
     else:
-        for program in ("shapecraft", "shapecraft-app"):
+        for program in ("workpiece", "workpiece-app"):
             shutil.copy(os.path.join(a.bin, program + exe), stage)
             os.chmod(os.path.join(stage, program + exe), 0o755)
         copy_docs(stage, a.third_party)

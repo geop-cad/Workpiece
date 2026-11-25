@@ -4,9 +4,9 @@
 //! section views of drawings are of it.
 
 use anyhow::{Context, ensure};
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::{Cutting, DatumPlane, Profile};
-use shapecraft_core::{Builder, Choices, Made, Measure, Operation, Reference, Sketched};
+use workpiece_core::math::Point2;
+use workpiece_core::world::{Cutting, DatumPlane, Profile};
+use workpiece_core::{Builder, Choices, Made, Measure, Operation, Reference, Sketched};
 
 /// What a section cuts along.
 #[derive(
@@ -34,7 +34,7 @@ impl Choices for Along {
 
 /// Where a section cuts.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct SectionArgs {
     /// What it cuts along.
@@ -75,9 +75,9 @@ impl Default for SectionArgs {
 /// line's ends, or, of a cut that is `bounded` (along a sketch's
 /// lines), only as far as the line goes: a line from a hub's middle to
 /// its rim takes away the one quarter, a half section.
-pub fn opened(world: &shapecraft_core::World, cut: &Cutting, far: f64) -> shapecraft_core::World {
+pub fn opened(world: &workpiece_core::World, cut: &Cutting, far: f64) -> workpiece_core::World {
     if !cut.bounded {
-        return shapecraft_shape::cut::cut_left_of(world, cut.origin, cut.x, cut.y, &cut.path, far);
+        return workpiece_shape::cut::cut_left_of(world, cut.origin, cut.x, cut.y, &cut.path, far);
     }
     let normal = cut.x.cross(cut.y);
     let at = |p: Point2| cut.origin + cut.x * p.x + cut.y * p.y;
@@ -92,7 +92,7 @@ pub fn opened(world: &shapecraft_core::World, cut: &Cutting, far: f64) -> shapec
                 cut.x * along.x + cut.y * along.y,
                 cut.x * -along.y + cut.y * along.x,
             );
-            shapecraft_boolean::block(
+            workpiece_boolean::block(
                 "section",
                 at(w[0]) - normal * far,
                 [d, left, d.cross(left)],
@@ -106,26 +106,25 @@ pub fn opened(world: &shapecraft_core::World, cut: &Cutting, far: f64) -> shapec
         .topo
         .bodies()
         .iter()
-        .filter(|(_, b)| b.kind == shapecraft_core::world::topo::BodyKind::Solid)
+        .filter(|(_, b)| b.kind == workpiece_core::world::topo::BodyKind::Solid)
         .map(|(id, _)| id)
         .collect();
     for body in bodies {
-        let Ok(mut solid) = shapecraft_boolean::read(&out.topo, body) else {
+        let Ok(mut solid) = workpiece_boolean::read(&out.topo, body) else {
             continue;
         };
         let Some(name) = out.topo.name_of(body).map(str::to_owned) else {
             continue;
         };
         for block in &blocks {
-            if let Ok(kept) =
-                shapecraft_boolean::combine(shapecraft_boolean::Op::Cut, &solid, block)
+            if let Ok(kept) = workpiece_boolean::combine(workpiece_boolean::Op::Cut, &solid, block)
             {
                 solid = kept.solid;
             }
         }
-        shapecraft_boolean::remove(&mut out.topo, body);
+        workpiece_boolean::remove(&mut out.topo, body);
         if !solid.is_empty() {
-            let _ = shapecraft_boolean::write(&mut out.topo, &solid, &name);
+            let _ = workpiece_boolean::write(&mut out.topo, &solid, &name);
         }
     }
     for instance in out.instances.values_mut() {
@@ -136,7 +135,7 @@ pub fn opened(world: &shapecraft_core::World, cut: &Cutting, far: f64) -> shapec
             y: back.transform_vector(cut.y),
             ..cut.clone()
         };
-        if shapecraft_shape::cut::left_whole(&instance.world, &inner) {
+        if workpiece_shape::cut::left_whole(&instance.world, &inner) {
             continue;
         }
         instance.world = std::sync::Arc::new(opened(&instance.world, &inner, far));
@@ -209,7 +208,7 @@ pub struct Section {
 
 impl Section {
     /// Where it cuts `world`; `offset` is its offset's value.
-    fn cutting(&self, world: &shapecraft_core::World, offset: f64) -> anyhow::Result<Cutting> {
+    fn cutting(&self, world: &workpiece_core::World, offset: f64) -> anyhow::Result<Cutting> {
         let args = &self.args;
         let cut = match args.along {
             Along::Plane => {
@@ -272,11 +271,11 @@ impl Operation for Section {
 
     fn visualize_edit(
         &self,
-        context: &shapecraft_core::EditContext<'_>,
+        context: &workpiece_core::EditContext<'_>,
         (): &(),
-    ) -> shapecraft_core::EditVisualization<shapecraft_core::Edit<SectionArgs, ()>> {
+    ) -> workpiece_core::EditVisualization<workpiece_core::Edit<SectionArgs, ()>> {
         let args = &self.args;
-        let fields = shapecraft_core::Arguments::fields(args, context);
+        let fields = workpiece_core::Arguments::fields(args, context);
         let mut handles = std::collections::BTreeMap::new();
         // An arrow square to the plane, from where the middle of the
         // model is over it: dragging it sets how far off the plane the
@@ -301,25 +300,22 @@ impl Operation for Section {
                 }
             };
             let arrow =
-                shapecraft_core::handles::LinearHandle::new(from, normal, args.offset.value, drag);
+                workpiece_core::handles::LinearHandle::new(from, normal, args.offset.value, drag);
             handles.extend(arrow.map(|h| ("offset".to_owned(), h.into())));
         }
-        shapecraft_core::EditVisualization::new(
-            shapecraft_core::widgets::VBox::new(fields),
-            handles,
-        )
-        .map(shapecraft_core::Edit::args)
+        workpiece_core::EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles)
+            .map(workpiece_core::Edit::args)
     }
 
     fn summary(&self) -> String {
         match self.args.along {
             Along::Plane => format!(
                 "along {}",
-                shapecraft_core::reference::described(&self.args.plane)
+                workpiece_core::reference::described(&self.args.plane)
             ),
             Along::Sketch => format!(
                 "along {}",
-                shapecraft_core::reference::described(&self.args.sketch)
+                workpiece_core::reference::described(&self.args.sketch)
             ),
         }
     }

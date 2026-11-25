@@ -13,9 +13,9 @@ use std::sync::{Arc, Mutex};
 
 use eframe::{egui, egui_glow};
 use glam::Vec3;
-use shapecraft_cad_rasterize::{Drawing, Pick, Scene};
-use shapecraft_cad_ui::view::Viewport;
-use shapecraft_cad_ui::{CameraMove, Message, Pointer};
+use workpiece_rasterize::{Drawing, Pick, Scene};
+use workpiece_ui::view::Viewport;
+use workpiece_ui::{CameraMove, Message, Pointer};
 
 use super::tip;
 use crate::icons;
@@ -79,7 +79,7 @@ impl Cached {
 struct HoverKey {
     position: [f32; 2],
     size: [f32; 2],
-    camera: shapecraft_cad_ui::model::Camera,
+    camera: workpiece_ui::model::Camera,
     /// The scene shown, by identity: it changes when the model rebuilds.
     scene: usize,
 }
@@ -397,7 +397,7 @@ impl ViewportPanel {
             back: camera.back(),
             orthographic: camera.orthographic,
             analysis: {
-                use shapecraft_cad_ui::model::display::Analysis;
+                use workpiece_ui::model::display::Analysis;
                 match view.analysis {
                     Analysis::None => 0.0,
                     Analysis::Zebra => 1.0,
@@ -577,7 +577,7 @@ fn notes(
                 (1.0 - c.y) / 2.0 * rect.height(),
             )
     };
-    let screen = |p: Vec3| shapecraft_cad_ui::view::project(view_proj, p).map(on_screen);
+    let screen = |p: Vec3| workpiece_ui::view::project(view_proj, p).map(on_screen);
     for note in &view.notes {
         // What is behind the eye, or has none of its place on the
         // screen, is not drawn: dividing by its depth would put it
@@ -632,12 +632,12 @@ fn notes(
         let thin = egui::Stroke::new(1.0, ink);
         for (a, b) in &note.strokes {
             // (Cut at the near plane: nothing is drawn from behind.)
-            if let [a, b] = shapecraft_cad_ui::view::clip_polygon(view_proj, &[*a, *b])[..] {
+            if let [a, b] = workpiece_ui::view::clip_polygon(view_proj, &[*a, *b])[..] {
                 painter.line_segment([on_screen(a), on_screen(b)], thin);
             }
         }
         for fill in &note.fills {
-            let corners: Vec<egui::Pos2> = shapecraft_cad_ui::view::clip_polygon(view_proj, fill)
+            let corners: Vec<egui::Pos2> = workpiece_ui::view::clip_polygon(view_proj, fill)
                 .into_iter()
                 .map(on_screen)
                 .collect();
@@ -717,7 +717,7 @@ fn notes(
 /// square to an axis (and where), and what its faces are painted to
 /// show.
 fn display_bar(ui: &mut egui::Ui, rect: egui::Rect, view: &Viewport, out: &mut Vec<Message>) {
-    use shapecraft_cad_ui::model::display::Analysis;
+    use workpiece_ui::model::display::Analysis;
     let bar = egui::Rect::from_min_size(
         rect.left_top() + egui::vec2(10.0, 8.0),
         egui::vec2((rect.width() - CUBE_AREA - 30.0).max(120.0), 26.0),

@@ -2,11 +2,11 @@
 
 use std::collections::BTreeMap;
 
-use shapecraft_core::handles::{AngularHandle, LinearHandle};
-use shapecraft_core::math::Point3;
-use shapecraft_core::widgets::VBox;
-use shapecraft_core::world::{DatumAxis, DatumPlane};
-use shapecraft_core::{Builder, EditVisualization, Operation, Position, Source, World};
+use workpiece_core::handles::{AngularHandle, LinearHandle};
+use workpiece_core::math::Point3;
+use workpiece_core::widgets::VBox;
+use workpiece_core::world::{DatumAxis, DatumPlane};
+use workpiece_core::{Builder, EditVisualization, Operation, Position, Source, World};
 
 use crate::{
     Construction, Mode, construction_fields, ensure_free, fits, in_mode, pick, taken,
@@ -67,7 +67,7 @@ impl Mode for PlaneMode {
 
 /// The construction and its references.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct AddPlaneArgs {
     /// How the plane is constructed.
@@ -76,7 +76,7 @@ pub struct AddPlaneArgs {
     /// The references, in the order picked; the mode takes what it
     /// needs from them.
     #[arg(hidden)]
-    pub references: Vec<shapecraft_core::Reference<shapecraft_core::Anything>>,
+    pub references: Vec<workpiece_core::Reference<workpiece_core::Anything>>,
     /// The offset's distance.
     #[arg(when = "self.mode == PlaneMode::Offset")]
     pub distance: f64,
@@ -115,11 +115,11 @@ impl Construction for AddPlaneArgs {
     }
 
     fn references(&self) -> Vec<Source> {
-        shapecraft_core::Reference::sources(&self.references)
+        workpiece_core::Reference::sources(&self.references)
     }
 
     fn with(&self, mode: PlaneMode, references: Vec<Source>) -> Self {
-        let references = shapecraft_core::Reference::each(references);
+        let references = workpiece_core::Reference::each(references);
         Self {
             mode,
             references,
@@ -218,7 +218,7 @@ impl AddPlaneArgs {
                 DatumPlane::new(point.0, p.normal(), p.x_dir())
             }
             PlaneMode::Tangent => {
-                let (face, point): (shapecraft_core::world::topo::FaceId, Position) =
+                let (face, point): (workpiece_core::world::topo::FaceId, Position) =
                     pick(world, r)?;
                 let topo = &world.topo;
                 let surface = topo
@@ -265,8 +265,8 @@ impl AddPlaneArgs {
     /// offset plane's distance from the plane it is offset from, a
     /// plane at an angle its angle from the plane it is turned from.
     /// Nothing of the modes no number constructs.
-    fn said(&self, world: &World, id: &str) -> Vec<(String, shapecraft_core::world::Annotation)> {
-        use shapecraft_core::world::Measured;
+    fn said(&self, world: &World, id: &str) -> Vec<(String, workpiece_core::world::Annotation)> {
+        use workpiece_core::world::Measured;
         let r = &self.references;
         match self.mode {
             PlaneMode::Offset if self.distance != 0.0 => pick::<(DatumPlane,)>(world, r)
@@ -339,25 +339,25 @@ impl Operation for AddPlane {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // What it reads of the world: what it refers to.
         let world = builder.tracked();
         ensure_free(world, &self.id)?;
         let plane = in_mode(self.args.mode, self.args.plane(world))?;
-        let mut made = shapecraft_core::Made::datum(&self.id, plane);
+        let mut made = workpiece_core::Made::datum(&self.id, plane);
         made.annotations = self.args.said(world, &self.id);
         Ok(made)
     }
 
     fn visualize_edit(
         &self,
-        context: &shapecraft_core::EditContext<'_>,
+        context: &workpiece_core::EditContext<'_>,
         (): &(),
-    ) -> EditVisualization<shapecraft_core::Edit<AddPlaneArgs, ()>> {
+    ) -> EditVisualization<workpiece_core::Edit<AddPlaneArgs, ()>> {
         let world = context.world;
         let args = self.args.clone();
         // The fields the arguments give; the handles are its own.
-        let fields = shapecraft_core::Arguments::fields(&args, context);
+        let fields = workpiece_core::Arguments::fields(&args, context);
         let mut handles = BTreeMap::new();
         match args.mode {
             PlaneMode::Offset => {
@@ -398,14 +398,14 @@ impl Operation for AddPlane {
             }
             _ => {}
         }
-        EditVisualization::new(VBox::new(fields), handles).map(shapecraft_core::Edit::args)
+        EditVisualization::new(VBox::new(fields), handles).map(workpiece_core::Edit::args)
     }
 
     fn summary(&self) -> String {
         let op = self;
         crate::constructed(
             op.args.mode.label(),
-            &shapecraft_core::Reference::sources(&op.args.references),
+            &workpiece_core::Reference::sources(&op.args.references),
         )
     }
 }
@@ -414,17 +414,17 @@ impl Operation for AddPlane {
 /// construct from what is picked greyed out, and what is picked.
 fn mode_fields(
     args: &AddPlaneArgs,
-    context: &shapecraft_core::EditContext<'_>,
-) -> Vec<shapecraft_core::Widget<AddPlaneArgs>> {
+    context: &workpiece_core::EditContext<'_>,
+) -> Vec<workpiece_core::Widget<AddPlaneArgs>> {
     construction_fields(args, context.world)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::math::Axis;
-    use shapecraft_core::world::{DatumFrame, ORIGIN};
-    use shapecraft_core::{Pose, Standalone, Widget};
+    use workpiece_core::math::Axis;
+    use workpiece_core::world::{DatumFrame, ORIGIN};
+    use workpiece_core::{Pose, Standalone, Widget};
 
     fn frame_plane(axis: Axis) -> Source {
         Source::FrameAxis {
@@ -447,8 +447,8 @@ mod tests {
 
     #[test]
     fn planes_say_the_number_they_are_set_by() -> anyhow::Result<()> {
-        use shapecraft_core::Operation;
-        use shapecraft_core::world::{Measured, Note};
+        use workpiece_core::Operation;
+        use workpiece_core::world::{Measured, Note};
         // Offset 4 below the origin's xy plane: a length of 4, from the
         // plane to it.
         let mut b = Standalone::new();
@@ -514,13 +514,13 @@ mod tests {
 
     #[test]
     fn planes_made_from_a_face_are_laid_out_as_the_face_is() -> anyhow::Result<()> {
-        use shapecraft_core::{Measure, Operation, Reference, Standalone};
-        use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
+        use workpiece_core::{Measure, Operation, Reference, Standalone};
+        use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
         let mut b = Standalone::new();
         AddBox {
             id: "box".into(),
             args: AddBoxArgs {
-                frame: Some(Reference::datum(shapecraft_core::world::ORIGIN)),
+                frame: Some(Reference::datum(workpiece_core::world::ORIGIN)),
                 size: [2.0, 3.0, 4.0].map(Measure::new),
             },
         }
@@ -528,7 +528,7 @@ mod tests {
         let (mut sides, mut tops) = (0, 0);
         for side in ["top", "bottom", "left", "right", "front", "back"] {
             let face = Source::Topology(format!("box/{side}"));
-            let on: DatumPlane = shapecraft_core::Resolve::resolve(&b.world, &face)?;
+            let on: DatumPlane = workpiece_core::Resolve::resolve(&b.world, &face)?;
             // Offset: the face's normal, u and v, moved along the normal.
             let offset = build(
                 PlaneMode::Offset,
@@ -585,22 +585,22 @@ mod tests {
 
     #[test]
     fn planes_touch_faces_where_a_point_is_nearest() -> anyhow::Result<()> {
-        use shapecraft_core::{Measure, Operation, Reference, Standalone};
-        use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+        use workpiece_core::{Measure, Operation, Reference, Standalone};
+        use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
         // A rod of radius 0.5 on the origin, and a frame out along x,
         // half way up: the plane touches the rod there, facing x.
         let mut b = Standalone::new();
         AddCylinder {
             id: "rod".into(),
             args: AddCylinderArgs {
-                frame: Some(Reference::datum(shapecraft_core::world::ORIGIN)),
+                frame: Some(Reference::datum(workpiece_core::world::ORIGIN)),
                 radius: Measure::new(0.5),
                 height: Measure::new(2.0),
             },
         }
         .apply(&mut b)?;
-        let pose = shapecraft_core::Pose::from_translation(Point3::new(3.0, 0.0, 1.0));
-        let frame = shapecraft_core::world::DatumFrame::from_pose(pose)?;
+        let pose = workpiece_core::Pose::from_translation(Point3::new(3.0, 0.0, 1.0));
+        let frame = workpiece_core::world::DatumFrame::from_pose(pose)?;
         b.world.datums.insert("out".into(), frame.into());
         let picked = [
             Source::Topology("rod/side".into()),
@@ -730,7 +730,7 @@ mod tests {
             id: "p".into(),
             args,
         };
-        let edit = shapecraft_core::operation::edit_arguments(&op, &world);
+        let edit = workpiece_core::operation::edit_arguments(&op, &world);
         let Widget::VBox(fields) = edit.dialog else {
             panic!("expected fields");
         };

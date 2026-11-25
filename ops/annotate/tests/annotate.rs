@@ -1,12 +1,12 @@
 //! What is said of the model on it.
 
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::{Characteristic, Measured, Note, Tolerance};
-use shapecraft_ops_annotate::{
+use workpiece_core::math::Point3;
+use workpiece_core::world::{Characteristic, Measured, Note, Tolerance};
+use workpiece_ops_annotate::{
     DatumFeature, DatumFeatureArgs, Dimension, DimensionArgs, DimensionKind, GeometricTolerance,
     GeometricToleranceArgs,
 };
-use shapecraft_ops_testing::*;
+use workpiece_ops_testing::*;
 
 fn face(name: &str) -> Source {
     Source::Topology(format!("base/{name}"))
@@ -43,7 +43,7 @@ fn datums_dimensions_and_tolerances_are_said_of_the_model() -> anyhow::Result<()
         id: id.into(),
         args: GeometricToleranceArgs {
             feature: Some(face(feature).into()),
-            characteristic: shapecraft_ops_annotate::Of(of),
+            characteristic: workpiece_ops_annotate::Of(of),
             value: Measure::new(0.05),
             diametral: false,
             datums: datums.into(),
@@ -132,10 +132,10 @@ fn datums_dimensions_and_tolerances_are_said_of_the_model() -> anyhow::Result<()
     // its text there — as far from the eye as what it measures — and
     // nothing, while nothing is picked.
     let world = std::sync::Arc::new(b.world.clone());
-    let cache = shapecraft_core::Cache::default();
-    let context = shapecraft_core::EditContext::standalone(&world, &cache);
-    let ortho = shapecraft_core::ray::Projection::Orthographic { radius: 0.05 };
-    let ray = shapecraft_core::ray::Ray::new(Point3::new(9.0, 20.0, 0.5), -Point3::Y, ortho)
+    let cache = workpiece_core::Cache::default();
+    let context = workpiece_core::EditContext::standalone(&world, &cache);
+    let ortho = workpiece_core::ray::Projection::Orthographic { radius: 0.05 };
+    let ray = workpiece_core::ray::Ray::new(Point3::new(9.0, 20.0, 0.5), -Point3::Y, ortho)
         .expect("a ray");
     let place = askew
         .visualize_edit(&context, &())
@@ -180,9 +180,9 @@ fn datums_dimensions_and_tolerances_are_said_of_the_model() -> anyhow::Result<()
 
 #[test]
 fn one_thing_of_a_placed_part_is_measured_as_one_of_the_parts_own() -> anyhow::Result<()> {
-    use shapecraft_core::Pose;
-    use shapecraft_core::world::Instance;
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_core::Pose;
+    use workpiece_core::world::Instance;
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
     // A pin of radius 5 and height 30, placed lying down and moved off.
     let mut pin = Standalone::new();
     AddCylinder {
@@ -262,15 +262,15 @@ fn one_thing_of_a_placed_part_is_measured_as_one_of_the_parts_own() -> anyhow::R
 
 #[test]
 fn bends_that_lean_are_measured_between_their_centres() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddTorus, AddTorusArgs};
+    use workpiece_ops_basic_shapes::{AddTorus, AddTorusArgs};
     // Two rings around z, 10 apart along x: the tube's own circle, which
     // a face of one is round about, leans along x.
     let mut b = Standalone::new();
     for (id, x) in [("a", 0.0), ("b", 10.0)] {
-        let pose = shapecraft_core::Pose::from_translation(Point3::new(x, 0.0, 0.0));
+        let pose = workpiece_core::Pose::from_translation(Point3::new(x, 0.0, 0.0));
         b.world.datums.insert(
             format!("{id}-frame"),
-            shapecraft_core::world::Datum::Frame(shapecraft_core::world::DatumFrame::from_pose(
+            workpiece_core::world::Datum::Frame(workpiece_core::world::DatumFrame::from_pose(
                 pose,
             )?),
         );
@@ -287,20 +287,20 @@ fn bends_that_lean_are_measured_between_their_centres() -> anyhow::Result<()> {
     // Two rods that lean 45°, 10 apart along x: the axis of each leans
     // along x, so they have no sides that way, only their middles.
     for (id, x) in [("c", 0.0), ("d", 10.0)] {
-        let pose = shapecraft_core::Pose::from_axes(
+        let pose = workpiece_core::Pose::from_axes(
             Point3::new(x, 20.0, 0.0),
             Point3::new(1.0, 0.0, -1.0).normalize(),
             Point3::Y,
         );
         b.world.datums.insert(
             format!("{id}-frame"),
-            shapecraft_core::world::Datum::Frame(shapecraft_core::world::DatumFrame::from_pose(
+            workpiece_core::world::Datum::Frame(workpiece_core::world::DatumFrame::from_pose(
                 pose,
             )?),
         );
-        shapecraft_ops_basic_shapes::AddCylinder {
+        workpiece_ops_basic_shapes::AddCylinder {
             id: id.into(),
-            args: shapecraft_ops_basic_shapes::AddCylinderArgs {
+            args: workpiece_ops_basic_shapes::AddCylinderArgs {
                 frame: Some(Reference::datum(format!("{id}-frame"))),
                 radius: Measure::new(1.0),
                 height: Measure::new(6.0),
@@ -347,7 +347,7 @@ fn bends_that_lean_are_measured_between_their_centres() -> anyhow::Result<()> {
 
 #[test]
 fn a_cone_s_side_is_measured_against_its_base_at_its_slant() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCone, AddConeArgs};
+    use workpiece_ops_basic_shapes::{AddCone, AddConeArgs};
     // A cone 1 across its base and 1 high: its side leans at
     // atan(1 / 0.5) ≈ 63.43° to its base.
     let mut b = Standalone::new();

@@ -1,13 +1,13 @@
 //! What the operations of this crate make.
 
-use shapecraft_ops_sweep::{Extent, Extrude};
-use shapecraft_ops_testing::*;
-use shapecraft_shape::Combine;
+use workpiece_ops_sweep::{Extent, Extrude};
+use workpiece_ops_testing::*;
+use workpiece_shape::Combine;
 
 #[test]
 fn slabs_stand_on_faces_of_every_kind() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs, AddSphere, AddSphereArgs};
-    let face = |solid: &shapecraft_boolean::Solid, name: &str| {
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs, AddSphere, AddSphereArgs};
+    let face = |solid: &workpiece_boolean::Solid, name: &str| {
         let found = solid
             .faces
             .iter()
@@ -17,10 +17,10 @@ fn slabs_stand_on_faces_of_every_kind() -> anyhow::Result<()> {
     // On a box's top, out of it and into it.
     let mut b = Standalone::new();
     base(&mut b)?;
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     let top = face(&solid, "base/top")?;
     for d in [0.5, -0.5] {
-        let (volume, area) = sound(&shapecraft_shape::thick::slab(&solid, top, d, "slab")?)?;
+        let (volume, area) = sound(&workpiece_shape::thick::slab(&solid, top, d, "slab")?)?;
         close(volume, 8.0, 1e-9);
         close(area, 32.0 + 8.0, 1e-9);
     }
@@ -34,18 +34,18 @@ fn slabs_stand_on_faces_of_every_kind() -> anyhow::Result<()> {
         },
     }
     .apply(&mut b)?;
-    let rod = shapecraft_boolean::read(&b.world.topo, body(&b, "rod"))?;
+    let rod = workpiece_boolean::read(&b.world.topo, body(&b, "rod"))?;
     let side = face(&rod, "rod/side")?;
     for (d, wanted) in [
         (0.5, PI * (2.5 * 2.5 - 4.0) * 3.0),
         (-0.5, PI * (4.0 - 1.5 * 1.5) * 3.0),
     ] {
-        let (volume, _) = sound(&shapecraft_shape::thick::slab(&rod, side, d, "slab")?)?;
+        let (volume, _) = sound(&workpiece_shape::thick::slab(&rod, side, d, "slab")?)?;
         close(volume, wanted, 1e-9);
     }
     // And on its flat end, which comes to a point in its middle.
     let end = face(&rod, "rod/top")?;
-    let (volume, _) = sound(&shapecraft_shape::thick::slab(&rod, end, 0.5, "slab")?)?;
+    let (volume, _) = sound(&workpiece_shape::thick::slab(&rod, end, 0.5, "slab")?)?;
     close(volume, PI * 4.0 * 0.5, 1e-9);
     // On a ball: a skin around it.
     AddSphere {
@@ -56,8 +56,8 @@ fn slabs_stand_on_faces_of_every_kind() -> anyhow::Result<()> {
         },
     }
     .apply(&mut b)?;
-    let ball = shapecraft_boolean::read(&b.world.topo, body(&b, "ball"))?;
-    let (volume, area) = sound(&shapecraft_shape::thick::slab(&ball, 0, 0.5, "slab")?)?;
+    let ball = workpiece_boolean::read(&b.world.topo, body(&b, "ball"))?;
+    let (volume, area) = sound(&workpiece_shape::thick::slab(&ball, 0, 0.5, "slab")?)?;
     close(volume, 4.0 / 3.0 * PI * (2.5f64.powi(3) - 8.0), 1e-9);
     close(area, 4.0 * PI * (6.25 + 4.0), 1e-9);
     Ok(())
@@ -67,9 +67,9 @@ fn slabs_stand_on_faces_of_every_kind() -> anyhow::Result<()> {
 fn bodies_grow_shrink_and_hollow() -> anyhow::Result<()> {
     let mut b = Standalone::new();
     base(&mut b)?;
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     // Shrunk by a half: the box a half in from every side.
-    let (volume, area) = sound(&shapecraft_shape::thick::thickened(
+    let (volume, area) = sound(&workpiece_shape::thick::thickened(
         &solid, -0.5, None, false,
     )?)?;
     close(volume, 9.0, 1e-9);
@@ -79,7 +79,7 @@ fn bodies_grow_shrink_and_hollow() -> anyhow::Result<()> {
         .faces
         .iter()
         .position(|f| f.name.as_deref() == Some("base/top"));
-    let (volume, _) = sound(&shapecraft_shape::thick::thickened(
+    let (volume, _) = sound(&workpiece_shape::thick::thickened(
         &solid,
         -0.5,
         Some(&[top.expect("a top")]),
@@ -87,7 +87,7 @@ fn bodies_grow_shrink_and_hollow() -> anyhow::Result<()> {
     )?)?;
     close(volume, 32.0 - 9.0 * 1.5, 1e-9);
     // Grown by a half: its faces moved out, its edges and corners round.
-    let (volume, area) = sound(&shapecraft_shape::thick::thickened(
+    let (volume, area) = sound(&workpiece_shape::thick::thickened(
         &solid, 0.5, None, false,
     )?)?;
     let d: f64 = 0.5;
@@ -102,7 +102,7 @@ fn bodies_grow_shrink_and_hollow() -> anyhow::Result<()> {
 
 #[test]
 fn bodies_are_shelled_open_at_picked_faces() -> anyhow::Result<()> {
-    use shapecraft_ops_faces::{Shell, ShellArgs};
+    use workpiece_ops_faces::{Shell, ShellArgs};
     let shell = |b: &mut Standalone, faces: &[&str]| {
         Shell {
             id: "shell".into(),
@@ -132,12 +132,8 @@ fn bodies_are_shelled_open_at_picked_faces() -> anyhow::Result<()> {
     let mut b = Standalone::new();
     base(&mut b)?;
     shell(&mut b, &["base"])?;
-    let hollow = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
-    close(
-        shapecraft_boolean::measure(&hollow).volume,
-        32.0 - 9.0,
-        1e-9,
-    );
+    let hollow = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
+    close(workpiece_boolean::measure(&hollow).volume, 32.0 - 9.0, 1e-9);
     // What is not there cannot be opened.
     let mut b = Standalone::new();
     base(&mut b)?;
@@ -147,7 +143,7 @@ fn bodies_are_shelled_open_at_picked_faces() -> anyhow::Result<()> {
 
 #[test]
 fn faces_are_drafted_about_a_plane() -> anyhow::Result<()> {
-    use shapecraft_ops_faces::{Draft, DraftArgs};
+    use workpiece_ops_faces::{Draft, DraftArgs};
     let draft = |b: &mut Standalone, both: bool| {
         Draft {
             id: "draft".into(),
@@ -167,8 +163,8 @@ fn faces_are_drafted_about_a_plane() -> anyhow::Result<()> {
     base(&mut b)?;
     draft(&mut b, false)?;
     check(&b);
-    let made = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
-    close(shapecraft_boolean::measure(&made).volume, 32.0, 1e-9);
+    let made = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
+    close(workpiece_boolean::measure(&made).volume, 32.0, 1e-9);
     assert_eq!(made.faces.len(), 6);
     // Its angle is said of the model, for its drawing.
     assert_eq!(b.world.annotations["draft/angle"].text(), "10°");
@@ -178,9 +174,9 @@ fn faces_are_drafted_about_a_plane() -> anyhow::Result<()> {
     base(&mut b)?;
     draft(&mut b, true)?;
     check(&b);
-    let made = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let made = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     close(
-        shapecraft_boolean::measure(&made).volume,
+        workpiece_boolean::measure(&made).volume,
         32.0 - 4.0 * 10f64.to_radians().tan(),
         1e-9,
     );
@@ -189,7 +185,7 @@ fn faces_are_drafted_about_a_plane() -> anyhow::Result<()> {
 
 #[test]
 fn surfaces_are_thickened_into_solids() -> anyhow::Result<()> {
-    use shapecraft_ops_faces::{Thicken, ThickenArgs, ThickenSide};
+    use workpiece_ops_faces::{Thicken, ThickenArgs, ThickenSide};
     // The four walls of a 2 × 2 square, 2 tall, as a surface.
     let thick = |side: ThickenSide, sharp: bool| -> anyhow::Result<f64> {
         let mut b = Standalone::new();
@@ -232,8 +228,8 @@ fn surfaces_are_thickened_into_solids() -> anyhow::Result<()> {
 
 #[test]
 fn areas_are_embossed_and_engraved_following_the_face() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
-    use shapecraft_ops_faces::{Emboss, EmbossArgs};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_faces::{Emboss, EmbossArgs};
     // A disk of radius 0.5 thrown along z onto the top of the 4 × 4 × 2
     // box: a flat pad, or a flat pocket.
     for (engrave, change) in [(false, 1.0), (true, -1.0)] {
@@ -267,11 +263,10 @@ fn areas_are_embossed_and_engraved_following_the_face() -> anyhow::Result<()> {
         },
     }
     .apply(&mut b)?;
-    let side: Reference<shapecraft_core::world::DatumPlane> =
-        Reference::frame_axis(ORIGIN, Axis::X);
+    let side: Reference<workpiece_core::world::DatumPlane> = Reference::frame_axis(ORIGIN, Axis::X);
     let plane = b.world.resolve(&side)?;
     let flat = |p: [f64; 3]| {
-        let d = shapecraft_core::math::Point3::from_array(p) - plane.origin();
+        let d = workpiece_core::math::Point3::from_array(p) - plane.origin();
         [d.dot(plane.x_dir()), d.dot(plane.y_dir())]
     };
     let (a, c) = (flat([0.0, -0.3, 0.7]), flat([0.0, 0.3, 1.3]));
@@ -299,9 +294,9 @@ fn areas_are_embossed_and_engraved_following_the_face() -> anyhow::Result<()> {
     let raised = (segment(1.1) - segment(1.0)) * 0.6;
     // (Measured on the solid itself: sampled, the rod alone is short by
     // as much as half of what is raised.)
-    let rod = shapecraft_boolean::read(&b.world.topo, body(&b, "rod"))?;
+    let rod = workpiece_boolean::read(&b.world.topo, body(&b, "rod"))?;
     close(
-        shapecraft_boolean::measure(&rod).volume - 2.0 * PI,
+        workpiece_boolean::measure(&rod).volume - 2.0 * PI,
         raised,
         1e-6,
     );
@@ -310,7 +305,7 @@ fn areas_are_embossed_and_engraved_following_the_face() -> anyhow::Result<()> {
 
 #[test]
 fn faces_are_pushed_and_pulled() -> anyhow::Result<()> {
-    use shapecraft_ops_faces::{FaceWay, MoveFace, MoveFaceArgs};
+    use workpiece_ops_faces::{FaceWay, MoveFace, MoveFaceArgs};
     // The 4 × 4 × 2 box with a hole of radius 0.5 through it.
     let drilled = || -> anyhow::Result<(Standalone, String)> {
         let mut b = Standalone::new();
@@ -334,7 +329,7 @@ fn faces_are_pushed_and_pulled() -> anyhow::Result<()> {
     let exact = |b: &Standalone| -> anyhow::Result<f64> {
         check(b);
         Ok(
-            shapecraft_boolean::measure(&shapecraft_boolean::read(&b.world.topo, body(b, "base"))?)
+            workpiece_boolean::measure(&workpiece_boolean::read(&b.world.topo, body(b, "base"))?)
                 .volume,
         )
     };
@@ -389,12 +384,12 @@ fn faces_are_pushed_and_pulled() -> anyhow::Result<()> {
     // body runs on to it, or is cut back.
     for (height, volume) in [(1.5, area * 2.5), (0.5, area * 1.5)] {
         let (mut b, _) = drilled()?;
-        let pose = shapecraft_core::Pose::from_translation(shapecraft_core::math::Point3::new(
+        let pose = workpiece_core::Pose::from_translation(workpiece_core::math::Point3::new(
             0.0, 0.0, height,
         ));
         b.world.datums.insert(
             "level".to_owned(),
-            shapecraft_core::world::Datum::Frame(shapecraft_core::world::DatumFrame::from_pose(
+            workpiece_core::world::Datum::Frame(workpiece_core::world::DatumFrame::from_pose(
                 pose,
             )?),
         );
@@ -415,11 +410,11 @@ fn faces_are_pushed_and_pulled() -> anyhow::Result<()> {
 
 #[test]
 fn deleted_faces_are_closed_over() -> anyhow::Result<()> {
-    use shapecraft_ops_faces::{DeleteFace, DeleteFaceArgs};
+    use workpiece_ops_faces::{DeleteFace, DeleteFaceArgs};
     let exact = |b: &Standalone| -> anyhow::Result<f64> {
         check(b);
         Ok(
-            shapecraft_boolean::measure(&shapecraft_boolean::read(&b.world.topo, body(b, "base"))?)
+            workpiece_boolean::measure(&workpiece_boolean::read(&b.world.topo, body(b, "base"))?)
                 .volume,
         )
     };
@@ -458,12 +453,12 @@ fn deleted_faces_are_closed_over() -> anyhow::Result<()> {
         DeleteFace {
             id: "heal".into(),
             args: DeleteFaceArgs {
-                faces: shapecraft_core::Reference::each(faces),
+                faces: workpiece_core::Reference::each(faces),
             },
         }
         .apply(&mut b)?;
         close(exact(&b)?, 32.0, 1e-9);
-        let healed = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+        let healed = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
         assert_eq!(healed.faces.len(), 6);
     }
     Ok(())
@@ -471,7 +466,7 @@ fn deleted_faces_are_closed_over() -> anyhow::Result<()> {
 
 #[test]
 fn a_slot_on_a_flange_as_thick_as_the_wall_is_shelled_sharp_inside() -> anyhow::Result<()> {
-    use shapecraft_ops_faces::{Shell, ShellArgs};
+    use workpiece_ops_faces::{Shell, ShellArgs};
     // A flange 100 × 60 × 5 with a slot 40 wide, 40 between its round
     // ends' centres and 30 high on it, hollowed from below to walls 5
     // thick: the inner wall's foot lies in the flange's top face. The
@@ -485,7 +480,7 @@ fn a_slot_on_a_flange_as_thick_as_the_wall_is_shelled_sharp_inside() -> anyhow::
     flange.apply(&mut b)?;
     let mut s = Sketch::new("s");
     s.args.plane = Some(xy());
-    let at = |args: &mut shapecraft_ops_sketch::SketchArgs, u: f64, v: f64| {
+    let at = |args: &mut workpiece_ops_sketch::SketchArgs, u: f64, v: f64| {
         args.add_point(Point2::new(u, v))
     };
     let (a, c) = (at(&mut s.args, -20.0, -20.0), at(&mut s.args, 20.0, -20.0));
@@ -507,7 +502,7 @@ fn a_slot_on_a_flange_as_thick_as_the_wall_is_shelled_sharp_inside() -> anyhow::
     let mut slot = Extrude::of("slot", Some("s".into()), false);
     slot.args.distance = Measure::new(30.0);
     slot.apply(&mut b)?;
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "flange"))?;
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "flange"))?;
     let bottom = solid
         .faces
         .iter()
@@ -525,7 +520,7 @@ fn a_slot_on_a_flange_as_thick_as_the_wall_is_shelled_sharp_inside() -> anyhow::
     check(&b);
     let slot = |w: f64| 40.0 * w + PI * (w / 2.0).powi(2);
     let sharp = 6000.0 * 5.0 + slot(40.0) * 25.0 - slot(30.0) * 25.0;
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "flange"))?;
-    close(shapecraft_boolean::measure(&solid).volume, sharp, 1e-6);
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "flange"))?;
+    close(workpiece_boolean::measure(&solid).volume, sharp, 1e-6);
     Ok(())
 }

@@ -7,7 +7,7 @@
 # 1.125, 7 across the top corners) running into the lug, patterned to the other side.
 import sys, math, os, json
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
-from shapecraft import *
+from workpiece import *
 here = os.path.dirname(os.path.abspath(__file__))
 material(here, "ABS 1020", 1020)   # the drawing's density
 RHO = 1020 * 3.6127e-5  # 1020 kg/m^3 in lb/in^3
@@ -117,4 +117,4 @@ p.drawing(format="A3", scale=(1, 2), views=[view("plan", "Top", (110, 215), styl
                  note(None, (0, 0), "O.D.", dimension="od_ref"),
                  note("plan", (62, -86), "SPHERES and RIBS\nCENTERED ON PART", to=(4.7, 0, 1.2)),
                  note("iso", (8, 30), "CONCENTRIC", to=[(4.7, 0, 1.2), (-4.7, 0, 1.2)])])
-r = p.build("10.shapecraft", render=True); r.show(); print("mass lb", r.volume * RHO)
+r = p.build("10.workpiece", render=True); r.show(); print("mass lb", r.volume * RHO)

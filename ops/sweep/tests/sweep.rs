@@ -1,9 +1,9 @@
 //! What the operations of this crate make.
 
-use shapecraft_core::world::AreaPick;
-use shapecraft_ops_sweep::{Extent, Extrude, Revolve, RevolveAxis};
-use shapecraft_ops_testing::*;
-use shapecraft_shape::Combine;
+use workpiece_core::world::AreaPick;
+use workpiece_ops_sweep::{Extent, Extrude, Revolve, RevolveAxis};
+use workpiece_ops_testing::*;
+use workpiece_shape::Combine;
 
 #[test]
 fn sketches_extrude_into_plates_with_holes() -> anyhow::Result<()> {
@@ -64,7 +64,7 @@ fn extrusions_join_cut_and_stop_where_told() -> anyhow::Result<()> {
         let top = Reference::topology("base/top");
         sketch(b, "s", top, None, &[([0.5, 0.0], 0.5)])?;
         let mut op = Extrude::of(id, Some("s".into()), false);
-        op.args.distance = shapecraft_core::Measure::new(1.0);
+        op.args.distance = workpiece_core::Measure::new(1.0);
         set(&mut op);
         op.apply(b)?;
         check(b);
@@ -114,17 +114,17 @@ fn extrusions_join_cut_and_stop_where_told() -> anyhow::Result<()> {
     // box. And from a sketch in the middle of the box, through all goes
     // the way it is said (up: half the box), not both ways.
     let tower = |b: &mut Standalone| {
-        let there = shapecraft_core::world::DatumFrame::new(
-            shapecraft_core::math::Point3::new(-1.5, 0.0, 4.0),
-            shapecraft_core::math::Point3::X,
-            shapecraft_core::math::Point3::Y,
+        let there = workpiece_core::world::DatumFrame::new(
+            workpiece_core::math::Point3::new(-1.5, 0.0, 4.0),
+            workpiece_core::math::Point3::X,
+            workpiece_core::math::Point3::Y,
         )?;
         b.world
             .datums
-            .insert("there".into(), shapecraft_core::world::Datum::Frame(there));
-        shapecraft_ops_basic_shapes::AddBox {
+            .insert("there".into(), workpiece_core::world::Datum::Frame(there));
+        workpiece_ops_basic_shapes::AddBox {
             id: "tower".into(),
-            args: shapecraft_ops_basic_shapes::AddBoxArgs {
+            args: workpiece_ops_basic_shapes::AddBoxArgs {
                 frame: Some(Reference::datum("there")),
                 size: [1.0, 4.0, 6.0].map(Measure::new),
             },
@@ -159,7 +159,7 @@ fn extrusions_join_cut_and_stop_where_told() -> anyhow::Result<()> {
     )?;
     let mut notch = Extrude::of("notch", Some("s".into()), false);
     notch.args.flip = true;
-    notch.args.distance = shapecraft_core::Measure::new(1.0);
+    notch.args.distance = workpiece_core::Measure::new(1.0);
     notch.args.combine = Combine::Cut;
     notch.apply(&mut b)?;
     check(&b);
@@ -177,11 +177,10 @@ fn posts_reach_up_to_the_next_body() -> anyhow::Result<()> {
         let mut b = Standalone::new();
         base(&mut b)?;
         // A floor well below the box, and a post from it up to the box.
-        let low = shapecraft_core::world::DatumFrame::from_pose(
-            shapecraft_core::Pose::from_translation(shapecraft_core::math::Point3::new(
-                0.0, 0.0, -4.0,
-            )),
-        )?;
+        let low =
+            workpiece_core::world::DatumFrame::from_pose(workpiece_core::Pose::from_translation(
+                workpiece_core::math::Point3::new(0.0, 0.0, -4.0),
+            ))?;
         b.world.datums.insert("low".into(), low.into());
         AddBox {
             id: "floor".into(),
@@ -207,7 +206,7 @@ fn posts_reach_up_to_the_next_body() -> anyhow::Result<()> {
         // The floor, the post (from z = −3.5 to −1) and the box are one.
         let topo = &b.world.topo;
         assert!(topo.lookup("base").is_none() || topo.lookup("floor").is_none());
-        let all: f64 = shapecraft_core::world::topo::Topo::bodies(topo)
+        let all: f64 = workpiece_core::world::topo::Topo::bodies(topo)
             .ids()
             .map(|id| volume(topo, id))
             .sum();
@@ -271,12 +270,12 @@ fn sketches_revolve_into_rings_and_combine() -> anyhow::Result<()> {
 
 #[test]
 fn a_sketch_with_a_rotation_axis_is_turned_about_it() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point2;
-    use shapecraft_core::{EditContext, Operation, Widget};
+    use workpiece_core::math::Point2;
+    use workpiece_core::{EditContext, Operation, Widget};
     let mut b = Standalone::new();
     // A rectangle from x = 1 to 2, and a rotation axis upright at x = 3:
     // a ring 1 to 2 off the axis, 1 high.
-    let mut s = shapecraft_ops_sketch::Sketch::new("s");
+    let mut s = workpiece_ops_sketch::Sketch::new("s");
     s.args.plane = Some(xy());
     let corners = [[1.0, 0.0], [2.0, 0.0], [2.0, 1.0], [1.0, 1.0]]
         .map(|p| s.args.add_point(Point2::from_array(p)));
@@ -289,14 +288,14 @@ fn a_sketch_with_a_rotation_axis_is_turned_about_it() -> anyhow::Result<()> {
     // Picked in its dialog, the sketch's rotation axis is chosen.
     let picker = Revolve::of("ring", None, false);
     let world = std::sync::Arc::new(b.world.clone());
-    let cache = shapecraft_core::Cache::default();
+    let cache = workpiece_core::Cache::default();
     let context = EditContext::standalone(&world, &cache);
     let mut picked = None;
     picker.visualize_edit(&context, &()).dialog.visit(&mut |w| {
         if let Widget::ReferenceInput(field) = w
             && field.label == "Sketch"
         {
-            picked = Some(field.set(shapecraft_core::Source::Profile("s".into())));
+            picked = Some(field.set(workpiece_core::Source::Profile("s".into())));
         }
     });
     let picked = picked.expect("a sketch field").args.expect("arguments");
@@ -311,7 +310,7 @@ fn a_sketch_with_a_rotation_axis_is_turned_about_it() -> anyhow::Result<()> {
 
 #[test]
 fn sketches_sweep_along_paths() -> anyhow::Result<()> {
-    use shapecraft_ops_sweep::{SweptLoft, SweptLoftArgs};
+    use workpiece_ops_sweep::{SweptLoft, SweptLoftArgs};
     let yz = || Reference::frame_axis(ORIGIN, Axis::X);
     // A square bar around a corner: as much as its centre line is long.
     let mut b = Standalone::new();
@@ -351,9 +350,9 @@ fn sketches_sweep_along_paths() -> anyhow::Result<()> {
         b.world.topo.body(body(&b, "skin")).map(|b| b.kind),
         Some(BodyKind::Sheet)
     );
-    let skin = shapecraft_boolean::read_sheet(&b.world.topo, body(&b, "skin"))?;
+    let skin = workpiece_boolean::read_sheet(&b.world.topo, body(&b, "skin"))?;
     let area: f64 = (0..skin.faces.len())
-        .map(|f| shapecraft_boolean::face_area(&skin, f))
+        .map(|f| workpiece_boolean::face_area(&skin, f))
         .sum();
     close(area, 4.0 * 7.0, 1e-9);
 
@@ -374,13 +373,13 @@ fn sketches_sweep_along_paths() -> anyhow::Result<()> {
 
 #[test]
 fn sections_loft_into_solids() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::topo::Curve3;
-    use shapecraft_shape::swept::{circle, polygon, through_sections};
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::topo::Curve3;
+    use workpiece_shape::swept::{circle, polygon, through_sections};
     // The sides of an outline, at a height.
     let raised = |(sides, points): (
-        shapecraft_shape::swept::Sides,
-        shapecraft_shape::swept::Weighted,
+        workpiece_shape::swept::Sides,
+        workpiece_shape::swept::Weighted,
     ),
                   z: f64| {
         let mut curves = Vec::new();
@@ -405,8 +404,8 @@ fn sections_loft_into_solids() -> anyhow::Result<()> {
     };
     let measured = |sections: &[Vec<Curve3>]| {
         let solid = through_sections("loft", sections)?;
-        let mut topo = shapecraft_core::world::Topo::new();
-        let made = shapecraft_boolean::write(&mut topo, &solid, "loft")?;
+        let mut topo = workpiece_core::world::Topo::new();
+        let made = workpiece_boolean::write(&mut topo, &solid, "loft")?;
         assert_eq!(topo.validate(), Ok(()));
         anyhow::Ok(volume(&topo, made))
     };
@@ -438,7 +437,7 @@ fn sections_loft_into_solids() -> anyhow::Result<()> {
 
 #[test]
 fn ribs_fill_in_to_the_body() -> anyhow::Result<()> {
-    use shapecraft_ops_sweep::{Rib, RibArgs};
+    use workpiece_ops_sweep::{Rib, RibArgs};
     // An L of two boxes (a floor and a wall), and a line across its
     // corner in the plane y = 0: a triangular rib.
     let mut b = Standalone::new();
@@ -447,11 +446,11 @@ fn ribs_fill_in_to_the_body() -> anyhow::Result<()> {
         ("wall", [-1.5, 0.0, 1.0], [1.0, 2.0, 2.0]),
     ] {
         let pose =
-            shapecraft_core::Pose::from_translation(shapecraft_core::math::Point3::from_array(at));
+            workpiece_core::Pose::from_translation(workpiece_core::math::Point3::from_array(at));
         let frame = format!("{id}-frame");
         b.world.datums.insert(
             frame.clone(),
-            shapecraft_core::world::Datum::Frame(shapecraft_core::world::DatumFrame::from_pose(
+            workpiece_core::world::Datum::Frame(workpiece_core::world::DatumFrame::from_pose(
                 pose,
             )?),
         );
@@ -467,10 +466,12 @@ fn ribs_fill_in_to_the_body() -> anyhow::Result<()> {
     // In the plane y = 0, from the wall's face (x = -1) at z = 1.5 to
     // the floor's top (z = 0) at x = 0.5.
     let world = &b.world;
-    let plane = world
-        .resolve(&Reference::<shapecraft_core::world::DatumPlane>::frame_axis(ORIGIN, Axis::Y))?;
+    let plane = world.resolve(&Reference::<workpiece_core::world::DatumPlane>::frame_axis(
+        ORIGIN,
+        Axis::Y,
+    ))?;
     let flat = |p: [f64; 3]| {
-        let d = shapecraft_core::math::Point3::from_array(p) - plane.origin();
+        let d = workpiece_core::math::Point3::from_array(p) - plane.origin();
         Point2::new(d.dot(plane.x_dir()), d.dot(plane.y_dir()))
     };
     let mut line = Sketch::new("line");
@@ -514,7 +515,7 @@ fn ribs_fill_in_to_the_body() -> anyhow::Result<()> {
 
 #[test]
 fn a_sketch_of_several_runs_makes_a_rib_to_each() -> anyhow::Result<()> {
-    use shapecraft_ops_sweep::{Rib, RibArgs};
+    use workpiece_ops_sweep::{Rib, RibArgs};
     // A floor between two walls (x from -2 to -1 and from 1 to 2), the
     // floor's top at z = 0; lines in the plane y = 0 from one wall and
     // from the other down to the floor.
@@ -525,15 +526,15 @@ fn a_sketch_of_several_runs_makes_a_rib_to_each() -> anyhow::Result<()> {
             ("left", [-1.5, 0.0, 1.0], [1.0, 2.0, 2.0]),
             ("right", [1.5, 0.0, 1.0], [1.0, 2.0, 2.0]),
         ] {
-            let pose = shapecraft_core::Pose::from_translation(
-                shapecraft_core::math::Point3::from_array(at),
+            let pose = workpiece_core::Pose::from_translation(
+                workpiece_core::math::Point3::from_array(at),
             );
             let frame = format!("{id}-frame");
             b.world.datums.insert(
                 frame.clone(),
-                shapecraft_core::world::Datum::Frame(
-                    shapecraft_core::world::DatumFrame::from_pose(pose)?,
-                ),
+                workpiece_core::world::Datum::Frame(workpiece_core::world::DatumFrame::from_pose(
+                    pose,
+                )?),
             );
             AddBox {
                 id: id.into(),
@@ -544,11 +545,14 @@ fn a_sketch_of_several_runs_makes_a_rib_to_each() -> anyhow::Result<()> {
             }
             .apply(&mut b)?;
         }
-        let plane = b.world.resolve(
-            &Reference::<shapecraft_core::world::DatumPlane>::frame_axis(ORIGIN, Axis::Y),
-        )?;
+        let plane =
+            b.world
+                .resolve(&Reference::<workpiece_core::world::DatumPlane>::frame_axis(
+                    ORIGIN,
+                    Axis::Y,
+                ))?;
         let flat = |p: [f64; 2]| {
-            let d = shapecraft_core::math::Point3::new(p[0], 0.0, p[1]) - plane.origin();
+            let d = workpiece_core::math::Point3::new(p[0], 0.0, p[1]) - plane.origin();
             Point2::new(d.dot(plane.x_dir()), d.dot(plane.y_dir()))
         };
         // One sketch of all the lines (one rib step), or one sketch to
@@ -598,7 +602,7 @@ fn a_sketch_of_several_runs_makes_a_rib_to_each() -> anyhow::Result<()> {
 
 #[test]
 fn a_bent_rib_fills_in_from_all_of_its_curves() -> anyhow::Result<()> {
-    use shapecraft_ops_sweep::{Rib, RibArgs};
+    use workpiece_ops_sweep::{Rib, RibArgs};
     // A floor 4 × 2 × 1 (its top at z = 0), and on it in the plane
     // y = 0 a peak of two lines: from (-1, 0) up to (0, 3) and down to
     // (1, 0). The rib grows down from the peak to the floor: a triangle
@@ -606,10 +610,10 @@ fn a_bent_rib_fills_in_from_all_of_its_curves() -> anyhow::Result<()> {
     // than the lines' ends do.
     let mut b = Standalone::new();
     let pose =
-        shapecraft_core::Pose::from_translation(shapecraft_core::math::Point3::new(0.0, 0.0, -0.5));
+        workpiece_core::Pose::from_translation(workpiece_core::math::Point3::new(0.0, 0.0, -0.5));
     b.world.datums.insert(
         "floor-frame".into(),
-        shapecraft_core::world::Datum::Frame(shapecraft_core::world::DatumFrame::from_pose(pose)?),
+        workpiece_core::world::Datum::Frame(workpiece_core::world::DatumFrame::from_pose(pose)?),
     );
     AddBox {
         id: "floor".into(),
@@ -621,9 +625,12 @@ fn a_bent_rib_fills_in_from_all_of_its_curves() -> anyhow::Result<()> {
     .apply(&mut b)?;
     let plane = b
         .world
-        .resolve(&Reference::<shapecraft_core::world::DatumPlane>::frame_axis(ORIGIN, Axis::Y))?;
+        .resolve(&Reference::<workpiece_core::world::DatumPlane>::frame_axis(
+            ORIGIN,
+            Axis::Y,
+        ))?;
     let flat = |p: [f64; 3]| {
-        let d = shapecraft_core::math::Point3::from_array(p) - plane.origin();
+        let d = workpiece_core::math::Point3::from_array(p) - plane.origin();
         Point2::new(d.dot(plane.x_dir()), d.dot(plane.y_dir()))
     };
     let mut peak = Sketch::new("peak");
@@ -655,14 +662,13 @@ fn a_bent_rib_fills_in_from_all_of_its_curves() -> anyhow::Result<()> {
 
 #[test]
 fn sections_coil_around_an_axis() -> anyhow::Result<()> {
-    use shapecraft_ops_sweep::{SweptLoft, SweptLoftArgs};
+    use workpiece_ops_sweep::{SweptLoft, SweptLoftArgs};
     // A disk of radius 0.2 in the xz plane, 2 out along x, coiled three
     // turns about z with a pitch of 1: a spring.
     let mut b = Standalone::new();
-    let side: Reference<shapecraft_core::world::DatumPlane> =
-        Reference::frame_axis(ORIGIN, Axis::Y);
+    let side: Reference<workpiece_core::world::DatumPlane> = Reference::frame_axis(ORIGIN, Axis::Y);
     let plane = b.world.resolve(&side)?;
-    let d = shapecraft_core::math::Point3::new(2.0, 0.0, 0.0) - plane.origin();
+    let d = workpiece_core::math::Point3::new(2.0, 0.0, 0.0) - plane.origin();
     let at = [d.dot(plane.x_dir()), d.dot(plane.y_dir())];
     sketch(&mut b, "wire", side, None, &[(at, 0.2)])?;
     SweptLoft {
@@ -677,13 +683,13 @@ fn sections_coil_around_an_axis() -> anyhow::Result<()> {
     }
     .apply(&mut b)?;
     check(&b);
-    let spring = shapecraft_boolean::read(&b.world.topo, body(&b, "spring"))?;
+    let spring = workpiece_boolean::read(&b.world.topo, body(&b, "spring"))?;
     // The wire's section (seen along the helix: a little less than the
     // disk, which leans to it) along the helix's length.
     let turn = ((2.0 * PI * 2.0_f64).powi(2) + 1.0).sqrt();
     let lean = 2.0 * PI * 2.0 / turn;
     close(
-        shapecraft_boolean::measure(&spring).volume,
+        workpiece_boolean::measure(&spring).volume,
         PI * 0.04 * lean * 3.0 * turn,
         1e-3,
     );
@@ -692,14 +698,14 @@ fn sections_coil_around_an_axis() -> anyhow::Result<()> {
 
 #[test]
 fn surfaces_are_lofted_through_sketches_left_open() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_ops_sweep::{SweptLoft, SweptLoftArgs};
+    use workpiece_core::math::Point3;
+    use workpiece_ops_sweep::{SweptLoft, SweptLoftArgs};
     // An L of two lines (2 and 1 long), on the ground and again 3 up:
     // lofted as a surface, two walls 3 high — and nothing where the L
     // is open.
     let mut b = Standalone::new();
-    let up = shapecraft_core::Pose::from_translation(Point3::new(0.0, 0.0, 3.0));
-    let frame = shapecraft_core::world::DatumFrame::from_pose(up)?;
+    let up = workpiece_core::Pose::from_translation(Point3::new(0.0, 0.0, 3.0));
+    let frame = workpiece_core::world::DatumFrame::from_pose(up)?;
     b.world.datums.insert("up".into(), frame.into());
     for (id, plane) in [
         ("low", xy()),
@@ -727,10 +733,10 @@ fn surfaces_are_lofted_through_sketches_left_open() -> anyhow::Result<()> {
     }
     .apply(&mut b)?;
     check(&b);
-    let sheet = shapecraft_boolean::read_sheet(&b.world.topo, body(&b, "walls"))?;
+    let sheet = workpiece_boolean::read_sheet(&b.world.topo, body(&b, "walls"))?;
     assert_eq!(sheet.faces.len(), 2);
     let area: f64 = (0..2)
-        .map(|f| shapecraft_boolean::face_area(&sheet, f))
+        .map(|f| workpiece_boolean::face_area(&sheet, f))
         .sum();
     close(area, 9.0, 1e-9);
     // Two splines that bend to different sides and run opposite ways:
@@ -769,7 +775,7 @@ fn surfaces_are_lofted_through_sketches_left_open() -> anyhow::Result<()> {
     }
     .apply(&mut b)?;
     check(&b);
-    let sheet = shapecraft_boolean::read_sheet(&b.world.topo, body(&b, "wave"))?;
+    let sheet = workpiece_boolean::read_sheet(&b.world.topo, body(&b, "wave"))?;
     let mut on_edges = Vec::new();
     for edge in &sheet.edges {
         let (t0, t1) = edge.range;
@@ -795,7 +801,7 @@ fn surfaces_are_lofted_through_sketches_left_open() -> anyhow::Result<()> {
 
 #[test]
 fn solids_are_measured_with_their_centre_of_gravity() -> anyhow::Result<()> {
-    use shapecraft_ops_basic_shapes::{AddCone, AddConeArgs};
+    use workpiece_ops_basic_shapes::{AddCone, AddConeArgs};
     // A cone on the origin: a third of its base times its height, and
     // balanced a quarter of the way up its axis.
     let mut b = Standalone::new();
@@ -809,8 +815,7 @@ fn solids_are_measured_with_their_centre_of_gravity() -> anyhow::Result<()> {
         },
     }
     .apply(&mut b)?;
-    let m =
-        shapecraft_boolean::measure(&shapecraft_boolean::read(&b.world.topo, body(&b, "cone"))?);
+    let m = workpiece_boolean::measure(&workpiece_boolean::read(&b.world.topo, body(&b, "cone"))?);
     close(m.volume, PI * 2.25 * 4.0 / 3.0, 1e-9);
     close(m.centre.x, 0.0, 1e-9);
     close(m.centre.y, 0.0, 1e-9);
@@ -824,8 +829,7 @@ fn solids_are_measured_with_their_centre_of_gravity() -> anyhow::Result<()> {
     cut.args.distance = Measure::new(4.0);
     cut.args.combine = Combine::Cut;
     cut.apply(&mut b)?;
-    let m =
-        shapecraft_boolean::measure(&shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?);
+    let m = workpiece_boolean::measure(&workpiece_boolean::read(&b.world.topo, body(&b, "base"))?);
     close(m.volume, 24.0, 1e-9);
     close(m.centre.x, -8.0 / 24.0, 1e-9);
     close(m.centre.y, -8.0 / 24.0, 1e-9);
@@ -837,7 +841,7 @@ fn solids_are_measured_with_their_centre_of_gravity() -> anyhow::Result<()> {
 fn bodies_are_written_as_stl() -> anyhow::Result<()> {
     let mut b = Standalone::new();
     base(&mut b)?;
-    let stl = shapecraft_cad_rasterize::tessellate::stl(&b.world.topo);
+    let stl = workpiece_rasterize::tessellate::stl(&b.world.topo);
     let count = u32::from_le_bytes([stl[80], stl[81], stl[82], stl[83]]) as usize;
     assert_eq!((count, stl.len()), (12, 84 + 50 * 12));
     // Its triangles face out of the box: they enclose its volume.
@@ -853,7 +857,7 @@ fn bodies_are_written_as_stl() -> anyhow::Result<()> {
     for k in 0..count {
         let corner = |c: usize| {
             let at = 84 + 50 * k + 12 * (c + 1);
-            shapecraft_core::math::Point3::new(number(at), number(at + 4), number(at + 8))
+            workpiece_core::math::Point3::new(number(at), number(at + 4), number(at + 8))
         };
         volume += corner(0).dot(corner(1).cross(corner(2))) / 6.0;
     }
@@ -863,7 +867,7 @@ fn bodies_are_written_as_stl() -> anyhow::Result<()> {
 
 /// A sketch `id` on the plane of x and y: lines from point to point.
 fn lines(b: &mut Standalone, id: &str, runs: &[&[[f64; 2]]]) -> anyhow::Result<()> {
-    let mut sketch = shapecraft_ops_sketch::Sketch::new(id);
+    let mut sketch = workpiece_ops_sketch::Sketch::new(id);
     sketch.args.plane = Some(xy());
     for run in runs {
         // (A run that ends where it began closes.)
@@ -930,8 +934,8 @@ fn curves_left_open_sweep_into_surfaces() -> anyhow::Result<()> {
 
 #[test]
 fn what_a_sweep_is_held_to_is_said_of_the_model_with_its_tolerance() -> anyhow::Result<()> {
-    use shapecraft_core::world::{Measured, Note, Tolerance};
-    use shapecraft_core::{Arguments, EditContext, Widget};
+    use workpiece_core::world::{Measured, Note, Tolerance};
+    use workpiece_core::{Arguments, EditContext, Widget};
     let mut b = Standalone::new();
     sketch(&mut b, "s", xy(), Some(([1.0, 0.0], [2.0, 1.0])), &[])?;
     // The distance is entered with its tolerance, in its field.
@@ -985,7 +989,7 @@ fn what_a_sweep_is_held_to_is_said_of_the_model_with_its_tolerance() -> anyhow::
 
 #[test]
 fn a_round_topped_bar_is_cut_from_a_block_of_its_width() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point2;
+    use workpiece_core::math::Point2;
     // A block 2 × 1 × 3 on the plane of x and y, and through it along x
     // a bar as wide and as high, its top rounded: its flat sides and
     // its bottom lie in the block's, and its round top touches the
@@ -995,11 +999,11 @@ fn a_round_topped_bar_is_cut_from_a_block_of_its_width() -> anyhow::Result<()> {
     sketch(&mut b, "a", xy(), Some(([-1.0, -0.5], [1.0, 0.5])), &[])?;
     let mut block = Extrude::of("block", Some("a".into()), false);
     block.args.combine = Combine::NewBody;
-    block.args.distance = shapecraft_core::Measure::new(3.0);
+    block.args.distance = workpiece_core::Measure::new(3.0);
     block.apply(&mut b)?;
-    let mut d = shapecraft_ops_sketch::Sketch::new("d");
+    let mut d = workpiece_ops_sketch::Sketch::new("d");
     d.args.plane = Some(Reference::frame_axis(ORIGIN, Axis::X));
-    let at = |args: &mut shapecraft_ops_sketch::SketchArgs, u: f64, v: f64| {
+    let at = |args: &mut workpiece_ops_sketch::SketchArgs, u: f64, v: f64| {
         args.add_point(Point2::new(u, v))
     };
     let (p0, p1) = (at(&mut d.args, -0.5, 0.0), at(&mut d.args, 0.5, 0.0));
@@ -1007,7 +1011,7 @@ fn a_round_topped_bar_is_cut_from_a_block_of_its_width() -> anyhow::Result<()> {
     let centre = at(&mut d.args, 0.0, 2.5);
     d.args.add_line(p0, p1);
     d.args.add_line(p1, p2);
-    d.args.add(shapecraft_ops_sketch::Shape::Arc {
+    d.args.add(workpiece_ops_sketch::Shape::Arc {
         center: centre,
         start: p2,
         end: p3,
@@ -1017,12 +1021,12 @@ fn a_round_topped_bar_is_cut_from_a_block_of_its_width() -> anyhow::Result<()> {
     let mut bar = Extrude::of("bar", Some("d".into()), false);
     bar.args.combine = Combine::Intersect;
     bar.args.extent = Extent::Symmetric;
-    bar.args.distance = shapecraft_core::Measure::new(10.0);
+    bar.args.distance = workpiece_core::Measure::new(10.0);
     bar.apply(&mut b)?;
     check(&b);
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "block"))?;
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "block"))?;
     close(
-        shapecraft_boolean::measure(&solid).volume,
+        workpiece_boolean::measure(&solid).volume,
         2.0 * (2.5 + PI / 8.0),
         1e-9,
     );
@@ -1096,10 +1100,8 @@ fn areas_are_picked_by_a_point_inside_them() -> anyhow::Result<()> {
     )?;
     let disk = |b: &Standalone, s: &str| {
         let profile = &b.world.profiles[s];
-        let around = shapecraft_shape::sweep::region_at(
-            profile,
-            shapecraft_core::math::Point2::new(0.5, 0.0),
-        );
+        let around =
+            workpiece_shape::sweep::region_at(profile, workpiece_core::math::Point2::new(0.5, 0.0));
         AreaPick::Bounded(profile.anchors(around.expect("the disk")))
     };
     let pin = |b: &mut Standalone, id: &str, s: &str, pick: AreaPick| {

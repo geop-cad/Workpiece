@@ -1,16 +1,16 @@
 #!/bin/sh
 # Runs a command with no network, /home replaced by a tmpfs and only the sandbox folder
-# ($SHAPECRAFT_BENCH_DIR/conformance-sandbox, seen as /work) writable. The fetched crates
+# ($WORKPIECE_BENCH_DIR/conformance-sandbox, seen as /work) writable. The fetched crates
 # (/work/cargo-home) and the toolchain are read-only. This script lives outside /work on
 # purpose: nothing run inside the sandbox can change it.
 #
-#   SHAPECRAFT_BENCH_DIR   where the clones and the sandbox live (default ~/.cache/shapecraft-bench)
+#   WORKPIECE_BENCH_DIR   where the clones and the sandbox live (default ~/.cache/workpiece-bench)
 #   sandbox.sh [--ro HOST_PATH SANDBOX_PATH]... -- command args...
 set -eu
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
-BENCH=${SHAPECRAFT_BENCH_DIR:-$HOME/.cache/shapecraft-bench}
+BENCH=${WORKPIECE_BENCH_DIR:-$HOME/.cache/workpiece-bench}
 SB=$BENCH/conformance-sandbox
-[ -d "$SB/cargo-home" ] || { echo "no sandbox at $SB: set it up as bench/conformance/README.md says (SHAPECRAFT_BENCH_DIR names its parent folder)" >&2; exit 2; }
+[ -d "$SB/cargo-home" ] || { echo "no sandbox at $SB: set it up as bench/conformance/README.md says (WORKPIECE_BENCH_DIR names its parent folder)" >&2; exit 2; }
 TC=$HOME/.rustup/toolchains/1.99.1-x86_64-unknown-linux-gnu
 EXTRA=""
 while [ "${1:-}" = "--ro" ]; do EXTRA="$EXTRA --ro-bind $2 $3"; shift 3; done

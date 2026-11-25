@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-ops-basic-shapes"
+name = "workpiece-ops-basic-shapes"
 description = "Operations that create basic solid shapes."
 edition.workspace = true
 version.workspace = true
@@ -8,11 +8,11 @@ repository.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "shapecraft_ops_basic_shapes"
+name = "workpiece_ops_basic_shapes"
 
 [dependencies]
 anyhow.workspace = true
-shapecraft-core.workspace = true
+workpiece-core.workspace = true
 serde.workspace = true
 
 [lints]

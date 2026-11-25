@@ -18,16 +18,16 @@ pub use mass::{MassProperties, MassPropertiesArgs};
 /// with what it is about known (`about`: the middle of it), the click
 /// puts its text where the pointer is — as far from the eye as what it
 /// is about — and the note is done.
-pub(crate) fn placed<A: shapecraft_core::Arguments + Clone + 'static>(
+pub(crate) fn placed<A: workpiece_core::Arguments + Clone + 'static>(
     args: &A,
-    context: &shapecraft_core::EditContext<'_>,
-    about: Option<shapecraft_core::math::Point3>,
+    context: &workpiece_core::EditContext<'_>,
+    about: Option<workpiece_core::math::Point3>,
     at: fn(&A, [f64; 3]) -> A,
-) -> shapecraft_core::EditVisualization<shapecraft_core::Edit<A, ()>> {
-    let fields = shapecraft_core::Arguments::fields(args, context);
+) -> workpiece_core::EditVisualization<workpiece_core::Edit<A, ()>> {
+    let fields = workpiece_core::Arguments::fields(args, context);
     let args = args.clone();
-    shapecraft_core::EditVisualization::new(
-        shapecraft_core::widgets::VBox::new(fields),
+    workpiece_core::EditVisualization::new(
+        workpiece_core::widgets::VBox::new(fields),
         Default::default(),
     )
     .placed_by(move |ray| {
@@ -35,13 +35,13 @@ pub(crate) fn placed<A: shapecraft_core::Arguments + Clone + 'static>(
         let along = (about - ray.start()).dot(ray.direction());
         Some(at(&args, ray.at(along).to_array()))
     })
-    .map(shapecraft_core::Edit::args)
+    .map(workpiece_core::Edit::args)
 }
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
 /// add them, and their icons.
-pub fn register(r: &mut shapecraft_core::Registry) {
-    use shapecraft_core::Tool;
+pub fn register(r: &mut workpiece_core::Registry) {
+    use workpiece_core::Tool;
     r.kind::<DatumFeature>("datumfeature");
     r.tool(Tool {
         tab: "Annotate",

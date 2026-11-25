@@ -7,9 +7,9 @@
 use std::f64::consts::TAU;
 
 use serde_json::Value;
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::topo::Curve3;
-use shapecraft_ops_sketch::{Shape, SketchArgs};
+use workpiece_core::math::Point2;
+use workpiece_core::world::topo::Curve3;
+use workpiece_ops_sketch::{Shape, SketchArgs};
 
 use crate::{Answer, Frame, No, malformed};
 
@@ -181,9 +181,9 @@ pub fn loops(v: &Value) -> Answer<Vec<Vec<Segment>>> {
                     point2(gn.get("apex"))?,
                     point2(gn.get("b"))?,
                 );
-                let lift = |p: Point2| shapecraft_core::math::Point3::new(p.x, p.y, 0.0);
+                let lift = |p: Point2| workpiece_core::math::Point3::new(p.x, p.y, 0.0);
                 let all =
-                    shapecraft_shape::gn::section(lift(a), lift(apex), lift(b), number(gn, "w")?);
+                    workpiece_shape::gn::section(lift(a), lift(apex), lift(b), number(gn, "w")?);
                 let mut points: Vec<Point2> = all.iter().map(|p| Point2::new(p[0], p[1])).collect();
                 (points[0], points[5]) = (a, b);
                 made.push(Segment::Blend(points, all.iter().map(|p| p[3]).collect()));
@@ -326,7 +326,7 @@ pub fn curves(segments: &[Segment], frame: &Frame, height: f64) -> Answer<Vec<Cu
                 let (sin, cos) = start.sin_cos();
                 let out = (x * cos + y * sin) * *radius;
                 let on = (y * cos - x * sin) * *radius * sweep.signum();
-                shapecraft_shape::arcs::ellipse(place(*center), out, on, sweep.abs())
+                workpiece_shape::arcs::ellipse(place(*center), out, on, sweep.abs())
             }
             Segment::Conic { a, apex, b, w } => Curve3::new(
                 2,

@@ -10,8 +10,8 @@
 use std::f64::consts::{FRAC_PI_2, TAU};
 
 use anyhow::{Context, bail, ensure};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve3, NurbsSurface};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve3, NurbsSurface};
 
 use crate::part21::{Arguments, File, Instance, Value};
 
@@ -248,7 +248,7 @@ pub(crate) fn near(surface: &NurbsSurface, p: Point3, reach: f64) -> Option<Poin
     let seed = net
         .iter()
         .min_by(|a, b| a.1.distance_squared(p).total_cmp(&b.1.distance_squared(p)))?;
-    let (uv, off) = shapecraft_boolean::geometry::foot(surface, p, seed.0);
+    let (uv, off) = workpiece_boolean::geometry::foot(surface, p, seed.0);
     (off <= reach).then_some(uv)
 }
 
@@ -256,7 +256,7 @@ pub(crate) fn near(surface: &NurbsSurface, p: Point3, reach: f64) -> Option<Poin
 /// search for it, or else the foot of the nearest of a grid of its
 /// points, if that is near enough.
 pub(crate) fn locate(surface: &NurbsSurface, p: Point3, reach: f64) -> Vec<Point2> {
-    let mut found = shapecraft_boolean::geometry::on_surface(surface, p, reach);
+    let mut found = workpiece_boolean::geometry::on_surface(surface, p, reach);
     if !found.is_empty() {
         // The nearest first: a surface that comes by itself (a coil)
         // has places near the point that are not where it is.
@@ -279,7 +279,7 @@ pub(crate) fn locate(surface: &NurbsSurface, p: Point3, reach: f64) -> Vec<Point
             }
         }
     }
-    let (uv, off) = shapecraft_boolean::geometry::foot(surface, p, best.1);
+    let (uv, off) = workpiece_boolean::geometry::foot(surface, p, best.1);
     if off <= reach { vec![uv] } else { Vec::new() }
 }
 
@@ -1496,7 +1496,7 @@ pub(crate) fn edge_curve(
                 c.iter().fold(0.0_f64, |m, p| m.max(p.distance(c[0])))
             };
             let at = |q: Point3| {
-                let exact = shapecraft_boolean::geometry::on_curve(&curve, (lo, hi), q, tol);
+                let exact = workpiece_boolean::geometry::on_curve(&curve, (lo, hi), q, tol);
                 if let Some(&t) = exact.first() {
                     return Some(t);
                 }

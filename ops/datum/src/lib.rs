@@ -15,8 +15,8 @@ pub use add_plane::{AddPlane, AddPlaneArgs, PlaneMode};
 use std::sync::Arc;
 
 use anyhow::Context;
-use shapecraft_core::widgets::{Choice, ReferenceList};
-use shapecraft_core::{ReferenceKind, Resolve, Source, Widget, World};
+use workpiece_core::widgets::{Choice, ReferenceList};
+use workpiece_core::{ReferenceKind, Resolve, Source, Widget, World};
 
 /// The kinds of reference a construction takes.
 const KINDS: [ReferenceKind; 4] = [
@@ -32,22 +32,22 @@ const KINDS: [ReferenceKind; 4] = [
 const ANGLE_REACH: f64 = 10.0;
 
 /// A number a datum is constructed by, said of the model where it is
-/// (see [`Annotation::held`](shapecraft_core::world::Annotation::held)):
+/// (see [`Annotation::held`](workpiece_core::world::Annotation::held)):
 /// `value`, measured as `measured` says, called `{id}/{what}`.
 fn said(
     id: &str,
     what: &str,
-    measured: shapecraft_core::world::Measured,
+    measured: workpiece_core::world::Measured,
     value: f64,
-) -> (String, shapecraft_core::world::Annotation) {
+) -> (String, workpiece_core::world::Annotation) {
     let reach = match measured {
-        shapecraft_core::world::Measured::Angle { .. } => ANGLE_REACH,
+        workpiece_core::world::Measured::Angle { .. } => ANGLE_REACH,
         _ => 0.0,
     };
-    let measure = shapecraft_core::Measure::new(value);
+    let measure = workpiece_core::Measure::new(value);
     (
         format!("{id}/{what}"),
-        shapecraft_core::world::Annotation::held(measured, value, &measure, reach),
+        workpiece_core::world::Annotation::held(measured, value, &measure, reach),
     )
 }
 
@@ -288,8 +288,8 @@ fn counted(names: &[String]) -> String {
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
 /// add them, and their icons.
-pub fn register(r: &mut shapecraft_core::Registry) {
-    use shapecraft_core::Tool;
+pub fn register(r: &mut workpiece_core::Registry) {
+    use workpiece_core::Tool;
     r.kind::<AddPlane>("plane");
     r.tool(Tool {
         tab: "Modeling",

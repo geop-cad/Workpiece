@@ -11,8 +11,8 @@
 //! one of the face's edges holds the nearest place, and is searched as
 //! well.
 
-use shapecraft_core::cancel::checkpoint;
-use shapecraft_core::math::{Point2, Point3};
+use workpiece_core::cancel::checkpoint;
+use workpiece_core::math::{Point2, Point3};
 
 use crate::bezier::Bounds;
 use crate::model::Solid;

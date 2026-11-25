@@ -10,10 +10,10 @@
             "distance": null,
             "flip": false
           },
-          "part": "box.shapecraft",
+          "part": "base.workpiece",
           "variant": null
         },
-        "id": "box"
+        "id": "base"
       }
     },
     {
@@ -22,14 +22,31 @@
           "bodies": [],
           "hold": {
             "angle": null,
-            "constraint": "Fixed",
+            "constraint": {
+              "Joint": "Fastened"
+            },
             "distance": null,
-            "flip": false
+            "flip": true,
+            "onto": {
+              "instance": [
+                "base"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "rod_holes/side/e0"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "rod/side/e13"
+              }
+            }
           },
-          "part": "divider.shapecraft",
+          "part": "rod.workpiece",
           "variant": null
         },
-        "id": "divider1"
+        "id": "rod1"
       }
     },
     {
@@ -38,14 +55,97 @@
           "bodies": [],
           "hold": {
             "angle": null,
-            "constraint": "Fixed",
+            "constraint": {
+              "Joint": "Fastened"
+            },
             "distance": null,
-            "flip": false
+            "flip": true,
+            "onto": {
+              "instance": [
+                "base"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "rod_holes3/1/rod_holes/side/e0"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "rod/side/e13"
+              }
+            }
           },
-          "part": "divider.shapecraft",
+          "part": "rod.workpiece",
           "variant": null
         },
-        "id": "divider2"
+        "id": "rod2"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Fastened"
+            },
+            "distance": null,
+            "flip": true,
+            "onto": {
+              "instance": [
+                "base"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "rod_holes3/2/rod_holes/side/e0"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "rod/side/e13"
+              }
+            }
+          },
+          "part": "rod.workpiece",
+          "variant": null
+        },
+        "id": "rod3"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Fastened"
+            },
+            "distance": null,
+            "flip": true,
+            "onto": {
+              "instance": [
+                "rod1"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "rod/side/e15"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "rod_holes/side/e0"
+              }
+            }
+          },
+          "part": "rack.workpiece",
+          "variant": null
+        },
+        "id": "rack"
       }
     },
     {
@@ -58,17 +158,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "box/side/e13"
+                  "Topology": "base/side/e13"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "box/side/e11"
+                  "Topology": "base/side/e15"
                 }
               }
             }
@@ -78,7 +178,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "length"
+        "id": "width_front"
       }
     },
     {
@@ -91,17 +191,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "box/side/e12"
+                  "Topology": "base/side/e13"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "box/side/e14"
+                  "Topology": "base/side/e15"
                 }
               }
             }
@@ -111,7 +211,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "width"
+        "id": "width_top_y"
       }
     },
     {
@@ -124,17 +224,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "box/start"
+                  "Topology": "base/side/e12"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "box/end"
+                  "Topology": "base/side/e14"
                 }
               }
             }
@@ -144,7 +244,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "height"
+        "id": "width_top_x"
       }
     },
     {
@@ -157,17 +257,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "base",
                 "source": {
-                  "Topology": "divider/end"
+                  "Topology": "base/side/e12"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "base",
                 "source": {
-                  "Topology": "divider/start"
+                  "Topology": "base/side/e14"
                 }
               }
             }
@@ -177,7 +277,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "div_wide"
+        "id": "width_right"
       }
     },
     {
@@ -190,17 +290,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "base",
                 "source": {
-                  "Topology": "divider/side/e14"
+                  "Topology": "base/start"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "rack",
                 "source": {
-                  "Topology": "divider/side/e16"
+                  "Topology": "rack/end"
                 }
               }
             }
@@ -210,7 +310,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "div_thick"
+        "id": "overall"
       }
     },
     {
@@ -223,17 +323,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "base",
                 "source": {
-                  "Topology": "divider/end"
+                  "Topology": "base/start"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "base",
                 "source": {
-                  "Topology": "divider/start"
+                  "Topology": "base/end"
                 }
               }
             }
@@ -243,7 +343,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "div_wide_p"
+        "id": "base_h"
       }
     },
     {
@@ -256,17 +356,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "rack",
                 "source": {
-                  "Topology": "divider/side/e14"
+                  "Topology": "rack/start"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "rack",
                 "source": {
-                  "Topology": "divider/side/e16"
+                  "Topology": "rack/end"
                 }
               }
             }
@@ -276,7 +376,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "div_thick_p"
+        "id": "rack_h"
       }
     },
     {
@@ -289,17 +389,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "box/start"
+                  "Topology": "base/start"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "base",
                 "source": {
-                  "Topology": "divider/side/e15"
+                  "Topology": "rod_holes/side/e0"
                 }
               }
             }
@@ -309,7 +409,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "below_rim"
+        "id": "floor"
       }
     },
     {
@@ -322,17 +422,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "box",
+                "instance": "rod1",
                 "source": {
-                  "Topology": "box/end"
+                  "Topology": "rod/side/e15"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "rack",
                 "source": {
-                  "Topology": "divider/side/e13"
+                  "Topology": "rack/end"
                 }
               }
             }
@@ -342,7 +442,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "above_bottom"
+        "id": "rod_below_top"
       }
     },
     {
@@ -351,21 +451,13 @@
           "bend": "Own",
           "centres": false,
           "far": false,
-          "kind": "Auto",
+          "kind": "Diameter",
           "of": [
             {
               "Placed": {
-                "instance": "divider1",
+                "instance": "rod2",
                 "source": {
-                  "Topology": "divider/side/e16"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "divider2",
-                "source": {
-                  "Topology": "divider/side/e16"
+                  "Topology": "rod/side/e14"
                 }
               }
             }
@@ -375,7 +467,57 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "between"
+        "id": "rod_dia"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Diameter",
+          "of": [
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "bore/side/e1"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "bore_dia"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Diameter",
+          "of": [
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "rod_holes/side/e1"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "hole_dia"
       }
     },
     {
@@ -388,9 +530,9 @@
           "of": [
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "corners/e3/side/e0"
+                  "Topology": "base/side/e16"
                 }
               }
             }
@@ -400,22 +542,30 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "r_corner"
+        "id": "corner_r"
       }
     },
     {
       "Dimension": {
         "args": {
           "bend": "Own",
-          "centres": false,
+          "centres": true,
           "far": false,
-          "kind": "Radius",
+          "kind": "Auto",
           "of": [
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "thick/f9/far"
+                  "Topology": "base/side/e13"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "rod_holes3/1/rod_holes/side/e1"
                 }
               }
             }
@@ -423,9 +573,213 @@
           "plain": false,
           "same_side": false,
           "supplement": false,
-          "tolerance": "Reference"
+          "tolerance": "General"
         },
-        "id": "r_inner"
+        "id": "hole_left_y"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": true,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "base/side/e15"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "rod_holes/side/e1"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "hole_right_y"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": true,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "base/side/e12"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "rod_holes3/1/rod_holes/side/e1"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "hole_top_x"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": true,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "base/side/e14"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "rod_holes3/2/rod_holes/side/e1"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "hole_bottom_x"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": true,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "base/side/e12"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "bore/side/e1"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "centre_x"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": true,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "base/side/e13"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "base",
+                "source": {
+                  "Topology": "bore/side/e1"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "centre_y"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "along": {
+            "FrameAxis": {
+              "axis": "Z",
+              "frame": "origin"
+            }
+          },
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "rack",
+                "source": {
+                  "Topology": "rack/edge[end+lip/e0/side/e0]"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "rack",
+                "source": {
+                  "Topology": "rack/edge[bore/side/e1+lip/e0/side/e0]"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "chamfer"
       }
     },
     {
@@ -438,17 +792,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "box",
+                "instance": "rack",
                 "source": {
-                  "Topology": "box/side/e12"
+                  "Topology": "rod_holes3/1/rod_holes/side/e0"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "box",
+                "instance": "rack",
                 "source": {
-                  "Topology": "thick/f1/far#2#2"
+                  "Topology": "rack/end"
                 }
               }
             }
@@ -456,9 +810,9 @@
           "plain": false,
           "same_side": false,
           "supplement": false,
-          "tolerance": "Reference"
+          "tolerance": "General"
         },
-        "id": "wall_top"
+        "id": "rod_below_top_s"
       }
     },
     {
@@ -471,100 +825,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "box/end"
+                  "Topology": "base/start"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "box",
+                "instance": "base",
                 "source": {
-                  "Topology": "thick/f4/far"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "Reference"
-        },
-        "id": "floor_front"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Auto",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "box/end"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "thick/f4/far"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "Reference"
-        },
-        "id": "floor_right"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Radius",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "rim/e0/side/e0"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "Reference"
-        },
-        "id": "rim_front"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Radius",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "bottom/e0/side/e0"
+                  "Topology": "rod_holes/side/e0"
                 }
               }
             }
@@ -574,301 +845,15 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "bottom_front"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Radius",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "rim/e1/side/e0"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "rim_right"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Radius",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "bottom/e1/side/e0"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "bottom_right"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Auto",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "box/start"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "slots/side/e15"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "slot_depth"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Auto",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "slots/side/e15"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "slots/side/e16"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "slot_width"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": true,
-          "kind": "Auto",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "slots/side/e17"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "slots/side/e18"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "slot_length"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Auto",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "groove2/groove_cut/side/e22"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "divider2",
-                "source": {
-                  "Topology": "divider/side/e14"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "clear_a"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Auto",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "groove2/groove_cut/side/e20#2"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "divider2",
-                "source": {
-                  "Topology": "divider/side/e16"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "clear_b"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Auto",
-          "of": [
-            {
-              "Placed": {
-                "instance": "box",
-                "source": {
-                  "Topology": "groove_cut/side/e23"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "divider2",
-                "source": {
-                  "Topology": "divider/end"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "clear_end"
-      }
-    },
-    {
-      "AddPlane": {
-        "args": {
-          "angle": 45.0,
-          "distance": 0.0,
-          "mode": "Offset",
-          "other": false,
-          "references": [
-            {
-              "FrameAxis": {
-                "axis": "Y",
-                "frame": "origin"
-              }
-            }
-          ]
-        },
-        "id": "midY"
-      }
-    },
-    {
-      "AddPlane": {
-        "args": {
-          "angle": 45.0,
-          "distance": 0.0,
-          "mode": "Offset",
-          "other": false,
-          "references": [
-            {
-              "FrameAxis": {
-                "axis": "X",
-                "frame": "origin"
-              }
-            }
-          ]
-        },
-        "id": "midX"
+        "id": "floor_s"
       }
     },
     {
       "Section": {
         "args": {
           "along": "Plane",
-          "flip": false,
-          "offset": 0.0,
+          "flip": true,
+          "offset": 0.75,
           "plane": {
             "FrameAxis": {
               "axis": "X",
@@ -886,18 +871,26 @@
           "balloons": [
             {
               "at": [
-                -52.0,
-                34.0
+                22.0,
+                16.0
               ],
-              "part": "box",
-              "view": "iso"
+              "part": "base",
+              "view": "isoBase"
             },
             {
               "at": [
-                6.0,
-                44.0
+                22.0,
+                16.0
               ],
-              "part": "divider1",
+              "part": "rack",
+              "view": "isoRack"
+            },
+            {
+              "at": [
+                24.0,
+                10.0
+              ],
+              "part": "rod1",
               "view": "iso"
             }
           ],
@@ -1188,7 +1181,7 @@
               ]
             }
           ],
-          "centres": "None",
+          "centres": "All",
           "drafting": {
             "letter": 3.5,
             "past": 3.0,
@@ -1196,238 +1189,201 @@
             "wide": null
           },
           "format": "A3",
-          "lines": [
-            {
-              "label": "CL SYM",
-              "of": {
-                "Datum": "midY"
-              },
-              "symmetry": true,
-              "view": "top"
-            },
-            {
-              "label": "CL SYM",
-              "of": {
-                "Datum": "midY"
-              },
-              "symmetry": true,
-              "view": "front"
-            },
-            {
-              "label": "CL SYM",
-              "of": {
-                "Datum": "midX"
-              },
-              "symmetry": true,
-              "view": "right"
-            }
-          ],
           "name": "drawing1",
           "notes": [
             {
               "at": [
-                -7.0,
-                -14.0
+                27.0,
+                -22.0
               ],
-              "note": "above_bottom",
-              "view": "front"
-            },
-            {
-              "at": [
-                -7.0,
-                12.0
-              ],
-              "note": "below_rim",
-              "view": "front"
-            },
-            {
-              "at": [
-                0.0,
-                9.0
-              ],
-              "note": "between",
-              "view": "top"
-            },
-            {
-              "at": [
-                -60.802319534428676,
-                -25.873327461459013
-              ],
-              "note": "bottom_front",
-              "view": "front"
-            },
-            {
-              "at": [
-                -26.0,
-                -46.0
-              ],
-              "note": "bottom_right",
+              "decimals": 1,
+              "note": "base_h",
               "view": "right"
             },
             {
               "at": [
-                24.0,
-                20.0
+                64.0,
+                -6.0
               ],
-              "note": "clear_a",
-              "view": "detail"
-            },
-            {
-              "at": [
-                26.0,
-                39.0
-              ],
-              "note": "clear_b",
-              "view": "detail"
-            },
-            {
-              "at": [
-                -24.0,
-                -30.0
-              ],
-              "note": "clear_end",
-              "view": "detail"
-            },
-            {
-              "at": [
-                30.0,
-                -34.0
-              ],
-              "note": "div_thick",
+              "decimals": 1,
+              "note": "bore_dia",
               "view": "top"
             },
             {
               "at": [
-                -20.114407447862277,
-                -34.83917566383971
+                -57.0,
+                12.0
               ],
-              "note": "div_thick_p",
-              "view": "iso3"
-            },
-            {
-              "at": [
-                27.0,
-                14.0
-              ],
-              "note": "div_wide",
+              "decimals": 1,
+              "note": "centre_x",
               "view": "top"
             },
             {
               "at": [
-                20.114407447862476,
-                -34.8391756638396
+                -19.0,
+                -54.0
               ],
-              "note": "div_wide_p",
-              "view": "iso3"
+              "decimals": 1,
+              "note": "centre_y",
+              "view": "top"
             },
             {
               "at": [
-                -74.0,
-                -20.749999999999986
+                40.0,
+                36.0
               ],
-              "note": "floor_front",
-              "view": "front"
-            },
-            {
-              "at": [
-                -35.0,
-                -20.749999999999986
-              ],
-              "note": "floor_right",
+              "note": "chamfer",
               "view": "right"
             },
             {
               "at": [
                 60.0,
-                0.0
+                -42.0
               ],
-              "note": "height",
-              "view": "front"
-            },
-            {
-              "at": [
-                -30.0,
-                -45.0
-              ],
-              "note": "length",
+              "decimals": 1,
+              "note": "corner_r",
               "view": "top"
             },
             {
               "at": [
-                70.0,
-                30.0
-              ],
-              "note": "r_corner",
-              "view": "top"
-            },
-            {
-              "at": [
-                42.0,
-                42.0
-              ],
-              "note": "r_inner",
-              "view": "top"
-            },
-            {
-              "at": [
-                -60.84169702041643,
-                26.971061565751597
-              ],
-              "note": "rim_front",
-              "view": "front"
-            },
-            {
-              "at": [
-                -30.0,
-                44.0
-              ],
-              "note": "rim_right",
-              "view": "right"
-            },
-            {
-              "at": [
-                -34.0,
-                18.0
-              ],
-              "note": "slot_depth",
-              "view": "right"
-            },
-            {
-              "at": [
-                8.0,
-                -32.0
-              ],
-              "note": "slot_length",
-              "view": "right"
-            },
-            {
-              "at": [
-                -46.0,
-                -9.0
-              ],
-              "note": "slot_width",
-              "view": "right"
-            },
-            {
-              "at": [
-                -70.0,
+                -26.0,
                 -22.0
               ],
-              "note": "wall_top",
+              "note": "floor",
+              "view": "right"
+            },
+            {
+              "at": [
+                28.85853785424524,
+                -32.45966008919828
+              ],
+              "decimals": 3,
+              "note": "floor_s",
+              "view": "isoA"
+            },
+            {
+              "at": [
+                -48.0,
+                -33.0
+              ],
+              "note": "hole_bottom_x",
               "view": "top"
             },
             {
               "at": [
-                74.0,
+                64.0,
+                44.0
+              ],
+              "note": "hole_dia",
+              "view": "top"
+            },
+            {
+              "at": [
+                -24.0,
+                50.0
+              ],
+              "note": "hole_left_y",
+              "view": "top"
+            },
+            {
+              "at": [
+                26.0,
+                50.0
+              ],
+              "note": "hole_right_y",
+              "view": "top"
+            },
+            {
+              "at": [
+                -48.0,
+                33.0
+              ],
+              "note": "hole_top_x",
+              "view": "top"
+            },
+            {
+              "at": [
+                25.24000000000032,
+                1.2789769243681803e-13
+              ],
+              "decimals": 1,
+              "note": "overall",
+              "view": "front"
+            },
+            {
+              "at": [
+                27.0,
+                20.0
+              ],
+              "decimals": 2,
+              "note": "rack_h",
+              "view": "right"
+            },
+            {
+              "at": [
+                -26.0,
+                22.0
+              ],
+              "note": "rod_below_top",
+              "view": "right"
+            },
+            {
+              "at": [
+                30.85853785424524,
+                29.476976918823425
+              ],
+              "decimals": 3,
+              "note": "rod_below_top_s",
+              "view": "isoA"
+            },
+            {
+              "at": [
+                -42.0,
                 0.0
               ],
-              "note": "width",
+              "note": "rod_dia",
+              "view": "front"
+            },
+            {
+              "at": [
+                0.0,
+                -50.640000000000015
+              ],
+              "decimals": 1,
+              "note": "width_front",
+              "view": "front"
+            },
+            {
+              "at": [
+                0.0,
+                -50.640000000000015
+              ],
+              "decimals": 1,
+              "note": "width_right",
+              "view": "right"
+            },
+            {
+              "at": [
+                -66.0,
+                0.0
+              ],
+              "decimals": 1,
+              "note": "width_top_x",
+              "view": "top"
+            },
+            {
+              "at": [
+                0.0,
+                -62.0
+              ],
+              "decimals": 1,
+              "note": "width_top_y",
               "view": "top"
             }
           ],
           "numbers": {
-            "bare": false,
-            "decimals": null,
+            "bare": true,
+            "decimals": 3,
             "point": true
           },
           "own": [],
@@ -1442,7 +1398,7 @@
           "projection": "ThirdAngle",
           "scale": [
             1,
-            2
+            5
           ],
           "spacing": {
             "gap": 1.0,
@@ -1450,11 +1406,25 @@
           },
           "tangent_edges": "Thin",
           "template": "ISO A3",
+          "thru": true,
           "upright": false,
           "views": [
             {
               "at": [
-                190.0,
+                85.0,
+                90.0
+              ],
+              "id": "front",
+              "kind": {
+                "Base": {
+                  "side": "Front"
+                }
+              },
+              "style": "HiddenDashed"
+            },
+            {
+              "at": [
+                100.0,
                 215.0
               ],
               "id": "top",
@@ -1463,26 +1433,12 @@
                   "side": "Top"
                 }
               },
-              "style": "HiddenRemoved"
-            },
-            {
-              "at": [
-                190.0,
-                135.0
-              ],
-              "id": "front",
-              "kind": {
-                "Projected": {
-                  "beside": "Below",
-                  "of": "top"
-                }
-              },
               "style": "HiddenDashed"
             },
             {
               "at": [
-                310.0,
-                135.0
+                165.0,
+                90.0
               ],
               "id": "right",
               "kind": {
@@ -1495,30 +1451,13 @@
             },
             {
               "at": [
-                342.0,
-                236.0
+                270.0,
+                235.0
               ],
               "id": "iso",
               "kind": {
                 "Base": {
                   "side": "Isometric"
-                }
-              },
-              "scale": [
-                1,
-                2
-              ],
-              "style": "HiddenRemoved"
-            },
-            {
-              "at": [
-                372.0,
-                112.0
-              ],
-              "id": "iso2",
-              "kind": {
-                "Base": {
-                  "side": "IsometricBackLeft"
                 }
               },
               "scale": [
@@ -1529,13 +1468,10 @@
             },
             {
               "at": [
-                60.0,
-                150.0
+                360.0,
+                235.0
               ],
-              "bodies": [
-                "divider1"
-              ],
-              "id": "iso3",
+              "id": "isoA",
               "kind": {
                 "Base": {
                   "side": "Isometric"
@@ -1543,47 +1479,49 @@
               },
               "scale": [
                 1,
-                2
+                5
               ],
+              "section": "A",
               "style": "HiddenRemoved"
             },
             {
               "at": [
-                75.0,
-                225.0
+                270.0,
+                140.0
               ],
-              "id": "detail",
+              "bodies": [
+                "base"
+              ],
+              "id": "isoBase",
               "kind": {
-                "Detail": {
-                  "centre": [
-                    -32.0,
-                    44.0
-                  ],
-                  "letter": "B",
-                  "of": "top",
-                  "radius": 4.0
+                "Base": {
+                  "side": "Isometric"
                 }
               },
               "scale": [
-                10,
-                1
+                1,
+                5
               ],
               "style": "HiddenRemoved"
             },
             {
               "at": [
-                85.0,
-                60.0
+                355.0,
+                140.0
               ],
-              "id": "secA",
+              "bodies": [
+                "rack"
+              ],
+              "id": "isoRack",
               "kind": {
-                "Section": {
-                  "letter": "A",
-                  "of": "top",
-                  "section": "A",
-                  "turn": 0.0
+                "Base": {
+                  "side": "IsometricBelowFrontRight"
                 }
               },
+              "scale": [
+                1,
+                5
+              ],
               "style": "HiddenRemoved"
             }
           ],
@@ -1593,9 +1531,9 @@
                 0.0,
                 0.0
               ],
-              "dimension": "div_wide",
+              "dimension": "hole_dia",
               "height": 3.5,
-              "text": "WIDE",
+              "text": "HOLE (6) PLACES",
               "view": null
             },
             {
@@ -1603,77 +1541,7 @@
                 0.0,
                 0.0
               ],
-              "dimension": "div_thick",
-              "height": 3.5,
-              "text": "THICK",
-              "view": null
-            },
-            {
-              "at": [
-                0.0,
-                0.0
-              ],
-              "dimension": "r_corner",
-              "height": 3.5,
-              "text": "(4) PLACES",
-              "view": null
-            },
-            {
-              "at": [
-                0.0,
-                0.0
-              ],
-              "dimension": "wall_top",
-              "height": 3.5,
-              "text": "WALL TYP",
-              "view": null
-            },
-            {
-              "at": [
-                0.0,
-                0.0
-              ],
-              "dimension": "rim_right",
-              "height": 3.5,
-              "text": "OUTER\nTOP EDGE",
-              "view": null
-            },
-            {
-              "at": [
-                0.0,
-                0.0
-              ],
-              "dimension": "bottom_right",
-              "height": 3.5,
-              "text": "OUTER\nBOTTOM EDGE",
-              "view": null
-            },
-            {
-              "at": [
-                0.0,
-                0.0
-              ],
-              "dimension": "div_wide_p",
-              "height": 3.5,
-              "text": "WIDE",
-              "view": null
-            },
-            {
-              "at": [
-                0.0,
-                0.0
-              ],
-              "dimension": "div_thick_p",
-              "height": 3.5,
-              "text": "THICK",
-              "view": null
-            },
-            {
-              "at": [
-                0.0,
-                0.0
-              ],
-              "dimension": "slot_width",
+              "dimension": "bore_dia",
               "height": 3.5,
               "text": "(2) PLACES",
               "view": null
@@ -1681,11 +1549,60 @@
             {
               "at": [
                 0.0,
-                -3.0
+                0.0
               ],
-              "dimension": "slot_length",
+              "dimension": "corner_r",
               "height": 3.5,
               "text": "(2) PLACES",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "rod_dia",
+              "height": 3.5,
+              "text": "ROD (3) PLACES",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "chamfer",
+              "height": 3.5,
+              "text": "X 45° CHAMFER",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                -52.0
+              ],
+              "height": 3.5,
+              "text": "SECTION VIEW",
+              "view": "isoA"
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "rod_below_top_s",
+              "height": 3.5,
+              "text": "RODS AND HOLES",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "floor_s",
+              "height": 3.5,
+              "text": "RODS AND HOLES",
               "view": null
             }
           ]
@@ -1694,15 +1611,5 @@
       }
     }
   ],
-  "cache": {
-    "divider2/pose": [
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      0.0,
-      1.0,
-      6.123233995736766e-17
-    ]
-  }
+  "unit": "Inch"
 }

@@ -1,7 +1,7 @@
 //! [`ImportStep`]: the solids of a STEP file, as bodies.
 
 use anyhow::Context;
-use shapecraft_core::{Builder, Operation};
+use workpiece_core::{Builder, Operation};
 
 /// Which file to import.
 #[derive(
@@ -11,7 +11,7 @@ use shapecraft_core::{Builder, Operation};
     PartialEq,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct ImportStepArgs {
     /// The path of the STEP file.
@@ -56,18 +56,17 @@ impl Operation for ImportStep {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing of the world is read or changed here: the bodies the
         // file holds are written by the builder.)
         let _ = builder;
-        let mut out = shapecraft_boolean::Out::default();
+        let mut out = workpiece_boolean::Out::default();
         let path = self.args.path.trim();
         anyhow::ensure!(
             !path.is_empty(),
             "enter the path of a STEP, IGES, STL or 3MF file"
         );
-        let bytes =
-            shapecraft_core::files::read(path).with_context(|| format!("reading {path}"))?;
+        let bytes = workpiece_core::files::read(path).with_context(|| format!("reading {path}"))?;
         // An IGES file: its trimmed surfaces, sewn.
         if crate::is_iges(path) {
             let found =

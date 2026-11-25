@@ -5,7 +5,7 @@
 //! its own). A joint is a few equations between the frames of its two
 //! connectors, told in the first's frame: which of the second's
 //! directions must stay across it, and which of its offsets must stay
-//! nothing. The solver (`shapecraft-solver`) moves everything as little as it
+//! nothing. The solver (`workpiece-solver`) moves everything as little as it
 //! can from where it is, so parts stay on the side they are on; a drag
 //! pulls one part towards the pointer, and the joints have the last say.
 //!
@@ -15,10 +15,10 @@
 use std::collections::BTreeMap;
 
 use glam::DQuat;
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::{Joint, JointKind, World};
-use shapecraft_core::{Axis, Pose};
-use shapecraft_solver::{Pull, Scalar, System};
+use workpiece_core::math::Point3;
+use workpiece_core::world::{Joint, JointKind, World};
+use workpiece_core::{Axis, Pose};
+use workpiece_solver::{Pull, Scalar, System};
 
 /// A part pulled by the pointer: the point `local` of `instance` (in
 /// the instance's own coordinates) should come to `target`.
@@ -341,14 +341,14 @@ fn entry(owner: &str, name: &str) -> String {
 
 /// The numbers a pose is kept as in a part's cache: where, and how
 /// turned.
-pub fn kept(pose: &Pose) -> shapecraft_core::Kept {
+pub fn kept(pose: &Pose) -> workpiece_core::Kept {
     vec![("pose".to_owned(), numbers(pose).to_vec())]
 }
 
 /// Where the instance `name` is according to the part's `cache`: where
 /// it was put, dragged or left by its joints; where its part's own
 /// origin is, if it never was.
-pub fn placed(cache: &shapecraft_core::Cache, name: &str) -> Pose {
+pub fn placed(cache: &workpiece_core::Cache, name: &str) -> Pose {
     match cache.get(&entry(name, "pose")) {
         Some(pose) if pose.len() == 7 && pose.iter().all(|x| x.is_finite()) => pose_of(pose),
         _ => Pose::IDENTITY,
@@ -362,7 +362,7 @@ pub fn placed(cache: &shapecraft_core::Cache, name: &str) -> Pose {
 /// A joint the cache does not know yet brings its second part to its
 /// first before anything is solved, so that a joint just made closes the
 /// way it was made, not the nearest way from wherever the part lay.
-pub fn settle(world: &mut World, cache: &mut shapecraft_core::Cache) {
+pub fn settle(world: &mut World, cache: &mut workpiece_core::Cache) {
     if world.instances.is_empty() {
         return;
     }
@@ -373,7 +373,7 @@ pub fn settle(world: &mut World, cache: &mut shapecraft_core::Cache) {
         if cache.get(&entry(&joint.name, "made")).is_some() {
             continue;
         }
-        let at = |c: &shapecraft_core::world::Connector| match &c.instance {
+        let at = |c: &workpiece_core::world::Connector| match &c.instance {
             Some(name) => world.instances.get(name).map(|i| (i.pose, i.fixed)),
             None => Some((Pose::IDENTITY, true)),
         };
@@ -421,7 +421,7 @@ pub fn settle(world: &mut World, cache: &mut shapecraft_core::Cache) {
 
 /// Writes where instances of a part are to its `cache`, as [`settle`]
 /// finds them: each by its name. What a drag leaves.
-pub fn keep(cache: &mut shapecraft_core::Cache, poses: &BTreeMap<String, Pose>) {
+pub fn keep(cache: &mut workpiece_core::Cache, poses: &BTreeMap<String, Pose>) {
     for (name, pose) in poses {
         cache.replace(name, kept(pose));
     }
@@ -688,7 +688,7 @@ pub fn solve(world: &World, drag: Option<&Drag>) -> Solved {
                 pull.weight[index.len() * 7 + k] = 1e9;
             }
         }
-        let report = shapecraft_solver::solve(&system, &mut x, &pull, tolerance);
+        let report = workpiece_solver::solve(&system, &mut x, &pull, tolerance);
         solved.converged = report.converged;
         // Which joints went past a limit.
         let mut more = false;
@@ -746,8 +746,8 @@ pub fn solve(world: &World, drag: Option<&Drag>) -> Solved {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::world::{Connector, Instance, Limits};
     use std::sync::Arc;
+    use workpiece_core::world::{Connector, Instance, Limits};
 
     fn world(parts: &[(&str, Pose, bool)]) -> World {
         let mut world = World::new();
@@ -961,7 +961,7 @@ mod tests {
 
     #[test]
     fn gears_turn_together_at_their_ratio() {
-        use shapecraft_core::world::{Coupling, CouplingKind};
+        use workpiece_core::world::{Coupling, CouplingKind};
         // Two wheels on a fixed base, each on its own axis along z.
         let mut w = world(&[
             ("base", Pose::IDENTITY, true),
@@ -1021,7 +1021,7 @@ mod tests {
 
     #[test]
     fn a_screw_slides_as_it_turns() {
-        use shapecraft_core::world::{Coupling, CouplingKind};
+        use workpiece_core::world::{Coupling, CouplingKind};
         let mut w = world(&[
             ("nut", Pose::IDENTITY, true),
             ("bolt", Pose::IDENTITY, false),

@@ -1,7 +1,7 @@
 //! [`AddAxis`]: a datum axis, constructed in one of the common ways.
 
-use shapecraft_core::world::{DatumAxis, DatumPlane};
-use shapecraft_core::{Builder, Operation, Position, Source, World};
+use workpiece_core::world::{DatumAxis, DatumPlane};
+use workpiece_core::{Builder, Operation, Position, Source, World};
 
 use crate::add_plane::intersection;
 use crate::{
@@ -54,7 +54,7 @@ impl Mode for AxisMode {
     PartialEq,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct AddAxisArgs {
     /// How the axis is constructed.
@@ -63,7 +63,7 @@ pub struct AddAxisArgs {
     /// The references, in the order picked; the mode takes what it
     /// needs from them.
     #[arg(hidden)]
-    pub references: Vec<shapecraft_core::Reference<shapecraft_core::Anything>>,
+    pub references: Vec<workpiece_core::Reference<workpiece_core::Anything>>,
 }
 
 impl Construction for AddAxisArgs {
@@ -74,11 +74,11 @@ impl Construction for AddAxisArgs {
     }
 
     fn references(&self) -> Vec<Source> {
-        shapecraft_core::Reference::sources(&self.references)
+        workpiece_core::Reference::sources(&self.references)
     }
 
     fn with(&self, mode: AxisMode, references: Vec<Source>) -> Self {
-        let references = shapecraft_core::Reference::each(references);
+        let references = workpiece_core::Reference::each(references);
         Self { mode, references }
     }
 
@@ -163,7 +163,7 @@ impl Operation for AddAxis {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // What it reads of the world: what it refers to.
         let world = builder.tracked();
         ensure_free(world, &self.id)?;
@@ -172,14 +172,14 @@ impl Operation for AddAxis {
         // said to go through two points and given a cylinder's wall.)
         let args = with_references(&self.args, world, self.args.references());
         let axis = in_mode(args.mode, args.axis(world))?;
-        Ok(shapecraft_core::Made::datum(&self.id, axis))
+        Ok(workpiece_core::Made::datum(&self.id, axis))
     }
 
     fn summary(&self) -> String {
         let op = self;
         crate::constructed(
             op.args.mode.label(),
-            &shapecraft_core::Reference::sources(&op.args.references),
+            &workpiece_core::Reference::sources(&op.args.references),
         )
     }
 }
@@ -188,16 +188,16 @@ impl Operation for AddAxis {
 /// construct from what is picked greyed out, and what is picked.
 fn mode_fields(
     args: &AddAxisArgs,
-    context: &shapecraft_core::EditContext<'_>,
-) -> Vec<shapecraft_core::Widget<AddAxisArgs>> {
+    context: &workpiece_core::EditContext<'_>,
+) -> Vec<workpiece_core::Widget<AddAxisArgs>> {
     construction_fields(args, context.world)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::math::{Axis, Point3};
-    use shapecraft_core::world::ORIGIN;
+    use workpiece_core::math::{Axis, Point3};
+    use workpiece_core::world::ORIGIN;
 
     #[test]
     fn axes_are_constructed_in_each_mode() -> anyhow::Result<()> {
@@ -228,8 +228,8 @@ mod tests {
 
     #[test]
     fn a_round_face_has_an_axis_whatever_mode_the_step_is_in() -> anyhow::Result<()> {
-        use shapecraft_core::{Measure, Reference, Standalone};
-        use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+        use workpiece_core::{Measure, Reference, Standalone};
+        use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
         let mut b = Standalone::new();
         AddCylinder {
             id: "rod".into(),
@@ -253,7 +253,7 @@ mod tests {
             },
         }
         .apply(&mut b)?;
-        let Some(shapecraft_core::world::Datum::Axis(axis)) = b.world.datums.get("a") else {
+        let Some(workpiece_core::world::Datum::Axis(axis)) = b.world.datums.get("a") else {
             anyhow::bail!("expected an axis");
         };
         assert!(axis.direction().z.abs() > 1.0 - 1e-9);

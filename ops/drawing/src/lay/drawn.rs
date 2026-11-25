@@ -1,8 +1,8 @@
 //! What is drawn on a sheet by hand — a sketch lying on the sheet — as
 //! the lines and the lettering of the drawing.
 
-use shapecraft_core::handles::{CanvasShape, CanvasView, Tone};
-use shapecraft_core::math::Point2;
+use workpiece_core::handles::{CanvasShape, CanvasView, Tone};
+use workpiece_core::math::Point2;
 
 use super::notes::width;
 use super::{Laid, Pen, Text, lettering};

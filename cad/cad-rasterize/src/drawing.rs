@@ -11,8 +11,8 @@ use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use shapecraft_core::world::{Visibility, World};
-use shapecraft_core::{Pose, Source};
+use workpiece_core::world::{Visibility, World};
+use workpiece_core::{Pose, Source};
 
 use crate::world::Style;
 use crate::{Pick, PickId, Scene};

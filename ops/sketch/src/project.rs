@@ -5,11 +5,11 @@
 //! again.
 
 use anyhow::Context;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::nurbs::{Recognized, recognize};
-use shapecraft_core::world::topo::{Curve2, EdgeId, EntityId};
-use shapecraft_core::world::{DatumAxis, DatumPlane};
-use shapecraft_core::{Position, Resolve, Source, World};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::nurbs::{Recognized, recognize};
+use workpiece_core::world::topo::{Curve2, EdgeId, EntityId};
+use workpiece_core::world::{DatumAxis, DatumPlane};
+use workpiece_core::{Position, Resolve, Source, World};
 
 use crate::model::{Entity, Id, Point, Shape, SketchArgs};
 
@@ -237,15 +237,15 @@ pub(crate) fn in_plane(world: &World, plane: &DatumPlane) -> Vec<Found> {
 /// its body as its source, which is not what it follows: these are
 /// drawn once, and are the sketch's own.)
 pub(crate) fn sections(world: &World, plane: &DatumPlane) -> Vec<Found> {
-    use shapecraft_boolean::model::Walk;
-    use shapecraft_core::world::topo::BodyKind;
+    use workpiece_boolean::model::Walk;
+    use workpiece_core::world::topo::BodyKind;
     let topo = &world.topo;
     let mut found = Vec::new();
     for (id, body) in topo.bodies().iter() {
         if body.kind != BodyKind::Solid {
             continue;
         }
-        let (Some(name), Ok(solid)) = (topo.name_of(id), shapecraft_boolean::read(topo, id)) else {
+        let (Some(name), Ok(solid)) = (topo.name_of(id), workpiece_boolean::read(topo, id)) else {
             continue;
         };
         // All of the body behind the plane: its face in the plane is
@@ -254,7 +254,7 @@ pub(crate) fn sections(world: &World, plane: &DatumPlane) -> Vec<Found> {
         let far = (hi - lo).length() + lo.distance(plane.origin()) + hi.distance(plane.origin());
         let (x, y, normal) = (plane.x_dir(), plane.y_dir(), plane.normal());
         let corner = plane.origin() - (x + y + normal) * far;
-        let Ok(behind) = shapecraft_boolean::block(
+        let Ok(behind) = workpiece_boolean::block(
             "section",
             corner,
             [x, y, normal],
@@ -262,8 +262,7 @@ pub(crate) fn sections(world: &World, plane: &DatumPlane) -> Vec<Found> {
         ) else {
             continue;
         };
-        let Ok(cut) =
-            shapecraft_boolean::combine(shapecraft_boolean::Op::Intersect, &solid, &behind)
+        let Ok(cut) = workpiece_boolean::combine(workpiece_boolean::Op::Intersect, &solid, &behind)
         else {
             continue;
         };
@@ -466,8 +465,8 @@ fn follow(args: &mut SketchArgs, world: &World, plane: &DatumPlane) {
 }
 
 /// The kinds of reference that can be projected.
-pub(crate) fn kinds() -> Vec<shapecraft_core::ReferenceKind> {
-    use shapecraft_core::ReferenceKind as K;
+pub(crate) fn kinds() -> Vec<workpiece_core::ReferenceKind> {
+    use workpiece_core::ReferenceKind as K;
     vec![K::Vertex, K::Edge, K::Face, K::Axis, K::Point]
 }
 

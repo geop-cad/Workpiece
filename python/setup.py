@@ -1,14 +1,14 @@
 """Builds the wheel: the Python package plus the two programs, built with cargo.
 
 The wheel is platform specific but not Python specific (`py3-none-<platform>`): the programs are
-plain executables in `shapecraft/bin/`. Where they come from:
+plain executables in `workpiece/bin/`. Where they come from:
 
-- `SHAPECRAFT_PREBUILT=<dir>`: copy `shapecraft` and `shapecraft-app` from there (CI builds them
+- `WORKPIECE_PREBUILT=<dir>`: copy `workpiece` and `workpiece-app` from there (CI builds them
   first, for the target it wants, and for macOS joins two architectures into one).
-- otherwise `cargo build --release -p shapecraft-cli -p shapecraft-app` in the workspace: the
+- otherwise `cargo build --release -p workpiece-cli -p workpiece-app` in the workspace: the
   repository's root when this folder is `python/` of a checkout, or `rust/` of an sdist.
 
-`SHAPECRAFT_WHEEL_PLAT` sets the platform tag (`manylinux_2_28_x86_64`, `macosx_11_0_arm64`,
+`WORKPIECE_WHEEL_PLAT` sets the platform tag (`manylinux_2_28_x86_64`, `macosx_11_0_arm64`,
 `macosx_10_13_universal2`, `win_amd64`); without it the building machine's own is used.
 The version is the workspace's `version` in Cargo.toml, read here and nowhere else.
 """
@@ -30,7 +30,7 @@ except ImportError:  # setuptools older than 70.1
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EXE = ".exe" if sys.platform == "win32" else ""
-PROGRAMS = ["shapecraft", "shapecraft-app"]
+PROGRAMS = ["workpiece", "workpiece-app"]
 # What an sdist carries of the repository so that cargo can build it there.
 WORKSPACE = ["Cargo.toml", "Cargo.lock", "LICENSE-MIT", "LICENSE-APACHE", "README.md",
              "core", "lib", "ops", "cad", "hosts", "bench"]
@@ -61,16 +61,16 @@ def readme() -> str:
 class BuildPy(build_py):
     def run(self):
         super().run()
-        bin_dir = os.path.join(self.build_lib, "shapecraft", "bin")
+        bin_dir = os.path.join(self.build_lib, "workpiece", "bin")
         os.makedirs(bin_dir, exist_ok=True)
-        shutil.copy(readme(), os.path.join(self.build_lib, "shapecraft", "README.md"))
-        prebuilt = os.environ.get("SHAPECRAFT_PREBUILT")
+        shutil.copy(readme(), os.path.join(self.build_lib, "workpiece", "README.md"))
+        prebuilt = os.environ.get("WORKPIECE_PREBUILT")
         if prebuilt is None:
             root = workspace()
             print("building the programs with cargo (release)", flush=True)
             try:
                 subprocess.check_call(
-                    ["cargo", "build", "--release", "-p", "shapecraft-cli", "-p", "shapecraft-app"], cwd=root)
+                    ["cargo", "build", "--release", "-p", "workpiece-cli", "-p", "workpiece-app"], cwd=root)
             except FileNotFoundError:
                 raise SystemExit("cargo was not found: install Rust from https://rustup.rs to build from source")
             prebuilt = os.environ.get("CARGO_TARGET_DIR", os.path.join(root, "target")) + os.sep + "release"
@@ -85,7 +85,7 @@ class Wheel(bdist_wheel):
 
     def get_tag(self):
         _, _, plat = super().get_tag()
-        return "py3", "none", os.environ.get("SHAPECRAFT_WHEEL_PLAT", plat)
+        return "py3", "none", os.environ.get("WORKPIECE_WHEEL_PLAT", plat)
 
 
 class Sdist(sdist):
@@ -93,7 +93,7 @@ class Sdist(sdist):
         super().make_release_tree(base_dir, files)
         root, dest = workspace(), os.path.join(base_dir, "rust")
         os.makedirs(dest, exist_ok=True)
-        skip = shutil.ignore_patterns("target", ".git", "__pycache__", "*.shapecraft", "*.parts")
+        skip = shutil.ignore_patterns("target", ".git", "__pycache__", "*.workpiece", "*.parts")
         for name in WORKSPACE:
             src = os.path.join(root, name)
             if os.path.isdir(src):

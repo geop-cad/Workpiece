@@ -8,7 +8,7 @@
 //! than 1), says how full it is; the nearer 1, the sharper its middle.
 //! It is a rational curve of degree 5, and is given as that: exactly.
 
-use shapecraft_core::math::Point3;
+use workpiece_core::math::Point3;
 
 /// The section's order: it meets its legs with their curvature.
 const ORDER: i32 = 2;

@@ -10,7 +10,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use shapecraft_core::math::Point2;
+use workpiece_core::math::Point2;
 
 use crate::bezier::curve_pieces;
 use crate::fuse::{Fuse, Half, Outcome};

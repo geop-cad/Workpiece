@@ -1,9 +1,9 @@
 //! Geometric tolerance: how true a face is, by itself or from datums.
 
 use anyhow::Context;
-use shapecraft_core::world::topo::FaceId;
-use shapecraft_core::world::{Annotation, Characteristic, Note};
-use shapecraft_core::{Builder, Measure, Operation, Reference};
+use workpiece_core::world::topo::FaceId;
+use workpiece_core::world::{Annotation, Characteristic, Note};
+use workpiece_core::{Builder, Measure, Operation, Reference};
 
 /// A characteristic as the dialog chooses it.
 #[derive(
@@ -12,7 +12,7 @@ use shapecraft_core::{Builder, Measure, Operation, Reference};
 #[serde(transparent)]
 pub struct Of(pub Characteristic);
 
-impl shapecraft_core::Choices for Of {
+impl workpiece_core::Choices for Of {
     const ALL: &'static [Self] = &[
         Of(Characteristic::Straightness),
         Of(Characteristic::Flatness),
@@ -37,7 +37,7 @@ impl shapecraft_core::Choices for Of {
 
 /// The face, what of it is toleranced, and how closely.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct GeometricToleranceArgs {
     /// The face that is toleranced.
@@ -116,7 +116,7 @@ impl Operation for GeometricTolerance {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let args = &self.args;
         let value = (*builder).measure(&args.value, "the tolerance")?;
         anyhow::ensure!(value > 0.0, "a tolerance is more than nothing");
@@ -146,8 +146,8 @@ impl Operation for GeometricTolerance {
             anyhow::ensure!(known, "there is no datum {letter}");
         }
         let feature = args.feature.as_ref().context("pick the face")?;
-        let (solid, face) = shapecraft_shape::on::face(&world.topo, feature.name())?;
-        let (on, out) = shapecraft_shape::on::middle(&solid, face);
+        let (solid, face) = workpiece_shape::on::face(&world.topo, feature.name())?;
+        let (on, out) = workpiece_shape::on::middle(&solid, face);
         let note = Annotation {
             sketch: None,
             note: Note::Geometric {
@@ -159,11 +159,11 @@ impl Operation for GeometricTolerance {
                 out,
             },
             at: match args.at {
-                Some(at) => shapecraft_core::math::Point3::from_array(at),
-                None => on + out * (shapecraft_shape::on::size(&solid) * 0.18),
+                Some(at) => workpiece_core::math::Point3::from_array(at),
+                None => on + out * (workpiece_shape::on::size(&solid) * 0.18),
             },
         };
-        Ok(shapecraft_core::Made {
+        Ok(workpiece_core::Made {
             annotations: vec![(self.id.clone(), note)],
             ..Default::default()
         })
@@ -171,13 +171,13 @@ impl Operation for GeometricTolerance {
 
     fn visualize_edit(
         &self,
-        context: &shapecraft_core::EditContext<'_>,
+        context: &workpiece_core::EditContext<'_>,
         (): &(),
-    ) -> shapecraft_core::EditVisualization<shapecraft_core::Edit<GeometricToleranceArgs, ()>> {
+    ) -> workpiece_core::EditVisualization<workpiece_core::Edit<GeometricToleranceArgs, ()>> {
         let about = self.args.feature.as_ref().and_then(|feature| {
             let (solid, face) =
-                shapecraft_shape::on::face(&context.world.topo, feature.name()).ok()?;
-            Some(shapecraft_shape::on::middle(&solid, face).0)
+                workpiece_shape::on::face(&context.world.topo, feature.name()).ok()?;
+            Some(workpiece_shape::on::middle(&solid, face).0)
         });
         crate::placed(&self.args, context, about, |args, at| {
             GeometricToleranceArgs {

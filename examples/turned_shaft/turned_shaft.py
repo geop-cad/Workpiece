@@ -6,14 +6,14 @@ datum plane at its floor and shown in a section.
 """
 import math, os, sys
 try:
-    import shapecraft
+    import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from shapecraft import Part, axis, topo, view, projected, section_view, note, datum
+from workpiece import Part, axis, topo, view, projected, section_view, note, datum
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "turned_shaft.shapecraft")
-p = Part(material="Steel", title="DRIVE SHAFT", file="turned_shaft.shapecraft")
+OUT = os.path.join(HERE, "turned_shaft.workpiece")
+p = Part(material="Steel", title="DRIVE SHAFT", file="turned_shaft.workpiece")
 
 # Half the profile, above the axis: (length along the shaft, radius) as a starting guess.
 s = p.sketch("YZ", id="profile", show_in="front")

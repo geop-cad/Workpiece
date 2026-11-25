@@ -4,7 +4,7 @@
 //! crosses it in straight lines, and none of them touch in a single
 //! point where branches of a crossing meet.
 
-use shapecraft_core::math::Point3;
+use workpiece_core::math::Point3;
 
 use crate::bezier::Piece;
 

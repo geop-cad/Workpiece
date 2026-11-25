@@ -2,12 +2,12 @@
 //! before.
 
 use anyhow::Context;
-use shapecraft_core::world::{Connector, Joint, JointKind, Limits};
-use shapecraft_core::{Builder, Operation, Pose};
+use workpiece_core::world::{Connector, Joint, JointKind, Limits};
+use workpiece_core::{Builder, Operation, Pose};
 
 /// The part repeated, how often, and the step between two.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct PatternPartArgs {
     /// The instance that is repeated: a part placed in this one.
@@ -30,7 +30,7 @@ impl Default for PatternPartArgs {
         Self {
             of: None,
             count: 3,
-            step: Pose::from_translation(shapecraft_core::math::Point3::X),
+            step: Pose::from_translation(workpiece_core::math::Point3::X),
         }
     }
 }
@@ -65,10 +65,10 @@ impl Operation for PatternPart {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: what it makes is put in by the
         // builder.)
-        let mut out = shapecraft_boolean::Out::default();
+        let mut out = workpiece_boolean::Out::default();
         let args = &self.args;
         let of = args.of.as_ref().context("pick the part to repeat")?;
         anyhow::ensure!(
@@ -119,10 +119,10 @@ impl Operation for PatternPart {
 /// The field for the step from each copy to the next.
 fn step_field(
     args: &PatternPartArgs,
-    _: &shapecraft_core::EditContext<'_>,
-) -> Vec<shapecraft_core::Widget<PatternPartArgs>> {
+    _: &workpiece_core::EditContext<'_>,
+) -> Vec<workpiece_core::Widget<PatternPartArgs>> {
     let with = args.clone();
-    let field = shapecraft_core::widgets::PoseInput::new(
+    let field = workpiece_core::widgets::PoseInput::new(
         "Each from the one before",
         args.step,
         move |step| PatternPartArgs {
@@ -136,10 +136,10 @@ fn step_field(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::Instance;
-    use shapecraft_core::{Standalone, World};
     use std::sync::Arc;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::Instance;
+    use workpiece_core::{Standalone, World};
 
     #[test]
     fn placed_parts_are_repeated_and_fastened_to_the_first() -> anyhow::Result<()> {

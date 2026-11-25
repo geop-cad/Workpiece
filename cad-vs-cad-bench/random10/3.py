@@ -1,7 +1,7 @@
 import math, os, sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
-from shapecraft import Part, axis, topo, datum, profile, view, projected, section_view, material, note
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "3.shapecraft")
+from workpiece import Part, axis, topo, datum, profile, view, projected, section_view, material, note
+out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "3.workpiece")
 material(os.path.dirname(out), "1060 Alloy", 2700)
 p = Part(material="1060 Alloy")
 DENS = 2.7e-3   # g/mm3

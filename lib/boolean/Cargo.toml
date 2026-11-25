@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-boolean"
+name = "workpiece-boolean"
 description = "Booleans of solids: a general fuse over tolerant B-reps that refuses what it cannot do exactly."
 edition.workspace = true
 version.workspace = true
@@ -8,15 +8,15 @@ repository.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "shapecraft_boolean"
+name = "workpiece_boolean"
 
 [dependencies]
 anyhow.workspace = true
-shapecraft-core.workspace = true
+workpiece-core.workspace = true
 thiserror.workspace = true
 
 [dev-dependencies]
-shapecraft-ops-basic-shapes.workspace = true
+workpiece-ops-basic-shapes.workspace = true
 
 [lints]
 workspace = true

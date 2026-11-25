@@ -6,11 +6,11 @@
 //! [`AXIS_SIZE`]: it grows with the model. Widths are in pixels.
 
 use glam::Vec3;
-use shapecraft_core::math::{Axis, Point3};
-use shapecraft_core::world::topo::{BodyKind, EntityId, Topo};
-use shapecraft_core::world::visibility::shown_topology;
-use shapecraft_core::world::{Datum, DatumFrame, Profile, Visibility, World};
-use shapecraft_core::{Pose, Source};
+use workpiece_core::math::{Axis, Point3};
+use workpiece_core::world::topo::{BodyKind, EntityId, Topo};
+use workpiece_core::world::visibility::shown_topology;
+use workpiece_core::world::{Datum, DatumFrame, Profile, Visibility, World};
+use workpiece_core::{Pose, Source};
 
 use crate::palette::{self, AXES, EDGE, MODEL, POINT, REFERENCE, SKETCH, SURFACE};
 use crate::{Color, Line, Pick, Scene, Triangle, Vertex, tessellate};
@@ -207,7 +207,7 @@ impl Painter<'_> {
     /// A sketch's curves and their ends, in its plane.
     fn profile(&mut self, profile: &Profile) {
         let pose = profile.plane.pose();
-        let place = |p: shapecraft_core::math::Point2| pose.transform_point(p.extend(0.0));
+        let place = |p: workpiece_core::math::Point2| pose.transform_point(p.extend(0.0));
         for edge in &profile.edges {
             let points = edge.curve.polyline(edge.t0, edge.t1);
             for pair in points.windows(2) {
@@ -316,7 +316,7 @@ impl Painter<'_> {
         // A thread that is said of a face, not cut into it: a helix on
         // the face, of no more turns than can be told apart.
         for thread in world.threads.values() {
-            let face = topo.resolve::<shapecraft_core::world::topo::FaceId>(&thread.face);
+            let face = topo.resolve::<workpiece_core::world::topo::FaceId>(&thread.face);
             if face.is_some_and(|id| !shown.faces.contains(&id)) || thread.pitch <= 0.0 {
                 continue;
             }
@@ -412,16 +412,16 @@ impl Painter<'_> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::world::{Instance, ORIGIN};
-    use shapecraft_core::{Operation, Standalone};
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
+    use workpiece_core::world::{Instance, ORIGIN};
+    use workpiece_core::{Operation, Standalone};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
 
     fn boxed() -> anyhow::Result<World> {
         let mut b = Standalone::new();
         AddBox {
             id: "box".into(),
             args: AddBoxArgs {
-                frame: Some(shapecraft_core::Reference::datum(ORIGIN)),
+                frame: Some(workpiece_core::Reference::datum(ORIGIN)),
                 ..AddBoxArgs::default()
             },
         }
@@ -431,8 +431,8 @@ mod tests {
 
     #[test]
     fn a_box_is_written_as_a_mesh_of_its_corners() -> anyhow::Result<()> {
-        let file = crate::tessellate::three_mf(&boxed()?.topo, shapecraft_core::Unit::Millimetre);
-        if let Ok(to) = std::env::var("SHAPECRAFT_3MF") {
+        let file = crate::tessellate::three_mf(&boxed()?.topo, workpiece_core::Unit::Millimetre);
+        if let Ok(to) = std::env::var("WORKPIECE_3MF") {
             std::fs::write(to, &file)?;
         }
         let text = String::from_utf8_lossy(&file);
@@ -537,8 +537,8 @@ mod tests {
 #[cfg(test)]
 mod pole_tests {
     use super::*;
-    use shapecraft_core::{Operation, Reference, Standalone};
-    use shapecraft_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_core::{Operation, Reference, Standalone};
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
 
     /// A cylinder's rims are closed edges and its seams hidden: no vertex
     /// is a corner, so none shows. A box shows its eight corners.
@@ -550,7 +550,7 @@ mod pole_tests {
             scene.vertices.vertices.len()
         };
         let mut b = Standalone::new();
-        let frame = Some(Reference::datum(shapecraft_core::world::ORIGIN));
+        let frame = Some(Reference::datum(workpiece_core::world::ORIGIN));
         AddCylinder {
             id: "pin".into(),
             args: AddCylinderArgs {
@@ -563,9 +563,9 @@ mod pole_tests {
         assert_eq!(vertices(&b.world), 0);
 
         let mut b = Standalone::new();
-        shapecraft_ops_basic_shapes::AddBox {
+        workpiece_ops_basic_shapes::AddBox {
             id: "box".into(),
-            args: shapecraft_ops_basic_shapes::AddBoxArgs {
+            args: workpiece_ops_basic_shapes::AddBoxArgs {
                 frame,
                 ..Default::default()
             },

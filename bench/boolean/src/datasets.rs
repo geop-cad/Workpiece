@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use anyhow::{Context, ensure};
 use glam::DQuat;
-use shapecraft_boolean::{Op, Solid, measure};
+use workpiece_boolean::{Op, Solid, measure};
 
 use crate::scene::{Scene, bounds, consistent, volume_of};
 use crate::{Case, Grade};
@@ -174,7 +174,7 @@ fn step_files(dir: &Path, out: &mut Vec<PathBuf>) {
 /// The solids of `path`, imported once and shared by its cases.
 fn solids(path: &Path) -> Result<Vec<Solid>, String> {
     let bytes = std::fs::read(path).map_err(|e| e.to_string())?;
-    let found = shapecraft_ops_step::import(&bytes).map_err(|e| format!("{e:#}"))?;
+    let found = workpiece_ops_step::import(&bytes).map_err(|e| format!("{e:#}"))?;
     if let Some(why) = found.refused.first() {
         return Err(why.clone());
     }

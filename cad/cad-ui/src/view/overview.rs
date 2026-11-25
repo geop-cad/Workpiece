@@ -1,5 +1,5 @@
-use shapecraft_core::widgets::Button;
-use shapecraft_core::world::topo::BodyKind;
+use workpiece_core::widgets::Button;
+use workpiece_core::world::topo::BodyKind;
 
 use super::Reading;
 use crate::{Message, Model};
@@ -39,7 +39,7 @@ pub struct Overview {
     /// What is selected, measured.
     pub measured: Vec<Reading>,
     /// The unit of length the part's numbers are in.
-    pub unit: shapecraft_core::Unit,
+    pub unit: workpiece_core::Unit,
     /// What the part is made of, where its steps say nothing else.
     pub material: Option<String>,
     /// The materials there are to choose from, by name.
@@ -69,7 +69,7 @@ impl Overview {
                 sketches: Vec::new(),
                 datums: Vec::new(),
                 measured: Vec::new(),
-                unit: shapecraft_core::Unit::default(),
+                unit: workpiece_core::Unit::default(),
                 material: None,
                 materials: Vec::new(),
                 display: model.display.clone(),

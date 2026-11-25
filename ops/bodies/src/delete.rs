@@ -1,8 +1,8 @@
 //! Delete body: bodies taken out of the part.
 
 use anyhow::Context;
-use shapecraft_core::world::topo::{BodyId, BodyKind};
-use shapecraft_core::{Builder, Operation, Reference};
+use workpiece_core::world::topo::{BodyId, BodyKind};
+use workpiece_core::{Builder, Operation, Reference};
 
 /// The bodies that go.
 #[derive(
@@ -12,7 +12,7 @@ use shapecraft_core::{Builder, Operation, Reference};
     Default,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct DeleteBodyArgs {
     /// The bodies deleted: solids, surfaces or meshes.
@@ -51,10 +51,10 @@ impl Operation for DeleteBody {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         anyhow::ensure!(!self.args.bodies.is_empty(), "pick the bodies to delete");
         let world = builder.tracked();
-        let mut made = shapecraft_core::Made::default();
+        let mut made = workpiece_core::Made::default();
         for body in &self.args.bodies {
             let id = world.resolve(body)?;
             let kind = world.topo.body(id).map(|b| b.kind);

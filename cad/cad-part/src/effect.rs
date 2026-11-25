@@ -3,7 +3,7 @@
 //!
 //! A step's result depends on its arguments and on what it
 //! reads of the world while it is applied, which the builder notes
-//! ([`shapecraft_core::Trace`]): [`input`] hashes that. What it then did is the [`Effect`]: the datums, sketches,
+//! ([`workpiece_core::Trace`]): [`input`] hashes that. What it then did is the [`Effect`]: the datums, sketches,
 //! placed parts and bodies it made, changed and removed, found by
 //! comparing the world before and after ([`Index`]). Where the same
 //! step meets the same input again — after an edit to something it does
@@ -18,12 +18,12 @@
 use std::collections::{BTreeMap, HashMap};
 use std::hash::{Hash, Hasher};
 
-use shapecraft_boolean::Solid;
-use shapecraft_core::world::topo::{
+use workpiece_boolean::Solid;
+use workpiece_core::world::topo::{
     BodyId, BodyKind, CoedgeKind, EdgeId, EntityId, FaceId, Topo, VertexId,
 };
-use shapecraft_core::world::{Coupling, Datum, Instance, Joint, Profile};
-use shapecraft_core::{Read, Source, World};
+use workpiece_core::world::{Coupling, Datum, Instance, Joint, Profile};
+use workpiece_core::{Read, Source, World};
 
 type Hashed = std::collections::hash_map::DefaultHasher;
 
@@ -399,12 +399,12 @@ pub(crate) struct Effect {
     made: Vec<(String, Solid)>,
     joints: Option<Vec<Joint>>,
     couplings: Option<Vec<Coupling>>,
-    annotations: Vec<(String, Option<shapecraft_core::world::Annotation>)>,
-    looks: Vec<(String, Option<shapecraft_core::world::Look>)>,
-    threads: Vec<(String, Option<shapecraft_core::world::Thread>)>,
-    views: Vec<(String, Option<shapecraft_core::world::Viewpoint>)>,
-    sections: Vec<(String, Option<shapecraft_core::world::Cutting>)>,
-    masses: Vec<(String, Option<shapecraft_core::world::MassProperties>)>,
+    annotations: Vec<(String, Option<workpiece_core::world::Annotation>)>,
+    looks: Vec<(String, Option<workpiece_core::world::Look>)>,
+    threads: Vec<(String, Option<workpiece_core::world::Thread>)>,
+    views: Vec<(String, Option<workpiece_core::world::Viewpoint>)>,
+    sections: Vec<(String, Option<workpiece_core::world::Cutting>)>,
+    masses: Vec<(String, Option<workpiece_core::world::MassProperties>)>,
     /// What the step left in the part's cache.
     cache: Vec<(String, Vec<f64>)>,
 }
@@ -487,7 +487,7 @@ impl Effect {
             if topo.body(id)?.kind != BodyKind::Solid {
                 return None;
             }
-            made.push((name.clone(), shapecraft_boolean::read(topo, id).ok()?));
+            made.push((name.clone(), workpiece_boolean::read(topo, id).ok()?));
         }
         Some(Effect {
             datums: changed(&before.datums, &after.datums, &world.datums),
@@ -514,11 +514,11 @@ impl Effect {
     pub(crate) fn settle(&self, world: &mut World) -> anyhow::Result<()> {
         for (name, _) in &self.made {
             if let Some(id) = world.topo.resolve::<BodyId>(name) {
-                shapecraft_boolean::remove(&mut world.topo, id);
+                workpiece_boolean::remove(&mut world.topo, id);
             }
         }
         for (name, solid) in &self.made {
-            shapecraft_boolean::write(&mut world.topo, solid, name)?;
+            workpiece_boolean::write(&mut world.topo, solid, name)?;
         }
         Ok(())
     }
@@ -543,11 +543,11 @@ impl Effect {
         put(&mut world.instances, &self.instances);
         for name in &self.gone {
             if let Some(id) = world.topo.resolve::<BodyId>(name) {
-                shapecraft_boolean::remove(&mut world.topo, id);
+                workpiece_boolean::remove(&mut world.topo, id);
             }
         }
         for (name, solid) in &self.made {
-            shapecraft_boolean::write(&mut world.topo, solid, name)?;
+            workpiece_boolean::write(&mut world.topo, solid, name)?;
         }
         if let Some(joints) = &self.joints {
             world.joints.clone_from(joints);

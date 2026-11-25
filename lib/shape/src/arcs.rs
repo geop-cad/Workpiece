@@ -1,8 +1,8 @@
 //! The NURBS form of circular and elliptic arcs: what sweeping around an
 //! axis is made of.
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::Curve3;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::Curve3;
 
 /// The control points (in the plane of the arc, as (x, y) of the unit
 /// circle), weights and knots of the arc over `angle` from 0,

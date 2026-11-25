@@ -12,8 +12,8 @@
 //!
 //! Nothing here knows lines from circles or planes from cylinders.
 
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::{Curve3, NurbsSurface};
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::{Curve3, NurbsSurface};
 
 use crate::bezier::Piece;
 

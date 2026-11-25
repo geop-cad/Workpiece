@@ -8,10 +8,10 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::Context;
-use shapecraft_boolean::Solid;
-use shapecraft_boolean::model::{Edge as SolidEdge, Face, Use, Vertex, Walk};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
+use workpiece_boolean::Solid;
+use workpiece_boolean::model::{Edge as SolidEdge, Face, Use, Vertex, Walk};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
 
 use crate::ops;
 use crate::poly::{Poly, edge};

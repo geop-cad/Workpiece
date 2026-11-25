@@ -7,14 +7,14 @@ use crate::{Id, Shape};
 use std::rc::Rc;
 use std::sync::Arc;
 
-use shapecraft_core::hotkey::{Hotkey, Key};
-use shapecraft_core::math::Point2;
-use shapecraft_core::widgets::{
+use workpiece_core::hotkey::{Hotkey, Key};
+use workpiece_core::math::Point2;
+use workpiece_core::widgets::{
     Check, Group, HBox, Label, Mood, NumericInput, ReferenceInput, ReferenceList, TextInput,
     ToolButton, VBox,
 };
-use shapecraft_core::world::DatumPlane;
-use shapecraft_core::{Edit, Measure, Source, Widget, World};
+use workpiece_core::world::DatumPlane;
+use workpiece_core::{Edit, Measure, Source, Widget, World};
 
 use crate::model::{Item, Kind, SketchArgs};
 use crate::modify::{self, Action};
@@ -29,7 +29,7 @@ pub(crate) struct Session {
     pub(crate) args: Rc<SketchArgs>,
     pub(crate) state: Rc<SketchState>,
     pub(crate) world: Arc<World>,
-    pub(crate) parameters: shapecraft_core::Parameters,
+    pub(crate) parameters: workpiece_core::Parameters,
     pub(crate) plane: Option<DatumPlane>,
     pub(crate) diagnosis: Rc<Diagnosis>,
 }
@@ -951,7 +951,7 @@ fn set_measure(
     args: &SketchArgs,
     id: Id,
     entered: &Measure,
-    parameters: &shapecraft_core::Parameters,
+    parameters: &workpiece_core::Parameters,
     angle: bool,
 ) -> Result<SketchArgs, String> {
     let value = entered.resolve(parameters).map_err(|e| e.to_string())?;

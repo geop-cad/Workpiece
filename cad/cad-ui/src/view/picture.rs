@@ -2,13 +2,13 @@ use std::collections::BTreeMap;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
-use shapecraft_cad_part::Library;
-use shapecraft_core::Pose;
-use shapecraft_core::world::topo::FaceId;
-use shapecraft_core::world::visibility::shown_topology;
-use shapecraft_core::world::{Look, Visibility, World};
-use shapecraft_ops_appearance::Shot;
-use shapecraft_render::{Scene, Surface, Triangle};
+use workpiece_core::Pose;
+use workpiece_core::world::topo::FaceId;
+use workpiece_core::world::visibility::shown_topology;
+use workpiece_core::world::{Look, Visibility, World};
+use workpiece_ops_appearance::Shot;
+use workpiece_part::Library;
+use workpiece_render::{Scene, Surface, Triangle};
 
 use crate::Model;
 
@@ -90,7 +90,7 @@ impl Gather<'_> {
         for face in shown_topology(topo, visibility).faces {
             let look = world.face_look(face, body_of.get(&face).copied());
             let surface = self.surface(&look);
-            let Some(mesh) = shapecraft_cad_rasterize::tessellate::face(topo, face) else {
+            let Some(mesh) = workpiece_rasterize::tessellate::face(topo, face) else {
                 continue;
             };
             for (positions, normals) in &mesh.triangles {
@@ -122,14 +122,14 @@ pub fn scene(world: &World, visibility: &Visibility, library: &Library) -> Scene
 }
 
 /// The light of `shot`, as the one that traces takes it.
-pub fn lighting(shot: &Shot) -> shapecraft_render::Lighting {
-    use shapecraft_ops_appearance::Sky;
+pub fn lighting(shot: &Shot) -> workpiece_render::Lighting {
+    use workpiece_ops_appearance::Sky;
     let linear = |c: u8| (f32::from(c) / 255.0).powf(2.2);
-    shapecraft_render::Lighting {
+    workpiece_render::Lighting {
         sky: match shot.sky {
-            Sky::Studio => shapecraft_render::Sky::Studio,
-            Sky::Outdoor => shapecraft_render::Sky::Outdoor,
-            Sky::Dark => shapecraft_render::Sky::Dark,
+            Sky::Studio => workpiece_render::Sky::Studio,
+            Sky::Outdoor => workpiece_render::Sky::Outdoor,
+            Sky::Dark => workpiece_render::Sky::Dark,
         },
         sun: [shot.sun_turn as f32, shot.sun_height as f32],
         strength: 2f32.powf(shot.exposure as f32),
@@ -139,7 +139,7 @@ pub fn lighting(shot: &Shot) -> shapecraft_render::Lighting {
 }
 
 /// The view's `camera`, as the one that traces `scene` takes it.
-pub fn camera(camera: &crate::model::Camera, scene: &Scene) -> shapecraft_render::Camera {
+pub fn camera(camera: &crate::model::Camera, scene: &Scene) -> workpiece_render::Camera {
     // (A parallel view is taken from far enough off to have the whole
     // model before it.)
     let reach = scene.bounds().map_or(0.0, |(lo, hi)| {
@@ -151,7 +151,7 @@ pub fn camera(camera: &crate::model::Camera, scene: &Scene) -> shapecraft_render
     } else {
         (camera.eye(), 2.0 * (camera.fov_y / 2.0).tan())
     };
-    shapecraft_render::Camera {
+    workpiece_render::Camera {
         eye,
         right: camera.right(),
         up: camera.up(),
@@ -162,7 +162,7 @@ pub fn camera(camera: &crate::model::Camera, scene: &Scene) -> shapecraft_render
 }
 
 /// The camera a picture is taken with from `view`.
-pub fn camera_of(view: &shapecraft_ops_appearance::View) -> crate::model::Camera {
+pub fn camera_of(view: &workpiece_ops_appearance::View) -> crate::model::Camera {
     crate::model::Camera {
         target: glam::Vec3::from_array(view.target),
         rotation: glam::Quat::from_array(view.rotation).normalize(),

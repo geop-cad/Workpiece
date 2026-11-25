@@ -2,9 +2,9 @@
 
 use std::collections::BTreeSet;
 
-use shapecraft_core::math::Point3;
-use shapecraft_ops_mesh::poly::{Item, Poly, edge};
-use shapecraft_ops_mesh::{Primitive, body, ops, subd};
+use workpiece_core::math::Point3;
+use workpiece_ops_mesh::poly::{Item, Poly, edge};
+use workpiece_ops_mesh::{Primitive, body, ops, subd};
 
 fn cube() -> Poly {
     Primitive::Box.mesh(2.0, 1, Point3::ZERO)
@@ -240,15 +240,15 @@ fn meshes_make_sound_bodies() -> anyhow::Result<()> {
     let pieces = body::bodies(&cube(), false, 0, "m")?;
     assert_eq!(pieces.len(), 1);
     assert!(pieces[0].closed);
-    let (v, a) = shapecraft_ops_testing::sound(&pieces[0].solid)?;
-    shapecraft_ops_testing::close(v, 8.0, 1e-9);
-    shapecraft_ops_testing::close(a, 24.0, 1e-9);
+    let (v, a) = workpiece_ops_testing::sound(&pieces[0].solid)?;
+    workpiece_ops_testing::close(v, 8.0, 1e-9);
+    workpiece_ops_testing::close(a, 24.0, 1e-9);
 
     // Smooth: something round inside the box, a face for each quad.
     let pieces = body::bodies(&cube(), true, 0, "m")?;
     assert!(pieces[0].closed);
     assert_eq!(pieces[0].solid.faces.len(), 24);
-    let (v, _) = shapecraft_ops_testing::sound(&pieces[0].solid)?;
+    let (v, _) = workpiece_ops_testing::sound(&pieces[0].solid)?;
     // (What the mesh goes to, subdivided again and again.)
     let mut fine = cube();
     for _ in 0..6 {
@@ -265,7 +265,7 @@ fn meshes_make_sound_bodies() -> anyhow::Result<()> {
     let finer = Primitive::Box.mesh(2.0, 3, Point3::ZERO);
     let pieces = body::bodies(&finer, true, 0, "m")?;
     assert_eq!(pieces[0].solid.faces.len(), 54 - 24 + 4 * 24);
-    shapecraft_ops_testing::sound(&pieces[0].solid)?;
+    workpiece_ops_testing::sound(&pieces[0].solid)?;
 
     // Creased all around its top, the surface ends there in an edge:
     // more of the box is kept.
@@ -276,24 +276,24 @@ fn meshes_make_sound_bodies() -> anyhow::Result<()> {
         creased.creases.insert(edge(ring[k], ring[(k + 1) % 4]));
     }
     let sharp = body::bodies(&creased, true, 0, "m")?;
-    let (u, _) = shapecraft_ops_testing::sound(&sharp[0].solid)?;
+    let (u, _) = workpiece_ops_testing::sound(&sharp[0].solid)?;
     assert!(u > v, "{u} and {v}");
 
     // Other faces than quads: a cone, flat and smooth.
     let cone = Primitive::Cone.mesh(2.0, 8, Point3::ZERO);
     let flat = body::bodies(&cone, false, 0, "m")?;
-    let (v, _) = shapecraft_ops_testing::sound(&flat[0].solid)?;
-    shapecraft_ops_testing::close(v, volume(&cone), 1e-9);
+    let (v, _) = workpiece_ops_testing::sound(&flat[0].solid)?;
+    workpiece_ops_testing::close(v, volume(&cone), 1e-9);
     let round = body::bodies(&cone, true, 0, "m")?;
-    shapecraft_ops_testing::sound(&round[0].solid)?;
+    workpiece_ops_testing::sound(&round[0].solid)?;
 
     // An open mesh makes a sheet.
     let grid = Primitive::Grid.mesh(2.0, 3, Point3::ZERO);
     let sheet = body::bodies(&grid, true, 0, "m")?;
     assert!(!sheet[0].closed);
     assert!(sheet[0].solid.faces.len() >= 9);
-    let mut topo = shapecraft_core::world::topo::Topo::new();
-    shapecraft_boolean::io::write_sheet(&mut topo, &sheet[0].solid, "it")?;
+    let mut topo = workpiece_core::world::topo::Topo::new();
+    workpiece_boolean::io::write_sheet(&mut topo, &sheet[0].solid, "it")?;
     assert_eq!(topo.validate(), Ok(()));
 
     // The surface is where the rules of subdivision say: a point of
@@ -331,8 +331,8 @@ fn a_mirror_takes_the_upper_half() {
 
 #[test]
 fn a_mesh_step_is_written_read_and_built() -> anyhow::Result<()> {
-    use shapecraft_core::Operation;
-    use shapecraft_ops_mesh::Mesh;
+    use workpiece_core::Operation;
+    use workpiece_ops_mesh::Mesh;
     let mut step = Mesh::starting("subd1", 2.0, true);
     step.args.mesh.creases.insert((0, 1));
     step.args.mirror = [true, false, false];
@@ -341,22 +341,22 @@ fn a_mesh_step_is_written_read_and_built() -> anyhow::Result<()> {
     assert_eq!(read, step);
     // Built: a solid called after the step, or — with a face gone — a
     // sheet.
-    let mut b = shapecraft_ops_testing::Standalone::new();
+    let mut b = workpiece_ops_testing::Standalone::new();
     let whole = Mesh::starting("subd1", 2.0, true);
     whole.apply(&mut b)?;
-    shapecraft_ops_testing::check(&b);
+    workpiece_ops_testing::check(&b);
     assert!(b.world.topo.lookup("subd1").is_some());
     let mut open = Mesh::starting("mesh1", 2.0, false);
     open.args.mesh.faces.pop();
     open.apply(&mut b)?;
-    shapecraft_ops_testing::check(&b);
+    workpiece_ops_testing::check(&b);
     assert!(b.world.topo.lookup("mesh1/f0").is_some());
     // A finer mesh is still quick to make a surface of.
     let fine = Primitive::Box.mesh(2.0, 8, Point3::ZERO);
     let started = std::time::Instant::now();
     let pieces = body::bodies(&fine, true, 0, "m")?;
-    let mut topo = shapecraft_core::world::topo::Topo::new();
-    shapecraft_boolean::write(&mut topo, &pieces[0].solid, "it")?;
+    let mut topo = workpiece_core::world::topo::Topo::new();
+    workpiece_boolean::write(&mut topo, &pieces[0].solid, "it")?;
     eprintln!(
         "{} faces in {:?}",
         pieces[0].solid.faces.len(),

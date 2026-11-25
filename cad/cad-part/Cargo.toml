@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-cad-part"
+name = "workpiece-part"
 description = "Parts: programs of operations that build a world, and the workspace of them."
 edition.workspace = true
 version.workspace = true
@@ -8,32 +8,32 @@ repository.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "shapecraft_cad_part"
+name = "workpiece_part"
 
 [dependencies]
 anyhow.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-shapecraft-boolean.workspace = true
-shapecraft-core.workspace = true
-shapecraft-ops-drawing.workspace = true
-shapecraft-ops-mesh.workspace = true
-shapecraft-ops-appearance.workspace = true
-shapecraft-ops-basic-shapes.workspace = true
-shapecraft-ops-datum.workspace = true
-shapecraft-ops-instances.workspace = true
-shapecraft-ops-sketch.workspace = true
-shapecraft-ops-annotate.workspace = true
-shapecraft-ops-standard.workspace = true
-shapecraft-ops-sheet-metal.workspace = true
-shapecraft-ops-surface.workspace = true
-shapecraft-ops-bodies.workspace = true
-shapecraft-ops-faces.workspace = true
-shapecraft-ops-features.workspace = true
-shapecraft-ops-sweep.workspace = true
-shapecraft-ops-blend.workspace = true
-shapecraft-ops-step.workspace = true
+workpiece-boolean.workspace = true
+workpiece-core.workspace = true
+workpiece-ops-drawing.workspace = true
+workpiece-ops-mesh.workspace = true
+workpiece-ops-appearance.workspace = true
+workpiece-ops-basic-shapes.workspace = true
+workpiece-ops-datum.workspace = true
+workpiece-ops-instances.workspace = true
+workpiece-ops-sketch.workspace = true
+workpiece-ops-annotate.workspace = true
+workpiece-ops-standard.workspace = true
+workpiece-ops-sheet-metal.workspace = true
+workpiece-ops-surface.workspace = true
+workpiece-ops-bodies.workspace = true
+workpiece-ops-faces.workspace = true
+workpiece-ops-features.workspace = true
+workpiece-ops-sweep.workspace = true
+workpiece-ops-blend.workspace = true
+workpiece-ops-step.workspace = true
 
 [lints]
 workspace = true

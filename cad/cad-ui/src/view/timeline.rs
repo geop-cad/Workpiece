@@ -1,7 +1,7 @@
-use shapecraft_cad_part::{AnyOperation, Part, Workspace};
-use shapecraft_core::Source;
+use workpiece_core::Source;
+use workpiece_part::{AnyOperation, Part, Workspace};
 
-use shapecraft_core::{Hotkey, Key};
+use workpiece_core::{Hotkey, Key};
 
 use super::Icon;
 use crate::Model;

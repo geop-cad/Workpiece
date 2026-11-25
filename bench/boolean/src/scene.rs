@@ -2,16 +2,16 @@
 //! them.
 
 use glam::DQuat;
-use shapecraft_boolean::{Op, Refusal, Solid, combine, measure, read, write};
-use shapecraft_core::math::{Axis, Point2, Point3};
-use shapecraft_core::world::topo::Topo;
-use shapecraft_core::world::{Datum, DatumFrame};
-use shapecraft_core::{Measure, Operation, Pose, Reference, Standalone};
-use shapecraft_ops_basic_shapes::{
+use workpiece_boolean::{Op, Refusal, Solid, combine, measure, read, write};
+use workpiece_core::math::{Axis, Point2, Point3};
+use workpiece_core::world::topo::Topo;
+use workpiece_core::world::{Datum, DatumFrame};
+use workpiece_core::{Measure, Operation, Pose, Reference, Standalone};
+use workpiece_ops_basic_shapes::{
     AddBox, AddBoxArgs, AddCylinder, AddCylinderArgs, AddSphere, AddSphereArgs,
 };
-use shapecraft_ops_sketch::{Shape, Sketch};
-use shapecraft_ops_sweep::{Revolve, RevolveAxis};
+use workpiece_ops_sketch::{Shape, Sketch};
+use workpiece_ops_sweep::{Revolve, RevolveAxis};
 
 use crate::Grade;
 
@@ -169,7 +169,7 @@ impl Scene {
         sketch.apply(&mut self.b)?;
         let mut revolve = Revolve::of(id.clone(), Some(format!("{id}-sketch")), false);
         revolve.args.axis = RevolveAxis::SketchV;
-        revolve.args.combine = shapecraft_shape::Combine::NewBody;
+        revolve.args.combine = workpiece_shape::Combine::NewBody;
         revolve.apply(&mut self.b)?;
         self.take(&id)
     }
@@ -262,7 +262,7 @@ impl Scene {
         sketch.apply(&mut self.b)?;
         let mut revolve = Revolve::of(id.clone(), Some(format!("{id}-sketch")), false);
         revolve.args.axis = RevolveAxis::SketchV;
-        revolve.args.combine = shapecraft_shape::Combine::NewBody;
+        revolve.args.combine = workpiece_shape::Combine::NewBody;
         revolve.apply(&mut self.b)?;
         self.take(&id)
     }
@@ -328,7 +328,7 @@ pub fn consistent(a: &Solid, b: &Solid, common: Option<(f64, f64)>) -> Grade {
     let scale = va.abs().max(vb.abs());
     // Solids of a file whose faces do not quite close up have no volume
     // closer than that.
-    let open = 2.0 * (shapecraft_boolean::measure::open(a) + shapecraft_boolean::measure::open(b));
+    let open = 2.0 * (workpiece_boolean::measure::open(a) + workpiece_boolean::measure::open(b));
     let run = || -> Result<(), Grade> {
         let both = volume_of(Op::Intersect, a, b)?;
         if let Some((wanted, within)) = common

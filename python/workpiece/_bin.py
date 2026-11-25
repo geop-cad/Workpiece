@@ -1,9 +1,9 @@
 """Where the compiled programs and the README are, and the version.
 
-A wheel carries `shapecraft` (the command line) and `shapecraft-app` (the desktop application)
-in `shapecraft/bin/`. A source checkout has them in `target/release` (or `target/debug`) after
-`cargo build --release -p shapecraft-cli -p shapecraft-app`. `SHAPECRAFT_BIN` and
-`SHAPECRAFT_APP_BIN` name other copies.
+A wheel carries `workpiece` (the command line) and `workpiece-app` (the desktop application)
+in `workpiece/bin/`. A source checkout has them in `target/release` (or `target/debug`) after
+`cargo build --release -p workpiece-cli -p workpiece-app`. `WORKPIECE_BIN` and
+`WORKPIECE_APP_BIN` name other copies.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ _EXE = ".exe" if sys.platform == "win32" else ""
 def _version() -> str:
     try:
         from importlib.metadata import version
-        return version("shapecraft-cad")
+        return version("workpiece")
     except Exception:
         pass
     # A source checkout that is not installed: the workspace's own version.
@@ -48,18 +48,18 @@ def _find(program: str, env: str, hint: str) -> str:
         if path and os.path.isfile(path):
             return path
     raise RuntimeError(
-        f"the {program} program was not found. A pip install of shapecraft-cad brings it; "
+        f"the {program} program was not found. A pip install of workpiece brings it; "
         f"in a source checkout build it first: {hint}")
 
 
 def command_line() -> str:
-    """The path of the `shapecraft` command line program."""
-    return _find("shapecraft", "SHAPECRAFT_BIN", "cargo build --release -p shapecraft-cli")
+    """The path of the `workpiece` command line program."""
+    return _find("workpiece", "WORKPIECE_BIN", "cargo build --release -p workpiece-cli")
 
 
 def app() -> str:
-    """The path of the `shapecraft-app` desktop application."""
-    return _find("shapecraft-app", "SHAPECRAFT_APP_BIN", "cargo build --release -p shapecraft-app")
+    """The path of the `workpiece-app` desktop application."""
+    return _find("workpiece-app", "WORKPIECE_APP_BIN", "cargo build --release -p workpiece-app")
 
 
 def readme() -> str:

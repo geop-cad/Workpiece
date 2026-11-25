@@ -9,9 +9,9 @@
 use std::collections::BTreeMap;
 use std::f64::consts::TAU;
 
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::topo::Curve2;
-use shapecraft_core::world::{DatumPlane, Profile, ProfileEdge, ProfileRegion, ProfileVertex};
+use workpiece_core::math::Point2;
+use workpiece_core::world::topo::Curve2;
+use workpiece_core::world::{DatumPlane, Profile, ProfileEdge, ProfileRegion, ProfileVertex};
 
 use crate::geometry::{angle, arc_curve, unit};
 use crate::model::{Id, Kind, Shape, SketchArgs};

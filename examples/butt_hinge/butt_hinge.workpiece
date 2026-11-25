@@ -10,10 +10,10 @@
             "distance": null,
             "flip": false
           },
-          "part": "fork.shapecraft",
+          "part": "leaf.workpiece",
           "variant": null
         },
-        "id": "fork"
+        "id": "leaf1"
       }
     },
     {
@@ -26,24 +26,24 @@
               "Joint": "Fastened"
             },
             "distance": null,
-            "flip": true,
+            "flip": false,
             "onto": {
               "instance": [
-                "fork"
+                "leaf1"
               ],
               "snap": "ArcCentre",
               "source": {
-                "Topology": "block/edge[axle/side/e8+side/e11]"
+                "Topology": "plate/edge[knuckle/side/e7+side/e11]"
               }
             },
             "with": {
               "snap": "ArcCentre",
               "source": {
-                "Topology": "pin/ring/p10"
+                "Topology": "pin/start/e7"
               }
             }
           },
-          "part": "pin.shapecraft",
+          "part": "pin.workpiece",
           "variant": null
         },
         "id": "pin"
@@ -60,48 +60,36 @@
             },
             "distance": null,
             "flip": true,
-            "offset": [
-              0.0,
-              0.0,
-              -7.0
-            ],
             "onto": {
               "instance": [
-                "fork"
+                "leaf1"
               ],
               "snap": "ArcCentre",
               "source": {
-                "Topology": "block/edge[axle/side/e8+thick/f0/far]"
+                "Topology": "plate/edge[knuckle/end+knuckle/side/e7]#2"
               }
             },
             "with": {
               "snap": "ArcCentre",
               "source": {
-                "Topology": "hub/ring/p7"
+                "Topology": "plate/edge[knuckle/end+knuckle/side/e7]"
               }
             }
           },
-          "part": "wheel.shapecraft",
+          "part": "leaf.workpiece",
           "variant": null
         },
-        "id": "wheel"
+        "id": "leaf2"
       }
     },
     {
-      "Section": {
+      "Drive": {
         "args": {
-          "along": "Plane",
-          "flip": false,
-          "offset": 0.0,
-          "plane": {
-            "FrameAxis": {
-              "axis": "X",
-              "frame": "origin"
-            }
-          },
-          "sketch": null
+          "at": 110.0,
+          "joint": "leaf2",
+          "slide": false
         },
-        "id": "A"
+        "id": "open"
       }
     },
     {
@@ -415,7 +403,7 @@
           "parts_list": true,
           "projection": "ThirdAngle",
           "scale": [
-            1,
+            2,
             1
           ],
           "spacing": {
@@ -428,29 +416,27 @@
           "views": [
             {
               "at": [
-                90.0,
-                175.0
+                110.0,
+                190.0
               ],
-              "id": "right",
+              "id": "top",
               "kind": {
                 "Base": {
-                  "side": "Right"
+                  "side": "Top"
                 }
               },
               "style": "HiddenRemoved"
             },
             {
               "at": [
-                215.0,
-                175.0
+                230.0,
+                190.0
               ],
-              "id": "secA",
+              "id": "side",
               "kind": {
-                "Section": {
-                  "letter": "A",
-                  "of": "right",
-                  "section": "A",
-                  "turn": 0.0
+                "Projected": {
+                  "beside": "Right",
+                  "of": "top"
                 }
               },
               "style": "HiddenRemoved"
@@ -458,7 +444,7 @@
             {
               "at": [
                 335.0,
-                215.0
+                225.0
               ],
               "id": "iso",
               "kind": {
@@ -466,6 +452,10 @@
                   "side": "Isometric"
                 }
               },
+              "scale": [
+                1,
+                1
+              ],
               "style": "HiddenRemoved"
             }
           ]
@@ -475,6 +465,6 @@
     }
   ],
   "properties": {
-    "Title": "CASTER"
+    "Title": "BUTT HINGE"
   }
 }

@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-app"
+name = "workpiece-app"
 description = "The desktop application: the cad-ui view drawn with egui, and the viewport with OpenGL (WebGL on the web)."
 edition.workspace = true
 version.workspace = true
@@ -9,7 +9,7 @@ rust-version.workspace = true
 publish = false
 
 [[bin]]
-name = "shapecraft-app"
+name = "workpiece-app"
 path = "src/main.rs"
 
 [dependencies]
@@ -17,22 +17,22 @@ anyhow.workspace = true
 serde_json.workspace = true
 bytemuck = "1.25.2"
 glam.workspace = true
-shapecraft-core.workspace = true
-shapecraft-ops-drawing.workspace = true
-shapecraft-boolean.workspace = true
-shapecraft-ops-step.workspace = true
-shapecraft-cad-part.workspace = true
-shapecraft-ops-basic-shapes.workspace = true
-shapecraft-ops-datum.workspace = true
-shapecraft-ops-blend.workspace = true
-shapecraft-ops-bodies.workspace = true
-shapecraft-shape.workspace = true
-shapecraft-ops-instances.workspace = true
-shapecraft-ops-sketch.workspace = true
-shapecraft-cad-rasterize.workspace = true
-shapecraft-cad-ui.workspace = true
-shapecraft-ops-appearance.workspace = true
-shapecraft-render.workspace = true
+workpiece-core.workspace = true
+workpiece-ops-drawing.workspace = true
+workpiece-boolean.workspace = true
+workpiece-ops-step.workspace = true
+workpiece-part.workspace = true
+workpiece-ops-basic-shapes.workspace = true
+workpiece-ops-datum.workspace = true
+workpiece-ops-blend.workspace = true
+workpiece-ops-bodies.workspace = true
+workpiece-shape.workspace = true
+workpiece-ops-instances.workspace = true
+workpiece-ops-sketch.workspace = true
+workpiece-rasterize.workspace = true
+workpiece-ui.workspace = true
+workpiece-ops-appearance.workspace = true
+workpiece-render.workspace = true
 # Pictures are saved as PNG files.
 png = "0.18.1"
 # The glow renderer: OpenGL on desktop, WebGL in the browser.

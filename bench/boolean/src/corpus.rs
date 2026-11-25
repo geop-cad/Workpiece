@@ -12,10 +12,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use shapecraft_boolean::model::Walk;
-use shapecraft_boolean::{Solid, measure};
-use shapecraft_core::math::Point3;
-use shapecraft_shape::{BlendShape, By, Section, blend_solid};
+use workpiece_boolean::model::Walk;
+use workpiece_boolean::{Solid, measure};
+use workpiece_core::math::Point3;
+use workpiece_shape::{BlendShape, By, Section, blend_solid};
 
 /// How many edges of a part are rounded.
 const EDGES: usize = 4;
@@ -83,7 +83,7 @@ pub fn run(files: &[PathBuf], out: &Path) -> Result<(), String> {
         let name = file.file_name().and_then(|n| n.to_str()).unwrap_or("?");
         let solid = match std::fs::read(file)
             .map_err(|e| e.to_string())
-            .and_then(|bytes| shapecraft_ops_step::import(&bytes).map_err(|e| format!("{e:#}")))
+            .and_then(|bytes| workpiece_ops_step::import(&bytes).map_err(|e| format!("{e:#}")))
         {
             Ok(found) => match found.bodies.into_iter().next() {
                 Some(body) => body.solid,

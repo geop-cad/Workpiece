@@ -4,8 +4,8 @@
 
 use std::sync::Arc;
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsError, NurbsSurface};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsError, NurbsSurface};
 
 use crate::bezier::Bounds;
 

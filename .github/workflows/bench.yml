@@ -1,6 +1,6 @@
 name: Benchmarks
 
-# Runs ShapeCraft's own rows of the benchmarks in docs/benchmarks (brep-conformance and the
+# Runs Workpiece's own rows of the benchmarks in docs/benchmarks (brep-conformance and the
 # boolean bench with its STEP files) and uploads docs/benchmarks/results.json, regenerated from
 # the run, as an artifact. Other kernels are not run here: their rows in results.json are the
 # ones their benchmark's maintainers published, copied by hand (docs/benchmarks/README.md).
@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Build ShapeCraft's adapter
+      - name: Build Workpiece's adapter
         run: bench/conformance/build.sh
       - name: Fetch and build the suite at its pinned commit
         # The suite is third-party code: it runs here with no secrets and a read-only token.
@@ -39,11 +39,11 @@ jobs:
           git -C "$RUNNER_TEMP/suite" checkout --quiet "$SUITE_COMMIT"
           rm -f "$RUNNER_TEMP/suite/rust-toolchain.toml"
           cargo build --release --locked --manifest-path "$RUNNER_TEMP/suite/Cargo.toml" -p brep-conformance
-      - name: Run the suite on ShapeCraft
+      - name: Run the suite on Workpiece
         run: |
           mkdir -p out
           "$RUNNER_TEMP/suite/target/release/brep-conformance" \
-            --adapter target/conformance/release/shapecraft-adapter \
+            --adapter target/conformance/release/workpiece-adapter \
             --threads "$(nproc)" --out out/conformance.json --html out/conformance.html \
             > out/conformance.log 2>&1
           tail -n 25 out/conformance.log
@@ -62,7 +62,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Build
-        run: cargo build --release -p shapecraft-boolean-bench
+        run: cargo build --release -p workpiece-boolean-bench
       - name: Fetch the datasets (pinned by SHA-256 in bench/boolean/datasets.tsv)
         run: target/release/boolean-bench fetch
       - name: Run

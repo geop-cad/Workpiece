@@ -12,7 +12,7 @@ brep-bench:
 
 - **pass**: a valid, closed solid (written to a topology and validated there) with the expected
   volume, and area where it is known, to a relative 1e-6. Volume and area are measured from the
-  surfaces and loops themselves (`shapecraft_boolean::measure`), not from a mesh.
+  surfaces and loops themselves (`workpiece_boolean::measure`), not from a mesh.
 - **refused**: the operation declined, with a reason.
 - **wrong**: anything else. Refused ranks above wrong.
 - **crashed**: a panic.
@@ -27,14 +27,14 @@ wrong or crashes that was not before. The per-case results of the last run are i
 ## Running it
 
 ```bash
-cargo build --release -p shapecraft-boolean-bench
+cargo build --release -p workpiece-boolean-bench
 target/release/boolean-bench fetch                # once: download the datasets (about 270 MB)
 target/release/boolean-bench                      # run every case
 target/release/boolean-bench sphere tangent       # some categories, or case names
 target/release/boolean-bench --bless              # accept the results as the baseline
 ```
 
-`cargo run --release -p shapecraft-boolean-bench -- <arguments>` does the same.
+`cargo run --release -p workpiece-boolean-bench -- <arguments>` does the same.
 
 ## Cases
 
@@ -84,7 +84,7 @@ geometry, and is within four tolerances of the true surface, both ways, in under
 - the freeform panel is held to the same distances both ways, against its true walls, floor and flat
   ends;
 - the shop parts, whose truth in the benchmark is OpenCascade's own fine mesh, are held to the first
-  rule and to the size the benchmark gives for them; ShapeCraft's own fine mesh stands in for the
+  rule and to the size the benchmark gives for them; Workpiece's own fine mesh stands in for the
   reference reader, so those 28 cells are a weaker check than the benchmark's.
 
 The benchmark's own scorer takes a reader as a program: `boolean-bench step-read OUT TOLERANCE FILE`
@@ -121,5 +121,5 @@ case for lines, planes, cylinders or any other kind.
 
 The STEP importer reads solids, at every place an assembly uses them (tessellated AP242 solids too), in
 any length unit; it does not read wires. IGES is read and written
-(`shapecraft_ops_step::{import_iges, export_iges}`) as trimmed NURBS surfaces, with a round trip test
+(`workpiece_ops_step::{import_iges, export_iges}`) as trimmed NURBS surfaces, with a round trip test
 (`bodies_written_as_iges_read_back_as_they_were`).

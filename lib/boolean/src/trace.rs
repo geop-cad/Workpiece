@@ -9,8 +9,8 @@
 //! itself, so a straight section takes a step or two and a tight one as
 //! many as it needs.
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
 
 use crate::fit::{foot, hermite, pull};
 use crate::query::normal;
@@ -375,7 +375,7 @@ impl Tracer<'_> {
             .map_or(0.0, |g| g.2 * 8.0 + self.target * 8.0)
             .max(self.scale * 1e-7);
         loop {
-            shapecraft_core::cancel::checkpoint();
+            workpiece_core::cancel::checkpoint();
             if nodes.len() > 200_000 {
                 return Some((nodes, Stop::Lost("it goes on for ever")));
             }

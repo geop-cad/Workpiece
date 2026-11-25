@@ -1,8 +1,8 @@
 //! A sketch's dimensions as annotations of the model: what a drawing
 //! made of the part shows of them.
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::{Annotation, DatumPlane, Measured, Note};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::{Annotation, DatumPlane, Measured, Note};
 
 use crate::model::{Kind, Shape, SketchArgs, SketchAxis};
 
@@ -33,7 +33,7 @@ pub(crate) fn annotations(
         }
         _ => None,
     };
-    let geometry = shapecraft_core::world::Opaque::new(args.clone());
+    let geometry = workpiece_core::world::Opaque::new(args.clone());
     let mut all = Vec::new();
     for (key, constraint) in &args.constraints {
         let Some(dimension) = &constraint.dimension else {
@@ -195,7 +195,7 @@ pub(crate) fn annotations(
             _ => dimension.value,
         };
         let tolerance = if dimension.driven {
-            shapecraft_core::world::Tolerance::Reference
+            workpiece_core::world::Tolerance::Reference
         } else {
             dimension.tolerance.clone()
         };
@@ -212,7 +212,7 @@ pub(crate) fn annotations(
                     elsewhere: Vec::new(),
                 },
                 at: place(dimension.label),
-                sketch: Some(shapecraft_core::world::SketchOf {
+                sketch: Some(workpiece_core::world::SketchOf {
                     id: id.to_owned(),
                     constraint: *key,
                     geometry: geometry.clone(),

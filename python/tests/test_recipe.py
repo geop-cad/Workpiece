@@ -6,7 +6,7 @@ import sys
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
-from shapecraft import Part, datum, topo, view  # noqa: E402
+from workpiece import Part, datum, topo, view  # noqa: E402
 
 
 class Recipes(unittest.TestCase):

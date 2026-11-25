@@ -6,14 +6,14 @@ five. Sections through the blade's root and tip show the two pitch angles.
 """
 import os, sys
 try:
-    import shapecraft
+    import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from shapecraft import Part, axis, note, profile, view, projected, section_view, datum
+from workpiece import Part, axis, note, profile, view, projected, section_view, datum
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "axial_fan.shapecraft")
-p = Part(material="ABS", title="AXIAL FAN 160", file="axial_fan.shapecraft")
+OUT = os.path.join(HERE, "axial_fan.workpiece")
+p = Part(material="ABS", title="AXIAL FAN 160", file="axial_fan.workpiece")
 
 # The hub: half its profile on YZ, turned about z — Ø50 × 30 with a Ø8 bore.
 h = p.sketch("YZ", id="hub_profile", show_in="front")

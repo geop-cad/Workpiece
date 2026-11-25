@@ -1,6 +1,6 @@
 use std::mem;
 
-use shapecraft_cad_part::Workspace;
+use workpiece_part::Workspace;
 
 /// Undo and redo, as snapshots of the workspace. Parts are programs, not
 /// built geometry, so a snapshot is small.

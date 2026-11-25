@@ -2,22 +2,22 @@
 //! bend of a radius through an angle, and a flange on from it.
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::model::Walk;
-use shapecraft_boolean::{Op, Solid, combine, face_area, read};
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::topo::Curve3;
-use shapecraft_core::{Builder, Measure, Operation};
+use workpiece_boolean::model::Walk;
+use workpiece_boolean::{Op, Solid, combine, face_area, read};
+use workpiece_core::math::Point2;
+use workpiece_core::world::topo::Curve3;
+use workpiece_core::{Builder, Measure, Operation};
 
-use shapecraft_shape::swept::{Outline, Sides, Weighted, steady, swept};
+use workpiece_shape::swept::{Outline, Sides, Weighted, steady, swept};
 
 /// The edge bent along, and the bend's and the flange's sizes.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct FlangeArgs {
     /// The straight edge: between the plate's face the flange rises
     /// from and the plate's end.
-    pub edge: Option<shapecraft_core::Reference<shapecraft_core::world::topo::EdgeId>>,
+    pub edge: Option<workpiece_core::Reference<workpiece_core::world::topo::EdgeId>>,
     /// How thick the sheet is.
     pub thickness: Measure,
     /// The radius of the bend, on its inside.
@@ -215,10 +215,10 @@ impl Operation for Flange {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let picked = args
             .edge
@@ -232,7 +232,7 @@ impl Operation for Flange {
             (*builder).measure(&args.length, "the length")?,
         );
         let topo = &builder.tracked().topo;
-        for (body, name) in shapecraft_shape::bodies::solids_with(topo, &[picked]) {
+        for (body, name) in workpiece_shape::bodies::solids_with(topo, &[picked]) {
             let solid = read(topo, body)?;
             let found = solid.edges.iter().position(|e| {
                 e.name.as_deref() == Some(picked) || e.also.iter().any(|n| n == picked)
@@ -268,7 +268,7 @@ impl Operation for Flange {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Bend {
     /// Where its centre line starts and ends.
-    pub line: [shapecraft_core::math::Point3; 2],
+    pub line: [workpiece_core::math::Point3; 2],
     /// Through how much it bends, in radians.
     pub angle: f64,
     /// Its inside radius.
@@ -290,8 +290,8 @@ pub fn unfolded(
     k: f64,
     id: &str,
 ) -> anyhow::Result<(Solid, Vec<Bend>)> {
-    use shapecraft_core::math::Point3;
     use std::collections::BTreeMap;
+    use workpiece_core::math::Point3;
     ensure!(thickness > 0.0, "the sheet has a thickness");
     // Which way a face faces, where its edge `edge` is; `None` for a
     // face that is not flat.
@@ -379,7 +379,7 @@ pub fn unfolded(
                 continue;
             };
             let leaves = facing(bend, Some(edge)).is_some_and(|n| n.dot(here) > 1.0 - 1e-6);
-            let Ok(round) = shapecraft_shape::thread::cylinder(solid, bend) else {
+            let Ok(round) = workpiece_shape::thread::cylinder(solid, bend) else {
                 continue;
             };
             if !leaves || facing(bend, None).is_some() {
@@ -444,7 +444,7 @@ pub fn unfolded(
             } else {
                 [wide, from.distance(to), thickness]
             };
-            let strip = shapecraft_boolean::block(
+            let strip = workpiece_boolean::block(
                 &format!("{id}/bend{}", pieces.len()),
                 corner,
                 [first, second, up],
@@ -474,8 +474,8 @@ pub fn unfolded(
     }
     // Each flat face as a plate behind it, where it lies flat.
     for (&f, steps) in &flat {
-        let sheet = shapecraft_shape::faces_of(solid, &[f]);
-        let plate = shapecraft_shape::thick::thicken(&sheet, &[0], -thickness, false, true)
+        let sheet = workpiece_shape::faces_of(solid, &[f]);
+        let plate = workpiece_shape::thick::thicken(&sheet, &[0], -thickness, false, true)
             .context("a face of the sheet could not be given its thickness")?;
         pieces.push(plate.moved(&|p| carry(steps, p))?);
     }
@@ -490,13 +490,13 @@ pub fn unfolded(
 
 /// The face laid out from, and the sheet it is of.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct UnfoldArgs {
     /// The flat face that stays where it is: the others are laid out
     /// in its plane.
     #[arg(label = "Fixed face")]
-    pub face: Option<shapecraft_core::Reference<shapecraft_core::world::topo::FaceId>>,
+    pub face: Option<workpiece_core::Reference<workpiece_core::world::topo::FaceId>>,
     /// How thick the sheet is.
     pub thickness: Measure,
     /// Where in the sheet's thickness a bend neither stretches nor
@@ -548,10 +548,10 @@ impl Operation for Unfold {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let picked = args
             .face
@@ -565,7 +565,7 @@ impl Operation for Unfold {
             "the K-factor is a share of the thickness: from 0 to 1"
         );
         let topo = &builder.tracked().topo;
-        for (body, name) in shapecraft_shape::bodies::solids_with(topo, &[picked]) {
+        for (body, name) in workpiece_shape::bodies::solids_with(topo, &[picked]) {
             let solid = read(topo, body)?;
             let found = solid.faces.iter().position(|f| {
                 f.name.as_deref() == Some(picked) || f.also.iter().any(|n| n == picked)
@@ -578,7 +578,7 @@ impl Operation for Unfold {
             out.write(&flat, &self.id);
             for (n, bend) in bends.iter().enumerate() {
                 let [from, to] = bend.line;
-                let axis = shapecraft_core::world::DatumAxis::new(from, to - from)?;
+                let axis = workpiece_core::world::DatumAxis::new(from, to - from)?;
                 out.made
                     .datums
                     .push((format!("{}/bend{}", self.id, n + 1), axis.into()));

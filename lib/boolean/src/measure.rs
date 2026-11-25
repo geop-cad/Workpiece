@@ -8,9 +8,9 @@
 //! the region: `∬ f du dv = ∮ F dv`, with `F(u, v)` the integral of `f`
 //! along u up to the loop.
 
-use shapecraft_core::math::Point2;
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::nurbs::{AlongU, NurbsSurface};
+use workpiece_core::math::Point2;
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::nurbs::{AlongU, NurbsSurface};
 
 use crate::bezier::{curve_pieces, roots};
 use crate::model::{Face, Solid};
@@ -717,7 +717,7 @@ pub fn second_moments(solid: &Solid) -> (f64, Point3, [f64; 6]) {
     };
     let mut total = [0.0; WITH_SECOND];
     for f in &solid.faces {
-        shapecraft_core::cancel::checkpoint();
+        workpiece_core::cancel::checkpoint();
         add(&mut total, face(solid, f, from));
     }
     let volume = total[0];

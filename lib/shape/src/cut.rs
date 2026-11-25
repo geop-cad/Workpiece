@@ -2,10 +2,10 @@
 
 use std::sync::Arc;
 
-use shapecraft_boolean::Solid;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::World;
-use shapecraft_core::world::topo::{BodyKind, Curve3};
+use workpiece_boolean::Solid;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::World;
+use workpiece_core::world::topo::{BodyKind, Curve3};
 
 /// The corners of the box from `lo` to `hi`.
 pub fn corners(lo: Point3, hi: Point3) -> [Point3; 8] {
@@ -27,7 +27,7 @@ pub fn cut(world: &World, origin: Point3, normal: Point3, far: f64) -> World {
     let x = normal.any_orthonormal_vector();
     let y = normal.cross(x);
     let corner = origin - (x + y + normal) * far;
-    let block = shapecraft_boolean::block(
+    let block = workpiece_boolean::block(
         "section",
         corner,
         [x, y, normal],
@@ -41,7 +41,7 @@ pub fn cut(world: &World, origin: Point3, normal: Point3, far: f64) -> World {
         .map(|(id, _)| id)
         .collect();
     for body in bodies {
-        let (Ok(solid), Ok(block)) = (shapecraft_boolean::read(&out.topo, body), &block) else {
+        let (Ok(solid), Ok(block)) = (workpiece_boolean::read(&out.topo, body), &block) else {
             continue;
         };
         let Some(name) = out.topo.name_of(body).map(str::to_owned) else {
@@ -54,18 +54,17 @@ pub fn cut(world: &World, origin: Point3, normal: Point3, far: f64) -> World {
             continue;
         }
         if sides.iter().all(|s| *s >= 0.0) {
-            shapecraft_boolean::remove(&mut out.topo, body);
+            workpiece_boolean::remove(&mut out.topo, body);
             continue;
         }
-        let Ok(kept) =
-            shapecraft_boolean::combine(shapecraft_boolean::Op::Intersect, &solid, block)
+        let Ok(kept) = workpiece_boolean::combine(workpiece_boolean::Op::Intersect, &solid, block)
         else {
             continue;
         };
-        shapecraft_boolean::remove(&mut out.topo, body);
+        workpiece_boolean::remove(&mut out.topo, body);
         if !kept.solid.is_empty() {
             // (A body that cannot be written back is not shown cut.)
-            let _ = shapecraft_boolean::write(&mut out.topo, &kept.solid, &name);
+            let _ = workpiece_boolean::write(&mut out.topo, &kept.solid, &name);
         }
     }
     for instance in out.instances.values_mut() {
@@ -111,24 +110,24 @@ pub fn cut_left_of(
         .map(|(id, _)| id)
         .collect();
     for body in bodies {
-        let Ok(solid) = shapecraft_boolean::read(&out.topo, body) else {
+        let Ok(solid) = workpiece_boolean::read(&out.topo, body) else {
             continue;
         };
         let Some(name) = out.topo.name_of(body).map(str::to_owned) else {
             continue;
         };
-        let Ok(kept) = shapecraft_boolean::combine(shapecraft_boolean::Op::Cut, &solid, &prism)
+        let Ok(kept) = workpiece_boolean::combine(workpiece_boolean::Op::Cut, &solid, &prism)
         else {
             continue;
         };
-        shapecraft_boolean::remove(&mut out.topo, body);
+        workpiece_boolean::remove(&mut out.topo, body);
         if !kept.solid.is_empty() {
-            let _ = shapecraft_boolean::write(&mut out.topo, &kept.solid, &name);
+            let _ = workpiece_boolean::write(&mut out.topo, &kept.solid, &name);
         }
     }
     for instance in out.instances.values_mut() {
         let back = instance.pose.inverse();
-        let inner = shapecraft_core::world::Cutting {
+        let inner = workpiece_core::world::Cutting {
             origin: back.transform_point(origin),
             x: back.transform_vector(x),
             y: back.transform_vector(y),
@@ -184,7 +183,7 @@ fn prism(origin: Point3, x: Point3, y: Point3, path: &[Point2], far: f64) -> Opt
         let Ok(solid) = swept("section", &outline, &path3, path3.domain(), y, far * 4.0) else {
             continue;
         };
-        if shapecraft_boolean::holds(&solid, probe) == Some(true) {
+        if workpiece_boolean::holds(&solid, probe) == Some(true) {
             return Some(solid);
         }
     }
@@ -195,7 +194,7 @@ fn prism(origin: Point3, x: Point3, y: Point3, path: &[Point2], far: f64) -> Opt
 /// frame) whole: a part not sectioned along it (a shaft, a screw) that
 /// the cut runs through or that stays all of it — not one all of which
 /// the cut takes away.
-pub fn left_whole(world: &World, cut: &shapecraft_core::world::Cutting) -> bool {
+pub fn left_whole(world: &World, cut: &workpiece_core::world::Cutting) -> bool {
     if world.sectioned.cut_by(cut) {
         return false;
     }

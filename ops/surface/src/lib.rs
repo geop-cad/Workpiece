@@ -8,9 +8,9 @@ pub use surface::{Surface, SurfaceArgs, SurfaceWay};
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
 /// add them, and their icons.
-pub fn register(r: &mut shapecraft_core::Registry) {
-    use shapecraft_core::Tool;
-    r.kind_by::<Surface>(shapecraft_core::IconOf::By(|op| {
+pub fn register(r: &mut workpiece_core::Registry) {
+    use workpiece_core::Tool;
+    r.kind_by::<Surface>(workpiece_core::IconOf::By(|op| {
         match op.downcast_ref::<Surface>().map(|s| s.args.way) {
             Some(SurfaceWay::Copy) => "copyfaces",
             Some(SurfaceWay::Stitch) => "stitch",

@@ -1,5 +1,5 @@
-use shapecraft_boolean::measure;
-use shapecraft_core::{Operation, Standalone};
+use workpiece_boolean::measure;
+use workpiece_core::{Operation, Standalone};
 
 use crate::{ImportStep, ImportStepArgs, import};
 
@@ -32,7 +32,7 @@ fn a_cylinder_without_a_seam_is_cut_open_and_measured_in_millimetres() -> anyhow
 #[test]
 fn the_operation_adds_a_files_solids_as_bodies() -> anyhow::Result<()> {
     let path =
-        std::env::temp_dir().join(format!("shapecraft-step-test-{}.step", std::process::id()));
+        std::env::temp_dir().join(format!("workpiece-step-test-{}.step", std::process::id()));
     std::fs::write(&path, ROD)?;
     let mut b = Standalone::new();
     let op = ImportStep {
@@ -47,7 +47,7 @@ fn the_operation_adds_a_files_solids_as_bodies() -> anyhow::Result<()> {
     let topo = &b.world.topo;
     assert_eq!(topo.validate(), Ok(()));
     let body = topo
-        .resolve::<shapecraft_core::world::topo::BodyId>("rod")
+        .resolve::<workpiece_core::world::topo::BodyId>("rod")
         .expect("the body");
     assert_eq!(topo.body_faces(body).map(|f| f.len()), Some(3));
     // No file, no body; and it says so.
@@ -128,12 +128,10 @@ fn a_part_of_an_assembly_is_at_every_place_it_is_used() -> anyhow::Result<()> {
 
 #[test]
 fn what_is_written_reads_back_as_it_was() -> anyhow::Result<()> {
-    use shapecraft_boolean::{Op, combine, read};
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::{Measure, Reference};
-    use shapecraft_ops_basic_shapes::{
-        AddBox, AddBoxArgs, AddCylinder, AddCylinderArgs, AddSphere,
-    };
+    use workpiece_boolean::{Op, combine, read};
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::{Measure, Reference};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs, AddCylinder, AddCylinderArgs, AddSphere};
     // A block with a hole through it and a hollow ball inside; and a
     // rod beside it.
     let mut b = Standalone::new();
@@ -164,11 +162,11 @@ fn what_is_written_reads_back_as_it_was() -> anyhow::Result<()> {
     let topo = &b.world.topo;
     let solid = |name: &str| read(topo, topo.resolve(name).expect("a body"));
     let (block, rod, ball) = (solid("block")?, solid("rod")?, solid("ball")?);
-    let ball = ball.moved(&|p| p + shapecraft_core::math::Point3::new(2.0, 0.0, 0.0))?;
+    let ball = ball.moved(&|p| p + workpiece_core::math::Point3::new(2.0, 0.0, 0.0))?;
     let drilled = combine(Op::Cut, &combine(Op::Cut, &block, &rod)?.solid, &ball)?.solid;
-    let far = rod.moved(&|p| p + shapecraft_core::math::Point3::new(10.0, 0.0, 0.0))?;
+    let far = rod.moved(&|p| p + workpiece_core::math::Point3::new(10.0, 0.0, 0.0))?;
     let bodies = [("drilled".to_owned(), drilled), ("rod".to_owned(), far)];
-    let text = crate::export("part", &bodies, shapecraft_core::Unit::Millimetre)?;
+    let text = crate::export("part", &bodies, workpiece_core::Unit::Millimetre)?;
     assert!(text.contains("BREP_WITH_VOIDS('drilled'"));
     let back = import(text.as_bytes())?;
     assert!(back.refused.is_empty(), "{:?}", back.refused);
@@ -195,7 +193,7 @@ fn what_is_written_reads_back_as_it_was() -> anyhow::Result<()> {
         assert_eq!(was.faces.len(), body.solid.faces.len());
     }
     // Written in inches, it is read back 25.4 times the size.
-    let text = crate::export("part", &bodies, shapecraft_core::Unit::Inch)?;
+    let text = crate::export("part", &bodies, workpiece_core::Unit::Inch)?;
     let back = import(text.as_bytes())?;
     assert!(back.refused.is_empty(), "{:?}", back.refused);
     let (was, is) = (measure(&bodies[1].1), measure(&back.bodies[1].solid));
@@ -241,9 +239,9 @@ fn a_closed_mesh_is_read_as_the_solid_it_bounds() -> anyhow::Result<()> {
     assert!(crate::import_stl(&binary[..binary.len() - 50], "mesh").is_err());
     // A mesh with a face missing, one there twice and one inside out is
     // mended: a block of 2 x 2 x 2 from ten of its twelve triangles.
-    let p: Vec<shapecraft_core::math::Point3> = (0..8)
+    let p: Vec<workpiece_core::math::Point3> = (0..8)
         .map(|i| {
-            shapecraft_core::math::Point3::new(
+            workpiece_core::math::Point3::new(
                 f64::from(i & 1),
                 f64::from(i >> 1 & 1),
                 f64::from(i >> 2),
@@ -265,21 +263,21 @@ fn a_closed_mesh_is_read_as_the_solid_it_bounds() -> anyhow::Result<()> {
     broken.truncate(10);
     broken[3].swap(0, 1);
     broken.push(broken[5]);
-    assert!(shapecraft_boolean::faceted("m", &p, &broken).is_err());
-    let whole = shapecraft_boolean::faceted("m", &p, &crate::mended(&p, &broken))?;
+    assert!(workpiece_boolean::faceted("m", &p, &broken).is_err());
+    let whole = workpiece_boolean::faceted("m", &p, &crate::mended(&p, &broken))?;
     assert_eq!(whole.faces.len(), 6);
     assert!((measure(&whole).volume - 8.0).abs() < 1e-9);
     Ok(())
 }
 
 #[test]
-#[ignore = "reads the file SHAPECRAFT_STL names: to try a mesh by hand"]
+#[ignore = "reads the file WORKPIECE_STL names: to try a mesh by hand"]
 fn a_mesh_file_by_hand() -> anyhow::Result<()> {
-    let path = std::env::var("SHAPECRAFT_STL")?;
+    let path = std::env::var("WORKPIECE_STL")?;
     let started = std::time::Instant::now();
     let solid = crate::import_stl(&std::fs::read(path)?, "mesh")?;
-    let mut topo = shapecraft_core::world::Topo::new();
-    shapecraft_boolean::write(&mut topo, &solid, "mesh")?;
+    let mut topo = workpiece_core::world::Topo::new();
+    workpiece_boolean::write(&mut topo, &solid, "mesh")?;
     assert_eq!(topo.validate(), Ok(()));
     let m = measure(&solid);
     println!(
@@ -293,9 +291,9 @@ fn a_mesh_file_by_hand() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "reads the 3MF file SHAPECRAFT_3MF names: to try one by hand"]
+#[ignore = "reads the 3MF file WORKPIECE_3MF names: to try one by hand"]
 fn a_3mf_file_by_hand() -> anyhow::Result<()> {
-    let path = std::env::var("SHAPECRAFT_3MF")?;
+    let path = std::env::var("WORKPIECE_3MF")?;
     for solid in crate::import_3mf(&std::fs::read(path)?, "mesh")? {
         let m = measure(&solid);
         println!(
@@ -310,13 +308,11 @@ fn a_3mf_file_by_hand() -> anyhow::Result<()> {
 
 #[test]
 fn bodies_written_as_iges_read_back_as_they_were() -> anyhow::Result<()> {
-    use shapecraft_boolean::{Op, combine, read};
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::{Measure, Reference};
-    use shapecraft_ops_basic_shapes::{
-        AddBox, AddBoxArgs, AddCylinder, AddCylinderArgs, AddSphere,
-    };
+    use workpiece_boolean::{Op, combine, read};
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::{Measure, Reference};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs, AddCylinder, AddCylinderArgs, AddSphere};
     // A block with a hole drilled through it, and a ball (whose face
     // comes to a point at each pole): written as trimmed surfaces and
     // read back, sewn into solids of the same size.
@@ -353,10 +349,10 @@ fn bodies_written_as_iges_read_back_as_they_were() -> anyhow::Result<()> {
         let text = crate::export_iges(
             name,
             &[(name.to_owned(), was.clone())],
-            shapecraft_core::Unit::Millimetre,
+            workpiece_core::Unit::Millimetre,
         )?;
         assert!(text.lines().all(|l| l.len() == 80), "lines are 80 long");
-        if let Ok(dir) = std::env::var("SHAPECRAFT_IGES_OUT") {
+        if let Ok(dir) = std::env::var("WORKPIECE_IGES_OUT") {
             std::fs::write(format!("{dir}/{name}.igs"), &text)?;
         }
         let back = crate::import_iges(text.as_bytes(), name)?;
@@ -365,8 +361,8 @@ fn bodies_written_as_iges_read_back_as_they_were() -> anyhow::Result<()> {
             panic!("one body");
         };
         assert!(closed, "{name} closes");
-        let mut topo = shapecraft_core::world::Topo::new();
-        shapecraft_boolean::write(&mut topo, body, name)?;
+        let mut topo = workpiece_core::world::Topo::new();
+        workpiece_boolean::write(&mut topo, body, name)?;
         assert_eq!(topo.validate(), Ok(()));
         let (a, b) = (measure(&was), measure(body));
         assert!(
@@ -386,9 +382,9 @@ fn bodies_written_as_iges_read_back_as_they_were() -> anyhow::Result<()> {
 }
 
 #[test]
-#[ignore = "reads the IGES file SHAPECRAFT_IGES names: to try one by hand"]
+#[ignore = "reads the IGES file WORKPIECE_IGES names: to try one by hand"]
 fn an_iges_file_by_hand() -> anyhow::Result<()> {
-    let path = std::env::var("SHAPECRAFT_IGES")?;
+    let path = std::env::var("WORKPIECE_IGES")?;
     let found = crate::import_iges(&std::fs::read(path)?, "iges")?;
     for why in &found.refused {
         println!("refused: {why}");
@@ -411,10 +407,10 @@ fn an_iges_file_by_hand() -> anyhow::Result<()> {
 /// through its axis, it reads back as it was.
 #[test]
 fn a_ring_closed_both_ways_reads_back_as_it_was() -> anyhow::Result<()> {
-    use shapecraft_boolean::{Op, combine, read};
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::{Measure, Reference};
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs, AddTorus, AddTorusArgs};
+    use workpiece_boolean::{Op, combine, read};
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::{Measure, Reference};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs, AddTorus, AddTorusArgs};
     let mut b = Standalone::new();
     AddTorus {
         id: "ring".into(),
@@ -439,13 +435,13 @@ fn a_ring_closed_both_ways_reads_back_as_it_was() -> anyhow::Result<()> {
     let volume = 2.0 * PI * PI * 10.0 * 4.0;
     assert!((measure(&ring).volume / volume - 1.0).abs() < 1e-9);
     // Half of it, and a quarter with a bite out of the tube's side.
-    let half = block.moved(&|p| p + shapecraft_core::math::Point3::new(0.0, 15.0, 0.0))?;
-    let bite = block.moved(&|p| p + shapecraft_core::math::Point3::new(26.0, 15.0, 15.0))?;
+    let half = block.moved(&|p| p + workpiece_core::math::Point3::new(0.0, 15.0, 0.0))?;
+    let bite = block.moved(&|p| p + workpiece_core::math::Point3::new(26.0, 15.0, 15.0))?;
     let halved = combine(Op::Cut, &ring, &half)?.solid;
     let bitten = combine(Op::Cut, &ring, &bite)?.solid;
     for (name, was) in [("ring", ring), ("halved", halved), ("bitten", bitten)] {
         let bodies = [(name.to_owned(), was)];
-        let text = crate::export(name, &bodies, shapecraft_core::Unit::Millimetre)?;
+        let text = crate::export(name, &bodies, workpiece_core::Unit::Millimetre)?;
         let back = import(text.as_bytes())?;
         assert!(back.refused.is_empty(), "{name}: {:?}", back.refused);
         assert_eq!(back.bodies.len(), 1, "{name}");
@@ -519,11 +515,11 @@ fn a_whole_torus_with_its_seams_as_edges_is_read() -> anyhow::Result<()> {
 /// seam is walked up at one side of the surface and down at the other.
 #[test]
 fn a_spline_surface_with_poles_and_a_seam_reads_back_as_it_was() -> anyhow::Result<()> {
-    use shapecraft_boolean::read;
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::{Measure, Reference};
-    use shapecraft_ops_basic_shapes::AddSphere;
+    use workpiece_boolean::read;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::{Measure, Reference};
+    use workpiece_ops_basic_shapes::AddSphere;
     let mut b = Standalone::new();
     let mut ball = AddSphere {
         id: "ball".into(),
@@ -537,7 +533,7 @@ fn a_spline_surface_with_poles_and_a_seam_reads_back_as_it_was() -> anyhow::Resu
     for stretch in [Point3::new(1.0, 1.0, 1.5), Point3::new(1.5, 1.0, 0.5)] {
         let egg = ball.sheared(&|p| p * stretch, false, 1.5)?;
         let bodies = [("egg".to_owned(), egg)];
-        let text = crate::export("egg", &bodies, shapecraft_core::Unit::Millimetre)?;
+        let text = crate::export("egg", &bodies, workpiece_core::Unit::Millimetre)?;
         assert!(!text.contains("SPHERICAL_SURFACE"));
         let back = import(text.as_bytes())?;
         assert!(back.refused.is_empty(), "{:?}", back.refused);
@@ -556,13 +552,13 @@ fn a_spline_surface_with_poles_and_a_seam_reads_back_as_it_was() -> anyhow::Resu
 /// its seam, from point to point, is a seam of the sphere read back.
 #[test]
 fn a_ball_with_its_poles_along_the_first_parameter_reads_back() -> anyhow::Result<()> {
-    use shapecraft_boolean::read;
-    use shapecraft_core::math::{Point2, Point3};
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::world::topo::Curve2;
-    use shapecraft_core::{Measure, Reference};
-    use shapecraft_ops_basic_shapes::AddSphere;
     use std::sync::Arc;
+    use workpiece_boolean::read;
+    use workpiece_core::math::{Point2, Point3};
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::world::topo::Curve2;
+    use workpiece_core::{Measure, Reference};
+    use workpiece_ops_basic_shapes::AddSphere;
     let mut b = Standalone::new();
     let mut ball = AddSphere {
         id: "ball".into(),
@@ -600,10 +596,8 @@ fn a_ball_with_its_poles_along_the_first_parameter_reads_back() -> anyhow::Resul
             lp.reverse();
             for step in lp.iter_mut() {
                 match &mut step.walk {
-                    shapecraft_boolean::model::Walk::Edge { reversed, .. } => {
-                        *reversed = !*reversed
-                    }
-                    shapecraft_boolean::model::Walk::Pole { .. } => {
+                    workpiece_boolean::model::Walk::Edge { reversed, .. } => *reversed = !*reversed,
+                    workpiece_boolean::model::Walk::Pole { .. } => {
                         step.pcurve = Arc::new(step.pcurve.reversed());
                     }
                 }
@@ -615,7 +609,7 @@ fn a_ball_with_its_poles_along_the_first_parameter_reads_back() -> anyhow::Resul
     let text = crate::export(
         "ball",
         &[("ball".to_owned(), ball)],
-        shapecraft_core::Unit::Millimetre,
+        workpiece_core::Unit::Millimetre,
     )?;
     assert!(text.contains("SPHERICAL_SURFACE"));
     let back = import(text.as_bytes())?;
@@ -631,10 +625,10 @@ fn a_ball_with_its_poles_along_the_first_parameter_reads_back() -> anyhow::Resul
 /// written as the cylinder it is, not as such a cone.
 #[test]
 fn a_cone_that_hardly_opens_is_read_and_written_as_a_cylinder() -> anyhow::Result<()> {
-    use shapecraft_boolean::read;
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::{Measure, Reference};
-    use shapecraft_ops_basic_shapes::{AddCone, AddConeArgs};
+    use workpiece_boolean::read;
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::{Measure, Reference};
+    use workpiece_ops_basic_shapes::{AddCone, AddConeArgs};
     let text = ROD.replace(
         "#7=CYLINDRICAL_SURFACE('',#4,1.);",
         "#7=CONICAL_SURFACE('',#4,1.,1.E-11);",
@@ -702,7 +696,7 @@ END-ISO-10303-21;
     let text = crate::export(
         "rod",
         &[("rod".to_owned(), rod)],
-        shapecraft_core::Unit::Millimetre,
+        workpiece_core::Unit::Millimetre,
     )?;
     assert!(text.contains("CYLINDRICAL_SURFACE") && !text.contains("CONICAL_SURFACE"));
     let back = import(text.as_bytes())?;
@@ -719,8 +713,8 @@ END-ISO-10303-21;
 #[test]
 fn an_end_as_near_its_curve_as_the_file_says_is_on_it() -> anyhow::Result<()> {
     use crate::geometry::{CurveKind, Reader, edge_curve};
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::topo::Curve3;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::topo::Curve3;
     let text = ROD.replace(
         "#45=(GEOMETRIC_REPRESENTATION_CONTEXT(3)GLOBAL_UNIT_ASSIGNED_CONTEXT((#42,#44))",
         "#46=UNCERTAINTY_MEASURE_WITH_UNIT(LENGTH_MEASURE(1.E-6),#42,'distance_accuracy_value','');
@@ -791,9 +785,9 @@ END-ISO-10303-21;
 }
 
 #[test]
-#[ignore = "reads the STEP file SHAPECRAFT_STEP names: to try one by hand"]
+#[ignore = "reads the STEP file WORKPIECE_STEP names: to try one by hand"]
 fn a_step_file_by_hand() -> anyhow::Result<()> {
-    let path = std::env::var("SHAPECRAFT_STEP")?;
+    let path = std::env::var("WORKPIECE_STEP")?;
     let found = import(&std::fs::read(&path)?)?;
     for why in &found.refused {
         println!("refused: {why}");

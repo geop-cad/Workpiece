@@ -5,17 +5,17 @@
 use std::sync::Arc;
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::model::Walk;
-use shapecraft_boolean::{Op, Solid, combine, read, read_sheet};
-use shapecraft_core::math::Point3;
-use shapecraft_core::widgets::{Choice, ReferenceList};
-use shapecraft_core::world::DatumAxis;
-use shapecraft_core::world::topo::{Body, BodyId, BodyKind, Curve3, Edge, Topo, Vertex};
-use shapecraft_core::{
+use workpiece_boolean::model::Walk;
+use workpiece_boolean::{Op, Solid, combine, read, read_sheet};
+use workpiece_core::math::Point3;
+use workpiece_core::widgets::{Choice, ReferenceList};
+use workpiece_core::world::DatumAxis;
+use workpiece_core::world::topo::{Body, BodyId, BodyKind, Curve3, Edge, Topo, Vertex};
+use workpiece_core::{
     Builder, EditContext, Measure, Operation, Position, Reference, ReferenceKind, Resolve, Widget,
 };
 
-use shapecraft_shape::ui;
+use workpiece_shape::ui;
 
 /// What kind of curve.
 #[derive(
@@ -35,7 +35,7 @@ pub enum CurveWay {
 
 /// What the curve is of.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct CurveArgs {
     /// What kind of curve.
@@ -50,7 +50,7 @@ pub struct CurveArgs {
     /// The points a spline goes through (vertices, frames), or the two
     /// faces that cross.
     #[arg(with = "picked_field", when = "self.way != CurveWay::Helix")]
-    pub picked: Vec<shapecraft_core::Reference<shapecraft_core::Anything>>,
+    pub picked: Vec<workpiece_core::Reference<workpiece_core::Anything>>,
     /// Of a spline: where on the face picked at the same place in
     /// `picked` it goes through (as the face was when it was pointed
     /// at; the point of the face nearest that, as the face is now);
@@ -170,7 +170,7 @@ pub fn crossing(a: &Solid, b: &Solid) -> anyhow::Result<Vec<Piece>> {
     let mut found = Vec::new();
     for (front_a, front_b) in [(1.0, 1.0), (-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0)] {
         let thin = |sheet: &Solid, side: f64| {
-            shapecraft_shape::thick::thicken(sheet, &all(sheet), side * reach * 1e-3, false, true)
+            workpiece_shape::thick::thicken(sheet, &all(sheet), side * reach * 1e-3, false, true)
         };
         let (Ok(one), Ok(other)) = (thin(a, front_a), thin(b, front_b)) else {
             continue;
@@ -182,12 +182,12 @@ pub fn crossing(a: &Solid, b: &Solid) -> anyhow::Result<Vec<Piece>> {
         // sheets' own faces: by where they are.
         let on: Vec<[bool; 2]> = (0..common.faces.len())
             .map(|f| {
-                let Some(p) = shapecraft_shape::surface::inside(&common, f) else {
+                let Some(p) = workpiece_shape::surface::inside(&common, f) else {
                     return [false; 2];
                 };
                 [a, b].map(|sheet| {
                     (0..sheet.faces.len())
-                        .any(|s| shapecraft_boolean::lies_on(sheet, s, p, reach * 1e-7))
+                        .any(|s| workpiece_boolean::lies_on(sheet, s, p, reach * 1e-7))
                 })
             })
             .collect();
@@ -213,7 +213,7 @@ pub fn crossing(a: &Solid, b: &Solid) -> anyhow::Result<Vec<Piece>> {
                     let p = edge.curve.point_at(t);
                     [a, b].iter().all(|sheet| {
                         (0..sheet.faces.len())
-                            .any(|s| shapecraft_boolean::lies_on(sheet, s, p, reach * 1e-7))
+                            .any(|s| workpiece_boolean::lies_on(sheet, s, p, reach * 1e-7))
                     })
                 })
             })
@@ -242,7 +242,7 @@ pub fn write_wire(topo: &mut Topo, name: &str, curves: &[Piece]) -> anyhow::Resu
         .fold(0.0_f64, |m, p| m.max(p.length()));
     let longest = ends.iter().map(|e| e[0].distance(e[1])).fold(0.0, f64::max);
     let tolerance = size.max(longest).max(1e-9) * 1e-9;
-    let mut vertices: Vec<(Point3, shapecraft_core::world::topo::VertexId)> = Vec::new();
+    let mut vertices: Vec<(Point3, workpiece_core::world::topo::VertexId)> = Vec::new();
     let mut edges = Vec::new();
     for (k, (curve, (t0, t1))) in curves.iter().enumerate() {
         let mut at = |topo: &mut Topo, p: Point3| -> anyhow::Result<_> {
@@ -284,7 +284,7 @@ pub fn write_wire(topo: &mut Topo, name: &str, curves: &[Piece]) -> anyhow::Resu
 
 /// The point of `face`'s surface nearest `to`, and the way out of the
 /// body there.
-fn nearest(face: &shapecraft_boolean::model::Face, to: Point3) -> (Point3, Point3) {
+fn nearest(face: &workpiece_boolean::model::Face, to: Point3) -> (Point3, Point3) {
     let surface = &face.surface;
     let ((u0, u1), (v0, v1)) = surface.domain();
     // From the nearest of a grid of its points, closer step by step.
@@ -340,7 +340,7 @@ fn face_sheet(topo: &Topo, name: &str) -> anyhow::Result<Solid> {
             .iter()
             .position(|f| f.name.as_deref() == Some(name) || f.also.iter().any(|n| n == name));
         if let Some(face) = found {
-            return Ok(shapecraft_shape::faces_of(&solid, &[face]));
+            return Ok(workpiece_shape::faces_of(&solid, &[face]));
         }
     }
     anyhow::bail!("there is no face {name:?}")
@@ -366,7 +366,7 @@ impl Operation for Curve {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let args = &self.args;
         let whole = |curve: Curve3| {
             let range = curve.domain();
@@ -405,7 +405,7 @@ impl Operation for Curve {
                 let axis = builder.tracked().resolve(axis)?;
                 let (origin, along) = (axis.origin(), axis.direction());
                 let from = origin + along.any_orthonormal_vector() * radius;
-                whole(shapecraft_shape::swept::helix(
+                whole(workpiece_shape::swept::helix(
                     origin, along, from, pitch, turns, grow, args.left,
                 )?)
             }
@@ -417,7 +417,7 @@ impl Operation for Curve {
                 let along = builder.tracked().resolve(axis)?.direction();
                 let topo = &builder.tracked().topo;
                 // The curve and the face, whichever was picked first.
-                let wire = |s: &&shapecraft_core::Reference<shapecraft_core::Anything>| {
+                let wire = |s: &&workpiece_core::Reference<workpiece_core::Anything>| {
                     let body = topo.resolve::<BodyId>(s.name()).and_then(|b| topo.body(b));
                     body.filter(|b| b.kind == BodyKind::Wire)
                 };
@@ -435,7 +435,7 @@ impl Operation for Curve {
                     // as the face is: where that wall crosses the face.
                     let from = line.point_at(edge.t0);
                     let far = (hi - lo).length() + lo.distance(from) + hi.distance(from);
-                    let wall = shapecraft_shape::ruled(
+                    let wall = workpiece_shape::ruled(
                         line,
                         (edge.t0, edge.t1),
                         along * (2.0 * far),
@@ -461,7 +461,7 @@ impl Operation for Curve {
             }
         };
         let wire = move |topo: &mut Topo, name: &str| write_wire(topo, name, &curves).map(|_| ());
-        Ok(shapecraft_core::Made::body(&self.id, wire))
+        Ok(workpiece_core::Made::body(&self.id, wire))
     }
 
     fn summary(&self) -> String {
@@ -504,10 +504,10 @@ fn picked_field(args: &CurveArgs, _: &EditContext<'_>) -> Vec<Widget<CurveArgs>>
             vec![ReferenceKind::Body, ReferenceKind::Face],
         ),
     };
-    let picked = shapecraft_core::Reference::sources(&args.picked);
-    let set = ui::set(args, |a, picked: Vec<shapecraft_core::Source>| {
+    let picked = workpiece_core::Reference::sources(&args.picked);
+    let set = ui::set(args, |a, picked: Vec<workpiece_core::Source>| {
         // What went out of the box takes its place on a face with it.
-        let was = shapecraft_core::Reference::sources(&a.picked);
+        let was = workpiece_core::Reference::sources(&a.picked);
         let mut spots = a.spots.clone();
         spots.resize(was.len(), None);
         if picked.len() + 1 == was.len() {
@@ -519,7 +519,7 @@ fn picked_field(args: &CurveArgs, _: &EditContext<'_>) -> Vec<Widget<CurveArgs>>
             spots.resize(picked.len(), None);
         }
         a.spots = spots;
-        a.picked = shapecraft_core::Reference::each(picked)
+        a.picked = workpiece_core::Reference::each(picked)
     });
     let mut fields: Vec<Widget<CurveArgs>> = vec![
         ReferenceList::new(label, kinds, picked, set)
@@ -529,12 +529,12 @@ fn picked_field(args: &CurveArgs, _: &EditContext<'_>) -> Vec<Widget<CurveArgs>>
     if args.way == CurveWay::Spline {
         // A point on a face, where the face is pointed at: the curve
         // goes through it next.
-        let on_face = ui::set(args, |a, picked: shapecraft_core::widgets::Picked| {
+        let on_face = ui::set(args, |a, picked: workpiece_core::widgets::Picked| {
             if !picked.instance.is_empty() {
                 return;
             }
-            let face = matches!(&picked.source, shapecraft_core::Source::Topology(name)
-                if picked.within.topo.resolve::<shapecraft_core::world::topo::FaceId>(name).is_some());
+            let face = matches!(&picked.source, workpiece_core::Source::Topology(name)
+                if picked.within.topo.resolve::<workpiece_core::world::topo::FaceId>(name).is_some());
             // (A vertex or a frame pointed at is a point by itself, as
             // in the box above.)
             let point = Position::resolve(&picked.within, &picked.source).is_ok();
@@ -545,8 +545,8 @@ fn picked_field(args: &CurveArgs, _: &EditContext<'_>) -> Vec<Widget<CurveArgs>>
             }
         });
         fields.push(
-            shapecraft_core::widgets::ConnectorInput::new("Then on a face", None, on_face)
-                .within(shapecraft_core::widgets::Scope::Outside(String::new()))
+            workpiece_core::widgets::ConnectorInput::new("Then on a face", None, on_face)
+                .within(workpiece_core::widgets::Scope::Outside(String::new()))
                 .into(),
         );
     }

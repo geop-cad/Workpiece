@@ -4,8 +4,8 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use shapecraft_core::{Cache, Parts, World};
-use shapecraft_ops_step::{ImportStep, ImportStepArgs};
+use workpiece_core::{Cache, Parts, World};
+use workpiece_ops_step::{ImportStep, ImportStepArgs};
 
 use crate::{Cancel, Engine, Part};
 
@@ -29,7 +29,7 @@ pub struct Workspace {
     /// The materials the parts are made of.
     pub library: crate::Library,
     /// What new drawings start from: the sheet templates.
-    pub sheets: shapecraft_ops_drawing::Templates,
+    pub sheets: workpiece_ops_drawing::Templates,
     /// The properties the parts have, and what each is.
     pub schema: crate::Schema,
 }
@@ -40,7 +40,7 @@ impl Workspace {
         Self {
             parts,
             library: crate::Library::default(),
-            sheets: shapecraft_ops_drawing::Templates::default(),
+            sheets: workpiece_ops_drawing::Templates::default(),
             schema: crate::Schema::default(),
         }
     }
@@ -167,8 +167,8 @@ pub fn is_step(path: &str) -> bool {
     let lower = path.trim().to_ascii_lowercase();
     lower.ends_with(".step")
         || lower.ends_with(".stp")
-        || shapecraft_ops_step::is_mesh(path)
-        || shapecraft_ops_step::is_iges(path)
+        || workpiece_ops_step::is_mesh(path)
+        || workpiece_ops_step::is_iges(path)
 }
 
 impl Parts for Workspace {
@@ -188,7 +188,7 @@ impl Parts for Workspace {
 mod tests {
     use super::*;
     use crate::AnyOperation;
-    use shapecraft_ops_instances::{AddPart, AddPartArgs};
+    use workpiece_ops_instances::{AddPart, AddPartArgs};
 
     /// A part placing each listed part, under its own path.
     fn places(paths: &[&str]) -> Part {
@@ -289,11 +289,11 @@ mod tests {
 mod variant_tests {
     use super::*;
     use crate::{AnyOperation, Parameter, Variant};
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::ORIGIN;
-    use shapecraft_core::{Measure, Reference};
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
-    use shapecraft_ops_instances::{AddPart, AddPartArgs};
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::ORIGIN;
+    use workpiece_core::{Measure, Reference};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
+    use workpiece_ops_instances::{AddPart, AddPartArgs};
 
     /// A block as wide as its `width`, twice as deep, in sizes S and L;
     /// and a part placing it as it is, and as L.

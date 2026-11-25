@@ -16,10 +16,10 @@ use std::f64::consts::{PI, TAU};
 use std::sync::Arc;
 
 use anyhow::{Context, bail, ensure};
-use shapecraft_boolean::geometry::{foot, pcurve};
-use shapecraft_boolean::model::{Edge, Face, Solid, Use, Vertex, Walk};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
+use workpiece_boolean::geometry::{foot, pcurve};
+use workpiece_boolean::model::{Edge, Face, Solid, Use, Vertex, Walk};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
 
 use crate::assembly::Assembly;
 use crate::geometry::{
@@ -1357,7 +1357,7 @@ impl<'r, 'a> Builder<'r, 'a> {
             for (k, step) in lp.iter().enumerate() {
                 let next = &lp[(k + 1) % lp.len()];
                 let ((a, b), (onward, _)) = (ends(step), ends(next));
-                sum += shapecraft_boolean::geometry::swept(&step.pcurve, a, b)
+                sum += workpiece_boolean::geometry::swept(&step.pcurve, a, b)
                     + step
                         .pcurve
                         .point_at(b)
@@ -1438,7 +1438,7 @@ impl<'r, 'a> Builder<'r, 'a> {
     /// surface collapses to a point there, and the loop stays at it.
     fn sew(
         &mut self,
-        surface: &Arc<shapecraft_core::world::topo::NurbsSurface>,
+        surface: &Arc<workpiece_core::world::topo::NurbsSurface>,
         lower: Option<Vec<Use>>,
         upper: Option<Vec<Use>>,
     ) -> anyhow::Result<Vec<Use>> {
@@ -1601,7 +1601,7 @@ impl Flat {
 /// image strays from the edge; `None` where the edge is no such line.
 fn straight_on(
     surface: &NurbsSurface,
-    edge: &shapecraft_boolean::model::Edge,
+    edge: &workpiece_boolean::model::Edge,
     seed: (f64, Point2),
     size: f64,
 ) -> Option<(Curve2, f64)> {
@@ -1847,7 +1847,7 @@ fn faces_of(r: &Reader<'_>, root: u32) -> anyhow::Result<Solid> {
 
 /// Reads the surface models of the STEP file `bytes`: each as a sheet
 /// of the faces the file gives it, joined only where the file joins
-/// them. What [`shapecraft_boolean::stitched`] sews into a solid.
+/// them. What [`workpiece_boolean::stitched`] sews into a solid.
 pub fn import_sheets(bytes: &[u8]) -> anyhow::Result<Vec<Solid>> {
     let file = File::new(bytes)?;
     let reader = Reader::new(&file);
@@ -1909,8 +1909,8 @@ pub fn import(bytes: &[u8]) -> anyhow::Result<Imported> {
                     }
                 }
             }
-            let mut topo = shapecraft_core::world::topo::Topo::new();
-            shapecraft_boolean::write(&mut topo, &solid, "solid")
+            let mut topo = workpiece_core::world::topo::Topo::new();
+            workpiece_boolean::write(&mut topo, &solid, "solid")
                 .map_err(|e| anyhow::anyhow!("its faces do not make a solid: {e}"))?;
             if let Err(faults) = topo.validate() {
                 let first = faults.first().map(ToString::to_string).unwrap_or_default();

@@ -8,8 +8,8 @@
 //! Delete, for the selected step).
 
 use eframe::egui;
-use shapecraft_cad_ui::Message;
-use shapecraft_cad_ui::view::{Icon, ProgramStep, REMOVE_STEP, Timeline};
+use workpiece_ui::Message;
+use workpiece_ui::view::{Icon, ProgramStep, REMOVE_STEP, Timeline};
 
 use super::tip;
 use crate::icons;

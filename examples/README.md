@@ -1,11 +1,11 @@
 # Examples
 
 Original parts and assemblies, each a Python script that models it the way a person would (fully
-constrained sketches, features, patterns and mirrors, joints), the built `.shapecraft` file(s) to open
+constrained sketches, features, patterns and mirrors, joints), the built `.workpiece` file(s) to open
 in the app, an ISO drawing per part and assembly (`drawing*.pdf` / `.svg`), a shaded thumbnail and a path-traced
 picture (`render.png`).
 
-    cargo build --release -p shapecraft-cli      # the command line the scripts drive
+    cargo build --release -p workpiece-cli      # the command line the scripts drive
     python3 examples/build_all.py                # rebuild all; one line each: steps, mass, drawing problems, time
 
 | | Example | What it shows |

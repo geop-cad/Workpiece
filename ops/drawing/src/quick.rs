@@ -7,11 +7,11 @@
 
 use std::fmt::Write;
 
-use shapecraft_cad_rasterize::tessellate;
-use shapecraft_core::Unit;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::World;
-use shapecraft_core::world::topo::BodyKind;
+use workpiece_core::Unit;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::World;
+use workpiece_core::world::topo::BodyKind;
+use workpiece_rasterize::tessellate;
 
 /// One view of a drawing.
 pub struct View {
@@ -40,7 +40,7 @@ pub struct ThreeViews {
     pub title: String,
     /// Where its section cuts: square to an axis, and how far along the
     /// model (0 to 1).
-    pub section: (shapecraft_core::math::Axis, f64),
+    pub section: (workpiece_core::math::Axis, f64),
     /// The dimensions the part's sketches are held to, with their
     /// tolerances: of each sketch its name and what its dimensions say.
     /// Written as a table beside the title.
@@ -76,18 +76,18 @@ pub struct Shape {
     pub solids: usize,
     /// Of each body, how a section treats the part it is of, and where
     /// that part is.
-    pub sectioned: Vec<(shapecraft_core::world::Sectioned, shapecraft_core::Pose)>,
+    pub sectioned: Vec<(workpiece_core::world::Sectioned, workpiece_core::Pose)>,
 }
 
 /// The solid bodies of `world` (and of what is placed in it, where
 /// `pose` puts it), as what is drawn of them.
-pub fn shape(world: &World, pose: shapecraft_core::Pose, out: &mut Shape) {
+pub fn shape(world: &World, pose: workpiece_core::Pose, out: &mut Shape) {
     let topo = &world.topo;
     for (id, body) in topo.bodies().iter() {
         if body.kind != BodyKind::Solid {
             continue;
         }
-        let Ok(solid) = shapecraft_boolean::read(topo, id) else {
+        let Ok(solid) = workpiece_boolean::read(topo, id) else {
             continue;
         };
         // (A seam, where a face meets itself — the edge from the middle
@@ -124,7 +124,7 @@ pub fn shape(world: &World, pose: shapecraft_core::Pose, out: &mut Shape) {
         let mut outs: Vec<Vec<Point3>> = steps.iter().map(|n| vec![Point3::ZERO; n + 1]).collect();
         for (f, face) in solid.faces.iter().enumerate() {
             for step in face.loops.iter().flatten() {
-                if let shapecraft_boolean::model::Walk::Edge { edge, .. } = step.walk {
+                if let workpiece_boolean::model::Walk::Edge { edge, .. } = step.walk {
                     sides[edge].push(f);
                     let normal = |t: f64| {
                         let uv = step.pcurve.point_at(t);
@@ -139,7 +139,7 @@ pub fn shape(world: &World, pose: shapecraft_core::Pose, out: &mut Shape) {
                     // its outside).
                     let reversed = matches!(
                         step.walk,
-                        shapecraft_boolean::model::Walk::Edge { reversed: true, .. }
+                        workpiece_boolean::model::Walk::Edge { reversed: true, .. }
                     );
                     let t = solid.edges[edge].middle();
                     let (uv, along) = step.pcurve.derivative_at(t);
@@ -267,7 +267,7 @@ pub fn shape(world: &World, pose: shapecraft_core::Pose, out: &mut Shape) {
             };
             let forward = matches!(
                 face_use.orientation,
-                shapecraft_core::world::topo::Orientation::Forward
+                workpiece_core::world::topo::Orientation::Forward
             );
             out.triangles.extend(mesh.triangles.iter().map(|(p, n)| {
                 let (p, n) = if forward {
@@ -328,11 +328,11 @@ impl ThreeViews {
     pub fn of(
         world: &World,
         title: &str,
-        section: Option<(shapecraft_core::math::Axis, f64)>,
+        section: Option<(workpiece_core::math::Axis, f64)>,
     ) -> anyhow::Result<Self> {
-        use shapecraft_core::math::Axis;
+        use workpiece_core::math::Axis;
         let mut shape_of = Shape::default();
-        shape(world, shapecraft_core::Pose::IDENTITY, &mut shape_of);
+        shape(world, workpiece_core::Pose::IDENTITY, &mut shape_of);
         anyhow::ensure!(!shape_of.runs.is_empty(), "there is no solid body to draw");
         let all = shape_of.runs.iter().flatten();
         let (lo, hi) = all.fold(
@@ -372,9 +372,9 @@ impl ThreeViews {
                 Point2::new(size.x, size.y),
             ),
         };
-        let opened = shapecraft_shape::cut::cut(world, through, looking, far);
+        let opened = workpiece_shape::cut::cut(world, through, looking, far);
         let mut cut_shape = Shape::default();
-        shape(&opened, shapecraft_core::Pose::IDENTITY, &mut cut_shape);
+        shape(&opened, workpiece_core::Pose::IDENTITY, &mut cut_shape);
         let views: [(&'static str, Point3, Place, Point2, Point2); 4] = [
             (
                 "SECTION",
@@ -443,7 +443,7 @@ impl ThreeViews {
             // show them (see [`crate::lay::threads`]).
             if !world.threads.is_empty() {
                 let cut = (name == "SECTION")
-                    .then(|| shapecraft_core::world::Cutting::plane(through, looking));
+                    .then(|| workpiece_core::world::Cutting::plane(through, looking));
                 let behind = |p: Point3| hidden(&shape_of.triangles, p, towards, reach * 2e-3);
                 let flat = |p: Point3| corner + place(p);
                 let said = crate::lay::threads::see(
@@ -608,9 +608,9 @@ impl ThreeViews {
             "SECTION" => {
                 let (axis, along) = self.section;
                 let axis = match axis {
-                    shapecraft_core::math::Axis::X => "x",
-                    shapecraft_core::math::Axis::Y => "y",
-                    shapecraft_core::math::Axis::Z => "z",
+                    workpiece_core::math::Axis::X => "x",
+                    workpiece_core::math::Axis::Y => "y",
+                    workpiece_core::math::Axis::Z => "z",
                 };
                 format!(
                     "SECTION A-A (square to {axis}, {}% along)",

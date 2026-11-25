@@ -1,13 +1,13 @@
 //! What the tests of the operations on bodies share: sketches and
 //! boxes to start from, and what is checked of what is made.
 
-pub use shapecraft_cad_rasterize::tessellate::volume;
-pub use shapecraft_core::math::{Axis, Point2};
-pub use shapecraft_core::world::ORIGIN;
-pub use shapecraft_core::world::topo::{BodyId, BodyKind};
-pub use shapecraft_core::{Measure, Operation, Reference, Source, Standalone};
-pub use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
-pub use shapecraft_ops_sketch::{Shape, Sketch};
+pub use workpiece_core::math::{Axis, Point2};
+pub use workpiece_core::world::ORIGIN;
+pub use workpiece_core::world::topo::{BodyId, BodyKind};
+pub use workpiece_core::{Measure, Operation, Reference, Source, Standalone};
+pub use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
+pub use workpiece_ops_sketch::{Shape, Sketch};
+pub use workpiece_rasterize::tessellate::volume;
 
 /// π.
 pub const PI: f64 = std::f64::consts::PI;
@@ -17,7 +17,7 @@ pub const PI: f64 = std::f64::consts::PI;
 pub fn sketch(
     b: &mut Standalone,
     id: &str,
-    plane: Reference<shapecraft_core::world::DatumPlane>,
+    plane: Reference<workpiece_core::world::DatumPlane>,
     rectangle: Option<([f64; 2], [f64; 2])>,
     circles: &[([f64; 2], f64)],
 ) -> anyhow::Result<()> {
@@ -44,7 +44,7 @@ pub fn sketch(
 }
 
 /// The plane of x and y through the origin.
-pub fn xy() -> Reference<shapecraft_core::world::DatumPlane> {
+pub fn xy() -> Reference<workpiece_core::world::DatumPlane> {
     Reference::frame_axis(ORIGIN, Axis::Z)
 }
 
@@ -79,10 +79,10 @@ pub fn check(b: &Standalone) {
 pub fn edges_where(
     b: &Standalone,
     name: &str,
-    pick: impl Fn(shapecraft_core::math::Point3, shapecraft_core::math::Point3) -> bool,
+    pick: impl Fn(workpiece_core::math::Point3, workpiece_core::math::Point3) -> bool,
 ) -> Vec<Source> {
     let topo = &b.world.topo;
-    let solid = shapecraft_boolean::read(topo, body(b, name)).unwrap();
+    let solid = workpiece_boolean::read(topo, body(b, name)).unwrap();
     solid
         .edges
         .iter()
@@ -97,10 +97,10 @@ pub fn edges_where(
 }
 
 /// The volume and area of `solid`, which has to be a valid closed one.
-pub fn sound(solid: &shapecraft_boolean::Solid) -> anyhow::Result<(f64, f64)> {
-    let mut topo = shapecraft_core::world::topo::Topo::new();
-    shapecraft_boolean::write(&mut topo, solid, "it")?;
+pub fn sound(solid: &workpiece_boolean::Solid) -> anyhow::Result<(f64, f64)> {
+    let mut topo = workpiece_core::world::topo::Topo::new();
+    workpiece_boolean::write(&mut topo, solid, "it")?;
     assert_eq!(topo.validate(), Ok(()));
-    let m = shapecraft_boolean::measure(solid);
+    let m = workpiece_boolean::measure(solid);
     Ok((m.volume, m.area))
 }

@@ -1,4 +1,4 @@
-//! The shapecraft desktop application.
+//! The workpiece desktop application.
 //!
 //! Each frame derives a [`View`] from the [`Model`] and draws it: the menu
 //! and the ribbon at the top, the timeline and the part's contents on the
@@ -16,12 +16,12 @@
 //! name, Ctrl+W closes; Ctrl+Y redoes, like Ctrl+Shift+Z; Escape first
 //! closes the context menu, stops picking, or clears the selection.
 //!
-//! With `SHAPECRAFT_DEMO=1` the app opens a small assembly instead of a new
-//! part; with `SHAPECRAFT_DEMO=edit` it also edits the pin of a placed part,
-//! with `SHAPECRAFT_DEMO=frame` its frame, with `SHAPECRAFT_DEMO=plane` a new plane
-//! on it; with `SHAPECRAFT_DEMO=sketch` it opens a plate with a sketch on it,
-//! being edited; with `SHAPECRAFT_DEMO=blends` a bracket with rounded and chamfered edges;
-//! with `SHAPECRAFT_DEMO=joints` an assembly with joints, its
+//! With `WORKPIECE_DEMO=1` the app opens a small assembly instead of a new
+//! part; with `WORKPIECE_DEMO=edit` it also edits the pin of a placed part,
+//! with `WORKPIECE_DEMO=frame` its frame, with `WORKPIECE_DEMO=plane` a new plane
+//! on it; with `WORKPIECE_DEMO=sketch` it opens a plate with a sketch on it,
+//! being edited; with `WORKPIECE_DEMO=blends` a bracket with rounded and chamfered edges;
+//! with `WORKPIECE_DEMO=joints` an assembly with joints, its
 //! parts ready to be dragged.
 
 // A Windows release build is a window application: no console opens beside it.
@@ -37,8 +37,8 @@ mod ui;
 mod web;
 
 use eframe::egui;
-use shapecraft_cad_ui::{Message, Model, View};
-use shapecraft_core::{Placement, Widget};
+use workpiece_core::{Placement, Widget};
+use workpiece_ui::{Message, Model, View};
 
 use ui::file_dialog::{FileDialog, Purpose};
 use ui::viewport::ViewportPanel;
@@ -48,9 +48,9 @@ use ui::viewport::ViewportPanel;
 #[cfg(not(target_arch = "wasm32"))]
 fn about() -> bool {
     match std::env::args().nth(1).as_deref() {
-        Some("--version" | "-V") => println!("ShapeCraft {}", env!("CARGO_PKG_VERSION")),
+        Some("--version" | "-V") => println!("Workpiece {}", env!("CARGO_PKG_VERSION")),
         Some("--help" | "-h") => println!(
-            "ShapeCraft {}\n\nusage: shapecraft-app [PART.shapecraft] [--look X,Y,Z,DISTANCE] [--from X,Y,Z] [--perspective]\n\nStarts the desktop application; a part file named is opened.",
+            "Workpiece {}\n\nusage: workpiece-app [PART.workpiece] [--look X,Y,Z,DISTANCE] [--from X,Y,Z] [--perspective]\n\nStarts the desktop application; a part file named is opened.",
             env!("CARGO_PKG_VERSION")
         ),
         _ => return false,
@@ -62,7 +62,7 @@ fn about() -> bool {
 #[cfg(not(target_arch = "wasm32"))]
 fn icon() -> Option<egui::IconData> {
     let mut reader = png::Decoder::new(std::io::Cursor::new(include_bytes!(
-        "../assets/shapecraft.png"
+        "../assets/workpiece.png"
     )))
     .read_info()
     .ok()?;
@@ -82,7 +82,7 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("ShapeCraft")
+        .with_title("Workpiece")
         .with_inner_size([1600.0, 960.0]);
     if let Some(icon) = icon() {
         viewport = viewport.with_icon(icon);
@@ -94,7 +94,7 @@ fn main() -> anyhow::Result<()> {
         viewport,
         ..Default::default()
     };
-    eframe::run_native("ShapeCraft", options, Box::new(create)).map_err(|e| anyhow::anyhow!("{e}"))
+    eframe::run_native("Workpiece", options, Box::new(create)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 /// In a browser, the application starts in the page (see [`web`]).
@@ -145,22 +145,19 @@ struct App {
     /// The materials panel.
     materials: ui::materials::MaterialsPanel,
     /// The library of materials as its file has it.
-    library: shapecraft_cad_part::Library,
+    library: workpiece_part::Library,
     /// The properties panel.
     properties: ui::properties::PropertiesPanel,
     /// The sheet templates panel.
     templates: ui::templates::TemplatesPanel,
     /// The sheet templates and the properties parts have, as their
     /// files have them.
-    kept: (
-        shapecraft_ops_drawing::Templates,
-        shapecraft_cad_part::Schema,
-    ),
+    kept: (workpiece_ops_drawing::Templates, workpiece_part::Schema),
     /// The settings as their file has them.
-    settings: shapecraft_cad_ui::model::Settings,
+    settings: workpiece_ui::model::Settings,
     /// The view a camera view that is edited would be taken from, and
     /// since when the view rests there.
-    rested: Option<(shapecraft_cad_ui::model::Camera, web_time::Instant)>,
+    rested: Option<(workpiece_ui::model::Camera, web_time::Instant)>,
     /// Whether the view is still to be put onto all of the part just
     /// opened, once that is built.
     fit: bool,
@@ -182,9 +179,9 @@ struct App {
 /// browser there are no threads to build on: there, parts build as they
 /// are asked for.)
 fn threaded(model: &mut Model) {
-    if shapecraft_core::HAS_THREADS {
+    if workpiece_core::HAS_THREADS {
         let threads = std::thread::available_parallelism().map_or(2, |n| n.get());
-        model.engine = shapecraft_cad_part::Engine::threaded(threads.saturating_sub(1).max(1));
+        model.engine = workpiece_part::Engine::threaded(threads.saturating_sub(1).max(1));
         model.background = true;
     }
 }
@@ -192,7 +189,7 @@ fn threaded(model: &mut Model) {
 impl App {
     /// A new part (or the demo).
     fn new(gl: Option<&eframe::glow::Context>) -> anyhow::Result<Self> {
-        let model = match std::env::var("SHAPECRAFT_DEMO").ok().as_deref() {
+        let model = match std::env::var("WORKPIECE_DEMO").ok().as_deref() {
             Some("edit") => demo::model(Some("pin"))?,
             Some("frame") => demo::model(Some("top"))?,
             Some("plane") => demo::model(Some("plane"))?,
@@ -203,8 +200,8 @@ impl App {
             // A file named on the command line is opened.
             None => match std::env::args().nth(1) {
                 Some(path) => {
-                    let parts = files::load(&path, &shapecraft_cad_part::Workspace::default())?;
-                    let mut model = Model::new(shapecraft_cad_part::Workspace::new(parts));
+                    let parts = files::load(&path, &workpiece_part::Workspace::default())?;
+                    let mut model = Model::new(workpiece_part::Workspace::new(parts));
                     // (Built beside the interface from the start: a part
                     // that takes long to build opens a window at once.)
                     threaded(&mut model);
@@ -332,18 +329,16 @@ impl App {
                     // The picture that is edited, traced in full beside
                     // the interface and written once it is.
                     anyhow::ensure!(
-                        shapecraft_cad_ui::view::View::new(&self.model)
-                            .picture
-                            .is_some(),
+                        workpiece_ui::view::View::new(&self.model).picture.is_some(),
                         "a PNG file is a rendered picture: add a Render step (Properties) to save one"
                     );
                     self.picture.save(path);
                 } else if path.to_lowercase().ends_with(".stl") {
-                    files::export(&path, shapecraft_cad_rasterize::tessellate::stl(topo))?;
-                } else if shapecraft_ops_step::is_iges(&path) {
+                    files::export(&path, workpiece_rasterize::tessellate::stl(topo))?;
+                } else if workpiece_ops_step::is_iges(&path) {
                     let mut bodies = Vec::new();
                     for (id, _) in topo.bodies().iter() {
-                        if let Ok(solid) = shapecraft_boolean::read(topo, id) {
+                        if let Ok(solid) = workpiece_boolean::read(topo, id) {
                             bodies.push((topo.name_of(id).unwrap_or("body").to_owned(), solid));
                         }
                     }
@@ -352,27 +347,19 @@ impl App {
                         .map_or_else(|| "part".to_owned(), |n| n.to_string_lossy().into_owned());
                     files::export(
                         &path,
-                        shapecraft_ops_step::export_iges(&name, &bodies, unit)?,
+                        workpiece_ops_step::export_iges(&name, &bodies, unit)?,
                     )?;
                 } else if path.to_lowercase().ends_with(".tap") {
                     // (With a tool 6 mm across in passes 2 mm deep, in
                     // the part's own unit: what to start from.)
                     let mm = 1.0 / unit.millimetres();
-                    let code = shapecraft_cad_ui::cam::mill_path(
-                        &world,
-                        unit,
-                        600.0 * mm,
-                        6.0 * mm,
-                        2.0 * mm,
-                    )?;
+                    let code =
+                        workpiece_ui::cam::mill_path(&world, unit, 600.0 * mm, 6.0 * mm, 2.0 * mm)?;
                     files::export(&path, code)?;
                 } else if path.to_lowercase().ends_with(".nc") {
                     // (At a feed to start from: a machine's own is set there.)
-                    files::export(
-                        &path,
-                        shapecraft_cad_ui::cam::cut_path(&world, unit, 1000.0)?,
-                    )?;
-                } else if let Some(shown) = shapecraft_cad_ui::view::View::new(&self.model).sheet
+                    files::export(&path, workpiece_ui::cam::cut_path(&world, unit, 1000.0)?)?;
+                } else if let Some(shown) = workpiece_ui::view::View::new(&self.model).sheet
                     && [".dxf", ".svg"]
                         .iter()
                         .any(|e| path.to_lowercase().ends_with(e))
@@ -384,7 +371,7 @@ impl App {
                     };
                     files::export(&path, file)?;
                 } else if path.to_lowercase().ends_with(".dxf") {
-                    let mut drawing = shapecraft_ops_drawing::quick::ThreeViews::of(
+                    let mut drawing = workpiece_ops_drawing::quick::ThreeViews::of(
                         &world,
                         &stem_of(&path),
                         None,
@@ -392,12 +379,12 @@ impl App {
                     drawing.dimensions = sketch_dimensions(&self.model);
                     files::export(&path, drawing.dxf(unit))?;
                 } else if path.to_lowercase().ends_with(".pdf")
-                    && let Some(shown) = shapecraft_cad_ui::view::View::new(&self.model).sheet
+                    && let Some(shown) = workpiece_ui::view::View::new(&self.model).sheet
                 {
                     // The drawing sheet that shows, true to size.
                     files::export(&path, shown.laid.pdf())?;
                 } else if path.to_lowercase().ends_with(".pdf") {
-                    let mut drawing = shapecraft_ops_drawing::quick::ThreeViews::of(
+                    let mut drawing = workpiece_ops_drawing::quick::ThreeViews::of(
                         &world,
                         &stem_of(&path),
                         None,
@@ -405,14 +392,11 @@ impl App {
                     drawing.dimensions = sketch_dimensions(&self.model);
                     files::export(&path, drawing.pdf(unit))?;
                 } else if path.to_lowercase().ends_with(".3mf") {
-                    files::export(
-                        &path,
-                        shapecraft_cad_rasterize::tessellate::three_mf(topo, unit),
-                    )?;
+                    files::export(&path, workpiece_rasterize::tessellate::three_mf(topo, unit))?;
                 } else {
                     let mut bodies = Vec::new();
                     for (id, _) in topo.bodies().iter() {
-                        if let Ok(solid) = shapecraft_boolean::read(topo, id) {
+                        if let Ok(solid) = workpiece_boolean::read(topo, id) {
                             let name = topo.name_of(id).unwrap_or("body").to_owned();
                             bodies.push((name, solid));
                         }
@@ -421,7 +405,7 @@ impl App {
                     let name = std::path::Path::new(&path)
                         .file_stem()
                         .map_or_else(|| "part".to_owned(), |n| n.to_string_lossy().into_owned());
-                    files::export(&path, shapecraft_ops_step::export(&name, &bodies, unit)?)?;
+                    files::export(&path, workpiece_ops_step::export(&name, &bodies, unit)?)?;
                 }
             }
             FileAction::Choose(field, path) => {
@@ -471,16 +455,12 @@ impl eframe::App for App {
         }
         if self.fit && !building {
             self.fit = false;
-            out.push(Message::Camera(shapecraft_cad_ui::CameraMove::Home));
+            out.push(Message::Camera(workpiece_ui::CameraMove::Home));
             if std::mem::take(&mut self.perspective) {
-                out.push(Message::Camera(
-                    shapecraft_cad_ui::CameraMove::ToggleProjection,
-                ));
+                out.push(Message::Camera(workpiece_ui::CameraMove::ToggleProjection));
             }
             if let Some(back) = self.from.take() {
-                out.push(Message::Camera(shapecraft_cad_ui::CameraMove::LookFrom(
-                    back,
-                )));
+                out.push(Message::Camera(workpiece_ui::CameraMove::LookFrom(back)));
             }
         }
         let mut choose = None;
@@ -775,9 +755,9 @@ impl eframe::App for App {
             }
         }
         let title = match View::new(&self.model).document {
-            Some((path, true)) => format!("{path} • — ShapeCraft"),
-            Some((path, false)) => format!("{path} — ShapeCraft"),
-            None => "ShapeCraft".to_owned(),
+            Some((path, true)) => format!("{path} • — Workpiece"),
+            Some((path, false)) => format!("{path} — Workpiece"),
+            None => "Workpiece".to_owned(),
         };
         if title != self.title {
             ui.ctx()
@@ -794,7 +774,7 @@ impl eframe::App for App {
 fn context_menu(
     ctx: &egui::Context,
     area: egui::Rect,
-    menu: &shapecraft_cad_ui::view::ContextMenu,
+    menu: &workpiece_ui::view::ContextMenu,
     out: &mut Vec<Message>,
 ) {
     const ROW: f32 = 28.0;
@@ -918,7 +898,7 @@ fn shortcuts(
     let out = ui.input_mut(|i| {
         let mut out = Vec::new();
         if !typing && i.consume_key(Modifiers::NONE, Key::Tab) {
-            out.push(Message::Pointer(shapecraft_cad_ui::Pointer::Cycle));
+            out.push(Message::Pointer(workpiece_ui::Pointer::Cycle));
         }
         // Escape backs out of the innermost thing first.
         let picking = view
@@ -966,7 +946,7 @@ fn shortcuts(
         for (hotkey, press) in &hotkeys {
             let tools_key = matches!(
                 hotkey.key,
-                shapecraft_core::Key::Escape | shapecraft_core::Key::Enter
+                workpiece_core::Key::Escape | workpiece_core::Key::Enter
             );
             if (typing && !hotkey.ctrl) || (sheet_keys && tools_key) || !ui::pressed(i, *hotkey) {
                 continue;
@@ -988,7 +968,7 @@ fn shortcuts(
 
 /// The dimensions of the sketches of the part being worked on, as a
 /// drawing writes them: of each sketch its name and its dimensions.
-fn sketch_dimensions(model: &shapecraft_cad_ui::Model) -> Vec<(String, Vec<String>)> {
+fn sketch_dimensions(model: &workpiece_ui::Model) -> Vec<(String, Vec<String>)> {
     let Some(part) = model
         .focused_part()
         .and_then(|p| model.workspace.part(&p).ok())
@@ -998,7 +978,7 @@ fn sketch_dimensions(model: &shapecraft_cad_ui::Model) -> Vec<(String, Vec<Strin
     let sketches = part
         .program
         .iter()
-        .filter_map(|op| op.downcast_ref::<shapecraft_ops_sketch::Sketch>());
+        .filter_map(|op| op.downcast_ref::<workpiece_ops_sketch::Sketch>());
     sketches.map(|s| (s.id.clone(), s.dimensions())).collect()
 }
 
@@ -1013,7 +993,7 @@ fn stem_of(path: &str) -> String {
 /// of a sheet template.
 fn new_drawing(
     ctx: &egui::Context,
-    asked: &shapecraft_cad_ui::view::NewDrawing,
+    asked: &workpiece_ui::view::NewDrawing,
     out: &mut Vec<Message>,
 ) {
     let modal = egui::Modal::new(egui::Id::new("new-drawing")).show(ctx, |ui| {

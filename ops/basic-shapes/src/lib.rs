@@ -18,10 +18,10 @@ pub use add_torus::{AddTorus, AddTorusArgs};
 
 use std::collections::BTreeMap;
 
-use shapecraft_core::handles::{Handle, LinearHandle};
-use shapecraft_core::math::{Axis, Point3};
-use shapecraft_core::world::DatumFrame;
-use shapecraft_core::{Reference, World};
+use workpiece_core::handles::{Handle, LinearHandle};
+use workpiece_core::math::{Axis, Point3};
+use workpiece_core::world::DatumFrame;
+use workpiece_core::{Reference, World};
 
 /// Arrow handles from the origin of `frame` along each of its `axes`,
 /// named after the axis (`"x"`, `"y"`, `"z"`); none while there is no
@@ -46,7 +46,7 @@ fn frame_handles<M: 'static>(
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
 /// add them, and their icons.
-pub fn register(r: &mut shapecraft_core::Registry) {
+pub fn register(r: &mut workpiece_core::Registry) {
     r.kind::<AddBox>("box");
     r.kind::<AddSphere>("sphere");
     r.kind::<AddCylinder>("cylinder");

@@ -27,8 +27,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
 
 use crate::bezier::{Bounds, Piece, curve_pieces};
 use crate::fit::{project, pull, reparametrize};
@@ -1638,7 +1638,7 @@ impl<'a> Fuse<'a> {
         let (na, nb) = (self.solids[0].faces.len(), self.solids[1].faces.len());
         let of: Vec<BTreeSet<usize>> = (0..na + nb).map(|fid| self.vertices_of(fid)).collect();
         for fa in 0..na {
-            shapecraft_core::cancel::checkpoint();
+            workpiece_core::cancel::checkpoint();
             for fb in na..na + nb {
                 let tol =
                     self.solids[0].faces[fa].tolerance + self.solids[1].faces[fb - na].tolerance;
@@ -1685,7 +1685,7 @@ impl<'a> Fuse<'a> {
         let na = self.solids[0].faces.len();
         let known = self.known();
         for fa in 0..na {
-            shapecraft_core::cancel::checkpoint();
+            workpiece_core::cancel::checkpoint();
             for fb in na..na + self.solids[1].faces.len() {
                 // (A plane and anything, cylinders side by side: where
                 // they touch, it is along a line.)
@@ -1786,7 +1786,7 @@ impl<'a> Fuse<'a> {
         // curve.
         let known = self.known();
         for fa in 0..na {
-            shapecraft_core::cancel::checkpoint();
+            workpiece_core::cancel::checkpoint();
             for fb in na..na + self.solids[1].faces.len() {
                 let (face_a, face_b) = (&self.solids[0].faces[fa], &self.solids[1].faces[fb - na]);
                 let (data_a, data_b) = (&self.data[0].faces[fa], &self.data[1].faces[fb - na]);

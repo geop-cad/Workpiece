@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-cad-rasterize"
+name = "workpiece-rasterize"
 description = "Turns built worlds and edit handles into triangle, line and vertex buffers for drawing and picking."
 edition.workspace = true
 version.workspace = true
@@ -8,15 +8,15 @@ repository.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "shapecraft_cad_rasterize"
+name = "workpiece_rasterize"
 
 [dependencies]
 glam.workspace = true
-shapecraft-core.workspace = true
+workpiece-core.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
-shapecraft-ops-basic-shapes.workspace = true
+workpiece-ops-basic-shapes.workspace = true
 
 [lints]
 workspace = true

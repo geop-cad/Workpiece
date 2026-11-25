@@ -100,7 +100,7 @@ pub enum Refusal {
 
 /// Whether the point `p` is inside `solid`; `None` if it is on its
 /// boundary, or too near it to tell.
-pub fn holds(solid: &Solid, p: shapecraft_core::math::Point3) -> Option<bool> {
+pub fn holds(solid: &Solid, p: workpiece_core::math::Point3) -> Option<bool> {
     Holder::new(solid).holds(p)
 }
 
@@ -125,14 +125,14 @@ impl<'a> Holder<'a> {
 
     /// Whether the point `p` is inside the solid; `None` if it is on
     /// its boundary, or too near it to tell.
-    pub fn holds(&self, p: shapecraft_core::math::Point3) -> Option<bool> {
+    pub fn holds(&self, p: workpiece_core::math::Point3) -> Option<bool> {
         query::inside(self.solid, &self.data, &self.all, p)
     }
 }
 
 /// Whether the point `p` is on face `face` of `solid`, within `tol`:
 /// inside its loops, or on them.
-pub fn lies_on(solid: &Solid, face: usize, p: shapecraft_core::math::Point3, tol: f64) -> bool {
+pub fn lies_on(solid: &Solid, face: usize, p: workpiece_core::math::Point3, tol: f64) -> bool {
     // (Only that face is made ready: not the whole solid for one of
     // its faces.)
     let data = query::FaceData::new(solid, &solid.faces[face]);

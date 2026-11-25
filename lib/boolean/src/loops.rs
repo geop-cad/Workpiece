@@ -8,7 +8,7 @@
 //! they are not, or are too small or too nearly the same surface to
 //! matter.
 
-use shapecraft_core::math::{Point2, Point3};
+use workpiece_core::math::{Point2, Point3};
 
 use crate::bezier::{Bounds, Piece};
 use crate::solve::{At, Over, Shape, apart, contacts, within};
@@ -400,7 +400,7 @@ fn seeds_of(
     left: &mut usize,
     out: &mut Vec<(Point3, Point2, Point2)>,
 ) {
-    shapecraft_core::cancel::checkpoint();
+    workpiece_core::cancel::checkpoint();
     if held_apart(held_a, held_b, tol) {
         return;
     }
@@ -563,7 +563,7 @@ fn touches_of(
     depth: usize,
     out: &mut Vec<(Point2, Point2)>,
 ) {
-    shapecraft_core::cancel::checkpoint();
+    workpiece_core::cancel::checkpoint();
     if out.len() > 512
         || held_apart(held_a, held_b, tol)
         || !may_align(held_a.cone(), held_b.cone())

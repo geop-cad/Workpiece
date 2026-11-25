@@ -3,18 +3,18 @@
 //! around an axis, along a path or at the points of a sketch.
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::{Op, Solid, combine, read};
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::DatumAxis;
-use shapecraft_core::world::topo::FaceId;
-use shapecraft_core::{Builder, Measure, Operation, Reference};
+use workpiece_boolean::{Op, Solid, combine, read};
+use workpiece_core::math::Point3;
+use workpiece_core::world::DatumAxis;
+use workpiece_core::world::topo::FaceId;
+use workpiece_core::{Builder, Measure, Operation, Reference};
 
 use crate::arrange::{Along, Places, places, whereabouts};
 use crate::features::{Change, Features, Move, steps_of};
 
 /// The features, and where they are repeated.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 #[serde(default)]
 pub struct FeaturePatternArgs {
@@ -31,7 +31,7 @@ pub struct FeaturePatternArgs {
     /// The sketch whose curves are the path, or whose points are the
     /// places.
     #[arg(when = "matches!(self.along, Along::Path | Along::Points)")]
-    pub sketch: Option<Reference<shapecraft_core::Sketched>>,
+    pub sketch: Option<Reference<workpiece_core::Sketched>>,
     /// How many there are in the end, the features themselves counted.
     #[serde(deserialize_with = "crate::arrange::whole")]
     #[arg(when = "self.along != Along::Points")]
@@ -97,7 +97,7 @@ impl FeaturePattern {
         // The moves of the pattern, told from what it does to a small
         // block: where its corner goes, and its three edges from there.
         let axes = [Point3::X, Point3::Y, Point3::Z];
-        let probe = shapecraft_boolean::block("probe", near, axes, [1.0; 3])?;
+        let probe = workpiece_boolean::block("probe", near, axes, [1.0; 3])?;
         let corner = |solid: &Solid, at: Point3| {
             let nearest = solid
                 .vertices
@@ -164,8 +164,8 @@ impl Operation for FeaturePattern {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
-        let mut out = shapecraft_shape::bodies::Out::default();
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         ensure!(
             !args.features.is_empty(),

@@ -2,8 +2,8 @@
 //! ruled, faces made whole, bounded, trimmed and rounded.
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::Solid;
-use shapecraft_boolean::model::{Face, Use, Walk};
+use workpiece_boolean::Solid;
+use workpiece_boolean::model::{Face, Use, Walk};
 
 /// The faces `faces` of `solid` as a sheet of their own.
 pub fn faces_of(solid: &Solid, faces: &[usize]) -> Solid {
@@ -28,7 +28,7 @@ pub fn faces_of(solid: &Solid, faces: &[usize]) -> Solid {
                         let ends = [vertex(&mut out, e.ends[0]), vertex(&mut out, e.ends[1])];
                         let edge = *edges.entry(edge).or_insert_with(|| {
                             out.edges
-                                .push(shapecraft_boolean::model::Edge { ends, ..e.clone() });
+                                .push(workpiece_boolean::model::Edge { ends, ..e.clone() });
                             out.edges.len() - 1
                         });
                         Walk::Edge { edge, reversed }
@@ -57,8 +57,8 @@ pub fn faces_of(solid: &Solid, faces: &[usize]) -> Solid {
 /// `sheet` with its flat holes filled: every ring of free edges that
 /// lies in a plane gets a flat face. Returns how many were filled.
 pub fn filled(sheet: &Solid) -> anyhow::Result<(Solid, usize)> {
-    use shapecraft_core::math::{Point2, Point3};
-    use shapecraft_core::world::topo::{Curve2, NurbsSurface};
+    use workpiece_core::math::{Point2, Point3};
+    use workpiece_core::world::topo::{Curve2, NurbsSurface};
     let mut walked = vec![0; sheet.edges.len()];
     for step in sheet.faces.iter().flat_map(|f| f.loops.iter().flatten()) {
         if let Walk::Edge { edge, .. } = step.walk {
@@ -177,15 +177,15 @@ pub fn filled(sheet: &Solid) -> anyhow::Result<(Solid, usize)> {
 /// without turning: one face, ruled from the curve to itself that far
 /// on.
 pub fn ruled(
-    curve: &shapecraft_core::world::topo::Curve3,
+    curve: &workpiece_core::world::topo::Curve3,
     range: (f64, f64),
-    by: shapecraft_core::math::Point3,
+    by: workpiece_core::math::Point3,
     id: &str,
 ) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::model::{Edge, Vertex};
-    use shapecraft_core::math::Point2;
-    use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
     use std::sync::Arc;
+    use workpiece_boolean::model::{Edge, Vertex};
+    use workpiece_core::math::Point2;
+    use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
     ensure!(by.length() > 0.0 && by.is_finite(), "swept some way");
     let near = curve.trimmed(range.0, range.1)?;
     let far = Curve3::new(
@@ -296,13 +296,13 @@ pub fn ruled(
 /// surface with four sides of its own: not one that closes on itself
 /// or comes to a point along a side.
 pub fn whole(
-    surface: &std::sync::Arc<shapecraft_core::world::topo::NurbsSurface>,
+    surface: &std::sync::Arc<workpiece_core::world::topo::NurbsSurface>,
     id: &str,
 ) -> anyhow::Result<Solid> {
-    use shapecraft_boolean::model::{Edge, Vertex};
-    use shapecraft_core::math::Point2;
-    use shapecraft_core::world::topo::{Curve2, Curve3};
     use std::sync::Arc;
+    use workpiece_boolean::model::{Edge, Vertex};
+    use workpiece_core::math::Point2;
+    use workpiece_core::world::topo::{Curve2, Curve3};
     let (p, q) = surface.degrees();
     let (nu, nv) = surface.counts();
     let (ku, kv) = surface.knots();
@@ -399,13 +399,13 @@ pub fn whole(
 /// blended from the four, so that it runs along each of them. One face.
 pub fn between(
     sides: &[(
-        std::sync::Arc<shapecraft_core::world::topo::Curve3>,
+        std::sync::Arc<workpiece_core::world::topo::Curve3>,
         (f64, f64),
     ); 4],
     id: &str,
 ) -> anyhow::Result<Solid> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::topo::NurbsSurface;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::topo::NurbsSurface;
     let end = |k: usize, last: bool| {
         let (curve, range) = &sides[k];
         curve.point_at(if last { range.1 } else { range.0 })
@@ -472,8 +472,8 @@ pub fn between(
 /// Nothing, for a sheet all in front.
 pub fn trimmed(
     sheet: &Solid,
-    origin: shapecraft_core::math::Point3,
-    normal: shapecraft_core::math::Point3,
+    origin: workpiece_core::math::Point3,
+    normal: workpiece_core::math::Point3,
 ) -> anyhow::Result<Solid> {
     let (lo, hi) = sheet.extent();
     let reach = (hi - lo).length();
@@ -487,8 +487,8 @@ pub fn trimmed(
     let y = normal.cross(x);
     let corner = origin - (x + y + normal) * far;
     let behind =
-        shapecraft_boolean::block("trim", corner, [x, y, normal], [far * 2.0, far * 2.0, far])?;
-    let cut = shapecraft_boolean::combine(shapecraft_boolean::Op::Intersect, &thin, &behind)?.solid;
+        workpiece_boolean::block("trim", corner, [x, y, normal], [far * 2.0, far * 2.0, far])?;
+    let cut = workpiece_boolean::combine(workpiece_boolean::Op::Intersect, &thin, &behind)?.solid;
     // (Which of the sheet's faces a face left is a piece of: by the
     // name it came with, which stays with it through the cut.)
     let kept: Vec<usize> = (0..cut.faces.len())
@@ -520,7 +520,7 @@ fn tag_of(face: &Face) -> Option<usize> {
 }
 
 /// A point of face `face` of `solid` that is on none of its edges.
-pub fn inside(solid: &Solid, face: usize) -> Option<shapecraft_core::math::Point3> {
+pub fn inside(solid: &Solid, face: usize) -> Option<workpiece_core::math::Point3> {
     let it = &solid.faces[face];
     let ((u0, u1), (v0, v1)) = it.surface.domain();
     let reach = {
@@ -537,13 +537,13 @@ pub fn inside(solid: &Solid, face: usize) -> Option<shapecraft_core::math::Point
             Walk::Edge { reversed: true, .. } => -along,
             _ => along,
         };
-        let Some(left) = shapecraft_core::math::Point2::new(-walked.y, walked.x).try_normalize()
+        let Some(left) = workpiece_core::math::Point2::new(-walked.y, walked.x).try_normalize()
         else {
             continue;
         };
         for share in [1e-2, 1e-3] {
             let uv =
-                at + left * shapecraft_core::math::Point2::new(u1 - u0, v1 - v0).length() * share;
+                at + left * workpiece_core::math::Point2::new(u1 - u0, v1 - v0).length() * share;
             let p = it.surface.point_at(uv.x.clamp(u0, u1), uv.y.clamp(v0, v1));
             let off_edges = solid.edges.iter().all(|e| {
                 let near = (0..=8).map(|k| {
@@ -552,7 +552,7 @@ pub fn inside(solid: &Solid, face: usize) -> Option<shapecraft_core::math::Point
                 });
                 near.fold(f64::INFINITY, f64::min) > reach * 1e-6
             });
-            if off_edges && shapecraft_boolean::lies_on(solid, face, p, reach * 1e-9) {
+            if off_edges && workpiece_boolean::lies_on(solid, face, p, reach * 1e-9) {
                 return Some(p);
             }
         }

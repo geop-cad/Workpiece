@@ -3,17 +3,17 @@
 use std::collections::BTreeMap;
 
 use anyhow::Context;
-use shapecraft_boolean::read;
-use shapecraft_core::handles::AngularHandle;
-use shapecraft_core::widgets::{Choice, ReferenceInput, VBox};
-use shapecraft_core::world::{AreaPick, DatumAxis};
-use shapecraft_core::{
+use workpiece_boolean::read;
+use workpiece_core::handles::AngularHandle;
+use workpiece_core::widgets::{Choice, ReferenceInput, VBox};
+use workpiece_core::world::{AreaPick, DatumAxis};
+use workpiece_core::{
     Builder, Edit, EditContext, EditVisualization, Measure, Operation, Reference, Source, Widget,
 };
 
-use shapecraft_shape::bodies::{self, Combine};
-use shapecraft_shape::sweep::{self, Frame, Make, Turn};
-use shapecraft_shape::ui;
+use workpiece_shape::bodies::{self, Combine};
+use workpiece_shape::sweep::{self, Frame, Make, Turn};
+use workpiece_shape::ui;
 
 /// The axis of a revolution.
 #[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
@@ -32,12 +32,12 @@ pub enum RevolveAxis {
 
 /// What to revolve, around what, how far, and what it becomes.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct RevolveArgs {
     /// The sketch.
     #[arg(with = "sketch_fields")]
-    pub sketch: Option<shapecraft_core::Reference<shapecraft_core::Sketched>>,
+    pub sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>,
     /// The areas of it to revolve, each by a point inside it or by its
     /// boundary; none for the whole sketch.
     #[serde(default)]
@@ -68,7 +68,7 @@ pub struct RevolveArgs {
         empty = "All bodies",
         when = "!self.surface && self.combine != Combine::NewBody"
     )]
-    pub target: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
     /// Whether it makes a surface (a sheet) instead of a solid.
     #[serde(default)]
     #[arg(hidden)]
@@ -141,10 +141,10 @@ impl Operation for Revolve {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let degrees = (*builder).measure(&args.angle, "the angle")?;
         anyhow::ensure!(
@@ -200,7 +200,7 @@ impl Operation for Revolve {
         if angle < std::f64::consts::TAU - 1e-9
             && let Some(out_of) = (middle - foot).try_normalize()
         {
-            use shapecraft_core::world::{Annotation, Measured};
+            use workpiece_core::world::{Annotation, Measured};
             let at = |a: f64| out_of * a.cos() + turn.axis.cross(out_of) * a.sin();
             let measured = Measured::Angle {
                 at: foot,
@@ -225,7 +225,7 @@ impl Operation for Revolve {
         }
         // (Swept in a place of its own, then put with the bodies there are.)
         let walks = sweep::outline(&profile, &regions)?;
-        let mut scratch = shapecraft_core::world::topo::Topo::new();
+        let mut scratch = workpiece_core::world::topo::Topo::new();
         let body = sweep::revolve(
             &mut scratch,
             &self.id,
@@ -252,7 +252,7 @@ impl Operation for Revolve {
             _ => None,
         };
         // (The axis is in what says how the sketch is turned.)
-        let mut out = shapecraft_core::Arguments::references(args);
+        let mut out = workpiece_core::Arguments::references(args);
         out.extend(axis.cloned());
         out
     }
@@ -276,7 +276,7 @@ impl Operation for Revolve {
     ) -> EditVisualization<Edit<RevolveArgs, ()>> {
         let (world, args) = (context.world, &self.args);
         // The fields the arguments give; the handles are its own.
-        let fields = shapecraft_core::Arguments::fields(args, context);
+        let fields = workpiece_core::Arguments::fields(args, context);
         let mut handles = BTreeMap::new();
         if let Some(profile) = ui::profile(world, &args.sketch) {
             let picker = ui::area_picker(
@@ -356,7 +356,7 @@ fn sketch_fields(args: &RevolveArgs, context: &EditContext<'_>) -> Vec<Widget<Re
     let world = context.world.clone();
     let set = ui::set(
         args,
-        move |a, sketch: Option<shapecraft_core::Reference<shapecraft_core::Sketched>>| {
+        move |a, sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>| {
             let drawn = sketch
                 .as_ref()
                 .and_then(|s| world.profiles.get(s.name()))
@@ -376,8 +376,8 @@ fn sketch_fields(args: &RevolveArgs, context: &EditContext<'_>) -> Vec<Widget<Re
 /// The rotation axis drawn in `profile`'s sketch, if one is: a point it
 /// passes through and its direction, in space.
 fn drawn_axis(
-    profile: &shapecraft_core::world::Profile,
-) -> Option<(shapecraft_core::math::Point3, shapecraft_core::math::Point3)> {
+    profile: &workpiece_core::world::Profile,
+) -> Option<(workpiece_core::math::Point3, workpiece_core::math::Point3)> {
     let (through, direction) = profile.axis?;
     let frame = Frame::of(profile);
     Some((

@@ -2,15 +2,15 @@
 //! countersunk or for a tap; to a depth or through everything.
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::{Solid, read};
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Topo};
-use shapecraft_core::world::{DatumPlane, Profile, ProfileEdge, ProfileRegion, ProfileVertex};
-use shapecraft_core::{Builder, Measure, Operation};
-use shapecraft_ops_sweep::Extent;
+use workpiece_boolean::{Solid, read};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Topo};
+use workpiece_core::world::{DatumPlane, Profile, ProfileEdge, ProfileRegion, ProfileVertex};
+use workpiece_core::{Builder, Measure, Operation};
+use workpiece_ops_sweep::Extent;
 
-use shapecraft_shape::bodies::{self};
-use shapecraft_shape::sweep::{self, Frame, Make, Turn};
+use workpiece_shape::bodies::{self};
+use workpiece_shape::sweep::{self, Frame, Make, Turn};
 
 use crate::norm;
 
@@ -63,7 +63,7 @@ pub enum HolePlace {
     Polar,
 }
 
-impl shapecraft_core::Choices for HolePlace {
+impl workpiece_core::Choices for HolePlace {
     const ALL: &'static [Self] = &[HolePlace::Sketch, HolePlace::Offsets, HolePlace::Polar];
 
     fn label(self) -> &'static str {
@@ -100,7 +100,7 @@ impl Clearance {
     }
 }
 
-impl shapecraft_core::Choices for Clearance {
+impl workpiece_core::Choices for Clearance {
     const ALL: &'static [Self] = &[Clearance::Fine, Clearance::Medium, Clearance::Coarse];
 
     fn label(self) -> &'static str {
@@ -128,7 +128,7 @@ pub enum Deburr {
     Both,
 }
 
-impl shapecraft_core::Choices for Deburr {
+impl workpiece_core::Choices for Deburr {
     const ALL: &'static [Self] = &[Deburr::None, Deburr::Entry, Deburr::Exit, Deburr::Both];
 
     fn label(self) -> &'static str {
@@ -143,7 +143,7 @@ impl shapecraft_core::Choices for Deburr {
 
 /// Where the holes are, and what they are like.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 #[serde(default)]
 pub struct HoleArgs {
@@ -153,27 +153,27 @@ pub struct HoleArgs {
     /// The sketch: a hole goes at each of its points, into what is
     /// behind its plane.
     #[arg(when = "self.place == HolePlace::Sketch")]
-    pub sketch: Option<shapecraft_core::Reference<shapecraft_core::Sketched>>,
+    pub sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>,
     /// The flat face (or plane) the hole is drilled into, where it is
     /// not placed by a sketch.
     #[arg(label = "On", when = "self.place != HolePlace::Sketch")]
-    pub face: Option<shapecraft_core::Reference<DatumPlane>>,
+    pub face: Option<workpiece_core::Reference<DatumPlane>>,
     /// The first plane (or flat face) it is a distance from.
     #[arg(label = "From", when = "self.place == HolePlace::Offsets")]
-    pub first: Option<shapecraft_core::Reference<DatumPlane>>,
+    pub first: Option<workpiece_core::Reference<DatumPlane>>,
     /// How far from the first: into the body from a face of it, to the
     /// front of a plane.
     #[arg(label = "Distance", when = "self.place == HolePlace::Offsets")]
     pub first_offset: Measure,
     /// The second plane (or flat face) it is a distance from.
     #[arg(label = "And from", when = "self.place == HolePlace::Offsets")]
-    pub second: Option<shapecraft_core::Reference<DatumPlane>>,
+    pub second: Option<workpiece_core::Reference<DatumPlane>>,
     /// How far from the second.
     #[arg(label = "Distance", when = "self.place == HolePlace::Offsets")]
     pub second_offset: Measure,
     /// The axis it is a distance from.
     #[arg(label = "Around", when = "self.place == HolePlace::Polar")]
-    pub axis: Option<shapecraft_core::Reference<shapecraft_core::world::DatumAxis>>,
+    pub axis: Option<workpiece_core::Reference<workpiece_core::world::DatumAxis>>,
     /// How far from the axis.
     #[arg(label = "Distance", when = "self.place == HolePlace::Polar")]
     pub radius: Measure,
@@ -259,7 +259,7 @@ pub struct HoleArgs {
         label = "Head up to",
         when = "self.kind == HoleKind::Counterbore && self.head_extent == Extent::ToFace"
     )]
-    pub head_up_to: Option<shapecraft_core::Reference<DatumPlane>>,
+    pub head_up_to: Option<workpiece_core::Reference<DatumPlane>>,
     /// How much deeper than that face or plane the floor is (less
     /// than nothing: short of it).
     #[arg(
@@ -296,7 +296,7 @@ pub struct HoleArgs {
     /// The face or plane the bore's full width ends at.
     #[serde(default)]
     #[arg(label = "Up to", when = "self.extent == Extent::ToFace")]
-    pub up_to: Option<shapecraft_core::Reference<DatumPlane>>,
+    pub up_to: Option<workpiece_core::Reference<DatumPlane>>,
     /// How much deeper than that face or plane it goes (less than
     /// nothing: short of it).
     #[arg(label = "Offset", when = "self.extent == Extent::ToFace")]
@@ -324,7 +324,7 @@ pub struct HoleArgs {
     pub chamfer_angle: Measure,
     /// The body drilled; `None` for every solid body.
     #[arg(label = "In", empty = "All bodies")]
-    pub target: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
 }
 
 impl Default for HoleArgs {
@@ -588,7 +588,7 @@ fn within(solids: &[&Solid], starts: &[Point3], direction: Point3, t: f64) -> bo
     starts.iter().any(|start| {
         solids
             .iter()
-            .any(|s| shapecraft_boolean::holds(s, *start + direction * t) == Some(true))
+            .any(|s| workpiece_boolean::holds(s, *start + direction * t) == Some(true))
     })
 }
 
@@ -662,7 +662,7 @@ struct Sized {
     /// The diameter said of it: the bore's, or a thread's.
     nominal: f64,
     /// The tolerance the diameter is said with.
-    tolerance: shapecraft_core::world::Tolerance,
+    tolerance: workpiece_core::world::Tolerance,
     /// The head's diameter and depth, and its cone's angle in degrees.
     head: f64,
     head_depth: f64,
@@ -692,7 +692,7 @@ impl HoleArgs {
     }
 
     fn sized(&self, builder: &dyn Builder) -> anyhow::Result<Sized> {
-        use shapecraft_core::world::Tolerance;
+        use workpiece_core::world::Tolerance;
         let measure = |m: &Measure, what: &str| builder.measure(m, what);
         let Some(size) = self.standard()? else {
             let nominal = measure(&self.diameter, "the diameter")?;
@@ -786,10 +786,10 @@ impl Operation for Hole {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let measure = |m: &Measure, what: &str| (*builder).measure(m, what);
         let sized = args.sized(builder)?;
@@ -851,7 +851,7 @@ impl Operation for Hole {
                 ] {
                     let plane = plane.as_ref().context("pick the two planes it is off")?;
                     let offset = measure(offset, what)?;
-                    let inward = matches!(plane.source, shapecraft_core::Source::Topology(_));
+                    let inward = matches!(plane.source, workpiece_core::Source::Topology(_));
                     let plane = (*builder).resolve(plane)?;
                     let offset = if inward { -offset } else { offset };
                     rows.push((plane.normal(), plane.normal().dot(plane.origin()) + offset));
@@ -893,7 +893,7 @@ impl Operation for Hole {
         anyhow::ensure!(!targets.is_empty(), "there is no solid body to work on");
         let mut drilled = Vec::new();
         for (body, name) in &targets {
-            drilled.push((*body, name, shapecraft_boolean::read(topo, *body)?, false));
+            drilled.push((*body, name, workpiece_boolean::read(topo, *body)?, false));
         }
         // It goes into the material that is nearest where it starts,
         // whichever side that is: from a plane off the body towards the
@@ -924,7 +924,7 @@ impl Operation for Hole {
             let mut came_out = None;
             // How far along the drill's way from this hole's mouth the
             // plane of `face` is, and `offset` on.
-            let up_to = |face: &Option<shapecraft_core::Reference<DatumPlane>>,
+            let up_to = |face: &Option<workpiece_core::Reference<DatumPlane>>,
                          offset: &Measure,
                          what: &str|
              -> anyhow::Result<f64> {
@@ -1010,9 +1010,8 @@ impl Operation for Hole {
             let wall = format!("{id}/side/e{side}");
             let top = outline[side].1;
             for (_, name, solid, changed) in &mut drilled {
-                let outcome =
-                    shapecraft_boolean::combine(shapecraft_boolean::Op::Cut, solid, &tool)
-                        .with_context(|| format!("cutting {name}"))?;
+                let outcome = workpiece_boolean::combine(workpiece_boolean::Op::Cut, solid, &tool)
+                    .with_context(|| format!("cutting {name}"))?;
                 if !outcome.touched {
                     continue;
                 }
@@ -1025,7 +1024,7 @@ impl Operation for Hole {
                     .position(|f| f.name.as_deref() == Some(&*wall) || f.also.contains(&wall));
                 if let Some(face) = face.filter(|_| tapped && args.modelled) {
                     let deep = (diameter - bore) / 2.0;
-                    *solid = shapecraft_shape::threaded(solid, face, pitch, deep, false)
+                    *solid = workpiece_shape::threaded(solid, face, pitch, deep, false)
                         .with_context(|| format!("threading {name}"))?;
                 }
             }
@@ -1033,7 +1032,7 @@ impl Operation for Hole {
             // the bore is.
             if tapped && !args.modelled {
                 let length = came_out.filter(|_| through).unwrap_or(depth) - top;
-                let said = shapecraft_core::world::Thread {
+                let said = workpiece_core::world::Thread {
                     face: wall,
                     origin: *place + direction * top,
                     axis: direction,
@@ -1059,7 +1058,7 @@ impl Operation for Hole {
         // What it is, said in one callout at the first hole (ISO
         // 129-1): `4× Ø6 ↧10`, its head under it — `⌴Ø11 ↧6`.
         if let Some(place) = places.first() {
-            use shapecraft_core::world::{Annotation, Callout, Note};
+            use workpiece_core::world::{Annotation, Callout, Note};
             let text = |t: &str| Callout::Text(t.to_owned());
             let mut first = Vec::new();
             if places.len() > 1 {
@@ -1139,7 +1138,7 @@ impl Operation for Hole {
             (None, HoleKind::Tapped) => format!("thread ⌀{} × {}", a.diameter, a.pitch),
             (None, HoleKind::Simple) => match &a.class {
                 Some(class)
-                    if a.diameter.tolerance == shapecraft_core::world::Tolerance::General =>
+                    if a.diameter.tolerance == workpiece_core::world::Tolerance::General =>
                 {
                     let limits = norm::hole_limits(class, a.diameter.value)
                         .map(|(upper, lower)| format!(" (+{upper:.3}/+{lower:.3})"))
@@ -1173,7 +1172,7 @@ impl Operation for Hole {
     }
 }
 
-impl shapecraft_core::Choices for HoleKind {
+impl workpiece_core::Choices for HoleKind {
     const ALL: &'static [Self] = &Self::ALL;
 
     fn label(self) -> &'static str {
@@ -1189,9 +1188,9 @@ mod first_out_tests {
     fn a_line_first_leaves_the_wall_it_starts_in() {
         // A plate 2 thick, and another 5 above it.
         let axes = [Point3::X, Point3::Y, Point3::Z];
-        let plate = shapecraft_boolean::block("a", Point3::ZERO, axes, [4.0, 4.0, 2.0]).unwrap();
+        let plate = workpiece_boolean::block("a", Point3::ZERO, axes, [4.0, 4.0, 2.0]).unwrap();
         let above =
-            shapecraft_boolean::block("b", Point3::new(0.0, 0.0, 7.0), axes, [4.0, 4.0, 1.0])
+            workpiece_boolean::block("b", Point3::new(0.0, 0.0, 7.0), axes, [4.0, 4.0, 1.0])
                 .unwrap();
         let from = Point3::new(2.0, 2.0, 0.0);
         let (out, again) = first_out(&[&plate, &above], &[from], Point3::Z, 10.0).unwrap();
@@ -1208,10 +1207,10 @@ mod first_out_tests {
         // bore's axis: the axis meets nothing, the bore's wall does.
         let axes = [Point3::X, Point3::Y, Point3::Z];
         let left =
-            shapecraft_boolean::block("a", Point3::new(-5.0, -5.0, 0.0), axes, [4.5, 10.0, 2.0])
+            workpiece_boolean::block("a", Point3::new(-5.0, -5.0, 0.0), axes, [4.5, 10.0, 2.0])
                 .unwrap();
         let right =
-            shapecraft_boolean::block("b", Point3::new(0.5, -5.0, 0.0), axes, [4.5, 10.0, 2.0])
+            workpiece_boolean::block("b", Point3::new(0.5, -5.0, 0.0), axes, [4.5, 10.0, 2.0])
                 .unwrap();
         let from = Point3::new(0.0, 0.0, 5.0);
         assert!(first_out(&[&left, &right], &[from], -Point3::Z, 10.0).is_none());

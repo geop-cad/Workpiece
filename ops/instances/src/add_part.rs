@@ -1,11 +1,11 @@
 //! [`AddPart`]: another part, built and placed at a pose.
 
-use shapecraft_core::math::Point3;
-use shapecraft_core::widgets::{Choice, FileInput, VBox};
-use shapecraft_core::{Builder, EditVisualization, Operation};
+use workpiece_core::math::Point3;
+use workpiece_core::widgets::{Choice, FileInput, VBox};
+use workpiece_core::{Builder, EditVisualization, Operation};
 
 /// The extension of part files.
-pub const PART_EXTENSION: &str = "shapecraft";
+pub const PART_EXTENSION: &str = "workpiece";
 
 /// Which part to place, and where.
 #[derive(
@@ -15,7 +15,7 @@ pub const PART_EXTENSION: &str = "shapecraft";
     PartialEq,
     serde::Serialize,
     serde::Deserialize,
-    shapecraft_core::Arguments,
+    workpiece_core::Arguments,
 )]
 pub struct AddPartArgs {
     /// The placed part's path in the workspace.
@@ -43,8 +43,8 @@ impl AddPartArgs {
     /// `world`, the part built, with only the bodies that come along.
     pub fn taken(
         &self,
-        world: std::sync::Arc<shapecraft_core::World>,
-    ) -> anyhow::Result<std::sync::Arc<shapecraft_core::World>> {
+        world: std::sync::Arc<workpiece_core::World>,
+    ) -> anyhow::Result<std::sync::Arc<workpiece_core::World>> {
         if self.bodies.is_empty() {
             return Ok(world);
         }
@@ -66,7 +66,7 @@ impl AddPartArgs {
         let mut gone = Vec::new();
         for (id, name) in all {
             if !name.as_ref().is_some_and(|n| self.bodies.contains(n)) {
-                shapecraft_boolean::remove(&mut only.topo, id);
+                workpiece_boolean::remove(&mut only.topo, id);
                 gone.extend(name);
             }
         }
@@ -96,7 +96,7 @@ impl AddPartArgs {
 
 /// The box around the bodies of `topo` (around their faces' control
 /// points and their vertices), if it has any.
-fn reach(topo: &shapecraft_core::world::topo::Topo) -> Option<(Point3, Point3)> {
+fn reach(topo: &workpiece_core::world::topo::Topo) -> Option<(Point3, Point3)> {
     let mut points: Vec<Point3> = topo.vertices().iter().map(|(_, v)| v.point).collect();
     for (_, face) in topo.faces().iter() {
         if let Some(surface) = topo.surface(face.surface) {
@@ -121,8 +121,8 @@ fn within(reach: Option<(Point3, Point3)>, p: Point3) -> bool {
 
 /// The points of the model an annotation is of (not where its text
 /// stands): what it is noted on lies there.
-fn feature_points(note: &shapecraft_core::world::Note) -> Vec<Point3> {
-    use shapecraft_core::world::{Measured, Note};
+fn feature_points(note: &workpiece_core::world::Note) -> Vec<Point3> {
+    use workpiece_core::world::{Measured, Note};
     let of = |m: &Measured| match *m {
         Measured::Length { from, to, .. } => vec![from, to],
         Measured::Radial { centre, .. }
@@ -175,10 +175,10 @@ impl Operation for AddPart {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: what it makes is put in by the
         // builder.)
-        let mut out = shapecraft_boolean::Out::default();
+        let mut out = workpiece_boolean::Out::default();
         let world = builder.build(&self.args.part, self.args.variant.as_deref())?;
         let world = self.args.taken(world)?;
         crate::placing::place(&mut out.made, builder, &self.id, world, &self.args.hold)?;
@@ -187,19 +187,19 @@ impl Operation for AddPart {
 
     fn visualize_edit(
         &self,
-        context: &shapecraft_core::EditContext<'_>,
+        context: &workpiece_core::EditContext<'_>,
         (): &(),
-    ) -> EditVisualization<shapecraft_core::Edit<AddPartArgs, ()>> {
+    ) -> EditVisualization<workpiece_core::Edit<AddPartArgs, ()>> {
         // The dialog chooses the part's file and its variant and edits its
         // pose; the gizmo moves and turns it.
         let args = self.args.clone();
         // The fields the arguments give; where it is, and the gizmo, are
         // the cache's.
-        let fields = shapecraft_core::Arguments::fields(&args, context);
+        let fields = workpiece_core::Arguments::fields(&args, context);
         let (place, handles) = crate::placing::pose_edit(&self.id, context, &self.args.hold);
-        let mut all: Vec<shapecraft_core::Widget<shapecraft_core::Edit<AddPartArgs, ()>>> = fields
+        let mut all: Vec<workpiece_core::Widget<workpiece_core::Edit<AddPartArgs, ()>>> = fields
             .into_iter()
-            .map(|field| field.map(shapecraft_core::Edit::args))
+            .map(|field| field.map(workpiece_core::Edit::args))
             .collect();
         all.extend(place);
         EditVisualization::new(VBox::new(all), handles)
@@ -223,8 +223,8 @@ impl Operation for AddPart {
 /// how it is held: its two references and the constraint between them.
 fn fields_of(
     args: &AddPartArgs,
-    context: &shapecraft_core::EditContext<'_>,
-) -> Vec<shapecraft_core::Widget<AddPartArgs>> {
+    context: &workpiece_core::EditContext<'_>,
+) -> Vec<workpiece_core::Widget<AddPartArgs>> {
     let args = args.clone();
     let with_part = {
         let args = args.clone();
@@ -236,7 +236,7 @@ fn fields_of(
             ..args.clone()
         }
     };
-    let mut fields: Vec<shapecraft_core::Widget<AddPartArgs>> =
+    let mut fields: Vec<workpiece_core::Widget<AddPartArgs>> =
         vec![FileInput::new("Part", args.part.clone(), PART_EXTENSION, with_part).into()];
     // The part as it is by default, or one of its variants.
     let variants = context.parts.variants(&args.part);
@@ -273,7 +273,7 @@ fn fields_of(
             0 => "all".to_owned(),
             n => format!("{n} of {}", bodies.len()),
         };
-        let label = shapecraft_core::widgets::Label::new("Bodies", taken, Default::default());
+        let label = workpiece_core::widgets::Label::new("Bodies", taken, Default::default());
         fields.push(label.into());
         for body in &bodies {
             let taken = args.bodies.is_empty() || args.bodies.contains(body);
@@ -321,13 +321,13 @@ fn fields_of(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::handles::Handle;
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::{Pose, World};
     use std::sync::Arc;
+    use workpiece_core::handles::Handle;
+    use workpiece_core::math::Point3;
+    use workpiece_core::{Pose, World};
 
     /// A builder that knows one part, `bolt`, with an empty world.
-    struct OneBolt(World, shapecraft_core::Cache);
+    struct OneBolt(World, workpiece_core::Cache);
 
     impl Builder for OneBolt {
         fn world(&self) -> &World {
@@ -338,16 +338,16 @@ mod tests {
             &mut self.0
         }
 
-        fn cache(&self) -> &shapecraft_core::Cache {
+        fn cache(&self) -> &workpiece_core::Cache {
             &self.1
         }
 
-        fn cache_mut(&mut self) -> &mut shapecraft_core::Cache {
+        fn cache_mut(&mut self) -> &mut workpiece_core::Cache {
             &mut self.1
         }
 
-        fn parameters(&self) -> &shapecraft_core::Parameters {
-            &shapecraft_core::measure::NO_PARAMETERS
+        fn parameters(&self) -> &workpiece_core::Parameters {
+            &workpiece_core::measure::NO_PARAMETERS
         }
 
         fn build(&self, path: &str, _: Option<&str>) -> anyhow::Result<Arc<World>> {
@@ -386,12 +386,12 @@ mod tests {
 
     #[test]
     fn what_is_said_of_the_bodies_left_out_stays_behind() -> anyhow::Result<()> {
-        use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
+        use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
         let mut b = OneBolt(World::new(), Default::default());
         for (id, size) in [("a", 1.0), ("b", 2.0)] {
             let args = AddBoxArgs {
-                frame: Some(shapecraft_core::Reference::datum("origin")),
-                size: [size; 3].map(shapecraft_core::Measure::new),
+                frame: Some(workpiece_core::Reference::datum("origin")),
+                size: [size; 3].map(workpiece_core::Measure::new),
             };
             AddBox {
                 id: id.into(),
@@ -399,7 +399,7 @@ mod tests {
             }
             .apply(&mut b)?;
         }
-        let look = shapecraft_core::world::Look {
+        let look = workpiece_core::world::Look {
             colour: Some([255, 0, 0]),
             ..Default::default()
         };
@@ -426,8 +426,8 @@ mod tests {
     fn the_gizmo_moves_the_part_in_the_cache() -> anyhow::Result<()> {
         let op = add("b", "bolt");
         let world = Arc::new(World::new());
-        let cache = shapecraft_core::Cache::default();
-        let context = shapecraft_core::EditContext::standalone(&world, &cache);
+        let cache = workpiece_core::Cache::default();
+        let context = workpiece_core::EditContext::standalone(&world, &cache);
         let edit = op.visualize_edit(&context, &());
         let Some(Handle::Gizmo(g)) = edit.handles.get("pose") else {
             anyhow::bail!("expected a gizmo");
@@ -436,7 +436,7 @@ mod tests {
         let edit = (g.on_drag)(moved);
         // The arguments stay; what the step keeps is where the part is.
         assert!(edit.args.is_none());
-        let mut cache = shapecraft_core::Cache::default();
+        let mut cache = workpiece_core::Cache::default();
         cache.replace("b", edit.kept.expect("where the part is"));
         assert_eq!(crate::assembly::placed(&cache, "b"), moved);
         Ok(())

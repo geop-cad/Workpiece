@@ -11,7 +11,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use shapecraft_core::math::Point3;
+use workpiece_core::math::Point3;
 
 use crate::poly::{Edge, Poly, edge};
 

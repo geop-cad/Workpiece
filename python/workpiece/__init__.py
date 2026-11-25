@@ -1,6 +1,6 @@
-"""Build shapecraft parts from a script.
+"""Build workpiece parts from a script.
 
-    from shapecraft import Part
+    from workpiece import Part
     p = Part()
     s = p.sketch("XY")
     r = s.rect("a", 0, 0, 60, 40)          # four lines, already horizontal / vertical
@@ -8,12 +8,12 @@
     s.distance_u(r.points[0], r.points[1], 60)
     s.distance_v(r.points[1], r.points[2], 40)
     p.extrude(s, 10)
-    report = p.build("plate.shapecraft")         # solves, builds, reports
+    report = p.build("plate.workpiece")         # solves, builds, reports
     report.show()
 
 A script is the model: sketches say their constraints and driving dimensions (the solver
 places the geometry; the coordinates you give are only a starting guess), features refer to
-sketches and to named faces and edges, repeats are patterns. `build` runs the `shapecraft` command
+sketches and to named faces and edges, repeats are patterns. `build` runs the `workpiece` command
 line and returns what came of it: failed steps, each sketch's degrees of freedom, volumes
 after every step, faces and edges by name, lint, and optionally pictures.
 
@@ -32,11 +32,11 @@ import sys
 import time
 from dataclasses import dataclass, field
 
-from . import _check as shapecraft_check  # what a script declares of the original; scorecard; lint
-from . import _images as shapecraft_images  # crops and tiles
+from . import _check as workpiece_check  # what a script declares of the original; scorecard; lint
+from . import _images as workpiece_images  # crops and tiles
 from . import _bin
 from ._bin import __version__, command_line as _binary  # noqa: F401
-from ._check import original  # noqa: F401  (re-exported: `from shapecraft import original`)
+from ._check import original  # noqa: F401  (re-exported: `from workpiece import original`)
 from ._images import crop, tile  # noqa: F401
 
 
@@ -530,11 +530,11 @@ class Part:
         self._built = None
 
     def expect(self, original) -> None:
-        """Declares what the original drawing has (`original(...)`, see shapecraft_check): the build
+        """Declares what the original drawing has (`original(...)`, see workpiece_check): the build
         then prints a scorecard against it (views, numbers, notes, mass, problems) and lints the
         script's typed numbers against the declared ones."""
         self._expect = original
-        shapecraft_check._declared.append(original)
+        workpiece_check._declared.append(original)
 
     def _fresh(self, prefix: str) -> str:
         self._ids[prefix] = self._ids.get(prefix, 0) + 1
@@ -580,7 +580,7 @@ class Part:
             self._dimension_count[step] = 0 if count is False else int(count)
 
     def op(self, _kind: str, _id: str | None = None, /, id: str | None = None, **args) -> str:
-        """Any step by its kind (run `shapecraft kinds` for all of them and their arguments);
+        """Any step by its kind (run `workpiece kinds` for all of them and their arguments);
         arguments not given are as by default. `p.op("Hole", "h1", kind="Counterbore", ...)`:
         the kind of step comes first, by position; `id=` names the step; everything else named
         is an argument of the step."""
@@ -891,7 +891,7 @@ class Part:
 
     def add_part(self, part, onto=None, with_=None, constraint: str = "Fixed", flip: bool = False,
                  offset=None, at=None, euler=None, bodies=None, variant: str | None = None, id: str | None = None) -> str:
-        """Places a part in this one: an assembly. `part` is a .shapecraft file beside this one
+        """Places a part in this one: an assembly. `part` is a .workpiece file beside this one
         (built already), or a `Part` of the script — given a `file` name (`Part(file=...)`), it is
         built into this one's folder first when this one is built, once however often it is
         placed. It is held by `constraint` — "Fixed" (stays where it is put), "Free", or a joint
@@ -909,7 +909,7 @@ class Part:
         `report.placed_part(id)`)."""
         if isinstance(part, Part):
             if not part.file:
-                raise ValueError("a Part placed by an assembly needs a file name: Part(file=\"pin.shapecraft\")")
+                raise ValueError("a Part placed by an assembly needs a file name: Part(file=\"pin.workpiece\")")
             self._placed_parts[part.file] = part
             part = part.file
         hold = {"constraint": constraint if constraint in ("Fixed", "Free") else {"Joint": constraint},
@@ -952,7 +952,7 @@ class Part:
 
     def build(self, path: str, render: bool = False, expect=None, pictures: bool | None = None,
               picture: str | None = None, samples: int = 256, size=(1200, 900), seconds: float = 5.0) -> "Report":
-        """Writes the part to `path` (a .shapecraft file), builds it, and returns what came of it.
+        """Writes the part to `path` (a .workpiece file), builds it, and returns what came of it.
         With render, the sheets are drawn too: `<path>.views/` gets each drawing as PDF, SVG and
         PNG, and one image per view (`view-<id>.png`), and — `pictures=True`, by default only for
         a part without a drawing — the four pictures iso/front/top/right.png; `sheet.txt` (the
@@ -1016,13 +1016,13 @@ class Part:
             # A drawing's PDF also as a picture to look at, and one image per view.
             many = len(raw.get("drawings", [])) > 1
             for drawing in raw.get("drawings", []):
-                if "pdf" in drawing and shapecraft_images.poppler_available():
+                if "pdf" in drawing and workpiece_images.poppler_available():
                     png = drawing["pdf"][:-4]
                     subprocess.run(["pdftoppm", "-png", "-r", "110", "-singlefile", drawing["pdf"], png],
                                    capture_output=True)
                     drawing["png"] = png + ".png"
                     if "inventory" in drawing:
-                        for id, file in shapecraft_images.view_crops(drawing["pdf"], drawing["inventory"], path + ".views").items():
+                        for id, file in workpiece_images.view_crops(drawing["pdf"], drawing["inventory"], path + ".views").items():
                             if many:
                                 named = os.path.join(path + ".views", f"view-{drawing['id']}-{id}.png")
                                 os.replace(file, named)
@@ -1048,20 +1048,20 @@ class Part:
     def _judge(self, report: "Report", expect) -> None:
         """The scorecard against what the original has, and the lint of the script."""
         steps = self.recipe()["steps"]
-        declared = shapecraft_check._declared[-1] if shapecraft_check._declared else None
+        declared = workpiece_check._declared[-1] if workpiece_check._declared else None
         # (What the command line found, kept apart from what is added here on every build.)
         lint = list(report.raw.setdefault("cli_lint", list(report.raw["lint"])))
         if declared is not None:
-            lint += shapecraft_check.lint_derived(steps, declared)
+            lint += workpiece_check.lint_derived(steps, declared)
         main = sys.argv[0] if sys.argv and sys.argv[0].endswith(".py") else None
-        if main and os.path.exists(main) and os.path.basename(main) != "shapecraft.py":
+        if main and os.path.exists(main) and os.path.basename(main) != "workpiece.py":
             with open(main) as f:
-                lint += shapecraft_check.lint_source(f.read())
+                lint += workpiece_check.lint_source(f.read())
         report.score = None
         if expect is not None:
             drawings = [d for d in report.drawings if "inventory" in d]
             inventory = drawings[0]["inventory"] if drawings else {"views": [], "problems": ["the part has no drawing"]}
-            report.score = shapecraft_check.score(expect, inventory, report.mass_total, self.unit or "Millimetre")
+            report.score = workpiece_check.score(expect, inventory, report.mass_total, self.unit or "Millimetre")
             _, _, missing, extra = report.score["views"]
             lint += [f"the original has a {kind} view the sheet lacks" for kind in missing]
             lint += [f"the sheet has a {kind} view the original does not" for kind in extra]

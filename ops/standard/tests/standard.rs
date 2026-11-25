@@ -1,24 +1,22 @@
 //! What the operations of this crate make.
 
-use shapecraft_ops_testing::*;
+use workpiece_ops_testing::*;
 
 #[test]
 fn standard_parts_have_the_sizes_the_standards_give() -> anyhow::Result<()> {
-    use shapecraft_ops_standard::{
-        StandardKind, StandardPart, StandardPartArgs, lengths, standard,
-    };
+    use workpiece_ops_standard::{StandardKind, StandardPart, StandardPartArgs, lengths, standard};
     let hexagon = |flats: f64| 3.0_f64.sqrt() / 2.0 * flats * flats;
     // An M6 nut: a hexagon 10 across, 5.2 high, with a hole of 6.
     let nut = standard("n", StandardKind::HexNut, "M6", 0.0)?;
     close(
-        shapecraft_boolean::measure(&nut).volume,
+        workpiece_boolean::measure(&nut).volume,
         (hexagon(10.0) - PI * 9.0) * 5.2,
         1e-6,
     );
     // An M8 × 30 screw: a head 13 across and 5.3 high on a shank of 8.
     let screw = standard("s", StandardKind::HexScrew, "M8", 30.0)?;
     close(
-        shapecraft_boolean::measure(&screw).volume,
+        workpiece_boolean::measure(&screw).volume,
         hexagon(13.0) * 5.3 + PI * 16.0 * 30.0,
         1e-6,
     );
@@ -40,8 +38,8 @@ fn standard_parts_have_the_sizes_the_standards_give() -> anyhow::Result<()> {
     // by its designation, cut by a section like any ring.
     let ring = |name: &str| -> anyhow::Result<f64> {
         let id = placed.world.topo.resolve(name).expect("the ring");
-        let ring = shapecraft_boolean::read(&placed.world.topo, id)?;
-        Ok(shapecraft_boolean::measure(&ring).volume)
+        let ring = workpiece_boolean::read(&placed.world.topo, id)?;
+        Ok(workpiece_boolean::measure(&ring).volume)
     };
     let wall: f64 = 7.0 * 0.36;
     close(
@@ -61,7 +59,7 @@ fn standard_parts_have_the_sizes_the_standards_give() -> anyhow::Result<()> {
     );
     assert_eq!(
         placed.world.sectioned,
-        shapecraft_core::world::Sectioned::Cut
+        workpiece_core::world::Sectioned::Cut
     );
     // A screw is drawn whole where a section runs along it.
     assert_eq!(
@@ -71,7 +69,7 @@ fn standard_parts_have_the_sizes_the_standards_give() -> anyhow::Result<()> {
     assert!(
         !StandardKind::SocketScrew
             .sectioned()
-            .cuts(shapecraft_core::math::Point3::X)
+            .cuts(workpiece_core::math::Point3::X)
     );
     // Screws come in the lengths of the standard, each size in its own
     // range of them; no other length is made.
@@ -96,9 +94,9 @@ fn standard_parts_have_the_sizes_the_standards_give() -> anyhow::Result<()> {
 
 #[test]
 fn the_catalogue_is_one_list_that_filters_narrow() -> anyhow::Result<()> {
-    use shapecraft_core::widgets::Shown;
-    use shapecraft_core::{Operation, Widget};
-    use shapecraft_ops_standard::{Family, Filter, StandardKind, StandardPart, catalogue};
+    use workpiece_core::widgets::Shown;
+    use workpiece_core::{Operation, Widget};
+    use workpiece_ops_standard::{Family, Filter, StandardKind, StandardPart, catalogue};
     let all = catalogue();
     // Every screw in every length, and one of everything else a size.
     let label = "Socket head cap screw M5 × 16 · ISO 4762";
@@ -120,9 +118,9 @@ fn the_catalogue_is_one_list_that_filters_narrow() -> anyhow::Result<()> {
         id: "s".into(),
         args: Default::default(),
     };
-    let world = std::sync::Arc::new(shapecraft_core::World::new());
-    let cache = shapecraft_core::Cache::default();
-    let context = shapecraft_core::EditContext::standalone(&world, &cache);
+    let world = std::sync::Arc::new(workpiece_core::World::new());
+    let cache = workpiece_core::Cache::default();
+    let context = workpiece_core::EditContext::standalone(&world, &cache);
     let screws = Filter {
         family: Some(Family::Screws),
         size: Some("M8".into()),

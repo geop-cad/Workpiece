@@ -1,11 +1,11 @@
 //! The curves of a sketch, or of a curve in space, as one path.
 
 use anyhow::Context;
-use shapecraft_core::Source;
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::Profile;
-use shapecraft_core::world::profile::EdgeUse;
-use shapecraft_core::world::topo::Curve3;
+use workpiece_core::Source;
+use workpiece_core::math::Point3;
+use workpiece_core::world::Profile;
+use workpiece_core::world::profile::EdgeUse;
+use workpiece_core::world::topo::Curve3;
 
 use crate::sweep::Frame;
 
@@ -14,11 +14,11 @@ use crate::sweep::Frame;
 /// normal of its plane is the way it winds about its middle (a helix's
 /// axis; the normal of a flat curve's plane).
 fn wire_path(
-    world: &shapecraft_core::World,
+    world: &workpiece_core::World,
     name: &str,
     near: Point3,
 ) -> anyhow::Result<Option<(Vec<Curve3>, bool, Point3)>> {
-    use shapecraft_core::world::topo::{BodyId, BodyKind};
+    use workpiece_core::world::topo::{BodyId, BodyKind};
     let topo = &world.topo;
     let Some(body) = topo.resolve::<BodyId>(name).and_then(|b| topo.body(b)) else {
         return Ok(None);
@@ -91,7 +91,7 @@ fn wire_path(
 /// where the one before ends: from the end nearer `near`; whether it
 /// closes; and the normal of its plane.
 pub fn path(
-    world: &shapecraft_core::World,
+    world: &workpiece_core::World,
     source: &Source,
     near: Point3,
 ) -> anyhow::Result<(Vec<Curve3>, bool, Point3)> {

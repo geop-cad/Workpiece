@@ -10,7 +10,7 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 
-use shapecraft_solver::{Pull, Scalar, System};
+use workpiece_solver::{Pull, Scalar, System};
 
 use crate::model::{Id, Kind, Shape, SketchArgs, SketchAxis};
 
@@ -661,7 +661,7 @@ impl SketchArgs {
                 pull = pull.hold(i, target);
             }
         }
-        let report = shapecraft_solver::solve(&equations, &mut x, &pull, tolerance);
+        let report = workpiece_solver::solve(&equations, &mut x, &pull, tolerance);
         let sane = x.iter().all(|v| v.is_finite());
         let vars = equations.vars.clone();
         if sane {
@@ -823,7 +823,7 @@ impl SketchArgs {
         let tolerance = self.solve_tolerance() * 1e3;
         let equations = Equations::new(self);
         let x = equations.values();
-        let found = shapecraft_solver::diagnose(&equations, &x, tolerance);
+        let found = workpiece_solver::diagnose(&equations, &x, tolerance);
         let mut diagnosis = Diagnosis {
             dof: found.dof,
             ..Diagnosis::default()

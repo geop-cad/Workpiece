@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest something ShapeCraft should do
+about: Suggest something Workpiece should do
 title: ""
 labels: enhancement
 assignees: ""

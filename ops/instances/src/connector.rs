@@ -16,12 +16,12 @@
 //! * on a face **near a vertex**: that vertex, z the face's normal.
 
 use anyhow::Context;
-use shapecraft_core::math::Point3;
-use shapecraft_core::world::topo::{
+use workpiece_core::math::Point3;
+use workpiece_core::world::topo::{
     CoedgeKind, Curve3, EdgeId, EntityId, FaceId, NurbsSurface, Orientation, Topo, VertexId,
 };
-use shapecraft_core::world::{Datum, World};
-use shapecraft_core::{Pose, Source};
+use workpiece_core::world::{Datum, World};
+use workpiece_core::{Pose, Source};
 
 /// Where on an edge a frame is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -241,8 +241,8 @@ fn normal_at(topo: &Topo, face: FaceId, p: Point3) -> Option<Point3> {
     let surface = topo.surface(topo.face(face)?.surface)?;
     // (A plane's, wherever: also where its surface comes to a point —
     // the middle of a revolved disc.)
-    if let Some(shapecraft_shape::known::Known::Plane { normal, .. }) =
-        shapecraft_shape::known::known(surface)
+    if let Some(workpiece_shape::known::Known::Plane { normal, .. }) =
+        workpiece_shape::known::known(surface)
     {
         return Some(if reversed(topo, face) {
             -normal
@@ -311,8 +311,8 @@ fn middle(topo: &Topo, face: FaceId) -> Option<Point3> {
     };
     // On the face: onto its plane where it is flat (the middle of a
     // ring stays on its axis, in the hole), else its nearest point.
-    if let Some(shapecraft_shape::known::Known::Plane { origin, normal }) =
-        shapecraft_shape::known::known(surface)
+    if let Some(workpiece_shape::known::Known::Plane { origin, normal }) =
+        workpiece_shape::known::known(surface)
     {
         return Some(centre - normal * (centre - origin).dot(normal));
     }
@@ -590,8 +590,8 @@ pub fn infer(world: &World, source: &Source, at: Point3, near: f64) -> Option<Sn
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::{Axis, Measure, Operation, Standalone};
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs, AddCylinder, AddCylinderArgs};
+    use workpiece_core::{Axis, Measure, Operation, Standalone};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs, AddCylinder, AddCylinderArgs};
 
     /// A box 2 × 4 × 6 around the origin and a cylinder of radius 1 and
     /// height 3 standing on it.
@@ -600,8 +600,8 @@ mod tests {
         AddBox {
             id: "box".into(),
             args: AddBoxArgs {
-                frame: Some(shapecraft_core::Reference::datum(
-                    shapecraft_core::world::ORIGIN,
+                frame: Some(workpiece_core::Reference::datum(
+                    workpiece_core::world::ORIGIN,
                 )),
                 size: [2.0, 4.0, 6.0].map(Measure::new),
             },
@@ -610,8 +610,8 @@ mod tests {
         AddCylinder {
             id: "rod".into(),
             args: AddCylinderArgs {
-                frame: Some(shapecraft_core::Reference::datum(
-                    shapecraft_core::world::ORIGIN,
+                frame: Some(workpiece_core::Reference::datum(
+                    workpiece_core::world::ORIGIN,
                 )),
                 radius: Measure::new(1.0),
                 height: Measure::new(3.0),

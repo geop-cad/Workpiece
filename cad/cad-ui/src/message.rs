@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use shapecraft_cad_part::{AnyEditState, AnyOperation, Parameter, Part, Variant};
+use workpiece_part::{AnyEditState, AnyOperation, Parameter, Part, Variant};
 
 /// A change to the [`Model`](crate::Model). Everything the user does
 /// becomes one of these; [`Model::update`](crate::Model::update) applies
@@ -8,7 +8,7 @@ use shapecraft_cad_part::{AnyEditState, AnyOperation, Parameter, Part, Variant};
 ///
 /// Steps are addressed by *step paths*: operation ids from the active
 /// part down, where every id but the last is an
-/// [`AddPart`](shapecraft_ops_instances::AddPart) and the next id is a step of
+/// [`AddPart`](workpiece_ops_instances::AddPart) and the next id is a step of
 /// the part it places.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Message {
@@ -49,7 +49,7 @@ pub enum Message {
     /// from.
     SetLibrary {
         /// Its materials.
-        materials: Vec<shapecraft_cad_part::Material>,
+        materials: Vec<workpiece_part::Material>,
     },
     /// Show the panel (or, `None`, none): the materials, or the part's
     /// parameters.
@@ -104,12 +104,12 @@ pub enum Message {
     /// Replace the properties the parts of the workspace have.
     SetSchema {
         /// The properties.
-        properties: Vec<shapecraft_cad_part::Property>,
+        properties: Vec<workpiece_part::Property>,
     },
     /// Replace the sheet templates of the workspace.
     SetTemplates {
         /// The templates.
-        templates: Vec<shapecraft_ops_drawing::Template>,
+        templates: Vec<workpiece_ops_drawing::Template>,
     },
     /// Put something said of the model on the drawing that is edited.
     PlaceNote {
@@ -127,7 +127,7 @@ pub enum Message {
         /// The view.
         view: String,
         /// What it is of.
-        of: shapecraft_ops_drawing::sheet::LineOf,
+        of: workpiece_ops_drawing::sheet::LineOf,
     },
     /// Show, on the drawing that is edited, what is said of the model
     /// and is not on the sheet yet as what it would be (`Some`): in
@@ -145,7 +145,7 @@ pub enum Message {
     },
     /// The focused part's numbers are in this unit of length from now
     /// on (the numbers stay as they are).
-    SetUnit(shapecraft_core::Unit),
+    SetUnit(workpiece_core::Unit),
     /// Display the model this way: cut open, its parts apart.
     SetDisplay(crate::model::display::Display),
     /// Show this body of the focused part alone, the other bodies
@@ -179,7 +179,7 @@ pub enum Message {
         /// The step's id.
         id: String,
         /// Its entries from now on.
-        kept: shapecraft_core::Kept,
+        kept: workpiece_core::Kept,
     },
     /// Move the step at this step path to position `to` of its program.
     /// Refused if that puts a step before one it uses.

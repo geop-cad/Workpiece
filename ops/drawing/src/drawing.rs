@@ -1,7 +1,7 @@
 //! Drawing: the step that is a drawing of the model as it is where the
 //! step stands in the part's program.
 
-use shapecraft_core::{Builder, Edit, EditContext, EditVisualization, Operation, Source, Widget};
+use workpiece_core::{Builder, Edit, EditContext, EditVisualization, Operation, Source, Widget};
 
 use crate::Sheet;
 
@@ -17,7 +17,7 @@ pub struct Drawing {
 
 /// A sheet refers to what is said of the model by name, and is edited
 /// on the sheet itself: it has no fields.
-impl shapecraft_core::Arguments for Sheet {
+impl workpiece_core::Arguments for Sheet {
     fn references(&self) -> Vec<Source> {
         Vec::new()
     }
@@ -33,7 +33,7 @@ impl shapecraft_core::Arguments for Sheet {
 
 impl Operation for Drawing {
     type Args = Sheet;
-    type EditState = shapecraft_ops_sketch::SketchState;
+    type EditState = workpiece_ops_sketch::SketchState;
 
     fn id(&self) -> &str {
         &self.id
@@ -51,7 +51,7 @@ impl Operation for Drawing {
         &mut self.args
     }
 
-    fn make(&self, _: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, _: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // Every view but a base view is of another, which has to be
         // there.
         for view in &self.args.views {
@@ -72,7 +72,7 @@ impl Operation for Drawing {
                 view.id
             );
         }
-        Ok(shapecraft_core::Made::default())
+        Ok(workpiece_core::Made::default())
     }
 
     fn summary(&self) -> String {
@@ -93,12 +93,12 @@ impl Operation for Drawing {
     fn visualize_edit(
         &self,
         context: &EditContext<'_>,
-        state: &shapecraft_ops_sketch::SketchState,
-    ) -> EditVisualization<Edit<Sheet, shapecraft_ops_sketch::SketchState>> {
+        state: &workpiece_ops_sketch::SketchState,
+    ) -> EditVisualization<Edit<Sheet, workpiece_ops_sketch::SketchState>> {
         let sketch = self.args.hand();
         let sheet = self.args.clone();
         // (Nothing of the part's cache is the sheet's.)
-        let none = shapecraft_core::Cache::default();
+        let none = workpiece_core::Cache::default();
         let context = EditContext {
             world: context.world,
             cache: &none,
@@ -110,7 +110,7 @@ impl Operation for Drawing {
             .edit_on(
                 &context,
                 state,
-                Some(shapecraft_core::world::DatumPlane::xy()),
+                Some(workpiece_core::world::DatumPlane::xy()),
             )
             .map(move |edit| Edit {
                 args: edit.args.map(|drawn| Sheet {

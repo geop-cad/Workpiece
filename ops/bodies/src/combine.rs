@@ -1,27 +1,27 @@
 //! Combine: a boolean of two bodies.
 
 use anyhow::Context;
-use shapecraft_boolean::{Op, combine, read};
-use shapecraft_core::world::topo::BodyId;
-use shapecraft_core::{Builder, Operation};
+use workpiece_boolean::{Op, combine, read};
+use workpiece_core::world::topo::BodyId;
+use workpiece_core::{Builder, Operation};
 
-use shapecraft_shape::bodies::Combine;
-use shapecraft_shape::ui;
+use workpiece_shape::bodies::Combine;
+use workpiece_shape::ui;
 
 /// The two bodies and what to make of them.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct CombineArgs {
     /// The body that is changed.
     #[arg(label = "Body")]
-    pub target: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
     /// How: joined, cut or intersected.
     #[arg(among = "WAYS", label = "Operation")]
     pub how: Combine,
     /// The body it is changed with; it is used up.
     #[arg(label = "With")]
-    pub tool: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub tool: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
 }
 
 impl Default for CombineArgs {
@@ -67,10 +67,10 @@ impl Operation for CombineBodies {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let topo = &builder.tracked().topo;
         let body = |source: &Option<ui::BodyRef>, what: &str| {
             let name = source
@@ -101,9 +101,9 @@ impl Operation for CombineBodies {
 
     fn summary(&self) -> String {
         let op = self;
-        let name = |s: &Option<
-            shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>,
-        >| { s.as_ref().map_or("(not picked)", |s| s.name()).to_owned() };
+        let name = |s: &Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>| {
+            s.as_ref().map_or("(not picked)", |s| s.name()).to_owned()
+        };
         format!(
             "{} {} with {}",
             op.args.how.label().to_lowercase(),

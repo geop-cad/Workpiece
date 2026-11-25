@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
-from shapecraft import *
-from shapecraft import view, projected
+from workpiece import *
+from workpiece import view, projected
 here = os.path.dirname(os.path.abspath(__file__))
 material(here, "ABS 1020", 1020)   # the drawing's density
 p = Part(unit="Millimetre", material="ABS 1020")
@@ -26,7 +26,7 @@ s.radius(oR, 10, at=(-52, 40)); s.radius(iR, 2, at=(-52, 30))
 s.distance_v(A0, B0, 50, show_in="top"); s.distance_u(A0, A2, 18, show_in="front")
 p.extrude(s, 59, combine="NewBody", symmetric=True, id="channel")
 p.on_sheet("channel", show_in="top")
-r = p.build("7.shapecraft")
+r = p.build("7.workpiece")
 
 # The four pockets: one rectangle inside the walls (4 at the sides, 8 at the ends) cut by the cross of the two gaps (4 across, 8 along);
 # only the four corner areas are cut, the cross stays as ribs.
@@ -48,7 +48,7 @@ q.point_on(ha, o.curves[3]); q.point_on(hb, o.curves[1]);
 q.distance_v(ia, ha, 8, at=(0, -36))
 p.cut(q, 14, areas=[(12, 12), (-12, 12), (12, -12), (-12, -12)], id="pocket")
 p.on_sheet("pocket", on_drawing=False)
-r = p.build("7.shapecraft")
+r = p.build("7.workpiece")
 rim = r.edges(where=lambda e: e["straight"] and abs(e["middle"][2] - 14) < 1e-6 and abs(abs(e["middle"][0]) - 21) < 1e-6)
 p.fillet(rim, 6, id="pocket_round")
 p.on_sheet("pocket_round", show_in="right", at=(-52, 50))
@@ -63,7 +63,7 @@ b = p.sketch(datum(top), id="bore_sketch")
 d = b.dot(0, 0); b.coincident(d, b.origin)
 p.hole(b, 10, kind="Counterbore", head=16, head_depth=4, id="bore")
 p.on_sheet("bore", show_in="top")
-r = p.build("7.shapecraft")
+r = p.build("7.workpiece")
 # R6 on the four leg ends.
 legs = r.edges(where=lambda e: e["straight"] and abs(e["middle"][2]) < 1e-6 and abs(abs(e["middle"][1]) - 29.5) < 1e-6 and abs(e["from"][0]-e["to"][0]) > 1)
 print(legs)
@@ -93,4 +93,4 @@ p.drawing(thru=True, views=[view("front", "Front", (90, 140), style="HiddenDashe
                  view("iso_under2", "IsometricBelowBackLeft", (300, 108))],
           notes=[note("iso_under", (-30, 42), "COPLANAR", to=[(0, 12, 0), (0, -12, 0), (12, 0, 0)]), note(None, (0, 0), "(4) PLACES", dimension="leg_round"), note(None, (0, 0), "C'BORE", dimension="cbore_ref"),
                  note(None, (0, 0), "WALL", dimension="wall4"), note(None, (0, 0), "WALL", dimension="wall8")])
-r = p.build("7.shapecraft", render=True); r.show(); print(r.mass(1.02e-3))
+r = p.build("7.workpiece", render=True); r.show(); print(r.mass(1.02e-3))

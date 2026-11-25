@@ -4,13 +4,13 @@ use crate::model::display::Display;
 use std::collections::BTreeMap;
 
 use glam::Vec3;
-use shapecraft_cad_part::{AnyOperation, Part, Workspace};
-use shapecraft_cad_rasterize::Pick;
-use shapecraft_core::math::{Axis, Point3};
-use shapecraft_core::{Pose, Source, Widget};
-use shapecraft_ops_basic_shapes::AddBox;
-use shapecraft_ops_datum::AddFrame;
-use shapecraft_ops_instances::{AddPart, AddPartArgs};
+use workpiece_core::math::{Axis, Point3};
+use workpiece_core::{Pose, Source, Widget};
+use workpiece_ops_basic_shapes::AddBox;
+use workpiece_ops_datum::AddFrame;
+use workpiece_ops_instances::{AddPart, AddPartArgs};
+use workpiece_part::{AnyOperation, Part, Workspace};
+use workpiece_rasterize::Pick;
 
 use crate::view::{ProgramStep, View};
 use crate::{CameraMove, Candidate, Message, Model, Pointer};
@@ -80,7 +80,7 @@ fn click(m: &mut Model, label: &str) -> anyhow::Result<()> {
     if label == "Box" {
         let part = m.focused_part().expect("a part");
         let id = m.workspace.part(&part)?.fresh_id("box");
-        let op = shapecraft_ops_basic_shapes::AddBox {
+        let op = workpiece_ops_basic_shapes::AddBox {
             id,
             args: Default::default(),
         };
@@ -110,12 +110,12 @@ fn scaled(message: Message) -> Message {
     let Message::AddOperation { part, mut op } = message else {
         return message;
     };
-    if let Some(mesh) = op.downcast_ref::<shapecraft_ops_mesh::Mesh>() {
-        op = shapecraft_ops_mesh::Mesh::starting(mesh.id.clone(), 2.0, mesh.args.smooth).into();
-    } else if let Some(fillet) = op.downcast_mut::<shapecraft_ops_blend::Fillet>() {
-        fillet.args.size = shapecraft_core::Measure::new(0.1);
-    } else if let Some(extrude) = op.downcast_mut::<shapecraft_ops_sweep::Extrude>() {
-        extrude.args.distance = shapecraft_core::Measure::new(1.0);
+    if let Some(mesh) = op.downcast_ref::<workpiece_ops_mesh::Mesh>() {
+        op = workpiece_ops_mesh::Mesh::starting(mesh.id.clone(), 2.0, mesh.args.smooth).into();
+    } else if let Some(fillet) = op.downcast_mut::<workpiece_ops_blend::Fillet>() {
+        fillet.args.size = workpiece_core::Measure::new(0.1);
+    } else if let Some(extrude) = op.downcast_mut::<workpiece_ops_sweep::Extrude>() {
+        extrude.args.distance = workpiece_core::Measure::new(1.0);
     }
     Message::AddOperation { part, op }
 }
@@ -186,7 +186,7 @@ fn edits_of_one_step_are_one_undo_step_until_ended() -> anyhow::Result<()> {
     m.update(Message::Open("bolt".into()))?;
     click(&mut m, "Frame")?;
     let x = |m: &Model| match m.workspace.parts["bolt"].program[0]
-        .downcast_ref::<shapecraft_ops_datum::AddFrame>()
+        .downcast_ref::<workpiece_ops_datum::AddFrame>()
     {
         Some(f) => f.args.pose.translation().x,
         None => f64::NAN,
@@ -289,7 +289,7 @@ fn placing_a_part_opens_its_file_field() -> anyhow::Result<()> {
     let Some(Widget::FileInput(file)) = fields.children.first() else {
         anyhow::bail!("expected the file field");
     };
-    assert_eq!(file.extension, "shapecraft");
+    assert_eq!(file.extension, "workpiece");
     // No part chosen yet: the step cannot be built.
     assert!(m.viewport.shown.error.is_some());
     m.update(file.set("nut"))?;
@@ -304,13 +304,13 @@ fn placing_a_part_opens_its_file_field() -> anyhow::Result<()> {
 #[test]
 fn a_placed_part_brings_the_bodies_ticked() -> anyhow::Result<()> {
     use anyhow::Context;
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
     let cube = |id: &str, frame: &str, size: f64| -> AnyOperation {
         AddBox {
             id: id.into(),
             args: AddBoxArgs {
-                frame: Some(shapecraft_core::Reference::datum(frame)),
-                size: [size; 3].map(shapecraft_core::Measure::new),
+                frame: Some(workpiece_core::Reference::datum(frame)),
+                size: [size; 3].map(workpiece_core::Measure::new),
             },
         }
         .into()
@@ -366,9 +366,9 @@ fn a_placed_part_brings_the_bodies_ticked() -> anyhow::Result<()> {
     let volume = |m: &Model| -> anyhow::Result<f64> {
         let placed = &m.viewport.shown.world.instances["p"].world;
         let topo = &placed.topo;
-        let body = topo.resolve::<shapecraft_core::world::topo::BodyId>("a");
+        let body = topo.resolve::<workpiece_core::world::topo::BodyId>("a");
         let body = body.context("the body a")?;
-        Ok(shapecraft_boolean::measure(&shapecraft_boolean::read(topo, body)?).volume)
+        Ok(workpiece_boolean::measure(&workpiece_boolean::read(topo, body)?).volume)
     };
     assert!((volume(&m)? - 1.0).abs() < 1e-9);
     // (Not drawn as the whole part is: it is another world.)
@@ -404,10 +404,10 @@ fn used_datums_hide_until_shown() -> anyhow::Result<()> {
     // A box standing on the frame hides it; the origin, used or not,
     // always shows.
     click(&mut m, "Box")?;
-    let frame1 = AnyOperation::from(shapecraft_ops_basic_shapes::AddBox {
+    let frame1 = AnyOperation::from(workpiece_ops_basic_shapes::AddBox {
         id: "box1".into(),
-        args: shapecraft_ops_basic_shapes::AddBoxArgs {
-            frame: Some(shapecraft_core::Reference::datum("frame1")),
+        args: workpiece_ops_basic_shapes::AddBoxArgs {
+            frame: Some(workpiece_core::Reference::datum("frame1")),
             ..Default::default()
         },
     });
@@ -438,10 +438,10 @@ fn used_datums_hide_until_shown() -> anyhow::Result<()> {
     })?;
     assert!(m.viewport.shown.visibility.bodies.contains("box1"));
     // The part's numbers are inches from now on; undone, millimetres.
-    m.update(Message::SetUnit(shapecraft_core::Unit::Inch))?;
+    m.update(Message::SetUnit(workpiece_core::Unit::Inch))?;
     assert_eq!(View::new(&m).overview.unit.label(), "in");
     m.update(Message::Undo)?;
-    assert_eq!(m.unit(), shapecraft_core::Unit::Millimetre);
+    assert_eq!(m.unit(), workpiece_core::Unit::Millimetre);
     // The part is made of brass from now on: its bodies show as that.
     m.update(Message::SetPartMaterial(Some("Brass".into())))?;
     assert_eq!(m.viewport.shown.world.material.as_deref(), Some("Brass"));
@@ -468,35 +468,35 @@ fn files_load_save_and_close() -> anyhow::Result<()> {
         program: vec![frame("g", 1.0)],
         ..Default::default()
     };
-    let bolt = Part::new(vec![place("nut1", "nut.shapecraft")]).placing("nut1", &along(1.0));
+    let bolt = Part::new(vec![place("nut1", "nut.workpiece")]).placing("nut1", &along(1.0));
     m.update(Message::Load {
         parts: BTreeMap::from([
-            ("bolt.shapecraft".into(), bolt),
-            ("nut.shapecraft".into(), nut),
+            ("bolt.workpiece".into(), bolt),
+            ("nut.workpiece".into(), nut),
         ]),
-        open: Some("bolt.shapecraft".into()),
+        open: Some("bolt.workpiece".into()),
     })?;
-    assert_eq!(m.active_part.as_deref(), Some("bolt.shapecraft"));
-    assert!(!m.is_dirty("bolt.shapecraft"));
+    assert_eq!(m.active_part.as_deref(), Some("bolt.workpiece"));
+    assert!(!m.is_dirty("bolt.workpiece"));
     click(&mut m, "Frame")?;
     m.update(Message::FinishEdit)?;
-    assert!(m.is_dirty("bolt.shapecraft"));
-    m.update(Message::Saved("bolt.shapecraft".into()))?;
-    assert!(!m.is_dirty("bolt.shapecraft"));
+    assert!(m.is_dirty("bolt.workpiece"));
+    m.update(Message::Saved("bolt.workpiece".into()))?;
+    assert!(!m.is_dirty("bolt.workpiece"));
     // Saving as another file; then closing drops it but keeps the nut
     // only while something places it.
-    m.update(Message::SaveAs("bolt2.shapecraft".into()))?;
-    assert!(m.is_dirty("bolt2.shapecraft"), "never written");
-    assert!(!m.workspace.parts.contains_key("bolt.shapecraft"));
+    m.update(Message::SaveAs("bolt2.workpiece".into()))?;
+    assert!(m.is_dirty("bolt2.workpiece"), "never written");
+    assert!(!m.workspace.parts.contains_key("bolt.workpiece"));
     m.update(Message::Close)?;
     assert_eq!(m.active_part, None);
-    m.update(Message::New("new.shapecraft".into()))?;
-    assert_eq!(m.active_part.as_deref(), Some("new.shapecraft"));
-    assert!(m.is_dirty("new.shapecraft"), "never saved");
-    assert!(m.update(Message::New("new.shapecraft".into())).is_err());
+    m.update(Message::New("new.workpiece".into()))?;
+    assert_eq!(m.active_part.as_deref(), Some("new.workpiece"));
+    assert!(m.is_dirty("new.workpiece"), "never saved");
+    assert!(m.update(Message::New("new.workpiece".into())).is_err());
     m.update(Message::Close)?;
-    assert!(!m.workspace.parts.contains_key("bolt2.shapecraft"));
-    assert!(m.workspace.parts.contains_key("nut.shapecraft"));
+    assert!(!m.workspace.parts.contains_key("bolt2.workpiece"));
+    assert!(m.workspace.parts.contains_key("nut.workpiece"));
     Ok(())
 }
 
@@ -573,12 +573,12 @@ fn hovering_finds_candidates_and_clicking_selects_or_picks() -> anyhow::Result<(
     m.update(Message::Pointer(Pointer::Click { add: false }))?;
     assert_eq!(m.picking, Some(vec![0]), "the box keeps picking");
     let Some(op) =
-        m.workspace.parts["bolt"].program[1].downcast_ref::<shapecraft_ops_datum::AddPlane>()
+        m.workspace.parts["bolt"].program[1].downcast_ref::<workpiece_ops_datum::AddPlane>()
     else {
         anyhow::bail!("expected the plane");
     };
     assert_eq!(op.args.references, [Source::Topology("box1/top".into())]);
-    assert_eq!(op.args.mode, shapecraft_ops_datum::PlaneMode::Offset);
+    assert_eq!(op.args.mode, workpiece_ops_datum::PlaneMode::Offset);
     Ok(())
 }
 
@@ -694,7 +694,7 @@ fn a_drag_grabs_what_was_pressed() -> anyhow::Result<()> {
     hover(&mut m, Vec3::ZERO)?;
     let free = Candidate::Handle {
         name: "pose".into(),
-        part: Some(shapecraft_core::handles::GizmoPart::Free),
+        part: Some(workpiece_core::handles::GizmoPart::Free),
     };
     assert_eq!(m.viewport.hovered(), Some(&free));
     m.update(Message::Pointer(Pointer::Press))?;
@@ -706,7 +706,7 @@ fn a_drag_grabs_what_was_pressed() -> anyhow::Result<()> {
     hover(&mut m, Vec3::new(0.3, 0.0, 0.5))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     let Some(f) =
-        m.workspace.parts["bolt"].program[0].downcast_ref::<shapecraft_ops_datum::AddFrame>()
+        m.workspace.parts["bolt"].program[0].downcast_ref::<workpiece_ops_datum::AddFrame>()
     else {
         anyhow::bail!("expected the frame");
     };
@@ -743,11 +743,11 @@ fn the_selection_becomes_the_references_and_picks_the_mode() -> anyhow::Result<(
     click(&mut m, "Plane")?;
     assert!(m.selection.is_empty(), "the selection went into the step");
     let Some(op) =
-        m.workspace.parts["bolt"].program[1].downcast_ref::<shapecraft_ops_datum::AddPlane>()
+        m.workspace.parts["bolt"].program[1].downcast_ref::<workpiece_ops_datum::AddPlane>()
     else {
         anyhow::bail!("expected the plane");
     };
-    assert_eq!(op.args.mode, shapecraft_ops_datum::PlaneMode::Midplane);
+    assert_eq!(op.args.mode, workpiece_ops_datum::PlaneMode::Midplane);
     assert_eq!(op.args.references.len(), 2);
     // The modes two planes do not fit are greyed out.
     let dialog = View::new(&m)
@@ -768,7 +768,7 @@ fn the_selection_becomes_the_references_and_picks_the_mode() -> anyhow::Result<(
         .collect();
     assert_eq!(enabled, ["Midplane"]);
     m.update(Message::FinishEdit)?;
-    let Some(shapecraft_core::world::Datum::Plane(mid)) =
+    let Some(workpiece_core::world::Datum::Plane(mid)) =
         m.viewport.shown.world.datums.get("plane1")
     else {
         anyhow::bail!("no midplane: {:?}", m.viewport.shown.error);
@@ -854,7 +854,7 @@ fn handles_drag_while_picking() -> anyhow::Result<()> {
     hover(&mut m, Vec3::new(-0.5, -0.5, 2.5))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     let Some(op) =
-        m.workspace.parts["bolt"].program[1].downcast_ref::<shapecraft_ops_datum::AddPlane>()
+        m.workspace.parts["bolt"].program[1].downcast_ref::<workpiece_ops_datum::AddPlane>()
     else {
         anyhow::bail!("expected the plane");
     };
@@ -916,7 +916,7 @@ fn sketching_with(mut m: Model) -> anyhow::Result<Model> {
     Ok(m)
 }
 
-fn press_key(m: &mut Model, key: shapecraft_core::Hotkey) -> anyhow::Result<()> {
+fn press_key(m: &mut Model, key: workpiece_core::Hotkey) -> anyhow::Result<()> {
     let view = View::new(m);
     let keys = view.hotkeys();
     let Some((_, press)) = keys.iter().find(|(k, _)| *k == key) else {
@@ -934,8 +934,8 @@ fn click_at(m: &mut Model, x: f32, y: f32) -> anyhow::Result<()> {
     m.update(Message::Pointer(Pointer::Click { add: false }))
 }
 
-fn sketch(m: &Model) -> &shapecraft_ops_sketch::SketchArgs {
-    match m.workspace.parts["bolt"].program[0].downcast_ref::<shapecraft_ops_sketch::Sketch>() {
+fn sketch(m: &Model) -> &workpiece_ops_sketch::SketchArgs {
+    match m.workspace.parts["bolt"].program[0].downcast_ref::<workpiece_ops_sketch::Sketch>() {
         Some(sketch) => &sketch.args,
         None => panic!("expected a sketch, found another step"),
     }
@@ -950,7 +950,7 @@ fn sketches_open_in_the_ribbon_and_the_view_flies_to_face_them() -> anyhow::Resu
     let view = View::new(&m);
     assert!(view.viewport.animating);
     let dialog = view.edit_dialog.as_ref().expect("the sketch's ribbon");
-    assert_eq!(dialog.placement, shapecraft_core::Placement::Ribbon);
+    assert_eq!(dialog.placement, workpiece_core::Placement::Ribbon);
     let before = m.viewport.camera;
     m.update(Message::Tick(0.1))?;
     assert_ne!(m.viewport.camera, before);
@@ -1003,7 +1003,7 @@ fn the_canvas_takes_the_pointer_and_hotkeys_choose_tools() -> anyhow::Result<()>
     let mut m = sketching()?;
     m.update(Message::Tick(1.0))?;
     // R is the rectangle here (the ribbon's own tools are away).
-    press_key(&mut m, shapecraft_core::Hotkey::key('R'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('R'))?;
     click_at(&mut m, 0.5, 0.5)?;
     // Only the origin and the two axes.
     assert_eq!(
@@ -1050,7 +1050,7 @@ fn the_canvas_takes_the_pointer_and_hotkeys_choose_tools() -> anyhow::Result<()>
     // Dragging a corner moves it, as one undo step.
     press_key(
         &mut m,
-        shapecraft_core::Hotkey::named(shapecraft_core::Key::Escape),
+        workpiece_core::Hotkey::named(workpiece_core::Key::Escape),
     )?;
     hover(&mut m, Vec3::new(1.5, 1.0, 0.0))?;
     m.update(Message::Pointer(Pointer::Press))?;
@@ -1092,7 +1092,7 @@ fn the_canvas_takes_the_pointer_and_hotkeys_choose_tools() -> anyhow::Result<()>
     // Enter finishes the sketch; its profile shows in the world.
     press_key(
         &mut m,
-        shapecraft_core::Hotkey::named(shapecraft_core::Key::Enter),
+        workpiece_core::Hotkey::named(workpiece_core::Key::Enter),
     )?;
     assert!(m.editing.is_empty());
     assert!(!m.viewport.shown.visibility.profiles.contains("sketch1"));
@@ -1122,17 +1122,17 @@ fn every_tool_has_a_hotkey_of_its_own() -> anyhow::Result<()> {
     keys.dedup();
     assert_eq!(keys.len(), count, "no key twice");
     // E adds an extrusion, whose dialog's buttons have keys too.
-    press_key(&mut m, shapecraft_core::Hotkey::key('E'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('E'))?;
     assert_eq!(m.editing, ["extrude1"]);
     let view = View::new(&m);
     let dialog = view.edit_dialog.as_ref().expect("the dialog");
     assert_eq!(
         dialog.cancel.hotkey,
-        Some(shapecraft_core::Hotkey::named(shapecraft_core::Key::Escape))
+        Some(workpiece_core::Hotkey::named(workpiece_core::Key::Escape))
     );
     press_key(
         &mut m,
-        shapecraft_core::Hotkey::named(shapecraft_core::Key::Escape),
+        workpiece_core::Hotkey::named(workpiece_core::Key::Escape),
     )?;
     assert!(m.editing.is_empty() && program(&m, "bolt").is_empty());
     Ok(())
@@ -1140,8 +1140,8 @@ fn every_tool_has_a_hotkey_of_its_own() -> anyhow::Result<()> {
 
 #[test]
 fn parameters_drive_steps_and_variants_show_and_place() -> anyhow::Result<()> {
-    use shapecraft_cad_part::{Parameter, Variant};
-    use shapecraft_core::Measure;
+    use workpiece_core::Measure;
+    use workpiece_part::{Parameter, Variant};
 
     let mut m = model();
     m.update(Message::Open("nut".into()))?;
@@ -1255,8 +1255,8 @@ fn steps_move_rename_and_go_unless_that_breaks_what_uses_them() -> anyhow::Resul
     // A box on the frame `f`.
     let on_f = AddBox {
         id: "box1".into(),
-        args: shapecraft_ops_basic_shapes::AddBoxArgs {
-            frame: Some(shapecraft_core::Reference::datum("f")),
+        args: workpiece_ops_basic_shapes::AddBoxArgs {
+            frame: Some(workpiece_core::Reference::datum("f")),
             ..Default::default()
         },
     };
@@ -1312,7 +1312,7 @@ fn steps_move_rename_and_go_unless_that_breaks_what_uses_them() -> anyhow::Resul
     m.update(Message::SelectStep(Some(path("base"))))?;
     let view = View::new(&m);
     assert!(view.timeline.steps[0].selected);
-    let delete = shapecraft_core::Hotkey::named(shapecraft_core::Key::Delete);
+    let delete = workpiece_core::Hotkey::named(workpiece_core::Key::Delete);
     let refused = press_key(&mut m, delete).expect_err("in use");
     assert!(
         format!("{refused:#}").contains("base is used by box1"),
@@ -1330,12 +1330,12 @@ fn steps_move_rename_and_go_unless_that_breaks_what_uses_them() -> anyhow::Resul
 
 /// A sketch with a circle of radius 1 at `x`, dimensioned.
 fn dimensioned(id: &str, x: f64) -> AnyOperation {
-    use shapecraft_ops_sketch::{Kind, Shape};
-    let mut sketch = shapecraft_ops_sketch::Sketch::new(id);
-    sketch.args.plane = Some(shapecraft_core::Reference::frame_axis("origin", Axis::Z));
+    use workpiece_ops_sketch::{Kind, Shape};
+    let mut sketch = workpiece_ops_sketch::Sketch::new(id);
+    sketch.args.plane = Some(workpiece_core::Reference::frame_axis("origin", Axis::Z));
     let center = sketch
         .args
-        .add_point(shapecraft_core::math::Point2::new(x, 0.0));
+        .add_point(workpiece_core::math::Point2::new(x, 0.0));
     let circle = sketch.args.add(Shape::Circle {
         center,
         radius: 1.0,
@@ -1343,7 +1343,7 @@ fn dimensioned(id: &str, x: f64) -> AnyOperation {
     sketch.args.dimension(
         Kind::Size(circle),
         1.0,
-        shapecraft_core::math::Point2::new(x + 1.5, 1.0),
+        workpiece_core::math::Point2::new(x + 1.5, 1.0),
     );
     sketch.into()
 }
@@ -1400,7 +1400,7 @@ fn the_normal_view_faces_the_sketch_again() -> anyhow::Result<()> {
     assert_ne!(m.viewport.camera, facing);
     // Only while a step with a plane is edited is there such a view.
     assert!(View::new(&m).viewport.normal.is_some());
-    press_key(&mut m, shapecraft_core::Hotkey::key('Q'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('Q'))?;
     m.update(Message::Tick(10.0))?;
     let back = m.viewport.camera.back();
     assert!(back.abs_diff_eq(facing.back(), 1e-4), "{back:?}");
@@ -1465,7 +1465,7 @@ fn tabs_hold_the_tools_and_sketches_extrude_into_bodies() -> anyhow::Result<()> 
     let mut m = sketching()?;
     m.update(Message::Tick(1.0))?;
     // A rectangle, drawn in the sketch.
-    press_key(&mut m, shapecraft_core::Hotkey::key('R'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('R'))?;
     click_at(&mut m, 0.5, 0.5)?;
     click_at(&mut m, 1.5, 1.0)?;
     m.update(Message::FinishEdit)?;
@@ -1480,10 +1480,10 @@ fn tabs_hold_the_tools_and_sketches_extrude_into_bodies() -> anyhow::Result<()> 
     let has = |m: &Model, label: &str| labels(m).iter().any(|l| l == label);
     assert!(has(&m, "Extrude") && has(&m, "Revolve") && has(&m, "Combine"));
     assert!(!has(&m, "Add part"));
-    press_key(&mut m, shapecraft_core::Hotkey::ctrl('2'))?;
+    press_key(&mut m, workpiece_core::Hotkey::ctrl('2'))?;
     assert_eq!(m.tab, crate::Tab::Surfacing);
     assert!(has(&m, "Extrude") && !has(&m, "Combine"));
-    press_key(&mut m, shapecraft_core::Hotkey::ctrl('3'))?;
+    press_key(&mut m, workpiece_core::Hotkey::ctrl('3'))?;
     assert_eq!(
         labels(&m),
         [
@@ -1501,10 +1501,10 @@ fn tabs_hold_the_tools_and_sketches_extrude_into_bodies() -> anyhow::Result<()> 
         ]
     );
     assert!(!has(&m, "Import STEP"));
-    press_key(&mut m, shapecraft_core::Hotkey::ctrl('1'))?;
+    press_key(&mut m, workpiece_core::Hotkey::ctrl('1'))?;
 
     // Extrude asks for its sketch, and makes a body of the one picked.
-    press_key(&mut m, shapecraft_core::Hotkey::key('E'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('E'))?;
     assert_eq!(m.editing, ["extrude1"]);
     assert_eq!(m.picking, Some(vec![0]));
     click_at(&mut m, 1.0, 0.75)?;
@@ -1515,8 +1515,8 @@ fn tabs_hold_the_tools_and_sketches_extrude_into_bodies() -> anyhow::Result<()> 
     let body = world.topo.resolve("extrude1").expect("the body");
     assert_eq!(world.topo.body_faces(body).map(|f| f.len()), Some(6));
     // As a surface, it is a sheet: drawn in the surfaces' color.
-    press_key(&mut m, shapecraft_core::Hotkey::ctrl('2'))?;
-    press_key(&mut m, shapecraft_core::Hotkey::key('E'))?;
+    press_key(&mut m, workpiece_core::Hotkey::ctrl('2'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('E'))?;
     assert_eq!(m.editing, ["surface1"]);
     // The first sketch is used by now, and shows again to be picked.
     click_at(&mut m, 0.5, 0.75)?;
@@ -1525,9 +1525,9 @@ fn tabs_hold_the_tools_and_sketches_extrude_into_bodies() -> anyhow::Result<()> 
     let world = &m.viewport.shown.world;
     let sheet = world.topo.resolve("surface1").expect("the sheet");
     let kind = world.topo.body(sheet).map(|b| b.kind);
-    assert_eq!(kind, Some(shapecraft_core::world::topo::BodyKind::Sheet));
+    assert_eq!(kind, Some(workpiece_core::world::topo::BodyKind::Sheet));
     let scene = &m.viewport.shown.scene;
-    let surface = shapecraft_cad_rasterize::palette::SURFACE;
+    let surface = workpiece_rasterize::palette::SURFACE;
     let triangles = scene
         .items
         .iter()
@@ -1540,17 +1540,17 @@ fn tabs_hold_the_tools_and_sketches_extrude_into_bodies() -> anyhow::Result<()> 
 fn sweeps_pick_sketches_and_bodies_and_drag_their_distance() -> anyhow::Result<()> {
     let mut m = sketching()?;
     m.update(Message::Tick(1.0))?;
-    press_key(&mut m, shapecraft_core::Hotkey::key('R'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('R'))?;
     click_at(&mut m, 0.5, 0.5)?;
     click_at(&mut m, 1.5, 1.0)?;
     m.update(Message::FinishEdit)?;
     m.update(Message::Camera(CameraMove::Home))?;
     m.update(Message::Tick(1.0))?;
-    press_key(&mut m, shapecraft_core::Hotkey::key('E'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('E'))?;
     let extrude = |m: &Model| match m.workspace.parts["bolt"]
         .program
         .last()
-        .and_then(|op| op.downcast_ref::<shapecraft_ops_sweep::Extrude>())
+        .and_then(|op| op.downcast_ref::<workpiece_ops_sweep::Extrude>())
     {
         Some(extrude) => extrude.args.clone(),
         None => panic!("expected an extrusion, found another step"),
@@ -1595,7 +1595,7 @@ fn sweeps_pick_sketches_and_bodies_and_drag_their_distance() -> anyhow::Result<(
     let args = extrude(&m);
     assert!(args.flip && (args.distance.value - 0.5).abs() < 1e-3);
     // The button beside the distance turns it back.
-    press_key(&mut m, shapecraft_core::Hotkey::key('X'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('X'))?;
     assert!(!extrude(&m).flip);
     // Off the arrow, a click still picks the area under it.
     click_at(&mut m, 0.7, 0.6)?;
@@ -1604,7 +1604,7 @@ fn sweeps_pick_sketches_and_bodies_and_drag_their_distance() -> anyhow::Result<(
     m.update(Message::FinishEdit)?;
 
     // Combining asks for a body, picked by any of its faces.
-    press_key(&mut m, shapecraft_core::Hotkey::key('J'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('J'))?;
     assert_eq!(m.picking, Some(vec![0]));
     hover(&mut m, Vec3::new(1.0, 0.75, 0.5))?;
     let body = Candidate::Reference {
@@ -1618,7 +1618,7 @@ fn sweeps_pick_sketches_and_bodies_and_drag_their_distance() -> anyhow::Result<(
     let Some(combine) = m.workspace.parts["bolt"]
         .program
         .last()
-        .and_then(|op| op.downcast_ref::<shapecraft_ops_bodies::CombineBodies>())
+        .and_then(|op| op.downcast_ref::<workpiece_ops_bodies::CombineBodies>())
     else {
         anyhow::bail!("expected the combination");
     };
@@ -1634,19 +1634,19 @@ fn sweeps_pick_sketches_and_bodies_and_drag_their_distance() -> anyhow::Result<(
 /// An assembly of two blocks: a base that is fixed, and an arm hinged to
 /// it around the z axis at the origin.
 fn hinged() -> anyhow::Result<Model> {
-    use shapecraft_core::world::JointKind;
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
-    use shapecraft_ops_instances::connector::Snap;
-    use shapecraft_ops_instances::{Anchor, Mate};
+    use workpiece_core::world::JointKind;
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
+    use workpiece_ops_instances::connector::Snap;
+    use workpiece_ops_instances::{Anchor, Mate};
     let block = |size: [f64; 3]| {
         Part::new(vec![
             AddBox {
                 id: "body".into(),
                 args: AddBoxArgs {
-                    frame: Some(shapecraft_core::Reference::datum(
-                        shapecraft_core::world::ORIGIN,
+                    frame: Some(workpiece_core::Reference::datum(
+                        workpiece_core::world::ORIGIN,
                     )),
-                    size: size.map(shapecraft_core::Measure::new),
+                    size: size.map(workpiece_core::Measure::new),
                 },
             }
             .into(),
@@ -1659,7 +1659,7 @@ fn hinged() -> anyhow::Result<Model> {
                 part: part.into(),
                 variant: None,
                 hold: if fixed {
-                    shapecraft_ops_instances::Hold::fixed()
+                    workpiece_ops_instances::Hold::fixed()
                 } else {
                     Default::default()
                 },
@@ -1671,7 +1671,7 @@ fn hinged() -> anyhow::Result<Model> {
     let origin = |instance: &str| {
         Some(Anchor {
             instance: vec![instance.into()],
-            source: Source::Datum(shapecraft_core::world::ORIGIN.into()),
+            source: Source::Datum(workpiece_core::world::ORIGIN.into()),
             snap: Snap::Datum,
         })
     };
@@ -1679,16 +1679,16 @@ fn hinged() -> anyhow::Result<Model> {
     hinge.args.a = origin("base");
     hinge.args.b = origin("arm");
     let assembly = Part::new(vec![
-        place("base", "base.shapecraft", true),
-        place("arm", "arm.shapecraft", false),
+        place("base", "base.workpiece", true),
+        place("arm", "arm.workpiece", false),
         hinge.into(),
     ]);
     let mut m = small(Model::new(Workspace::new(BTreeMap::from([
-        ("base.shapecraft".into(), block([2.0, 2.0, 0.5])),
-        ("arm.shapecraft".into(), block([6.0, 0.6, 0.6])),
-        ("hinged.shapecraft".into(), assembly),
+        ("base.workpiece".into(), block([2.0, 2.0, 0.5])),
+        ("arm.workpiece".into(), block([6.0, 0.6, 0.6])),
+        ("hinged.workpiece".into(), assembly),
     ]))));
-    m.update(Message::Open("hinged.shapecraft".into()))?;
+    m.update(Message::Open("hinged.workpiece".into()))?;
     m.update(Message::Tick(1.0))?;
     Ok(m)
 }
@@ -1736,7 +1736,7 @@ fn parts_are_dragged_as_far_as_their_joints_let_them() -> anyhow::Result<()> {
         Pose::IDENTITY
     );
     // Where the arm is belongs to the assembly's part, not to its steps.
-    let part = m.workspace.part("hinged.shapecraft")?;
+    let part = m.workspace.part("hinged.workpiece")?;
     assert!(part.cache.get("arm/pose").is_some());
     // Nothing was rasterized again: the same scenes, at other poses.
     assert!(!std::sync::Arc::ptr_eq(&drawn, &m.viewport.shown.scene));
@@ -1751,7 +1751,7 @@ fn parts_are_dragged_as_far_as_their_joints_let_them() -> anyhow::Result<()> {
 #[test]
 fn parts_build_beside_the_interface_and_show_when_done() -> anyhow::Result<()> {
     let mut m = hinged()?;
-    m.engine = shapecraft_cad_part::Engine::threaded(2);
+    m.engine = workpiece_part::Engine::threaded(2);
     m.background = true;
     let before = m.viewport.shown.scene.clone();
     // A change asks for a build and returns at once: what was shown
@@ -1782,21 +1782,21 @@ fn parts_build_beside_the_interface_and_show_when_done() -> anyhow::Result<()> {
 
 #[test]
 fn a_joint_is_made_by_pointing_at_the_two_parts() -> anyhow::Result<()> {
-    use shapecraft_core::world::JointKind;
-    use shapecraft_ops_instances::Mate;
+    use workpiece_core::world::JointKind;
+    use workpiece_ops_instances::Mate;
     let mut m = hinged()?;
     // Without the hinge, and with the arm lying somewhere else.
     m.update(Message::RemoveOperation(vec!["hinge".into()]))?;
     let away = Pose::from_translation(Point3::new(1.0, 4.0, 2.0));
     m.update(Message::Keep {
-        part: "hinged.shapecraft".into(),
+        part: "hinged.workpiece".into(),
         id: "arm".into(),
-        kept: shapecraft_ops_instances::assembly::kept(&away),
+        kept: workpiece_ops_instances::assembly::kept(&away),
     })?;
     assert_eq!(m.viewport.shown.world.instances["arm"].pose, away);
 
     m.update(Message::AddOperation {
-        part: "hinged.shapecraft".into(),
+        part: "hinged.workpiece".into(),
         op: Mate::of("joint1", JointKind::Fastened).into(),
     })?;
     // It asks for its first connector right away.
@@ -1841,12 +1841,12 @@ fn a_drag_moves_the_first_part_up_that_is_not_fixed() -> anyhow::Result<()> {
     // The hinged pair, placed in an assembly above it.
     m.update(Message::Load {
         parts: BTreeMap::from([(
-            "top.shapecraft".to_owned(),
+            "top.workpiece".to_owned(),
             Part::new(vec![
                 AddPart {
                     id: "sub".into(),
                     args: AddPartArgs {
-                        part: "hinged.shapecraft".into(),
+                        part: "hinged.workpiece".into(),
                         variant: None,
                         hold: Default::default(),
                         bodies: Vec::new(),
@@ -1855,7 +1855,7 @@ fn a_drag_moves_the_first_part_up_that_is_not_fixed() -> anyhow::Result<()> {
                 .into(),
             ]),
         )]),
-        open: Some("top.shapecraft".into()),
+        open: Some("top.workpiece".into()),
     })?;
     m.update(Message::Tick(1.0))?;
     let grab = Point3::new(2.7, 0.0, 0.3);
@@ -1867,21 +1867,21 @@ fn a_drag_moves_the_first_part_up_that_is_not_fixed() -> anyhow::Result<()> {
     // The arm is free in its own assembly: that is where it moves.
     start(&mut m)?;
     let moving = m.viewport.moving.clone().expect("the arm is grabbed");
-    assert_eq!(moving.part, "hinged.shapecraft");
+    assert_eq!(moving.part, "hinged.workpiece");
     assert_eq!(moving.within, ["sub"]);
     assert_eq!(moving.instance, "arm");
     hover(&mut m, Vec3::new(1.5, 2.0, 0.3))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     assert!(
         m.workspace
-            .part("hinged.shapecraft")?
+            .part("hinged.workpiece")?
             .cache
             .get("arm/pose")
             .is_some()
     );
     assert!(
         m.workspace
-            .part("top.shapecraft")?
+            .part("top.workpiece")?
             .cache
             .get("sub/pose")
             .is_none()
@@ -1890,16 +1890,16 @@ fn a_drag_moves_the_first_part_up_that_is_not_fixed() -> anyhow::Result<()> {
 
     // Fixed in its own assembly, it takes that whole assembly along.
     {
-        let part = m.workspace.part_mut("hinged.shapecraft")?;
-        let Some(add) = part.program[1].downcast_mut::<shapecraft_ops_instances::AddPart>() else {
+        let part = m.workspace.part_mut("hinged.workpiece")?;
+        let Some(add) = part.program[1].downcast_mut::<workpiece_ops_instances::AddPart>() else {
             anyhow::bail!("expected the arm's step");
         };
-        add.args.hold = shapecraft_ops_instances::Hold::fixed();
+        add.args.hold = workpiece_ops_instances::Hold::fixed();
     }
-    m.update(Message::Open("top.shapecraft".into()))?;
+    m.update(Message::Open("top.workpiece".into()))?;
     start(&mut m)?;
     let moving = m.viewport.moving.clone().expect("the pair is grabbed");
-    assert_eq!(moving.part, "top.shapecraft");
+    assert_eq!(moving.part, "top.workpiece");
     assert!(moving.within.is_empty());
     assert_eq!(moving.instance, "sub");
     hover(&mut m, (grab + Point3::new(1.0, 0.5, 0.0)).as_vec3())?;
@@ -1911,19 +1911,19 @@ fn a_drag_moves_the_first_part_up_that_is_not_fixed() -> anyhow::Result<()> {
 
 #[test]
 fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Result<()> {
-    use shapecraft_core::world::JointKind;
-    use shapecraft_ops_instances::Constraint;
+    use workpiece_core::world::JointKind;
+    use workpiece_ops_instances::Constraint;
     let mut m = hinged()?;
     // The base alone; the arm is added again: a reference on each of
     // the two, and then the constraint between them.
     m.update(Message::RemoveOperation(vec!["hinge".into()]))?;
     m.update(Message::RemoveOperation(vec!["arm".into()]))?;
     m.update(Message::AddOperation {
-        part: "hinged.shapecraft".into(),
+        part: "hinged.workpiece".into(),
         op: AddPart {
             id: "arm".into(),
             args: AddPartArgs {
-                part: "arm.shapecraft".into(),
+                part: "arm.workpiece".into(),
                 variant: None,
                 hold: Default::default(),
                 bodies: Vec::new(),
@@ -1973,10 +1973,10 @@ fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Resul
     else {
         anyhow::bail!("expected the constraint's choice");
     };
-    assert_eq!(constraint.shown, shapecraft_core::widgets::Shown::DropDown);
+    assert_eq!(constraint.shown, workpiece_core::widgets::Shown::DropDown);
     assert_eq!(&constraint.options[..2], ["Free", "Fixed"]);
     assert!(constraint.options.len() > 2, "{:?}", constraint.options);
-    let added = m.workspace.part("hinged.shapecraft")?;
+    let added = m.workspace.part("hinged.workpiece")?;
     let added = added.operation("arm").expect("the step");
     let hold = &added.downcast_ref::<AddPart>().expect("a part").args.hold;
     assert_eq!(hold.constraint, Constraint::Joint(JointKind::Fastened));
@@ -1996,19 +1996,19 @@ fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Resul
 #[test]
 fn a_new_part_is_made_in_place_and_worked_on_there() -> anyhow::Result<()> {
     let mut m = hinged()?;
-    m.update(Message::NewPartHere(Some("cover.shapecraft".into())))?;
-    assert!(m.workspace.parts.contains_key("cover.shapecraft"));
+    m.update(Message::NewPartHere(Some("cover.workpiece".into())))?;
+    assert!(m.workspace.parts.contains_key("cover.workpiece"));
     // Added to the assembly, and focused: the next step goes into it.
-    let assembly = m.workspace.part("hinged.shapecraft")?;
+    let assembly = m.workspace.part("hinged.workpiece")?;
     assert!(assembly.operation("cover").is_some());
     assert_eq!(m.focus, ["cover"]);
-    assert_eq!(m.focused_part().as_deref(), Some("cover.shapecraft"));
+    assert_eq!(m.focused_part().as_deref(), Some("cover.workpiece"));
     // One step to undo.
     m.update(Message::Undo)?;
-    assert!(!m.workspace.parts.contains_key("cover.shapecraft"));
+    assert!(!m.workspace.parts.contains_key("cover.workpiece"));
     assert!(
         m.workspace
-            .part("hinged.shapecraft")?
+            .part("hinged.workpiece")?
             .operation("cover")
             .is_none()
     );
@@ -2017,13 +2017,13 @@ fn a_new_part_is_made_in_place_and_worked_on_there() -> anyhow::Result<()> {
 
 #[test]
 fn a_mechanism_ties_two_joints_of_the_assembly() -> anyhow::Result<()> {
-    use shapecraft_core::world::CouplingKind;
-    use shapecraft_ops_instances::{Mechanism, MechanismArgs};
+    use workpiece_core::world::CouplingKind;
+    use workpiece_ops_instances::{Mechanism, MechanismArgs};
     let mut m = hinged()?;
     // The hinge's own name is offered, and a second joint that turns
     // is needed: with the same one twice it is refused.
     m.update(Message::AddOperation {
-        part: "hinged.shapecraft".into(),
+        part: "hinged.workpiece".into(),
         op: Mechanism::new("mesh").into(),
     })?;
     let view = View::new(&m);
@@ -2037,7 +2037,7 @@ fn a_mechanism_ties_two_joints_of_the_assembly() -> anyhow::Result<()> {
         first.options
     );
     m.update(Message::ReplaceOperation {
-        part: "hinged.shapecraft".into(),
+        part: "hinged.workpiece".into(),
         op: Mechanism {
             id: "mesh".into(),
             args: MechanismArgs {
@@ -2066,7 +2066,7 @@ fn edges_are_picked_into_a_fillet_and_rounded() -> anyhow::Result<()> {
     let fillet = |m: &Model| match m.workspace.parts["bolt"]
         .program
         .last()
-        .and_then(|op| op.downcast_ref::<shapecraft_ops_blend::Fillet>())
+        .and_then(|op| op.downcast_ref::<workpiece_ops_blend::Fillet>())
     {
         Some(fillet) => fillet.args.clone(),
         None => panic!("expected a fillet, found another step"),
@@ -2075,7 +2075,7 @@ fn edges_are_picked_into_a_fillet_and_rounded() -> anyhow::Result<()> {
     let is_edge = |c: &Candidate| {
         let topo = &m.viewport.shown.world.topo;
         matches!(c, Candidate::Reference { source: Source::Topology(name), .. }
-            if topo.resolve::<shapecraft_core::world::topo::EdgeId>(name).is_some())
+            if topo.resolve::<workpiece_core::world::topo::EdgeId>(name).is_some())
     };
     let edge = m
         .viewport
@@ -2114,7 +2114,7 @@ fn edges_are_picked_into_a_fillet_and_rounded() -> anyhow::Result<()> {
     hover(&mut m, Vec3::new(0.5, 0.5, 0.0))?;
     assert!(m.viewport.candidates.iter().any(|c| {
         matches!(c, Candidate::Reference { source: Source::Topology(n), .. }
-            if m.viewport.shown.world.topo.resolve::<shapecraft_core::world::topo::EdgeId>(n).is_some())
+            if m.viewport.shown.world.topo.resolve::<workpiece_core::world::topo::EdgeId>(n).is_some())
     }));
     m.update(Message::FinishEdit)?;
     assert_eq!(rounded(&m), 1);
@@ -2131,20 +2131,20 @@ fn edges_are_picked_into_a_fillet_and_rounded() -> anyhow::Result<()> {
 #[test]
 fn the_model_is_drawn_cut_open_without_being_changed() -> anyhow::Result<()> {
     use crate::model::display::Display;
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::{Instance, World};
     use std::sync::Arc;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::{Instance, World};
     // A 2 x 3 x 4 block cut halfway along x: half of it is drawn.
     let mut world = World::new();
     let axes = [Point3::X, Point3::Y, Point3::Z];
-    let block = shapecraft_boolean::block("b", Point3::ZERO, axes, [2.0, 3.0, 4.0])?;
-    shapecraft_boolean::write(&mut world.topo, &block, "b")?;
-    let half = shapecraft_core::world::Cutting::plane(Point3::new(1.0, 0.0, 0.0), Point3::X);
+    let block = workpiece_boolean::block("b", Point3::ZERO, axes, [2.0, 3.0, 4.0])?;
+    workpiece_boolean::write(&mut world.topo, &block, "b")?;
+    let half = workpiece_core::world::Cutting::plane(Point3::new(1.0, 0.0, 0.0), Point3::X);
     world.sections.insert("half".into(), half);
     let world = Arc::new(world);
     let volume = |w: &World| -> anyhow::Result<f64> {
         let body = w.topo.bodies().ids().next().expect("a body");
-        Ok(shapecraft_boolean::measure(&shapecraft_boolean::read(&w.topo, body)?).volume)
+        Ok(workpiece_boolean::measure(&workpiece_boolean::read(&w.topo, body)?).volume)
     };
     let cut = Display {
         cut: Some("half".into()),
@@ -2161,7 +2161,7 @@ fn the_model_is_drawn_cut_open_without_being_changed() -> anyhow::Result<()> {
         both.instances.insert(
             name.into(),
             Instance {
-                pose: shapecraft_core::Pose::from_translation(Point3::new(x, 0.0, 0.0)),
+                pose: workpiece_core::Pose::from_translation(Point3::new(x, 0.0, 0.0)),
                 world: world.clone(),
                 fixed: false,
             },
@@ -2179,15 +2179,15 @@ fn the_model_is_drawn_cut_open_without_being_changed() -> anyhow::Result<()> {
 
 #[test]
 fn an_assembly_is_measured_as_a_whole() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::{Instance, World};
     use std::sync::Arc;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::{Instance, World};
     // Three 2 x 2 x 2 blocks, the second 1 along x from the first (4 of
     // each is in the other) and the third well apart: 24 in all.
     let mut part = World::new();
     let axes = [Point3::X, Point3::Y, Point3::Z];
-    let block = shapecraft_boolean::block("b", Point3::ZERO, axes, [2.0; 3])?;
-    shapecraft_boolean::write(&mut part.topo, &block, "b")?;
+    let block = workpiece_boolean::block("b", Point3::ZERO, axes, [2.0; 3])?;
+    workpiece_boolean::write(&mut part.topo, &block, "b")?;
     let lowest = part
         .topo
         .vertices()
@@ -2202,7 +2202,7 @@ fn an_assembly_is_measured_as_a_whole() -> anyhow::Result<()> {
         both.instances.insert(
             name.into(),
             Instance {
-                pose: shapecraft_core::Pose::from_translation(Point3::new(x, 0.0, 0.0)),
+                pose: workpiece_core::Pose::from_translation(Point3::new(x, 0.0, 0.0)),
                 world: part.clone(),
                 fixed: false,
             },
@@ -2222,7 +2222,7 @@ fn an_assembly_is_measured_as_a_whole() -> anyhow::Result<()> {
     // its part: 6 apart, as the parts are placed.
     let corner = |part: &str| crate::picking::Candidate::Reference {
         instance: vec![part.to_owned()],
-        source: shapecraft_core::Source::Topology(corner_name.clone()),
+        source: workpiece_core::Source::Topology(corner_name.clone()),
     };
     let between = crate::view::inspect::readings(&assembly, &[corner("left"), corner("far")], None);
     let distance = between.iter().find(|r| r.label == "Distance");
@@ -2232,15 +2232,15 @@ fn an_assembly_is_measured_as_a_whole() -> anyhow::Result<()> {
 
 #[test]
 fn models_are_drawn_in_three_views_with_what_is_hidden_apart() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    use shapecraft_core::world::World;
-    use shapecraft_ops_drawing::quick::ThreeViews as Drawing;
+    use workpiece_core::math::Point3;
+    use workpiece_core::world::World;
+    use workpiece_ops_drawing::quick::ThreeViews as Drawing;
     // A 2 x 3 x 4 block: in each view its outline, four sides long, in
     // view; nothing of it is hidden but what lies right behind that.
     let axes = [Point3::X, Point3::Y, Point3::Z];
     let mut world = World::new();
-    let block = shapecraft_boolean::block("b", Point3::ZERO, axes, [2.0, 3.0, 4.0])?;
-    shapecraft_boolean::write(&mut world.topo, &block, "b")?;
+    let block = workpiece_boolean::block("b", Point3::ZERO, axes, [2.0, 3.0, 4.0])?;
+    workpiece_boolean::write(&mut world.topo, &block, "b")?;
     let drawing = Drawing::of(&world, "bracket", None)?;
     let long = |name: &str, behind: bool| -> f64 {
         let view = drawing
@@ -2259,8 +2259,8 @@ fn models_are_drawn_in_three_views_with_what_is_hidden_apart() -> anyhow::Result
         long("FRONT", false)
     );
     // A small block behind it, seen from the front: all of it hidden.
-    let small = shapecraft_boolean::block("s", Point3::new(0.5, 5.0, 1.0), axes, [1.0; 3])?;
-    shapecraft_boolean::write(&mut world.topo, &small, "s")?;
+    let small = workpiece_boolean::block("s", Point3::new(0.5, 5.0, 1.0), axes, [1.0; 3])?;
+    workpiece_boolean::write(&mut world.topo, &small, "s")?;
     let drawing = Drawing::of(&world, "bracket", None)?;
     let long = |name: &str, behind: bool| -> f64 {
         let view = drawing
@@ -2279,11 +2279,11 @@ fn models_are_drawn_in_three_views_with_what_is_hidden_apart() -> anyhow::Result
     assert!(long("FRONT", true) > 12.0 + 7.9);
     // A square hole, 0.5 wide, down through the big block: open in the
     // section through the middle, where its two walls show, in view.
-    let big = shapecraft_boolean::read(&world.topo, world.topo.resolve("b").expect("the block"))?;
-    let rod = shapecraft_boolean::block("r", Point3::new(0.75, 1.25, -1.0), axes, [0.5, 0.5, 6.0])?;
-    let drilled = shapecraft_boolean::combine(shapecraft_boolean::Op::Cut, &big, &rod)?.solid;
+    let big = workpiece_boolean::read(&world.topo, world.topo.resolve("b").expect("the block"))?;
+    let rod = workpiece_boolean::block("r", Point3::new(0.75, 1.25, -1.0), axes, [0.5, 0.5, 6.0])?;
+    let drilled = workpiece_boolean::combine(workpiece_boolean::Op::Cut, &big, &rod)?.solid;
     let mut holed = World::new();
-    shapecraft_boolean::write(&mut holed.topo, &drilled, "b")?;
+    workpiece_boolean::write(&mut holed.topo, &drilled, "b")?;
     let section = Drawing::of(&holed, "holed", None)?;
     // (Upright lines inside the outline: the hole's walls. From the
     // front they are hidden; in the section they are in view.)
@@ -2307,10 +2307,10 @@ fn models_are_drawn_in_three_views_with_what_is_hidden_apart() -> anyhow::Result
     );
     // Cut where it is asked for instead — square to z, halfway up: seen
     // from above, as wide and deep as the block.
-    let across = Drawing::of(&holed, "holed", Some((shapecraft_core::math::Axis::Z, 0.5)))?;
+    let across = Drawing::of(&holed, "holed", Some((workpiece_core::math::Axis::Z, 0.5)))?;
     assert!(
         across
-            .dxf(shapecraft_core::Unit::Millimetre)
+            .dxf(workpiece_core::Unit::Millimetre)
             .contains("square to z, 50% along")
     );
     let cut = across
@@ -2320,14 +2320,14 @@ fn models_are_drawn_in_three_views_with_what_is_hidden_apart() -> anyhow::Result
         .expect("the section");
     assert_eq!((cut.size.x, cut.size.y), (2.0, 3.0));
     // A washer seen from above: its two diameters are written.
-    let washer = shapecraft_ops_standard::standard(
+    let washer = workpiece_ops_standard::standard(
         "w",
-        shapecraft_ops_standard::StandardKind::Washer,
+        workpiece_ops_standard::StandardKind::Washer,
         "M10",
         0.0,
     )?;
     let mut round = World::new();
-    shapecraft_boolean::write(&mut round.topo, &washer, "w")?;
+    workpiece_boolean::write(&mut round.topo, &washer, "w")?;
     let ring = Drawing::of(&round, "washer", None)?;
     let top = ring
         .views
@@ -2342,17 +2342,17 @@ fn models_are_drawn_in_three_views_with_what_is_hidden_apart() -> anyhow::Result
     drawing.dimensions = vec![("s".into(), vec!["12 ±0.1".into(), "Ø6".into()])];
     assert!(
         drawing
-            .dxf(shapecraft_core::Unit::Millimetre)
+            .dxf(workpiece_core::Unit::Millimetre)
             .contains("s: 12 +/-0.1, DIA 6")
     );
     // As files: a DXF with layers for what is hidden, a PDF of one page.
-    let text = drawing.dxf(shapecraft_core::Unit::Millimetre);
+    let text = drawing.dxf(workpiece_core::Unit::Millimetre);
     assert!(text.contains("$INSUNITS\n70\n4\n") && text.ends_with("0\nEOF\n"));
     assert!(text.contains("FRONT_HIDDEN") && text.contains("FRONT 2 x 4 mm"));
     assert!(text.contains("TITLE") && text.contains("bracket") && text.contains("SECTION A-A"));
-    let pdf = drawing.pdf(shapecraft_core::Unit::Millimetre);
+    let pdf = drawing.pdf(workpiece_core::Unit::Millimetre);
     assert!(pdf.starts_with(b"%PDF-1.4") && pdf.ends_with(b"%%EOF\n"));
-    if let Ok(to) = std::env::var("SHAPECRAFT_PDF") {
+    if let Ok(to) = std::env::var("WORKPIECE_PDF") {
         std::fs::write(to, &pdf)?;
     }
     assert!(Drawing::of(&World::new(), "nothing", None).is_err());
@@ -2361,34 +2361,32 @@ fn models_are_drawn_in_three_views_with_what_is_hidden_apart() -> anyhow::Result
 
 #[test]
 fn a_3mf_file_written_reads_back_as_the_solid() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
-    let mut world = shapecraft_core::world::World::new();
+    use workpiece_core::math::Point3;
+    let mut world = workpiece_core::world::World::new();
     let axes = [Point3::X, Point3::Y, Point3::Z];
-    let block = shapecraft_boolean::block("b", Point3::ZERO, axes, [2.0, 3.0, 4.0])?;
-    shapecraft_boolean::write(&mut world.topo, &block, "b")?;
-    let file = shapecraft_cad_rasterize::tessellate::three_mf(
-        &world.topo,
-        shapecraft_core::Unit::Millimetre,
-    );
-    let back = shapecraft_ops_step::import_3mf(&file, "mesh")?;
+    let block = workpiece_boolean::block("b", Point3::ZERO, axes, [2.0, 3.0, 4.0])?;
+    workpiece_boolean::write(&mut world.topo, &block, "b")?;
+    let file =
+        workpiece_rasterize::tessellate::three_mf(&world.topo, workpiece_core::Unit::Millimetre);
+    let back = workpiece_ops_step::import_3mf(&file, "mesh")?;
     assert_eq!(back.len(), 1);
     assert_eq!(back[0].faces.len(), 6);
-    assert!((shapecraft_boolean::measure(&back[0]).volume - 24.0).abs() < 1e-9);
+    assert!((workpiece_boolean::measure(&back[0]).volume - 24.0).abs() < 1e-9);
     Ok(())
 }
 
 #[test]
 fn a_plate_with_a_hole_is_cut_hole_first() -> anyhow::Result<()> {
-    use shapecraft_core::math::Point3;
+    use workpiece_core::math::Point3;
     // A plate 6 x 4 x 1 with a square hole 1 wide: two outlines, the
     // hole's (4 around) before the plate's (20 around).
     let axes = [Point3::X, Point3::Y, Point3::Z];
-    let plate = shapecraft_boolean::block("p", Point3::ZERO, axes, [6.0, 4.0, 1.0])?;
-    let hole = shapecraft_boolean::block("h", Point3::new(1.0, 1.0, -1.0), axes, [1.0, 1.0, 3.0])?;
-    let holed = shapecraft_boolean::combine(shapecraft_boolean::Op::Cut, &plate, &hole)?.solid;
-    let mut world = shapecraft_core::world::World::new();
-    shapecraft_boolean::write(&mut world.topo, &holed, "p")?;
-    let code = crate::cam::cut_path(&world, shapecraft_core::Unit::Millimetre, 800.0)?;
+    let plate = workpiece_boolean::block("p", Point3::ZERO, axes, [6.0, 4.0, 1.0])?;
+    let hole = workpiece_boolean::block("h", Point3::new(1.0, 1.0, -1.0), axes, [1.0, 1.0, 3.0])?;
+    let holed = workpiece_boolean::combine(workpiece_boolean::Op::Cut, &plate, &hole)?.solid;
+    let mut world = workpiece_core::world::World::new();
+    workpiece_boolean::write(&mut world.topo, &holed, "p")?;
+    let code = crate::cam::cut_path(&world, workpiece_core::Unit::Millimetre, 800.0)?;
     assert!(code.contains("G21") && code.ends_with("M2\n"));
     // How long each outline is, in the order they are cut.
     let mut long = Vec::new();
@@ -2418,7 +2416,7 @@ fn a_plate_with_a_hole_is_cut_hole_first() -> anyhow::Result<()> {
     assert_eq!(code.matches("M3").count(), 2);
     // Milled instead, in passes 0.4 deep: three times around each
     // outline, the tool kept to the waste side, down to the bottom.
-    let milled = crate::cam::mill_path(&world, shapecraft_core::Unit::Millimetre, 600.0, 0.5, 0.4)?;
+    let milled = crate::cam::mill_path(&world, workpiece_core::Unit::Millimetre, 600.0, 0.5, 0.4)?;
     assert_eq!(milled.matches("G42 D1").count(), 6);
     assert_eq!(milled.matches("G40").count(), 6);
     assert!(milled.contains("G1 Z0.0000") && milled.ends_with("M5\nM2\n"));
@@ -2428,9 +2426,9 @@ fn a_plate_with_a_hole_is_cut_hole_first() -> anyhow::Result<()> {
 #[test]
 fn a_joint_is_run_along_its_travel() -> anyhow::Result<()> {
     use crate::model::display::{Display, drivable};
-    use shapecraft_core::math::{Axis, Point3};
-    use shapecraft_core::world::{Connector, Instance, Joint, JointKind, Limits, World};
     use std::sync::Arc;
+    use workpiece_core::math::{Axis, Point3};
+    use workpiece_core::world::{Connector, Instance, Joint, JointKind, Limits, World};
     // A lid hinged to a base, to turn half a radian either way: run
     // from one limit to the other, it turns by one radian.
     let mut world = World::new();
@@ -2438,7 +2436,7 @@ fn a_joint_is_run_along_its_travel() -> anyhow::Result<()> {
         world.instances.insert(
             name.into(),
             Instance {
-                pose: shapecraft_core::Pose::IDENTITY,
+                pose: workpiece_core::Pose::IDENTITY,
                 world: Arc::new(World::new()),
                 fixed,
             },
@@ -2446,7 +2444,7 @@ fn a_joint_is_run_along_its_travel() -> anyhow::Result<()> {
     }
     let at = |name: &str| Connector {
         instance: Some(name.to_owned()),
-        frame: shapecraft_core::Pose::from_translation(Point3::new(1.0, 0.0, 0.0)),
+        frame: workpiece_core::Pose::from_translation(Point3::new(1.0, 0.0, 0.0)),
     };
     world.joints.push(Joint {
         name: "hinge".into(),
@@ -2489,7 +2487,7 @@ fn sheet_metal_has_a_tab_of_its_own() -> anyhow::Result<()> {
     assert!(modeling.contains(&"Extrude".to_owned()), "{modeling:?}");
     assert!(!modeling.iter().any(|t| t == "Flange" || t == "Unfold"));
     // The tab, by its key, has both, and what a plate is made with.
-    press_key(&mut m, shapecraft_core::Hotkey::ctrl('4'))?;
+    press_key(&mut m, workpiece_core::Hotkey::ctrl('4'))?;
     assert_eq!(m.tab, crate::Tab::SheetMetal);
     let sheet = tools(&m);
     for tool in ["Sketch", "Extrude", "Flange", "Unfold", "Hole"] {
@@ -2505,7 +2503,7 @@ fn sheet_metal_has_a_tab_of_its_own() -> anyhow::Result<()> {
 
 #[test]
 fn a_reference_that_lost_its_name_is_found_again_and_said() -> anyhow::Result<()> {
-    use shapecraft_ops_blend::{Fillet, FilletArgs};
+    use workpiece_ops_blend::{Fillet, FilletArgs};
     let round = |edge: &str| -> AnyOperation {
         Fillet {
             id: "round".into(),
@@ -2533,7 +2531,7 @@ fn a_reference_that_lost_its_name_is_found_again_and_said() -> anyhow::Result<()
     part.program[last] = round("box1/gone");
     part.cache
         .replace("round@refs", [("box1/gone".to_owned(), kept)]);
-    if let Ok(path) = std::env::var("SHAPECRAFT_DUMP_LOST") {
+    if let Ok(path) = std::env::var("WORKPIECE_DUMP_LOST") {
         std::fs::write(path, m.workspace.parts["bolt"].to_text()?)?;
     }
     m.update(Message::Open("bolt".into()))?;
@@ -2562,7 +2560,7 @@ fn face_under(m: &mut Model, at: Vec3) -> anyhow::Result<()> {
         .iter()
         .position(|c| {
             matches!(c, Candidate::Reference { source: Source::Topology(name), .. }
-            if topo.resolve::<shapecraft_core::world::topo::FaceId>(name).is_some())
+            if topo.resolve::<workpiece_core::world::topo::FaceId>(name).is_some())
         })
         .ok_or_else(|| {
             anyhow::anyhow!(
@@ -2587,7 +2585,7 @@ fn tools_take_what_is_selected() -> anyhow::Result<()> {
     let shell = m.workspace.parts["bolt"]
         .program
         .last()
-        .and_then(|op| op.downcast_ref::<shapecraft_ops_faces::Shell>())
+        .and_then(|op| op.downcast_ref::<workpiece_ops_faces::Shell>())
         .expect("a shell");
     assert_eq!(shell.args.faces.len(), 1);
     Ok(())
@@ -2608,7 +2606,7 @@ fn a_plane_picked_for_a_sketch_gets_one_drawn_first() -> anyhow::Result<()> {
     let sketch_of = |m: &Model| {
         m.workspace.parts["bolt"]
             .operation("extrude1")
-            .and_then(|op| op.downcast_ref::<shapecraft_ops_sweep::Extrude>())
+            .and_then(|op| op.downcast_ref::<workpiece_ops_sweep::Extrude>())
             .and_then(|e| e.args.sketch.as_ref().map(|s| s.name().to_owned()))
     };
     assert_eq!(sketch_of(&m).as_deref(), Some("sketch1"));
@@ -2633,9 +2631,9 @@ fn a_plane_picked_for_a_sketch_gets_one_drawn_first() -> anyhow::Result<()> {
 
 #[test]
 fn a_part_is_made_of_a_material_and_steps_give_faces_their_own() -> anyhow::Result<()> {
-    use shapecraft_core::world::Look;
-    use shapecraft_core::world::topo::FaceId;
-    use shapecraft_ops_appearance::{Appearance, AppearanceArgs};
+    use workpiece_core::world::Look;
+    use workpiece_core::world::topo::FaceId;
+    use workpiece_ops_appearance::{Appearance, AppearanceArgs};
     let mut m = with_box()?;
     // The materials are the library's; their panel shows when asked
     // for, whatever the tab.
@@ -2664,7 +2662,7 @@ fn a_part_is_made_of_a_material_and_steps_give_faces_their_own() -> anyhow::Resu
         op: Appearance {
             id: "appearance1".into(),
             args: AppearanceArgs {
-                of: vec![shapecraft_core::Reference::topology("box1/top")],
+                of: vec![workpiece_core::Reference::topology("box1/top")],
                 material: Some("Brass".into()),
                 colour: Some([200, 0, 0]),
             },
@@ -2675,7 +2673,7 @@ fn a_part_is_made_of_a_material_and_steps_give_faces_their_own() -> anyhow::Resu
     let dialog = View::new(&m).edit_dialog.expect("its dialog");
     let mut choose = None;
     dialog.fields.visit(&mut |widget| {
-        if let shapecraft_core::Widget::Choice(choice) = widget
+        if let workpiece_core::Widget::Choice(choice) = widget
             && choice.label == "Material"
         {
             let copper = choice.options.iter().position(|o| o == "Copper");
@@ -2693,7 +2691,7 @@ fn a_part_is_made_of_a_material_and_steps_give_faces_their_own() -> anyhow::Resu
         op: Appearance {
             id: "appearance1".into(),
             args: AppearanceArgs {
-                of: vec![shapecraft_core::Reference::topology("box1/top")],
+                of: vec![workpiece_core::Reference::topology("box1/top")],
                 material: Some("Brass".into()),
                 colour: Some([200, 0, 0]),
             },
@@ -2722,7 +2720,7 @@ fn a_part_is_made_of_a_material_and_steps_give_faces_their_own() -> anyhow::Resu
 
 #[test]
 fn a_picture_is_a_step_taken_from_where_the_view_is() -> anyhow::Result<()> {
-    use shapecraft_ops_appearance::{Render, Shot};
+    use workpiece_ops_appearance::{Render, Shot};
     let mut m = with_box()?;
     assert!(View::new(&m).picture.is_none());
     let part = m.focused_part().expect("a part");
@@ -2790,12 +2788,12 @@ fn moving_things_on_a_sheet_builds_and_sees_nothing_again() -> anyhow::Result<()
 
 #[test]
 fn a_drawing_shows_the_model_and_what_is_said_of_it() -> anyhow::Result<()> {
-    use shapecraft_core::world::Tolerance;
-    use shapecraft_ops_annotate::{
+    use workpiece_core::world::Tolerance;
+    use workpiece_ops_annotate::{
         DatumFeature, DatumFeatureArgs, Dimension, DimensionArgs, DimensionKind,
         GeometricTolerance, GeometricToleranceArgs, Of,
     };
-    use shapecraft_ops_drawing::sheet::{Beside, SheetView, Style, ViewKind};
+    use workpiece_ops_drawing::sheet::{Beside, SheetView, Style, ViewKind};
     let mut m = with_box()?;
     let face = |name: &str| Source::Topology(format!("box1/{name}"));
     let add = |m: &mut Model, op: AnyOperation| -> anyhow::Result<()> {
@@ -2838,8 +2836,8 @@ fn a_drawing_shows_the_model_and_what_is_said_of_it() -> anyhow::Result<()> {
             id: "flat".into(),
             args: GeometricToleranceArgs {
                 feature: Some(face("top").into()),
-                characteristic: Of(shapecraft_core::world::Characteristic::Parallelism),
-                value: shapecraft_core::Measure::new(0.05),
+                characteristic: Of(workpiece_core::world::Characteristic::Parallelism),
+                value: workpiece_core::Measure::new(0.05),
                 diametral: false,
                 datums: "A".into(),
                 at: None,
@@ -2888,7 +2886,7 @@ fn a_drawing_shows_the_model_and_what_is_said_of_it() -> anyhow::Result<()> {
     assert_eq!(shown.laid.size, [420.0, 297.0]);
     assert_eq!(shown.laid.views.len(), 3);
     assert!(shown.laid.problems.is_empty(), "{:?}", shown.laid.problems);
-    let said = |laid: &shapecraft_ops_drawing::lay::Laid, what: &str| {
+    let said = |laid: &workpiece_ops_drawing::lay::Laid, what: &str| {
         laid.texts.iter().any(|t| t.text == what)
     };
     assert!(said(&shown.laid, "Legal owner") && said(&shown.laid, "bolt"));
@@ -2899,7 +2897,7 @@ fn a_drawing_shows_the_model_and_what_is_said_of_it() -> anyhow::Result<()> {
     // on, the front view sees it true.
     m.update(Message::PreviewNotes(Some(None)))?;
     let shown = View::new(&m).sheet.expect("the sheet");
-    let previews = |laid: &shapecraft_ops_drawing::lay::Laid, name: &str| -> Vec<String> {
+    let previews = |laid: &workpiece_ops_drawing::lay::Laid, name: &str| -> Vec<String> {
         let of = laid
             .notes
             .iter()
@@ -2953,9 +2951,9 @@ fn a_drawing_shows_the_model_and_what_is_said_of_it() -> anyhow::Result<()> {
     let mut hand = sheet.hand();
     let (a, b) = (
         hand.args
-            .add_point(shapecraft_core::math::Point2::new(20.0, 250.0)),
+            .add_point(workpiece_core::math::Point2::new(20.0, 250.0)),
         hand.args
-            .add_point(shapecraft_core::math::Point2::new(60.0, 250.0)),
+            .add_point(workpiece_core::math::Point2::new(60.0, 250.0)),
     );
     hand.args.add_line(a, b);
     sheet.drawn = Some(hand.args);
@@ -3053,13 +3051,9 @@ fn a_drawing_shows_the_model_and_what_is_said_of_it() -> anyhow::Result<()> {
     assert!(said(&shown.laid, "A–A") && said(&shown.laid, "B (2:1)") && said(&shown.laid, "C–C"));
     assert!(!shown.laid.fills.is_empty());
     let drawn = shown.laid.strokes.iter().any(|s| {
-        s.pen == shapecraft_ops_drawing::lay::Pen::Wide
-            && s.a
-                .distance(shapecraft_core::math::Point2::new(20.0, 250.0))
-                < 1e-9
-            && s.b
-                .distance(shapecraft_core::math::Point2::new(60.0, 250.0))
-                < 1e-9
+        s.pen == workpiece_ops_drawing::lay::Pen::Wide
+            && s.a.distance(workpiece_core::math::Point2::new(20.0, 250.0)) < 1e-9
+            && s.b.distance(workpiece_core::math::Point2::new(60.0, 250.0)) < 1e-9
     });
     assert!(drawn, "what is drawn by hand is on the sheet");
     // (The sketch that draws on it lies on the sheet, with its tools.)
@@ -3093,13 +3087,13 @@ fn a_drawing_shows_the_model_and_what_is_said_of_it() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// How long a sheet of the part file `SHAPECRAFT_SHEET_OF` takes to lay out:
-/// run by hand, `SHAPECRAFT_SHEET_OF=part.shapecraft cargo test --release -p
-/// shapecraft-cad-ui a_sheet_is_timed -- --ignored --nocapture`.
+/// How long a sheet of the part file `WORKPIECE_SHEET_OF` takes to lay out:
+/// run by hand, `WORKPIECE_SHEET_OF=part.workpiece cargo test --release -p
+/// workpiece-ui a_sheet_is_timed -- --ignored --nocapture`.
 #[test]
 #[ignore = "run by hand, with a part file"]
 fn a_sheet_is_timed() -> anyhow::Result<()> {
-    let path = std::env::var("SHAPECRAFT_SHEET_OF")?;
+    let path = std::env::var("WORKPIECE_SHEET_OF")?;
     let part = Part::from_text(&std::fs::read_to_string(&path)?)?;
     let mut m = Model::new(Workspace::new(BTreeMap::from([("it".to_owned(), part)])));
     m.update(Message::Open("it".into()))?;
@@ -3113,7 +3107,7 @@ fn a_sheet_is_timed() -> anyhow::Result<()> {
         shown.laid.missing.len(),
         shown.laid.problems
     );
-    if let Ok(out) = std::env::var("SHAPECRAFT_SHEET_PDF") {
+    if let Ok(out) = std::env::var("WORKPIECE_SHEET_PDF") {
         // Everything that is missing, put where it fits by itself.
         m.update(Message::PreviewNotes(Some(None)))?;
         let shown = View::new(&m).sheet.expect("the sheet");
@@ -3139,21 +3133,16 @@ fn a_sheet_is_timed() -> anyhow::Result<()> {
 }
 
 /// The mesh being edited, and the state of its edit session.
-fn mesh(
-    m: &Model,
-) -> (
-    shapecraft_ops_mesh::MeshArgs,
-    shapecraft_ops_mesh::MeshState,
-) {
+fn mesh(m: &Model) -> (workpiece_ops_mesh::MeshArgs, workpiece_ops_mesh::MeshState) {
     let op = m.workspace.parts["bolt"]
         .program
         .last()
-        .and_then(|op| op.downcast_ref::<shapecraft_ops_mesh::Mesh>())
+        .and_then(|op| op.downcast_ref::<workpiece_ops_mesh::Mesh>())
         .expect("a mesh");
     let state = m
         .edit_state
         .as_ref()
-        .and_then(|s| s.downcast_ref::<shapecraft_ops_mesh::MeshState>())
+        .and_then(|s| s.downcast_ref::<workpiece_ops_mesh::MeshState>())
         .cloned()
         .unwrap_or_default();
     (op.args.clone(), state)
@@ -3161,7 +3150,7 @@ fn mesh(
 
 #[test]
 fn meshes_are_edited_by_their_faces_edges_and_points() -> anyhow::Result<()> {
-    use shapecraft_ops_mesh::{Item, Mode};
+    use workpiece_ops_mesh::{Item, Mode};
     let mut m = model();
     m.update(Message::Open("bolt".into()))?;
     click(&mut m, "SubD")?;
@@ -3182,7 +3171,7 @@ fn meshes_are_edited_by_their_faces_edges_and_points() -> anyhow::Result<()> {
         anyhow::bail!("expected a face picked, not {:?}", state.picked);
     };
     assert!(args.mesh.normal(top).z > 0.9);
-    press_key(&mut m, shapecraft_core::Hotkey::key('E'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('E'))?;
     let (args, state) = mesh(&m);
     assert_eq!(args.mesh.faces.len(), 10);
     assert!(args.mesh.center(top).z > 1.5);
@@ -3203,7 +3192,7 @@ fn meshes_are_edited_by_their_faces_edges_and_points() -> anyhow::Result<()> {
     assert!((up - 0.5).abs() < 0.05, "{up}");
     // A frame dragged open beside the mesh and over it picks what is
     // inside: in the mode of points, all of them.
-    press_key(&mut m, shapecraft_core::Hotkey::key('1'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('1'))?;
     assert_eq!(mesh(&m).1.mode, Mode::Vertex);
     m.update(Message::Pointer(Pointer::Moved {
         position: [5.0, 5.0],
@@ -3245,7 +3234,7 @@ fn meshes_are_edited_by_their_faces_edges_and_points() -> anyhow::Result<()> {
 
 #[test]
 fn a_mesh_is_stretched_by_its_arrows_and_cut_by_a_loop() -> anyhow::Result<()> {
-    use shapecraft_ops_mesh::Item;
+    use workpiece_ops_mesh::Item;
     let mut m = model();
     m.update(Message::Open("bolt".into()))?;
     click(&mut m, "Mesh")?;
@@ -3254,7 +3243,7 @@ fn a_mesh_is_stretched_by_its_arrows_and_cut_by_a_loop() -> anyhow::Result<()> {
     m.update(Message::Pointer(Pointer::Click { add: false }))?;
     // The scale tool: an arrow along x, half as far out as the face
     // reaches, dragged twice as far out.
-    press_key(&mut m, shapecraft_core::Hotkey::key('S'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('S'))?;
     let reach = 2.0_f32.sqrt() / 2.0;
     hover(&mut m, Vec3::new(reach, 0.0, 1.0))?;
     let Some(Candidate::Handle { name, .. }) = m.viewport.hovered().cloned() else {
@@ -3275,7 +3264,7 @@ fn a_mesh_is_stretched_by_its_arrows_and_cut_by_a_loop() -> anyhow::Result<()> {
         .fold(0.0, f64::max);
     assert!((wide - 2.0).abs() < 0.05, "{wide}");
     // The loop cut tool: a click on an edge cuts around, across it.
-    press_key(&mut m, shapecraft_core::Hotkey::key('R'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('R'))?;
     hover(&mut m, Vec3::new(0.3, 1.0, -1.0))?;
     assert!(matches!(mesh(&m).1.hover, Some(Item::Edge(..))));
     m.update(Message::Pointer(Pointer::Click { add: false }))?;
@@ -3291,9 +3280,7 @@ fn a_mesh_is_stretched_by_its_arrows_and_cut_by_a_loop() -> anyhow::Result<()> {
 #[test]
 fn a_part_has_views_and_sections_of_its_own_and_shows_cut_open() -> anyhow::Result<()> {
     use crate::model::display::Display;
-    use shapecraft_ops_drawing::{
-        Along, CameraView, CameraViewArgs, Looking, Section, SectionArgs,
-    };
+    use workpiece_ops_drawing::{Along, CameraView, CameraViewArgs, Looking, Section, SectionArgs};
     let mut m = with_box()?;
     let add = |m: &mut Model, op: AnyOperation| {
         m.update(Message::AddOperation {
@@ -3308,7 +3295,7 @@ fn a_part_has_views_and_sections_of_its_own_and_shows_cut_open() -> anyhow::Resu
         CameraView {
             id: "above".into(),
             args: CameraViewArgs {
-                looking: Looking::Side(shapecraft_ops_drawing::sheet::Side::Top),
+                looking: Looking::Side(workpiece_ops_drawing::sheet::Side::Top),
                 ..CameraViewArgs::default()
             },
         }
@@ -3343,8 +3330,8 @@ fn a_part_has_views_and_sections_of_its_own_and_shows_cut_open() -> anyhow::Resu
             id: "half".into(),
             args: SectionArgs {
                 along: Along::Plane,
-                plane: Some(shapecraft_core::Reference::frame_axis("origin", Axis::X)),
-                offset: shapecraft_core::Measure::new(0.5),
+                plane: Some(workpiece_core::Reference::frame_axis("origin", Axis::X)),
+                offset: workpiece_core::Measure::new(0.5),
                 ..SectionArgs::default()
             },
         }
@@ -3394,7 +3381,7 @@ fn parts_say_properties_and_title_blocks_read_them() -> anyhow::Result<()> {
     m.update(Message::NewDrawing(None))?;
     let shown = View::new(&m).sheet.expect("the sheet");
     assert!(shown.laid.views.is_empty());
-    let cell = |laid: &shapecraft_ops_drawing::lay::Laid, label: &str| {
+    let cell = |laid: &workpiece_ops_drawing::lay::Laid, label: &str| {
         let cell = laid.cells.iter().find(|c| c.label == label).expect("it");
         cell.value.clone()
     };
@@ -3422,7 +3409,7 @@ fn parts_say_properties_and_title_blocks_read_them() -> anyhow::Result<()> {
 #[test]
 fn parts_keep_building_beside_the_interface_and_a_build_can_be_stopped() -> anyhow::Result<()> {
     let mut m = assembly()?;
-    m.engine = shapecraft_cad_part::Engine::threaded(2);
+    m.engine = workpiece_part::Engine::threaded(2);
     m.background = true;
     // Another part opened builds where the first did.
     m.update(Message::Open("nut".into()))?;
@@ -3463,7 +3450,7 @@ fn a_part_is_pictured_as_it_is_and_is_no_other_part_for_it() -> anyhow::Result<(
     );
     // It comes back from the file, and is not taken again while the
     // part stays what it was.
-    let read = shapecraft_cad_part::Part::from_text(&part.to_text()?)?;
+    let read = workpiece_part::Part::from_text(&part.to_text()?)?;
     assert_eq!(read.fresh_preview().map(|p| p.png()), Some(taken.png()));
     m.take_preview(&path)?;
     assert_eq!(
@@ -3485,18 +3472,18 @@ fn a_part_is_pictured_as_it_is_and_is_no_other_part_for_it() -> anyhow::Result<(
 /// horizontal and vertical, radius, diameter, diameter about an axis,
 /// angle, and one that is driven.
 fn all_dimensions(id: &str) -> AnyOperation {
-    use shapecraft_core::math::Point2;
-    use shapecraft_ops_sketch::{Kind, Shape, SketchAxis};
-    let mut sketch = shapecraft_ops_sketch::Sketch::new(id);
+    use workpiece_core::math::Point2;
+    use workpiece_ops_sketch::{Kind, Shape, SketchAxis};
+    let mut sketch = workpiece_ops_sketch::Sketch::new(id);
     let a = &mut sketch.args;
-    a.plane = Some(shapecraft_core::Reference::frame_axis("origin", Axis::Z));
+    a.plane = Some(workpiece_core::Reference::frame_axis("origin", Axis::Z));
     let (p0, p1, p2) = (
         a.add_point(Point2::new(0.0, 0.0)),
         a.add_point(Point2::new(4.0, 0.0)),
         a.add_point(Point2::new(4.0, 3.0)),
     );
     let (l0, l1) = (a.add(Shape::Line(p0, p1)), a.add(Shape::Line(p1, p2)));
-    let centre = |a: &mut shapecraft_ops_sketch::SketchArgs, x: f64, y: f64| {
+    let centre = |a: &mut workpiece_ops_sketch::SketchArgs, x: f64, y: f64| {
         let c = a.add_point(Point2::new(x, y));
         a.add(Shape::Circle {
             center: c,
@@ -3618,8 +3605,8 @@ fn sketch_dimensions_are_in_their_plane_and_bounded_from_every_camera() -> anyho
 
 #[test]
 fn a_sketch_dimension_in_3d_is_the_sketchers_layout_set_in_the_plane() -> anyhow::Result<()> {
-    use shapecraft_core::handles::{CanvasShape, CanvasView, Tone};
-    use shapecraft_core::math::{Point2, Point3};
+    use workpiece_core::handles::{CanvasShape, CanvasView, Tone};
+    use workpiece_core::math::{Point2, Point3};
     let m = dimensioned_from([0.4, -1.0, 1.2], false)?;
     let world = &m.viewport.shown.world;
     let camera = m.viewport.camera;
@@ -3629,7 +3616,7 @@ fn a_sketch_dimension_in_3d_is_the_sketchers_layout_set_in_the_plane() -> anyhow
         let of = note.sketch.as_ref().expect("a sketch's");
         let args = of
             .geometry
-            .get::<shapecraft_ops_sketch::SketchArgs>()
+            .get::<workpiece_ops_sketch::SketchArgs>()
             .expect("its sketch");
         let c = &args.constraints[&of.constraint];
         let label = Point2::new(
@@ -3645,7 +3632,7 @@ fn a_sketch_dimension_in_3d_is_the_sketchers_layout_set_in_the_plane() -> anyhow
             pixel,
             label,
         );
-        let wanted = shapecraft_ops_sketch::layout::dimension(args, c, &view, Tone::Dimension);
+        let wanted = workpiece_ops_sketch::layout::dimension(args, c, &view, Tone::Dimension);
         let place = |p: Point2| (of.origin + of.x * p.x + of.y * p.y).as_vec3();
         let strokes: Vec<(Vec3, Vec3)> = wanted
             .iter()
@@ -3668,7 +3655,7 @@ fn a_sketch_dimension_in_3d_is_the_sketchers_layout_set_in_the_plane() -> anyhow
         assert_eq!(shown.texts.len(), 1, "{name}");
         // A diameter about an axis is the whole of it: the line across
         // and the two lines to it from what is measured.
-        if matches!(c.kind, shapecraft_ops_sketch::Kind::PointLine { .. })
+        if matches!(c.kind, workpiece_ops_sketch::Kind::PointLine { .. })
             && c.dimension.as_ref().is_some_and(|d| d.diameter)
         {
             diameters += 1;
@@ -3734,7 +3721,7 @@ fn what_is_selected_in_a_sketch_shows_in_its_panel_and_its_keys_win() -> anyhow:
             .inspector
             .is_none()
     );
-    press_key(&mut m, shapecraft_core::Hotkey::key('R'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('R'))?;
     click_at(&mut m, 0.5, 0.5)?;
     click_at(&mut m, 1.5, 1.0)?;
     // The rectangle drawn is selected: its panel, with a Construction
@@ -3747,12 +3734,12 @@ fn what_is_selected_in_a_sketch_shows_in_its_panel_and_its_keys_win() -> anyhow:
         .expect("a panel");
     let mut marks = Vec::new();
     panel.visit(&mut |w| {
-        if let shapecraft_core::Widget::Check(c) = w {
+        if let workpiece_core::Widget::Check(c) = w {
             marks.push(c.label.clone());
         }
     });
     assert!(marks.contains(&"Construction".to_owned()), "{marks:?}");
-    press_key(&mut m, shapecraft_core::Hotkey::key('X'))?;
+    press_key(&mut m, workpiece_core::Hotkey::key('X'))?;
     let drawn = sketch(&m)
         .entities
         .iter()

@@ -14,13 +14,13 @@ assignees: ""
 1.
 2.
 
-If you can, attach a minimal `.shapecraft` part or the Python script that builds it. Please do not attach files you do not have the right to share.
+If you can, attach a minimal `.workpiece` part or the Python script that builds it. Please do not attach files you do not have the right to share.
 
 **Output**
-The error message, or what `shapecraft report part.shapecraft` says.
+The error message, or what `workpiece report part.workpiece` says.
 
 **Environment**
-- ShapeCraft version or commit:
+- Workpiece version or commit:
 - Operating system:
 - Built with (`rustc --version`):
 - App, command line or Python layer:

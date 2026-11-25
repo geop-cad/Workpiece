@@ -1,7 +1,7 @@
 //! The viewport's camera.
 
 use glam::{Mat3, Mat4, Quat, Vec2, Vec3};
-use shapecraft_core::{Projection, Ray};
+use workpiece_core::{Projection, Ray};
 
 /// Pick tolerance in pixels.
 pub const PICK_RADIUS_PX: f32 = 6.0;

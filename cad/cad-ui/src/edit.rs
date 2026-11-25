@@ -1,10 +1,10 @@
 //! The step being edited: its dialog and handles, producing [`Message`]s,
 //! and finding things in them.
 
-use shapecraft_cad_part::AnyOperation;
-use shapecraft_core::handles::{Canvas, Handle, Space};
-use shapecraft_core::world::DatumPlane;
-use shapecraft_core::{EditContext, EditVisualization, Widget};
+use workpiece_core::handles::{Canvas, Handle, Space};
+use workpiece_core::world::DatumPlane;
+use workpiece_core::{EditContext, EditVisualization, Widget};
+use workpiece_part::AnyOperation;
 
 use crate::Message;
 use crate::Model;
@@ -114,7 +114,7 @@ pub(crate) fn with_selection(
     model: &Model,
     part: &str,
     mut op: AnyOperation,
-    selection: &[shapecraft_core::Source],
+    selection: &[workpiece_core::Source],
 ) -> (AnyOperation, bool) {
     let Ok(program) = model.workspace.part(part) else {
         return (op, false);
@@ -218,7 +218,7 @@ fn find<M: 'static>(root: &Widget<M>, wanted: &dyn Fn(&Widget<M>) -> bool) -> Op
 /// last build found them.
 struct Placeable<'a>(&'a Model);
 
-impl shapecraft_core::Parts for Placeable<'_> {
+impl workpiece_core::Parts for Placeable<'_> {
     fn variants(&self, path: &str) -> Vec<String> {
         self.0.workspace.variants(path)
     }

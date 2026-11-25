@@ -1,8 +1,8 @@
 import os, sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
-from shapecraft import datum, Part, view, projected, section_view, topo, axis, note, material
+from workpiece import datum, Part, view, projected, section_view, topo, axis, note, material
 here = os.path.dirname(os.path.abspath(__file__))
-out = os.path.join(here, "2.shapecraft")
+out = os.path.join(here, "2.workpiece")
 material(here, "Plain carbon steel", 7800)
 p = Part(material="Plain carbon steel")
 s = p.sketch("YZ", id="profile")

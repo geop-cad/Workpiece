@@ -9,9 +9,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use shapecraft_boolean::Solid;
-use shapecraft_boolean::model::{Face, Walk};
-use shapecraft_core::math::{Point2, Point3};
+use workpiece_boolean::Solid;
+use workpiece_boolean::model::{Face, Walk};
+use workpiece_core::math::{Point2, Point3};
 
 /// A corner of a face's triangles: where it is in (u, v), and which
 /// point of the solid's it is.
@@ -595,7 +595,7 @@ fn mesh_face(
 /// sides of a solid thinner than it can tell apart.
 pub fn write_stl(path: &std::path::Path, triangles: &[[Point3; 3]]) -> std::io::Result<()> {
     use std::fmt::Write;
-    let mut text = String::from("solid shapecraft\n");
+    let mut text = String::from("solid workpiece\n");
     for t in triangles {
         let n = (t[1] - t[0]).cross(t[2] - t[0]).normalize_or_zero();
         let _ = writeln!(
@@ -608,6 +608,6 @@ pub fn write_stl(path: &std::path::Path, triangles: &[[Point3; 3]]) -> std::io::
         }
         text.push_str("endloop\nendfacet\n");
     }
-    text.push_str("endsolid shapecraft\n");
+    text.push_str("endsolid workpiece\n");
     std::fs::write(path, text)
 }

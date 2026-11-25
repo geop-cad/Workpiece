@@ -9,9 +9,9 @@
 use std::f64::consts::FRAC_PI_2;
 
 use glam::DQuat;
-use shapecraft_boolean::{Op, Solid, combine};
-use shapecraft_core::math::Point3;
-use shapecraft_shape::{BlendShape, By, Section, blend_solid, drafted, thicken, thickened};
+use workpiece_boolean::{Op, Solid, combine};
+use workpiece_core::math::Point3;
+use workpiece_shape::{BlendShape, By, Section, blend_solid, drafted, thicken, thickened};
 
 use crate::brepbench_expected::EXPECTED;
 use crate::scene::{Scene, sound};
@@ -130,7 +130,7 @@ fn first_face(solid: &Solid, e: usize) -> usize {
         .iter()
         .position(|f| {
             f.loops.iter().flatten().any(|step| {
-                matches!(step.walk, shapecraft_boolean::model::Walk::Edge { edge, .. } if edge == e)
+                matches!(step.walk, workpiece_boolean::model::Walk::Edge { edge, .. } if edge == e)
             })
         })
         .unwrap_or(0)
@@ -759,7 +759,7 @@ fn thick(s: &mut Scene, id: &str) -> Built {
                 [-3.0, -3.0, 3.0],
             ] {
                 let corner = Point3::from_array(corner);
-                let [_, behind] = shapecraft_shape::halves(&solid, -corner / 3.0, -corner)
+                let [_, behind] = workpiece_shape::halves(&solid, -corner / 3.0, -corner)
                     .map_err(|why| Grade::Crashed(format!("setup: {why:#}")))?;
                 solid = behind;
             }
@@ -886,9 +886,9 @@ fn thick(s: &mut Scene, id: &str) -> Built {
 /// brep-bench's cases of bodies carried through bodies: those whose
 /// sweep is a tube, a prism or a ring.
 fn swept_bodies(s: &mut Scene, id: &str) -> Built {
-    use shapecraft_core::math::Point2;
-    use shapecraft_core::world::topo::Curve3;
-    use shapecraft_shape::swept::{Outline, along_path, circle, steady, swept};
+    use workpiece_core::math::Point2;
+    use workpiece_core::world::topo::Curve3;
+    use workpiece_shape::swept::{Outline, along_path, circle, steady, swept};
     let done = |made: anyhow::Result<Solid>| made.map_err(|why| Grade::Refused(format!("{why:#}")));
     let curve = |made: Result<Curve3, _>| made.map_err(|_| Grade::Crashed("setup: a path".into()));
     // The tube a ball of `radius` leaves along `path`.
@@ -1085,7 +1085,7 @@ fn singular(s: &mut Scene, id: &str) -> Built {
     // What of `solid` is behind the plane through `at` across `normal`.
     let behind = |solid: &Solid, at: [f64; 3], normal: [f64; 3]| -> Built {
         let halves =
-            shapecraft_shape::halves(solid, Point3::from_array(at), Point3::from_array(normal));
+            workpiece_shape::halves(solid, Point3::from_array(at), Point3::from_array(normal));
         halves
             .map(|[_, behind]| behind)
             .map_err(|why| Grade::Refused(format!("{why:#}")))
@@ -1128,9 +1128,9 @@ fn singular(s: &mut Scene, id: &str) -> Built {
             apply(Op::Cut, &a, &b)
         }
         "singular/saddle-drum-cut-level-through-its-saddle" => {
-            use shapecraft_core::math::Point2;
-            use shapecraft_core::world::topo::Curve3;
-            use shapecraft_shape::swept::{Outline, polygon, swept};
+            use workpiece_core::math::Point2;
+            use workpiece_core::world::topo::Curve3;
+            use workpiece_shape::swept::{Outline, polygon, swept};
             // All over the saddle z = 10 + xy/8 above the square: a
             // section across x whose floor leans as x goes.
             let (sides, _) = polygon(&[Point2::ZERO, Point2::X, Point2::ONE, Point2::Y]);
@@ -1185,7 +1185,7 @@ fn singular(s: &mut Scene, id: &str) -> Built {
 
 /// brep-bench's direct edits: faces of a finished body moved or offset.
 fn edits(s: &mut Scene, id: &str) -> Built {
-    use shapecraft_shape::{faces_moved, faces_offset};
+    use workpiece_shape::{faces_moved, faces_offset};
     let done = |made: anyhow::Result<Solid>| made.map_err(|why| Grade::Refused(format!("{why:#}")));
     let drilled = |s: &mut Scene, height: f64| {
         let block = block(s, [0.0; 3], [40.0, 30.0, height])?;
@@ -1231,9 +1231,9 @@ fn edits(s: &mut Scene, id: &str) -> Built {
 /// brep-bench's feature cases: what is extruded or turned until it
 /// meets the body ahead.
 fn features(s: &mut Scene, id: &str) -> Built {
-    use shapecraft_core::math::Point2;
-    use shapecraft_core::world::topo::Curve3;
-    use shapecraft_shape::swept::{Outline, polygon, steady, swept};
+    use workpiece_core::math::Point2;
+    use workpiece_core::world::topo::Curve3;
+    use workpiece_shape::swept::{Outline, polygon, steady, swept};
     let lumps = |solid: &Solid| solid.lumps().map_err(|why| Grade::Refused(why.to_string()));
     // The lump of `solid` with a corner where `there` says.
     let lump_at = |solid: &Solid, there: &dyn Fn(Point3) -> bool| -> Built {
@@ -1329,9 +1329,9 @@ fn features(s: &mut Scene, id: &str) -> Built {
 
 /// brep-bench's loft cases: sections up the z axis.
 fn lofts(id: &str) -> Built {
-    use shapecraft_core::math::Point2;
-    use shapecraft_core::world::topo::Curve3;
-    use shapecraft_shape::swept::{Outline, polygon, swept};
+    use workpiece_core::math::Point2;
+    use workpiece_core::world::topo::Curve3;
+    use workpiece_shape::swept::{Outline, polygon, swept};
     let up = |height: f64,
               sides: Vec<(usize, Vec<f64>, usize)>,
               at: &dyn Fn(f64) -> Vec<(Point2, f64)>| {
@@ -1454,9 +1454,9 @@ fn lofts(id: &str) -> Built {
 
 /// brep-bench's sweep cases.
 fn sweeps(s: &mut Scene, id: &str) -> Built {
-    use shapecraft_core::math::Point2;
-    use shapecraft_core::world::topo::Curve3;
-    use shapecraft_shape::swept::{Outline, circle, polygon, steady, swept, swept_runs};
+    use workpiece_core::math::Point2;
+    use workpiece_core::world::topo::Curve3;
+    use workpiece_shape::swept::{Outline, circle, polygon, steady, swept, swept_runs};
     let done = |made: anyhow::Result<Solid>| made.map_err(|why| Grade::Refused(format!("{why:#}")));
     // A quarter of a circle of `radius` in the xy plane about z, from +x.
     let quarter = |radius: f64| {
@@ -1908,9 +1908,9 @@ fn sheets(s: &mut Scene, id: &str) -> Built {
             done(thicken(&solid, &faces, d, false, id.ends_with("sharp")))
         }
         "thicken/parabolic-trough" => {
-            use shapecraft_core::math::Point2;
-            use shapecraft_core::world::topo::Curve3;
-            use shapecraft_shape::swept::{Outline, steady, swept};
+            use workpiece_core::math::Point2;
+            use workpiece_core::world::topo::Curve3;
+            use workpiece_shape::swept::{Outline, steady, swept};
             // What is over the parabola, under a roof: its underside is
             // the sheet.
             let line = (1, vec![0.0, 0.0, 1.0, 1.0], 2);
@@ -2001,11 +2001,11 @@ fn sheets(s: &mut Scene, id: &str) -> Built {
 mod hand {
     use std::sync::Arc;
 
-    use shapecraft_boolean::Solid;
-    use shapecraft_boolean::model::{Edge, Face, Use, Vertex, Walk};
-    use shapecraft_core::math::{Point2, Point3};
-    use shapecraft_core::world::topo::{Curve2, Curve3, NurbsError, NurbsSurface};
-    use shapecraft_shape::swept::{Sides, Weighted};
+    use workpiece_boolean::Solid;
+    use workpiece_boolean::model::{Edge, Face, Use, Vertex, Walk};
+    use workpiece_core::math::{Point2, Point3};
+    use workpiece_core::world::topo::{Curve2, Curve3, NurbsError, NurbsSurface};
+    use workpiece_shape::swept::{Sides, Weighted};
 
     /// How close what is put together here is to what it stands for:
     /// its curves and surfaces are the very ones.
@@ -2425,15 +2425,15 @@ mod hand {
 /// `at` each share of the way, makes carried straight from `from` to
 /// `to` with its y along `up`.
 fn carried(
-    sides: &shapecraft_shape::swept::Sides,
-    at: &dyn Fn(f64) -> shapecraft_shape::swept::Weighted,
+    sides: &workpiece_shape::swept::Sides,
+    at: &dyn Fn(f64) -> workpiece_shape::swept::Weighted,
     from: Point3,
     to: Point3,
     up: Point3,
     size: f64,
 ) -> Built {
-    use shapecraft_core::world::topo::Curve3;
-    use shapecraft_shape::swept::{Outline, swept};
+    use workpiece_core::world::topo::Curve3;
+    use workpiece_shape::swept::{Outline, swept};
     let path = Curve3::line(from, to).map_err(|e| Grade::Crashed(format!("setup: {e}")))?;
     let outline = Outline {
         sides: sides.clone(),
@@ -2444,7 +2444,7 @@ fn carried(
 }
 
 /// What is put together by hand, or how that failed.
-fn handmade(made: Result<Solid, shapecraft_core::world::topo::NurbsError>) -> Built {
+fn handmade(made: Result<Solid, workpiece_core::world::topo::NurbsError>) -> Built {
     made.map_err(|e| Grade::Crashed(format!("setup: {e}")))
 }
 
@@ -2459,7 +2459,7 @@ fn graph(
     ys: &[f64],
     heights: &dyn Fn(usize, usize) -> f64,
     weights: Option<&[f64]>,
-) -> Result<shapecraft_core::world::topo::NurbsSurface, Grade> {
+) -> Result<workpiece_core::world::topo::NurbsSurface, Grade> {
     let mut points = Vec::new();
     let mut all = Vec::new();
     for (i, x) in xs.iter().enumerate() {
@@ -2468,7 +2468,7 @@ fn graph(
             all.push(weights.map_or(1.0, |w| w[j]));
         }
     }
-    shapecraft_core::world::topo::NurbsSurface::new(
+    workpiece_core::world::topo::NurbsSurface::new(
         degrees.0,
         degrees.1,
         knots.0,
@@ -2527,9 +2527,9 @@ fn barrel_vault() -> Built {
 /// and faces on given NURBS surfaces.
 fn geometry(s: &mut Scene, id: &str) -> Built {
     use crate::scene::Piece;
-    use shapecraft_core::math::Point2;
-    use shapecraft_core::world::topo::NurbsSurface;
-    use shapecraft_shape::swept::circle;
+    use workpiece_core::math::Point2;
+    use workpiece_core::world::topo::NurbsSurface;
+    use workpiece_shape::swept::circle;
     let far = 100.0;
     // `solid` stretched along x, y and z about the origin.
     let stretched = |solid: &Solid, by: [f64; 3]| {
@@ -2720,7 +2720,7 @@ fn geometry(s: &mut Scene, id: &str) -> Built {
 /// blocks, cylinders, outlines turned or pushed, and booleans of them.
 fn parts(s: &mut Scene, id: &str) -> Built {
     use crate::scene::Piece;
-    use shapecraft_core::math::Point2;
+    use workpiece_core::math::Point2;
     match id {
         "parts/flange" => {
             let plate = rod(s, 2, [0.0, 0.0], 0.0, 6.0, 32.0, 0.0)?;
@@ -2895,9 +2895,9 @@ fn nurbs(s: &mut Scene, id: &str) -> Built {
         // by sweeping its arched end. Their common part once came back
         // as one of them whole.)
         "nurbs/groin-vault-swept" => {
-            use shapecraft_core::math::Point2;
-            use shapecraft_core::world::topo::Curve3;
-            use shapecraft_shape::swept::{Outline, steady, swept};
+            use workpiece_core::math::Point2;
+            use workpiece_core::world::topo::Curve3;
+            use workpiece_shape::swept::{Outline, steady, swept};
             let line = (1, vec![0.0, 0.0, 1.0, 1.0], 2);
             let arch = (2, vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0], 3);
             let sides = vec![line.clone(), line.clone(), arch, line];
@@ -2930,7 +2930,7 @@ fn nurbs(s: &mut Scene, id: &str) -> Built {
         }
         "nurbs/sliced-dome" => {
             // What is behind the plane z = 4 + x/2, seen from above it.
-            let halves = shapecraft_shape::halves(
+            let halves = workpiece_shape::halves(
                 &bezier_dome()?,
                 Point3::new(0.0, 0.0, 4.0),
                 Point3::new(-0.5, 0.0, 1.0),
@@ -2950,9 +2950,9 @@ fn nurbs(s: &mut Scene, id: &str) -> Built {
 /// brep-bench's spline cases: splines pushed, turned and followed.
 fn spline(s: &mut Scene, id: &str) -> Built {
     use crate::scene::Piece;
-    use shapecraft_core::math::Point2;
-    use shapecraft_core::world::topo::Curve3;
-    use shapecraft_shape::swept::{Outline, Sides, Weighted, circle, polygon, steady, swept};
+    use workpiece_core::math::Point2;
+    use workpiece_core::world::topo::Curve3;
+    use workpiece_shape::swept::{Outline, Sides, Weighted, circle, polygon, steady, swept};
     let turned = |s: &mut Scene, start: [f64; 2], pieces: &[(Piece, [f64; 2])]| {
         s.outlined([0.0; 3], upright(), start, pieces)
             .map_err(|why| Grade::Refused(format!("{why:#}")))

@@ -1,13 +1,13 @@
 [book]
-title = "ShapeCraft"
-authors = ["The ShapeCraft authors"]
+title = "Workpiece"
+authors = ["The Workpiece authors"]
 language = "en"
 src = "src"
 
 [output.html]
-git-repository-url = "https://github.com/geop-cad/ShapeCraft"
+git-repository-url = "https://github.com/geop-cad/Workpiece"
 # Where the book is served from, as a path. The site workflow (.github/workflows/site.yml)
 # sets this from SITE_URL; change it here only for a book built by hand.
 # For a custom domain served at the root, this is "/docs/".
-site-url = "/ShapeCraft/docs/"
+site-url = "/Workpiece/docs/"
 no-section-label = true

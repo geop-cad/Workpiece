@@ -14,12 +14,12 @@ on:
 
 env:
   # Where the site is served from. Not decided yet: this is a placeholder.
-  # For a custom domain: set SITE_URL to it (for example https://shapecraft.example/),
+  # For a custom domain: set SITE_URL to it (for example https://workpiece.example/),
   # put the bare domain name in a file website/CNAME (assemble.sh copies it into the
   # site), and set the domain in the repository's Pages settings.
-  # The path of this URL is where the book's pages expect to be ("/ShapeCraft/docs/");
+  # The path of this URL is where the book's pages expect to be ("/Workpiece/docs/");
   # book.toml's site-url is the value for building the book by hand.
-  SITE_URL: https://geop-cad.github.io/ShapeCraft/
+  SITE_URL: https://geop-cad.github.io/Workpiece/
 
 permissions:
   contents: read

@@ -4,7 +4,7 @@
 
 use std::borrow::Cow;
 
-use shapecraft_core::math::Point3;
+use workpiece_core::math::Point3;
 
 use crate::model::Solid;
 use crate::query::{self, SolidData};
@@ -139,7 +139,7 @@ impl<'a> Placer<'a> {
             .enumerate()
             .map(|(k, &p)| {
                 if k % 256 == 0 {
-                    shapecraft_core::cancel::checkpoint();
+                    workpiece_core::cancel::checkpoint();
                 }
                 let p = p - self.shift;
                 if !self.data.bounds.holds(p, tol) {
@@ -252,7 +252,7 @@ impl<'a> Placer<'a> {
             hi = hi.max(v.point);
         }
         const STARTS: usize = 16;
-        use shapecraft_core::math::Point2;
+        use workpiece_core::math::Point2;
         for axis in 0..3 {
             for sign in [1.0, -1.0] {
                 // (What the vertices reach is known: an edge or a face
@@ -498,7 +498,7 @@ impl<'a> Placer<'a> {
     /// The point of the solid's boundary nearest `p`, wherever `p` is;
     /// `None` for an empty solid.
     fn nearest_on_boundary_here(&self, p: Point3) -> Option<Point3> {
-        use shapecraft_core::math::Point2;
+        use workpiece_core::math::Point2;
         if self.solid.is_empty() {
             return None;
         }
@@ -786,7 +786,7 @@ impl<'a> Placer<'a> {
     /// towards it (a hole). `None` where that point is on a crease (see
     /// [`normal`](Self::normal)), or the solid is empty.
     fn curvature_here(&self, p: Point3, tol: f64) -> Option<[f64; 2]> {
-        use shapecraft_core::math::Point2;
+        use workpiece_core::math::Point2;
         // (A point on the boundary already is its own nearest: found
         // on a face, without the search for the nearest of all. Where
         // it is on each face is found once, for its normal as for its
@@ -853,7 +853,7 @@ impl<'a> Placer<'a> {
 
     /// The faces `p` is on, within `tol` (or their own tolerance), each
     /// with where on it: its (u, v).
-    fn on_faces(&self, p: Point3, tol: f64) -> Vec<(usize, shapecraft_core::math::Point2)> {
+    fn on_faces(&self, p: Point3, tol: f64) -> Vec<(usize, workpiece_core::math::Point2)> {
         let faces = self.solid.faces.iter().zip(&self.data.faces);
         faces
             .enumerate()
@@ -869,7 +869,7 @@ impl<'a> Placer<'a> {
         &self,
         p: Point3,
         tol: f64,
-        on: &[(usize, shapecraft_core::math::Point2)],
+        on: &[(usize, workpiece_core::math::Point2)],
     ) -> Option<Point3> {
         let mut found: Option<Point3> = None;
         // The normals of the faces `p` is on — and, where it is on an
@@ -921,7 +921,7 @@ impl<'a> Placer<'a> {
 /// polynomial of each piece. `None` for a curve with weights that are
 /// not all positive.
 fn farthest(
-    curve: &shapecraft_core::world::topo::Curve3,
+    curve: &workpiece_core::world::topo::Curve3,
     range: (f64, f64),
     axis: usize,
     sign: f64,

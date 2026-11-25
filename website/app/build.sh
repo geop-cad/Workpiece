@@ -1,6 +1,6 @@
 #!/bin/sh
 # build.sh [out dir]: the application for the browser, as a static folder
-# (index.html, shapecraft.js, shapecraft_bg.wasm, the icon); by default
+# (index.html, workpiece.js, workpiece_bg.wasm, the icon); by default
 # website/app/dist. Serve the folder over HTTP (a page from file:// cannot
 # load WebAssembly modules).
 #
@@ -39,30 +39,30 @@ for candidate in "${WASM_OPT:-}" wasm-opt "$HOME"/.cache/trunk/wasm-opt-*/bin/wa
 done
 
 cd "$REPO"
-cargo build --profile web --target wasm32-unknown-unknown -p shapecraft-app
-WASM=$REPO/target/wasm32-unknown-unknown/web/shapecraft-app.wasm
+cargo build --profile web --target wasm32-unknown-unknown -p workpiece-app
+WASM=$REPO/target/wasm32-unknown-unknown/web/workpiece-app.wasm
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
-"$BINDGEN" --target web --no-typescript --out-dir "$OUT" --out-name shapecraft "$WASM"
+"$BINDGEN" --target web --no-typescript --out-dir "$OUT" --out-name workpiece "$WASM"
 if [ -n "$OPT" ]; then
   # (The features are those Rust's wasm32 target uses by default.)
   "$OPT" -O3 --enable-bulk-memory --enable-nontrapping-float-to-int \
     --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue \
-    "$OUT/shapecraft_bg.wasm" -o "$OUT/shapecraft_bg.wasm.opt"
-  mv "$OUT/shapecraft_bg.wasm.opt" "$OUT/shapecraft_bg.wasm"
+    "$OUT/workpiece_bg.wasm" -o "$OUT/workpiece_bg.wasm.opt"
+  mv "$OUT/workpiece_bg.wasm.opt" "$OUT/workpiece_bg.wasm"
 else
   echo "build.sh: no wasm-opt: the file is left as wasm-bindgen wrote it" >&2
 fi
 cp "$HERE/index.html" "$OUT/"
-cp "$REPO/hosts/app/assets/shapecraft.png" "$OUT/"
+cp "$REPO/hosts/app/assets/workpiece.png" "$OUT/"
 
 size() { wc -c <"$1" | tr -d ' '; }
-raw=$(size "$OUT/shapecraft_bg.wasm")
-gz=$(gzip -9 -c "$OUT/shapecraft_bg.wasm" | wc -c | tr -d ' ')
-line="shapecraft_bg.wasm: $raw bytes, $gz gzipped"
+raw=$(size "$OUT/workpiece_bg.wasm")
+gz=$(gzip -9 -c "$OUT/workpiece_bg.wasm" | wc -c | tr -d ' ')
+line="workpiece_bg.wasm: $raw bytes, $gz gzipped"
 if command -v brotli >/dev/null 2>&1; then
-  br=$(brotli -c -q 11 "$OUT/shapecraft_bg.wasm" | wc -c | tr -d ' ')
+  br=$(brotli -c -q 11 "$OUT/workpiece_bg.wasm" | wc -c | tr -d ' ')
   line="$line, $br with brotli"
 fi
 echo "$line"

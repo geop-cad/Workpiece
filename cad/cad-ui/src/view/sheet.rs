@@ -6,10 +6,10 @@
 //! right button goes on to the next; a left click confirms it (a press
 //! drags it).
 
-use shapecraft_core::math::Point2;
-use shapecraft_ops_drawing::Sheet;
-use shapecraft_ops_drawing::lay::{Laid, LaidNote, LaidView, Placing};
-use shapecraft_ops_drawing::sheet::ViewKind;
+use workpiece_core::math::Point2;
+use workpiece_ops_drawing::Sheet;
+use workpiece_ops_drawing::lay::{Laid, LaidNote, LaidView, Placing};
+use workpiece_ops_drawing::sheet::ViewKind;
 
 /// Something on a sheet the pointer can pick.
 #[derive(Debug, Clone, PartialEq)]
@@ -714,8 +714,8 @@ impl Hovering {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_ops_drawing::lay::{LaidCut, LaidLinear};
-    use shapecraft_ops_drawing::sheet::{PlacedNote, SheetView, Side, Style};
+    use workpiece_ops_drawing::lay::{LaidCut, LaidLinear};
+    use workpiece_ops_drawing::sheet::{PlacedNote, SheetView, Side, Style};
 
     fn p(x: f64, y: f64) -> Point2 {
         Point2::new(x, y)

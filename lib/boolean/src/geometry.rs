@@ -3,8 +3,8 @@
 //! or a curve, and the curve in a surface's (u, v) under a curve that
 //! lies on it.
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::{Curve2, Curve3, NurbsSurface};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
 
 use crate::bezier::{Piece, curve_pieces, surface_pieces};
 use crate::solve::{Along, At, Over, contacts};

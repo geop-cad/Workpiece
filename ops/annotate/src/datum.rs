@@ -1,13 +1,13 @@
 //! Datum feature: a face named A, B, C… that the part is measured from.
 
 use anyhow::Context;
-use shapecraft_core::world::topo::FaceId;
-use shapecraft_core::world::{Annotation, Note, World};
-use shapecraft_core::{Builder, Operation, Reference};
+use workpiece_core::world::topo::FaceId;
+use workpiece_core::world::{Annotation, Note, World};
+use workpiece_core::{Builder, Operation, Reference};
 
 /// The face, and its letter.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct DatumFeatureArgs {
     /// The face that is the datum feature.
@@ -85,7 +85,7 @@ impl Operation for DatumFeature {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let args = &self.args;
         let letter = args.letter.trim();
         anyhow::ensure!(
@@ -99,8 +99,8 @@ impl Operation for DatumFeature {
             .any(|a| matches!(&a.note, Note::Datum { letter: other, .. } if other == letter));
         anyhow::ensure!(!taken, "there is a datum {letter} already");
         let feature = args.feature.as_ref().context("pick the face")?;
-        let (solid, face) = shapecraft_shape::on::face(&world.topo, feature.name())?;
-        let (on, out) = shapecraft_shape::on::middle(&solid, face);
+        let (solid, face) = workpiece_shape::on::face(&world.topo, feature.name())?;
+        let (on, out) = workpiece_shape::on::middle(&solid, face);
         let note = Annotation {
             sketch: None,
             note: Note::Datum {
@@ -109,11 +109,11 @@ impl Operation for DatumFeature {
                 out,
             },
             at: match args.at {
-                Some(at) => shapecraft_core::math::Point3::from_array(at),
-                None => on + out * (shapecraft_shape::on::size(&solid) * 0.12),
+                Some(at) => workpiece_core::math::Point3::from_array(at),
+                None => on + out * (workpiece_shape::on::size(&solid) * 0.12),
             },
         };
-        Ok(shapecraft_core::Made {
+        Ok(workpiece_core::Made {
             annotations: vec![(self.id.clone(), note)],
             ..Default::default()
         })
@@ -121,13 +121,13 @@ impl Operation for DatumFeature {
 
     fn visualize_edit(
         &self,
-        context: &shapecraft_core::EditContext<'_>,
+        context: &workpiece_core::EditContext<'_>,
         (): &(),
-    ) -> shapecraft_core::EditVisualization<shapecraft_core::Edit<DatumFeatureArgs, ()>> {
+    ) -> workpiece_core::EditVisualization<workpiece_core::Edit<DatumFeatureArgs, ()>> {
         let about = self.args.feature.as_ref().and_then(|feature| {
             let (solid, face) =
-                shapecraft_shape::on::face(&context.world.topo, feature.name()).ok()?;
-            Some(shapecraft_shape::on::middle(&solid, face).0)
+                workpiece_shape::on::face(&context.world.topo, feature.name()).ok()?;
+            Some(workpiece_shape::on::middle(&solid, face).0)
         });
         crate::placed(&self.args, context, about, |args, at| DatumFeatureArgs {
             at: Some(at),
@@ -136,7 +136,7 @@ impl Operation for DatumFeature {
     }
 
     fn summary(&self) -> String {
-        let of = shapecraft_core::reference::described(&self.args.feature);
+        let of = workpiece_core::reference::described(&self.args.feature);
         format!("{} is {of}", self.args.letter)
     }
 }

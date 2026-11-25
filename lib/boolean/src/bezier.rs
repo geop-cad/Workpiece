@@ -8,8 +8,8 @@
 //! go through the same arithmetic as polynomial ones and nothing is
 //! divided before it has to be.
 
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::nurbs::{ControlPoint, NurbsCurve, NurbsSurface};
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::nurbs::{ControlPoint, NurbsCurve, NurbsSurface};
 
 /// A homogeneous point `(w·x, w·y, w·z, w)`.
 pub(crate) type H = [f64; 4];
@@ -594,7 +594,7 @@ pub(crate) fn roots(c: &[f64], zero: f64) -> Option<Vec<f64>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::world::topo::Curve3;
+    use workpiece_core::world::topo::Curve3;
 
     #[test]
     fn pieces_are_the_curve_and_clips_keep_what_is_in_the_slab() -> anyhow::Result<()> {

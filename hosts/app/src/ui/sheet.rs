@@ -9,19 +9,19 @@
 //! goes on to the next, the left confirms it or drags it.
 
 use eframe::egui;
-use shapecraft_cad_ui::Message;
-use shapecraft_cad_ui::view::{
+use workpiece_core::handles::{CanvasEvent, CanvasEventKind, CanvasShape, CanvasView, Tone};
+use workpiece_core::math::Point2;
+use workpiece_ops_drawing::Sheet;
+use workpiece_ops_drawing::lay::{Laid, LaidView, Placing, scale_text};
+use workpiece_ops_drawing::sheet::{
+    Beside, Format, OwnDimension, Projection, SCALES, SheetView, Side, Style, ViewKind,
+};
+use workpiece_ops_drawing::template::Content;
+use workpiece_ui::Message;
+use workpiece_ui::view::{
     EditDialog, Hand, Hovering, Mark, PickMode, SheetPick, SheetShown, Sheeted,
     describe_sheet_pick, sheet_candidates, sheet_marks,
 };
-use shapecraft_core::handles::{CanvasEvent, CanvasEventKind, CanvasShape, CanvasView, Tone};
-use shapecraft_core::math::Point2;
-use shapecraft_ops_drawing::Sheet;
-use shapecraft_ops_drawing::lay::{Laid, LaidView, Placing, scale_text};
-use shapecraft_ops_drawing::sheet::{
-    Beside, Format, OwnDimension, Projection, SCALES, SheetView, Side, Style, ViewKind,
-};
-use shapecraft_ops_drawing::template::Content;
 
 use crate::theme::color;
 
@@ -367,13 +367,13 @@ fn snap(
         .flat_map(|v| v.snaps.iter().copied())
         .filter(|s| s.distance(p) <= reach * 3.0)
         .collect();
-    let view = shapecraft_core::handles::CanvasView {
+    let view = workpiece_core::handles::CanvasView {
         pixel: reach / SNAP_PX,
         right: Point2::X,
         up: Point2::Y,
         middle: Point2::ZERO,
     };
-    shapecraft_ops_sketch::tools::Snappable::new(&lines, &rounds, &points).snap(p, &view, last)
+    workpiece_ops_sketch::tools::Snappable::new(&lines, &rounds, &points).snap(p, &view, last)
 }
 
 /// The text of the note `index` (one of the sheet's own, with `own`)
@@ -1493,7 +1493,7 @@ impl SheetPanel {
                             n.preview.is_none() && n.kind == Placing::Balloon(part.clone())
                         }) && let Some(view) = laid_view(laid, &laid_note.view)
                         {
-                            new.balloons.push(shapecraft_ops_drawing::sheet::Balloon {
+                            new.balloons.push(workpiece_ops_drawing::sheet::Balloon {
                                 part: part.clone(),
                                 view: view.id.clone(),
                                 at: (p - view.anchor).to_array(),
@@ -1510,7 +1510,7 @@ impl SheetPanel {
                     {
                         let (at, _) = snap(laid, p, reach, Some(&view.id), None);
                         if let Some(to) = words.to.get_mut(*k) {
-                            *to = shapecraft_ops_drawing::sheet::Target::View(
+                            *to = workpiece_ops_drawing::sheet::Target::View(
                                 own_of(view, at).to_array(),
                             );
                         }
@@ -1710,10 +1710,10 @@ impl SheetPanel {
                     _ => "Words".to_owned(),
                 },
                 Placing::Line(of) => match of {
-                    shapecraft_ops_drawing::sheet::LineOf::Datum(_) => "Datum line".to_owned(),
-                    shapecraft_ops_drawing::sheet::LineOf::Axis(_) => "Centre line".to_owned(),
-                    shapecraft_ops_drawing::sheet::LineOf::Pitch(_) => "Pitch circle".to_owned(),
-                    shapecraft_ops_drawing::sheet::LineOf::Path(_) => "Path".to_owned(),
+                    workpiece_ops_drawing::sheet::LineOf::Datum(_) => "Datum line".to_owned(),
+                    workpiece_ops_drawing::sheet::LineOf::Axis(_) => "Centre line".to_owned(),
+                    workpiece_ops_drawing::sheet::LineOf::Pitch(_) => "Pitch circle".to_owned(),
+                    workpiece_ops_drawing::sheet::LineOf::Path(_) => "Path".to_owned(),
                 },
                 Placing::Balloon(_) => "Balloon".to_owned(),
             },
@@ -1812,10 +1812,10 @@ impl SheetPanel {
                         let mut gone = None;
                         for (k, to) in words.to.iter().enumerate() {
                             let said = match to {
-                                shapecraft_ops_drawing::sheet::Target::Model(p) => {
+                                workpiece_ops_drawing::sheet::Target::Model(p) => {
                                     format!("to ({:.4}, {:.4}, {:.4})", p[0], p[1], p[2])
                                 }
-                                shapecraft_ops_drawing::sheet::Target::View(p) => {
+                                workpiece_ops_drawing::sheet::Target::View(p) => {
                                     format!("to ({:.4}, {:.4}) of the view", p[0], p[1])
                                 }
                             };
@@ -1835,7 +1835,7 @@ impl SheetPanel {
                                 .on_hover_text("A leader from the words to the view's middle: drag its end to what the words say something of (ISO 128-22: an arrowhead on an outline, a dot within a face)")
                                 .clicked()
                         {
-                            words.to.push(shapecraft_ops_drawing::sheet::Target::View([0.0, 0.0]));
+                            words.to.push(workpiece_ops_drawing::sheet::Target::View([0.0, 0.0]));
                         }
                         if words.view.is_none() {
                             ui.weak("none: words on the sheet itself have no leader");
@@ -1855,7 +1855,7 @@ impl SheetPanel {
                     ui.end_row();
                     ui.label("Line type");
                     ui.label(match of {
-                        shapecraft_ops_drawing::sheet::LineOf::Datum(_) => {
+                        workpiece_ops_drawing::sheet::LineOf::Datum(_) => {
                             "Long-dashed dotted narrow (ISO 128-2, 04.1): a datum's trace"
                         }
                         _ => "Long-dashed dotted narrow (ISO 128-2, 04.1): a centre line",
@@ -2132,8 +2132,8 @@ impl SheetPanel {
                             .show_ui(ui, |ui| {
                                 ui.selectable_value(&mut view.half, None, "Whole");
                                 for only in [false, true] {
-                                    for cut in shapecraft_ops_drawing::sheet::HalfSide::ALL {
-                                        let half = Some(shapecraft_ops_drawing::sheet::Half { cut, only });
+                                    for cut in workpiece_ops_drawing::sheet::HalfSide::ALL {
+                                        let half = Some(workpiece_ops_drawing::sheet::Half { cut, only });
                                         let text = match only {
                                             true => format!("{} only", cut.label()),
                                             false => format!("{} cut", cut.label()),
@@ -2240,7 +2240,7 @@ impl SheetPanel {
                     .selected_text(new.centres.label())
                     .width(150.0)
                     .show_ui(ui, |ui| {
-                        for centres in shapecraft_ops_drawing::sheet::Centres::ALL {
+                        for centres in workpiece_ops_drawing::sheet::Centres::ALL {
                             ui.selectable_value(&mut new.centres, centres, centres.label());
                         }
                     })
@@ -2344,7 +2344,7 @@ impl SheetPanel {
                             Content::Property(name) => {
                                 let value = laid.map_or("", |c| c.value.as_str());
                                 let property = shown.schema.iter().find(|p| p.name == *name);
-                                let given = shapecraft_ops_drawing::template::BUILT_IN
+                                let given = workpiece_ops_drawing::template::BUILT_IN
                                     .contains(&name.as_str())
                                     && !matches!(name.as_str(), "Name" | "Title");
                                 if given {
@@ -2359,7 +2359,7 @@ impl SheetPanel {
                                     .on_disabled_hover_text(format!(
                                         "{name} is the sheet's or the part's own: it follows by itself"
                                     ));
-                                } else if let Some(shapecraft_cad_part::Kind::Choice(of)) =
+                                } else if let Some(workpiece_part::Kind::Choice(of)) =
                                     property.map(|p| &p.kind)
                                 {
                                     let mut now = value.to_owned();
@@ -2618,7 +2618,7 @@ fn paint(
         // (No wider than the sheet lays it out — Helvetica, as the PDF
         // has it — so that what follows it on its line is not written
         // over it.)
-        let room = shapecraft_ops_drawing::lay::text_width(&text.text, text.height) as f32 * zoom;
+        let room = workpiece_ops_drawing::lay::text_width(&text.text, text.height) as f32 * zoom;
         if galley.size().x > room * 1.01 && room > 0.0 {
             let smaller = size * room / galley.size().x;
             galley =

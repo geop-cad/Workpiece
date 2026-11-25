@@ -1,4 +1,4 @@
-//! shapecraft as an adapter for [brep-conformance](https://github.com/springcraft-ai/brep-conformance):
+//! workpiece as an adapter for [brep-conformance](https://github.com/springcraft-ai/brep-conformance):
 //! one JSON request per line on stdin, one reply per line on stdout.
 //!
 //! The suite's rule for an adapter is kept: every function is answered by
@@ -20,27 +20,27 @@ use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use glam::DMat3;
 use serde_json::{Value, json};
-use shapecraft_boolean::geometry::{chords, on_curve};
-use shapecraft_boolean::{
+use workpiece_boolean::geometry::{chords, on_curve};
+use workpiece_boolean::{
     Op, Placer, Side, Solid, combine, combine_all, lies_on, measure, read, write,
 };
-use shapecraft_core::math::{Axis, Point3};
-use shapecraft_core::world::topo::{Curve3, Topo};
-use shapecraft_core::world::{Datum, DatumFrame};
-use shapecraft_core::{Measure, Operation, Pose, Reference, Standalone};
-use shapecraft_ops_basic_shapes::{
+use workpiece_core::math::{Axis, Point3};
+use workpiece_core::world::topo::{Curve3, Topo};
+use workpiece_core::world::{Datum, DatumFrame};
+use workpiece_core::{Measure, Operation, Pose, Reference, Standalone};
+use workpiece_ops_basic_shapes::{
     AddBox, AddBoxArgs, AddCone, AddConeArgs, AddCylinder, AddCylinderArgs, AddSphere,
     AddSphereArgs, AddTorus, AddTorusArgs,
 };
-use shapecraft_ops_sweep::{Extrude, Revolve, RevolveAxis, SweptLoft, SweptLoftArgs};
-use shapecraft_shape::roll::Rolled;
-use shapecraft_shape::swept::{area_along_path, through_sections};
-use shapecraft_shape::{BlendShape, By, Combine, Section, blend_chains, blend_solid};
+use workpiece_ops_sweep::{Extrude, Revolve, RevolveAxis, SweptLoft, SweptLoftArgs};
+use workpiece_shape::roll::Rolled;
+use workpiece_shape::swept::{area_along_path, through_sections};
+use workpiece_shape::{BlendShape, By, Combine, Section, blend_chains, blend_solid};
 
 /// The suite's `10·ε`: how near a point is to the edge or face it names.
 const NAMES: f64 = 1e-6;
 
-/// The functions shapecraft has one call for.
+/// The functions workpiece has one call for.
 const SUPPORTS: &[&str] = &[
     "box",
     "cylinder",
@@ -118,14 +118,14 @@ impl From<anyhow::Error> for No {
     }
 }
 
-impl From<shapecraft_boolean::Refusal> for No {
-    fn from(e: shapecraft_boolean::Refusal) -> Self {
+impl From<workpiece_boolean::Refusal> for No {
+    fn from(e: workpiece_boolean::Refusal) -> Self {
         No::Failed(e.to_string())
     }
 }
 
-impl From<shapecraft_core::world::topo::NurbsError> for No {
-    fn from(e: shapecraft_core::world::topo::NurbsError) -> Self {
+impl From<workpiece_core::world::topo::NurbsError> for No {
+    fn from(e: workpiece_core::world::topo::NurbsError) -> Self {
         No::Failed(e.to_string())
     }
 }
@@ -274,7 +274,7 @@ struct Worker {
     /// What each solid measures, once it was asked: a solid is not
     /// changed after it is made, and its volume, area and centre are
     /// one call of the kernel.
-    measured: Vec<std::cell::OnceCell<shapecraft_boolean::Measures>>,
+    measured: Vec<std::cell::OnceCell<workpiece_boolean::Measures>>,
     /// What answers questions about each solid, once one was asked:
     /// what the kernel makes ready for them is made once.
     placers: Vec<std::cell::OnceCell<Placer<'static>>>,
@@ -297,7 +297,7 @@ impl Worker {
     }
 
     /// What the solid `key` of `v` names measures.
-    fn measures(&self, v: &Value, key: &str) -> Answer<shapecraft_boolean::Measures> {
+    fn measures(&self, v: &Value, key: &str) -> Answer<workpiece_boolean::Measures> {
         let handle = v.get(key).ok_or_else(|| malformed(key))?;
         let solid = self.held(handle)?;
         let k = handle.as_u64().unwrap_or(1) as usize - 1;
@@ -318,7 +318,7 @@ impl Worker {
     fn answer(&mut self, cmd: &str, v: &Value) -> Answer<Value> {
         match cmd {
             "hello" => Ok(json!({
-                "name": "shapecraft",
+                "name": "workpiece",
                 "version": env!("CARGO_PKG_VERSION"),
                 "tolerance": 1e-7,
                 "configuration": "",
@@ -373,7 +373,7 @@ impl Worker {
                     };
                     blends.push((edge_at(s, p)?, shape));
                 }
-                let made = shapecraft_shape::blend_each(s, cmd, &blends)?;
+                let made = workpiece_shape::blend_each(s, cmd, &blends)?;
                 Ok(self.keep(made))
             }
             "fillet_radii" => {
@@ -395,7 +395,7 @@ impl Worker {
                     };
                     blends.push((edge_at(s, p)?, shape));
                 }
-                let made = shapecraft_shape::blend_each(s, cmd, &blends)?;
+                let made = workpiece_shape::blend_each(s, cmd, &blends)?;
                 Ok(self.keep(made))
             }
             "fillet_faces" => {
@@ -411,7 +411,7 @@ impl Worker {
                     section: Section::Circular,
                     rho: 0.5,
                 };
-                let made = shapecraft_shape::blend_faces(s, cmd, faces, &shape)?;
+                let made = workpiece_shape::blend_faces(s, cmd, faces, &shape)?;
                 Ok(self.keep(made))
             }
             "full_round" => {
@@ -421,7 +421,7 @@ impl Worker {
                     face_at(s, named(v, "side_b")?)?,
                 ];
                 let middle = face_at(s, named(v, "middle")?)?;
-                let made = shapecraft_shape::full_round(s, cmd, sides, middle)?;
+                let made = workpiece_shape::full_round(s, cmd, sides, middle)?;
                 Ok(self.keep(made))
             }
             "fillet" | "fillet_variable" | "fillet_conic" | "fillet_g2" | "fillet_setback"
@@ -442,7 +442,7 @@ impl Worker {
                 let s = self.solid(v, "s")?;
                 let origin = point(v.get("origin").ok_or_else(|| malformed("origin"))?)?;
                 let normal = point(v.get("normal").ok_or_else(|| malformed("normal"))?)?;
-                let [front, behind] = shapecraft_shape::halves(s, origin, normal)?;
+                let [front, behind] = workpiece_shape::halves(s, origin, normal)?;
                 let front = self.keep(front);
                 let behind = self.keep(behind);
                 Ok(json!([front, behind]))
@@ -450,13 +450,13 @@ impl Worker {
             "write_step" => {
                 let s = self.solid(v, "s")?;
                 let bodies = [("solid".to_owned(), s.clone())];
-                let unit = shapecraft_core::Unit::Millimetre;
-                Ok(json!(shapecraft_ops_step::export("solid", &bodies, unit)?))
+                let unit = workpiece_core::Unit::Millimetre;
+                Ok(json!(workpiece_ops_step::export("solid", &bodies, unit)?))
             }
             "read_step" => {
                 let text = v.get("text").and_then(Value::as_str);
                 let text = text.ok_or_else(|| malformed("text"))?;
-                let file = shapecraft_ops_step::import(text.as_bytes())?;
+                let file = workpiece_ops_step::import(text.as_bytes())?;
                 if let Some(why) = file.refused.first() {
                     return Err(No::Failed(format!(
                         "a solid of the file was not read: {why}"
@@ -483,8 +483,8 @@ impl Worker {
                 if tolerance <= 0.0 {
                     return Err(No::Invalid("the tolerance must be positive".into()));
                 }
-                let sheets = shapecraft_ops_step::import_sheets(text.as_bytes())?;
-                let (sewn, closed) = shapecraft_boolean::stitched(&sheets, tolerance)?;
+                let sheets = workpiece_ops_step::import_sheets(text.as_bytes())?;
+                let (sewn, closed) = workpiece_boolean::stitched(&sheets, tolerance)?;
                 if !closed || sewn.is_empty() {
                     return Err(No::Failed("the faces do not close into a solid".into()));
                 }
@@ -495,7 +495,7 @@ impl Worker {
                 if tolerance <= 0.0 {
                     return Err(No::Invalid("the tolerance must be positive".into()));
                 }
-                let shown = shapecraft_boolean::display(self.solid(v, "s")?, tolerance);
+                let shown = workpiece_boolean::display(self.solid(v, "s")?, tolerance);
                 let line = |l: &Vec<Point3>| l.iter().copied().map(out).collect::<Vec<_>>();
                 let faces: Vec<Value> = shown
                     .faces
@@ -523,7 +523,7 @@ impl Worker {
                     return Err(No::Invalid("the tolerance must be positive".into()));
                 }
                 let d = named(v, "direction")?;
-                let drawn = shapecraft_boolean::project(self.solid(v, "s")?, d, tolerance)?;
+                let drawn = workpiece_boolean::project(self.solid(v, "s")?, d, tolerance)?;
                 // The suite's axes of the view: across is d × z (d × x
                 // looking along z), up is −d × across.
                 let d = d.normalize();
@@ -543,14 +543,14 @@ impl Worker {
             }
             "interference" => {
                 let met =
-                    shapecraft_boolean::interference(self.solid(v, "a")?, self.solid(v, "b")?)?;
+                    workpiece_boolean::interference(self.solid(v, "a")?, self.solid(v, "b")?)?;
                 Ok(json!({
                     "volume": finite(met.volume, "volume")?,
                     "gap": finite(met.gap, "gap")?,
                 }))
             }
             "distance" => {
-                let apart = shapecraft_boolean::distance(self.solid(v, "a")?, self.solid(v, "b")?)?;
+                let apart = workpiece_boolean::distance(self.solid(v, "a")?, self.solid(v, "b")?)?;
                 finite(apart, "distance")
             }
             "volume" => finite(self.measures(v, "s")?.volume, "volume"),
@@ -619,7 +619,7 @@ impl Worker {
                 // Followed over the faces directly where that is sure;
                 // else as what cutting the solid at the plane leaves.
                 if let Some(lines) =
-                    shapecraft_boolean::plane_section(s, origin, normal, tolerance / 2.0)
+                    workpiece_boolean::plane_section(s, origin, normal, tolerance / 2.0)
                 {
                     let lines: Vec<Vec<Value>> = lines
                         .into_iter()
@@ -627,7 +627,7 @@ impl Worker {
                         .collect();
                     return Ok(json!(lines));
                 }
-                let cut = shapecraft_shape::section(s, origin, normal)?;
+                let cut = workpiece_shape::section(s, origin, normal)?;
                 let pieces: Vec<Vec<Value>> = cut
                     .iter()
                     .map(|(curve, range)| {
@@ -682,7 +682,7 @@ impl Worker {
             }
             "check" => Ok(json!(faults(self.solid(v, "s")?))),
             other => Err(No::Unsupported(format!(
-                "shapecraft has no call for {other}"
+                "workpiece has no call for {other}"
             ))),
         }
     }
@@ -802,10 +802,8 @@ fn slab(v: &Value) -> Answer<Solid> {
             points.push(f.place(over(&ku, i) * size[0], over(&kv, j) * size[1], *h));
         }
     }
-    let top = shapecraft_core::world::topo::NurbsSurface::new(3, 3, ku, kv, nu, nv, points, None)?;
-    Ok(shapecraft_boolean::under(
-        "slab", &top, f.origin, f.axes[2],
-    )?)
+    let top = workpiece_core::world::topo::NurbsSurface::new(3, 3, ku, kv, nu, nv, points, None)?;
+    Ok(workpiece_boolean::under("slab", &top, f.origin, f.axes[2])?)
 }
 
 /// The constructors that take a sketch: the profile is drawn as one, and
@@ -819,7 +817,7 @@ fn sketched(cmd: &str, v: &Value) -> Answer<Solid> {
         // Drawn beside the axis: across is out from it, up is along it.
         _ => world(f.origin, x, z)?,
     };
-    let mut sketch = shapecraft_ops_sketch::Sketch::new("sketch");
+    let mut sketch = workpiece_ops_sketch::Sketch::new("sketch");
     sketch.args.plane = Some(Reference::frame_axis("frame", Axis::Z));
     profile::draw(&loops, &mut sketch.args)?;
     sketch.apply(&mut b)?;
@@ -855,7 +853,7 @@ fn sketched(cmd: &str, v: &Value) -> Answer<Solid> {
             let rise = number(v, "rise")?;
             let angle = number(v, "angle")?;
             let args = SweptLoftArgs {
-                sections: vec![shapecraft_core::Source::Profile("sketch".into()).into()],
+                sections: vec![workpiece_core::Source::Profile("sketch".into()).into()],
                 coil: Some(Reference::frame_axis("frame", Axis::Y)),
                 pitch: Measure::new(rise.abs() * std::f64::consts::TAU),
                 turns: Measure::new(angle / std::f64::consts::TAU),
@@ -935,7 +933,7 @@ fn swept(cmd: &str, v: &Value) -> Answer<Solid> {
                     let radius = number(arc, "radius")?;
                     let angle = number(arc, "angle")?;
                     let centre = at + x * radius;
-                    path.push(shapecraft_shape::arcs::ellipse(
+                    path.push(workpiece_shape::arcs::ellipse(
                         centre,
                         -x * radius,
                         z * radius,
@@ -973,7 +971,7 @@ fn swept(cmd: &str, v: &Value) -> Answer<Solid> {
                 &[curve],
                 false,
                 // (The suite's sections never turn about the path.)
-                shapecraft_shape::swept::Upright::Least(f.axes[1]),
+                workpiece_shape::swept::Upright::Least(f.axes[1]),
                 twist,
                 1.0,
             )?)
@@ -985,7 +983,7 @@ fn swept(cmd: &str, v: &Value) -> Answer<Solid> {
 /// itself (a cylinder's side, a turned face). It is how the kernel
 /// writes that face and no edge of the solid: no two faces meet there.
 fn is_seam(solid: &Solid, e: usize) -> bool {
-    use shapecraft_boolean::model::Walk;
+    use workpiece_boolean::model::Walk;
     let mut faces = Vec::new();
     for (f, face) in solid.faces.iter().enumerate() {
         for step in face.loops.iter().flatten() {
@@ -1110,7 +1108,7 @@ fn blended(cmd: &str, solid: &Solid, v: &Value) -> Answer<Solid> {
             let shape = round(By::Radius, number(v, "radius")?, None, section, 0.5);
             let edges = edges_at(solid, v, "edges")?;
             let setback = number(v, "setback")?;
-            return Ok(shapecraft_shape::blend_set_back(
+            return Ok(workpiece_shape::blend_set_back(
                 solid, cmd, &edges, &shape, setback,
             )?);
         }
@@ -1177,7 +1175,7 @@ fn blended(cmd: &str, solid: &Solid, v: &Value) -> Answer<Solid> {
 }
 
 fn edited(cmd: &str, solid: &Solid, v: &Value) -> Answer<Solid> {
-    use shapecraft_shape::thick;
+    use workpiece_shape::thick;
     Ok(match cmd {
         "offset" => thick::thickened(solid, number(v, "distance")?, None, false)?,
         "offset_faces" => {
@@ -1186,7 +1184,7 @@ fn edited(cmd: &str, solid: &Solid, v: &Value) -> Answer<Solid> {
         }
         "delete_faces" => {
             let faces = faces_at(solid, v, "faces")?;
-            shapecraft_ops_faces::faces_deleted(solid, &faces)?
+            workpiece_ops_faces::faces_deleted(solid, &faces)?
         }
         "move_faces" => {
             let faces = faces_at(solid, v, "faces")?;
@@ -1258,7 +1256,7 @@ fn reply(worker: &mut Worker, line: &str) -> Value {
         return json!({"err": "a request has a cmd", "kind": "failed"});
     };
     if cmd != "hello" && cmd != "reset" && !SUPPORTS.contains(&cmd) {
-        return json!({"err": format!("shapecraft has no call for {cmd}"), "kind": "unsupported"});
+        return json!({"err": format!("workpiece has no call for {cmd}"), "kind": "unsupported"});
     }
     match catch_unwind(AssertUnwindSafe(|| worker.answer(cmd, &request))) {
         Ok(Ok(value)) => json!({"ok": value}),
@@ -1278,7 +1276,7 @@ fn reply(worker: &mut Worker, line: &str) -> Value {
 
 fn main() {
     let mut worker = Worker::default();
-    let times = std::env::var_os("SHAPECRAFT_TIMES").is_some();
+    let times = std::env::var_os("WORKPIECE_TIMES").is_some();
     let stdin = std::io::stdin();
     let mut stdout = std::io::stdout().lock();
     for line in stdin.lock().lines() {

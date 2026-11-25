@@ -1,21 +1,21 @@
 //! What the operations of this crate make.
 
-use shapecraft_ops_bodies::{CombineArgs, CombineBodies};
-use shapecraft_ops_testing::*;
-use shapecraft_shape::Combine;
+use workpiece_ops_bodies::{CombineArgs, CombineBodies};
+use workpiece_ops_testing::*;
+use workpiece_shape::Combine;
 
 fn fillet(
     b: &mut Standalone,
     edges: Vec<Source>,
-    change: impl Fn(&mut shapecraft_ops_blend::FilletArgs),
+    change: impl Fn(&mut workpiece_ops_blend::FilletArgs),
 ) -> anyhow::Result<()> {
-    let mut args = shapecraft_ops_blend::FilletArgs {
-        edges: shapecraft_core::Reference::each(edges),
+    let mut args = workpiece_ops_blend::FilletArgs {
+        edges: workpiece_core::Reference::each(edges),
         size: Measure::new(0.5),
         ..Default::default()
     };
     change(&mut args);
-    shapecraft_ops_blend::Fillet {
+    workpiece_ops_blend::Fillet {
         id: "fillet".into(),
         args,
     }
@@ -25,7 +25,7 @@ fn fillet(
 #[test]
 fn edges_are_rounded_and_cut_off() -> anyhow::Result<()> {
     // One edge of the box: the top one at x = 2, 4 long.
-    let one = |a: shapecraft_core::math::Point3, b: shapecraft_core::math::Point3| {
+    let one = |a: workpiece_core::math::Point3, b: workpiece_core::math::Point3| {
         a.x > 1.9 && b.x > 1.9 && a.z > 0.9 && b.z > 0.9
     };
     let r: f64 = 0.5;
@@ -42,7 +42,7 @@ fn edges_are_rounded_and_cut_off() -> anyhow::Result<()> {
         4e-3,
     );
     // The box with one face more, and nothing left of what cut it.
-    let made = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let made = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     assert_eq!(
         (made.faces.len(), made.edges.len(), made.vertices.len()),
         (7, 15, 10)
@@ -52,7 +52,7 @@ fn edges_are_rounded_and_cut_off() -> anyhow::Result<()> {
     let mut b = Standalone::new();
     base(&mut b)?;
     fillet(&mut b, edges.clone(), |a| {
-        a.by = shapecraft_shape::By::Width;
+        a.by = workpiece_shape::By::Width;
         a.size = Measure::new(r * 2f64.sqrt());
     })?;
     close(
@@ -63,8 +63,8 @@ fn edges_are_rounded_and_cut_off() -> anyhow::Result<()> {
 
     // A conic and a curvature-continuous section take less or more.
     for section in [
-        shapecraft_shape::Section::Conic,
-        shapecraft_shape::Section::Curvature,
+        workpiece_shape::Section::Conic,
+        workpiece_shape::Section::Curvature,
     ] {
         let mut b = Standalone::new();
         base(&mut b)?;
@@ -80,10 +80,10 @@ fn edges_are_rounded_and_cut_off() -> anyhow::Result<()> {
     // A chamfer with two distances.
     let mut b = Standalone::new();
     base(&mut b)?;
-    shapecraft_ops_blend::Chamfer {
+    workpiece_ops_blend::Chamfer {
         id: "chamfer".into(),
-        args: shapecraft_ops_blend::ChamferArgs {
-            edges: shapecraft_core::Reference::each(edges.clone()),
+        args: workpiece_ops_blend::ChamferArgs {
+            edges: workpiece_core::Reference::each(edges.clone()),
             distance: Measure::new(0.5),
             two: true,
             second: Measure::new(0.25),
@@ -103,7 +103,7 @@ fn edges_are_rounded_and_cut_off() -> anyhow::Result<()> {
 #[test]
 fn corners_between_blends_are_closed() -> anyhow::Result<()> {
     // The three edges at one corner of the box.
-    let at = |p: shapecraft_core::math::Point3| p.x > 1.9 && p.y > 1.9 && p.z > 0.9;
+    let at = |p: workpiece_core::math::Point3| p.x > 1.9 && p.y > 1.9 && p.z > 0.9;
     let r: f64 = 0.5;
     let mut b = Standalone::new();
     base(&mut b)?;
@@ -112,11 +112,11 @@ fn corners_between_blends_are_closed() -> anyhow::Result<()> {
     fillet(&mut b, edges.clone(), |_| {})?;
     check(&b);
     // Each edge less its corner, and the corner under its ball.
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     let edge = (r * r - PI * r * r / 4.0) * (2.0 * (4.0 - r) + (2.0 - r));
     let corner = r * r * r - PI * r * r * r / 6.0;
     close(
-        shapecraft_boolean::measure(&solid).volume,
+        workpiece_boolean::measure(&solid).volume,
         32.0 - edge - corner,
         1e-9,
     );
@@ -126,20 +126,20 @@ fn corners_between_blends_are_closed() -> anyhow::Result<()> {
     let d: f64 = 0.5;
     let mut b = Standalone::new();
     base(&mut b)?;
-    shapecraft_ops_blend::Chamfer {
+    workpiece_ops_blend::Chamfer {
         id: "chamfer".into(),
-        args: shapecraft_ops_blend::ChamferArgs {
-            edges: shapecraft_core::Reference::each(edges),
+        args: workpiece_ops_blend::ChamferArgs {
+            edges: workpiece_core::Reference::each(edges),
             distance: Measure::new(d),
             ..Default::default()
         },
     }
     .apply(&mut b)?;
     check(&b);
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     let edge = d * d / 2.0 * (2.0 * (4.0 - d) + (2.0 - d));
     close(
-        shapecraft_boolean::measure(&solid).volume,
+        workpiece_boolean::measure(&solid).volume,
         32.0 - edge - d * d * d * 5.0 / 6.0,
         1e-9,
     );
@@ -156,10 +156,10 @@ fn inside_corners_and_other_sections_close_too() -> anyhow::Result<()> {
         base(&mut b)?;
         b.world.datums.insert(
             "at".into(),
-            shapecraft_core::world::Datum::Frame(shapecraft_core::world::DatumFrame::new(
-                shapecraft_core::math::Point3::new(1.0, 1.0, 0.5),
-                shapecraft_core::math::Point3::X,
-                shapecraft_core::math::Point3::Y,
+            workpiece_core::world::Datum::Frame(workpiece_core::world::DatumFrame::new(
+                workpiece_core::math::Point3::new(1.0, 1.0, 0.5),
+                workpiece_core::math::Point3::X,
+                workpiece_core::math::Point3::Y,
             )?),
         );
         AddBox {
@@ -181,8 +181,8 @@ fn inside_corners_and_other_sections_close_too() -> anyhow::Result<()> {
         .apply(&mut b)?;
         Ok(b)
     };
-    let inside = |a: shapecraft_core::math::Point3, b: shapecraft_core::math::Point3| {
-        let o = shapecraft_core::math::Point3::ZERO;
+    let inside = |a: workpiece_core::math::Point3, b: workpiece_core::math::Point3| {
+        let o = workpiece_core::math::Point3::ZERO;
         a.distance(o) < 1e-9 || b.distance(o) < 1e-9
     };
     let mut b = notched()?;
@@ -190,11 +190,11 @@ fn inside_corners_and_other_sections_close_too() -> anyhow::Result<()> {
     assert_eq!(edges.len(), 3);
     fillet(&mut b, edges.clone(), |_| {})?;
     check(&b);
-    let solid = shapecraft_boolean::read(&b.world.topo, body(&b, "base"))?;
+    let solid = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     let along = (r * r - PI * r * r / 4.0) * ((2.0 - r) * 2.0 + (1.0 - r));
     let corner = r * r * r - PI * r * r * r / 6.0;
     close(
-        shapecraft_boolean::measure(&solid).volume,
+        workpiece_boolean::measure(&solid).volume,
         32.0 - 4.0 + along + corner,
         1e-9,
     );
@@ -202,8 +202,8 @@ fn inside_corners_and_other_sections_close_too() -> anyhow::Result<()> {
     // A conic and a curvature-continuous section: one patch at the
     // corner, between the three rounds, inside and outside.
     for section in [
-        shapecraft_shape::Section::Conic,
-        shapecraft_shape::Section::Curvature,
+        workpiece_shape::Section::Conic,
+        workpiece_shape::Section::Curvature,
     ] {
         let wanted = 1;
         let patches = |b: &Standalone| {
@@ -222,7 +222,7 @@ fn inside_corners_and_other_sections_close_too() -> anyhow::Result<()> {
         assert_eq!(patches(&b), wanted, "{section:?} inside");
         let mut b = Standalone::new();
         base(&mut b)?;
-        let at = |p: shapecraft_core::math::Point3| p.x > 1.9 && p.y > 1.9 && p.z > 0.9;
+        let at = |p: workpiece_core::math::Point3| p.x > 1.9 && p.y > 1.9 && p.z > 0.9;
         let outside = edges_where(&b, "base", |a, b| at(a) || at(b));
         fillet(&mut b, outside, |a| a.section = section)?;
         check(&b);
@@ -233,10 +233,10 @@ fn inside_corners_and_other_sections_close_too() -> anyhow::Result<()> {
 
 #[test]
 fn blends_say_their_sizes_where_they_are() -> anyhow::Result<()> {
-    use shapecraft_core::world::{Measured, Note};
+    use workpiece_core::world::{Measured, Note};
     // The top edge of the box at x = 2, rounded 0.5: the ball's middle
     // is half in from the side and half down from the top.
-    let one = |a: shapecraft_core::math::Point3, b: shapecraft_core::math::Point3| {
+    let one = |a: workpiece_core::math::Point3, b: workpiece_core::math::Point3| {
         a.x > 1.9 && b.x > 1.9 && a.z > 0.9 && b.z > 0.9
     };
     let mut b = Standalone::new();
@@ -264,7 +264,7 @@ fn blends_say_their_sizes_where_they_are() -> anyhow::Result<()> {
     let mut b = Standalone::new();
     base(&mut b)?;
     fillet(&mut b, edges.clone(), |a| {
-        a.by = shapecraft_shape::blend::By::Width
+        a.by = workpiece_shape::blend::By::Width
     })?;
     let said = &b.world.annotations["fillet/width"];
     let Note::Dimension {
@@ -278,10 +278,10 @@ fn blends_say_their_sizes_where_they_are() -> anyhow::Result<()> {
     // Cut off 0.3 instead: said as a length across a face from the edge.
     let mut b = Standalone::new();
     base(&mut b)?;
-    shapecraft_ops_blend::Chamfer {
+    workpiece_ops_blend::Chamfer {
         id: "chamfer".into(),
-        args: shapecraft_ops_blend::ChamferArgs {
-            edges: shapecraft_core::Reference::each(edges),
+        args: workpiece_ops_blend::ChamferArgs {
+            edges: workpiece_core::Reference::each(edges),
             distance: Measure::new(0.3),
             ..Default::default()
         },
@@ -291,18 +291,18 @@ fn blends_say_their_sizes_where_they_are() -> anyhow::Result<()> {
     // A round rim cut off: said at its middle, and also where it turns
     // across each axis — where a view from the side sees the cut true.
     let mut b = Standalone::new();
-    shapecraft_ops_basic_shapes::AddCylinder {
+    workpiece_ops_basic_shapes::AddCylinder {
         id: "post".into(),
-        args: shapecraft_ops_basic_shapes::AddCylinderArgs {
+        args: workpiece_ops_basic_shapes::AddCylinderArgs {
             frame: Some(Reference::datum(ORIGIN)),
             radius: Measure::new(2.0),
             height: Measure::new(3.0),
         },
     }
     .apply(&mut b)?;
-    shapecraft_ops_blend::Chamfer {
+    workpiece_ops_blend::Chamfer {
         id: "chamfer".into(),
-        args: shapecraft_ops_blend::ChamferArgs {
+        args: workpiece_ops_blend::ChamferArgs {
             edges: vec![Reference::topology("post/top-rim")],
             distance: Measure::new(0.3),
             ..Default::default()
@@ -327,7 +327,7 @@ fn blends_say_their_sizes_where_they_are() -> anyhow::Result<()> {
         })
         .collect();
     for (x, y) in [(2.0, 0.0), (0.0, 2.0), (-2.0, 0.0), (0.0, -2.0)] {
-        let wanted = shapecraft_core::math::Point3::new(x, y, 3.0);
+        let wanted = workpiece_core::math::Point3::new(x, y, 3.0);
         assert!(
             froms.iter().any(|p| p.distance(wanted) < 1e-6),
             "{wanted:?} in {froms:?}"

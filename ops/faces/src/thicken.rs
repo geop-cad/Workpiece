@@ -1,11 +1,11 @@
 //! Thicken: faces or a whole surface given a thickness, into a solid.
 
 use anyhow::{Context, ensure};
-use shapecraft_boolean::{Op, Solid, combine, read, read_sheet};
-use shapecraft_core::world::topo::BodyKind;
-use shapecraft_core::{Builder, Measure, Operation};
+use workpiece_boolean::{Op, Solid, combine, read, read_sheet};
+use workpiece_core::world::topo::BodyKind;
+use workpiece_core::{Builder, Measure, Operation};
 
-use shapecraft_shape::bodies::{self, Combine};
+use workpiece_shape::bodies::{self, Combine};
 
 /// Which side of the faces the thickness goes to.
 #[derive(
@@ -35,13 +35,13 @@ impl ThickenSide {
 
 /// What is thickened, by how much, and what it becomes.
 #[derive(
-    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, shapecraft_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct ThickenArgs {
     /// The faces thickened: faces of any body, or whole surface bodies
     /// (which are used up).
     #[arg(required)]
-    pub faces: Vec<shapecraft_core::Reference<shapecraft_core::FaceOrBody>>,
+    pub faces: Vec<workpiece_core::Reference<workpiece_core::FaceOrBody>>,
     /// How thick.
     #[arg(label = "Thickness")]
     pub distance: Measure,
@@ -65,7 +65,7 @@ pub struct ThickenArgs {
         empty = "All bodies",
         when = "self.combine != Combine::NewBody"
     )]
-    pub target: Option<shapecraft_core::Reference<shapecraft_core::world::topo::BodyId>>,
+    pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
 }
 
 impl Default for ThickenArgs {
@@ -111,10 +111,10 @@ impl Operation for Thicken {
         &mut self.args
     }
 
-    fn make(&self, builder: &dyn Builder) -> anyhow::Result<shapecraft_core::Made<'_>> {
+    fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
-        let mut out = shapecraft_shape::bodies::Out::default();
+        let mut out = workpiece_shape::bodies::Out::default();
         let args = &self.args;
         let distance = (*builder).measure(&args.distance, "the thickness")?;
         ensure!(distance > 0.0, "a solid has some thickness");
@@ -178,7 +178,7 @@ impl Operation for Thicken {
             }
             if out.made.annotations.is_empty() {
                 let thick = distance.abs();
-                out.made.annotations.push(shapecraft_shape::on::held(
+                out.made.annotations.push(workpiece_shape::on::held(
                     &self.id,
                     "distance",
                     (&it, faces[0]),
@@ -187,7 +187,7 @@ impl Operation for Thicken {
                     thick,
                 ));
             }
-            let made = shapecraft_shape::thick::thicken(&it, &faces, distance, both, args.sharp)
+            let made = workpiece_shape::thick::thicken(&it, &faces, distance, both, args.sharp)
                 .with_context(|| format!("thickening {name}"))?;
             whole = Some(match whole {
                 None => made,
@@ -215,7 +215,7 @@ impl Operation for Thicken {
     }
 }
 
-impl shapecraft_core::Choices for ThickenSide {
+impl workpiece_core::Choices for ThickenSide {
     const ALL: &'static [Self] = &Self::ALL;
 
     fn label(self) -> &'static str {

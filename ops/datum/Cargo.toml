@@ -1,5 +1,5 @@
 [package]
-name = "shapecraft-ops-datum"
+name = "workpiece-ops-datum"
 description = "Operations that create datums."
 edition.workspace = true
 version.workspace = true
@@ -8,16 +8,16 @@ repository.workspace = true
 rust-version.workspace = true
 
 [lib]
-name = "shapecraft_ops_datum"
+name = "workpiece_ops_datum"
 
 [dependencies]
 anyhow.workspace = true
-shapecraft-core.workspace = true
+workpiece-core.workspace = true
 glam.workspace = true
 serde.workspace = true
 
 [dev-dependencies]
-shapecraft-ops-basic-shapes.workspace = true
+workpiece-ops-basic-shapes.workspace = true
 
 [lints]
 workspace = true

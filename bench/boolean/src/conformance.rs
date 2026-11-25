@@ -30,10 +30,10 @@ use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use serde::Deserialize;
-use shapecraft_boolean::Solid;
-use shapecraft_boolean::geometry::foot;
-use shapecraft_core::math::{Point2, Point3};
-use shapecraft_core::world::topo::NurbsSurface;
+use workpiece_boolean::Solid;
+use workpiece_boolean::geometry::foot;
+use workpiece_core::math::{Point2, Point3};
+use workpiece_core::world::topo::NurbsSurface;
 
 use crate::mesh::triangles;
 use crate::scene::sound;
@@ -958,7 +958,7 @@ fn read(path: &Path) -> Read {
     // What the file calls a face.
     let text = String::from_utf8_lossy(&bytes);
     let faces = text.matches("ADVANCED_FACE").count();
-    let found = shapecraft_ops_step::import(&bytes).map_err(|e| format!("{e:#}"))?;
+    let found = workpiece_ops_step::import(&bytes).map_err(|e| format!("{e:#}"))?;
     if let Some(why) = found.refused.first() {
         return Err(why.clone());
     }

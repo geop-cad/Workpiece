@@ -1,12 +1,12 @@
 //! Previews: small pictures of parts, for lists of them. A preview is
 //! taken of a part as it is built, from the front right and above, all
 //! of it in view, and kept in the part's file (see
-//! [`Preview`](shapecraft_cad_part::Preview)).
+//! [`Preview`](workpiece_part::Preview)).
 
 use std::sync::Arc;
 
-use shapecraft_cad_part::{Cancel, Engine, Library, Preview, Workspace};
-use shapecraft_core::world::{Visibility, World};
+use workpiece_core::world::{Visibility, World};
+use workpiece_part::{Cancel, Engine, Library, Preview, Workspace};
 
 use crate::model::Camera;
 
@@ -86,20 +86,20 @@ pub fn shot(
         Some((back, up)) => start.facing(start.target, back, up),
         None => start,
     };
-    let shot = shapecraft_ops_appearance::Shot {
+    let shot = workpiece_ops_appearance::Shot {
         ground: taking.ground,
         ..Default::default()
     };
     let camera = crate::view::camera(&from, &scene);
     let lighting = crate::view::lighting(&shot);
     let [width, height] = taking.size;
-    let mut film = shapecraft_render::Film::new(width, height);
+    let mut film = workpiece_render::Film::new(width, height);
     for k in 0..taking.samples.max(1) {
-        shapecraft_core::cancel::checkpoint();
+        workpiece_core::cancel::checkpoint();
         if k > 0 && !more() {
             break;
         }
-        shapecraft_render::pass(&scene, &camera, &lighting, &mut film);
+        workpiece_render::pass(&scene, &camera, &lighting, &mut film);
     }
     Some(film.rgba())
 }

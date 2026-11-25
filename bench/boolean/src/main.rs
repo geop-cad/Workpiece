@@ -24,10 +24,10 @@
 //!   drilled and combined with themselves.
 //!
 //! ```text
-//! cargo run --release -p shapecraft-boolean-bench             # run everything
-//! cargo run --release -p shapecraft-boolean-bench -- fetch    # download the datasets
-//! cargo run --release -p shapecraft-boolean-bench -- box tangent   # some categories
-//! cargo run --release -p shapecraft-boolean-bench -- --bless  # accept the results as the baseline
+//! cargo run --release -p workpiece-boolean-bench             # run everything
+//! cargo run --release -p workpiece-boolean-bench -- fetch    # download the datasets
+//! cargo run --release -p workpiece-boolean-bench -- box tangent   # some categories
+//! cargo run --release -p workpiece-boolean-bench -- --bless  # accept the results as the baseline
 //! ```
 //!
 //! It exits with an error if a case that passed in `baseline.tsv` no
@@ -143,7 +143,7 @@ fn main() {
     // its cases, writes its triangles and says what it measures.
     if args.first().is_some_and(|a| a == "brep-run") {
         if args.iter().any(|a| a == "--version") {
-            println!("shapecraft {}", env!("CARGO_PKG_VERSION"));
+            println!("workpiece {}", env!("CARGO_PKG_VERSION"));
             return;
         }
         let (Some(case), Some(out)) = (args.get(1), args.get(2)) else {

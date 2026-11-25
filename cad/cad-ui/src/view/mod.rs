@@ -32,7 +32,7 @@ pub use viewport::{
     Entry, NoteShown, NoteText, Viewport, clip_polygon, describe_candidate, project,
 };
 
-use shapecraft_core::{Hotkey, Placement, Widget};
+use workpiece_core::{Hotkey, Placement, Widget};
 
 use crate::{Message, Model};
 
@@ -82,9 +82,9 @@ pub struct SheetShown {
     /// The step: what the drawing is called.
     pub id: String,
     /// The sheet.
-    pub sheet: shapecraft_ops_drawing::Sheet,
+    pub sheet: workpiece_ops_drawing::Sheet,
     /// Everything drawn of it.
-    pub laid: std::sync::Arc<shapecraft_ops_drawing::lay::Laid>,
+    pub laid: std::sync::Arc<workpiece_ops_drawing::lay::Laid>,
     /// Whether what is missing on it shows as what it would be, and in
     /// which view (see [`Message::PreviewNotes`]).
     pub previews: Option<Option<String>>,
@@ -98,9 +98,9 @@ pub struct SheetShown {
     pub sections: Vec<String>,
     /// The properties parts have: what the cells of the title block
     /// that say one are of.
-    pub schema: Vec<shapecraft_cad_part::Property>,
+    pub schema: Vec<workpiece_part::Property>,
     /// The sheet templates: what the sheet can be made like.
-    pub templates: Vec<shapecraft_ops_drawing::Template>,
+    pub templates: Vec<workpiece_ops_drawing::Template>,
     /// What draws on it by hand: the canvas of a sketch lying on the
     /// sheet, in millimetres from its lower left corner. (Its tools are
     /// the edit dialog's.)
@@ -110,11 +110,11 @@ pub struct SheetShown {
 /// The canvas that draws on a sheet by hand.
 pub struct Hand {
     /// What it draws, for how the sheet is seen.
-    pub draw: shapecraft_core::handles::CanvasDraw,
+    pub draw: workpiece_core::handles::CanvasDraw,
     /// The message for an event of the pointer on the sheet.
-    pub on_event: shapecraft_core::handles::CanvasHandler<Message>,
+    pub on_event: workpiece_core::handles::CanvasHandler<Message>,
     /// The text field it has open, if one is: a dimension's value.
-    pub input: Option<shapecraft_core::handles::CanvasInput<Message>>,
+    pub input: Option<workpiece_core::handles::CanvasInput<Message>>,
 }
 
 impl SheetShown {
@@ -123,7 +123,7 @@ impl SheetShown {
         let sheet = drawing.args;
         let previews = model.previews.clone();
         let laid = model.with_subject(|subject| {
-            shapecraft_ops_drawing::lay::lay_out(
+            workpiece_ops_drawing::lay::lay_out(
                 &sheet,
                 subject,
                 &model.sheets_kept,
@@ -136,7 +136,7 @@ impl SheetShown {
                 .handles
                 .into_values()
                 .find_map(|h| match h {
-                    shapecraft_core::handles::Handle::Canvas(canvas) => Some(canvas),
+                    workpiece_core::handles::Handle::Canvas(canvas) => Some(canvas),
                     _ => None,
                 })?;
             Some(Hand {
@@ -149,7 +149,7 @@ impl SheetShown {
             .views
             .iter()
             .filter(|v| match &v.kind {
-                shapecraft_ops_drawing::sheet::ViewKind::Section {
+                workpiece_ops_drawing::sheet::ViewKind::Section {
                     of: Some(_),
                     section,
                     ..
@@ -175,8 +175,8 @@ impl SheetShown {
     }
 
     /// The message that makes the drawing's sheet `sheet`.
-    pub fn set(&self, sheet: shapecraft_ops_drawing::Sheet) -> Message {
-        let op = shapecraft_ops_drawing::Drawing {
+    pub fn set(&self, sheet: workpiece_ops_drawing::Sheet) -> Message {
+        let op = workpiece_ops_drawing::Drawing {
             id: self.id.clone(),
             args: sheet,
         };

@@ -1,8 +1,8 @@
 //! Text: the outlines of letters as curves of a sketch.
 
-use shapecraft_core::math::Point2;
-use shapecraft_core::world::topo::Curve2;
-use shapecraft_core::world::topo::nurbs::Recognized;
+use workpiece_core::math::Point2;
+use workpiece_core::world::topo::Curve2;
+use workpiece_core::world::topo::nurbs::Recognized;
 
 /// Collects the outline of glyphs as lines and curves.
 struct Outlines {
@@ -115,7 +115,7 @@ pub fn write(
     let mut at_place: std::collections::HashMap<[u64; 2], crate::Id> = Default::default();
     for shape in outlines(text, height, at)? {
         let found = crate::project::Found {
-            source: shapecraft_core::Source::Topology("text".into()),
+            source: workpiece_core::Source::Topology("text".into()),
             shape,
             tolerance: height * 1e-9,
             auto: false,

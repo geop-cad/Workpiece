@@ -20,16 +20,16 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use shapecraft_cad_rasterize::Pick;
-use shapecraft_cad_rasterize::tessellate;
-use shapecraft_cad_rasterize::world::{AXIS_SIZE, FRAME_SIZE, INSET, PLANE_SIZE};
-use shapecraft_core::handles::shape::Shape;
-use shapecraft_core::handles::{GizmoPart, Handle};
-use shapecraft_core::math::{Axis, Point2, Point3};
-use shapecraft_core::world::topo::EntityId;
-use shapecraft_core::world::visibility::shown_topology;
-use shapecraft_core::world::{Datum, Visibility, World};
-use shapecraft_core::{Pose, Ray, ReferenceKind, Source};
+use workpiece_core::handles::shape::Shape;
+use workpiece_core::handles::{GizmoPart, Handle};
+use workpiece_core::math::{Axis, Point2, Point3};
+use workpiece_core::world::topo::EntityId;
+use workpiece_core::world::visibility::shown_topology;
+use workpiece_core::world::{Datum, Visibility, World};
+use workpiece_core::{Pose, Ray, ReferenceKind, Source};
+use workpiece_rasterize::Pick;
+use workpiece_rasterize::tessellate;
+use workpiece_rasterize::world::{AXIS_SIZE, FRAME_SIZE, INSET, PLANE_SIZE};
 
 /// Something under the pointer that can be picked.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -257,8 +257,8 @@ fn contains(ring: &[Point2], p: Point2) -> bool {
 /// of the pointer.
 #[derive(Default)]
 struct Sampled {
-    edges: HashMap<shapecraft_core::world::topo::EdgeId, Vec<Point3>>,
-    faces: HashMap<shapecraft_core::world::topo::FaceId, Vec<[Point3; 3]>>,
+    edges: HashMap<workpiece_core::world::topo::EdgeId, Vec<Point3>>,
+    faces: HashMap<workpiece_core::world::topo::FaceId, Vec<[Point3; 3]>>,
 }
 
 fn sampled(world: &World) -> std::sync::Arc<Sampled> {
@@ -396,7 +396,7 @@ fn collect(
     let topo = &world.topo;
     let shown = shown_topology(topo, visibility);
     let sampled = sampled(world);
-    let named = |id: shapecraft_core::world::topo::EntityId| {
+    let named = |id: workpiece_core::world::topo::EntityId| {
         topo.name_of(id)
             .map(|n| reference(Source::Topology(n.to_owned())))
     };
@@ -436,7 +436,7 @@ fn collect(
             hits,
             &inst.world,
             &inner,
-            &Visibility::placed(&inst.world, &shapecraft_core::world::Shades::new()),
+            &Visibility::placed(&inst.world, &workpiece_core::world::Shades::new()),
             instance,
         );
         instance.pop();
@@ -488,8 +488,8 @@ pub fn handles<M: 'static>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use shapecraft_core::{Operation, Projection, Standalone};
-    use shapecraft_ops_basic_shapes::{AddBox, AddBoxArgs};
+    use workpiece_core::{Operation, Projection, Standalone};
+    use workpiece_ops_basic_shapes::{AddBox, AddBoxArgs};
 
     fn reference(source: Source) -> Candidate {
         Candidate::Reference {
@@ -507,7 +507,7 @@ mod tests {
         AddBox {
             id: "box".into(),
             args: AddBoxArgs {
-                frame: Some(shapecraft_core::Reference::datum("origin")),
+                frame: Some(workpiece_core::Reference::datum("origin")),
                 ..AddBoxArgs::default()
             },
         }
