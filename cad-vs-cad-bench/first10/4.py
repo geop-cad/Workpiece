@@ -2,7 +2,7 @@ import os, sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
 from workpiece import Part, material, view, projected, detail_view, topo, axis, note
 here = os.path.dirname(os.path.abspath(__file__))
-out = os.path.join(here, "4.workpiece")
+out = os.path.join(here, "4.wpc")
 R10, R8, OFF = 29, 53, 25
 material(here, "ABS 1020", 1020)
 p = Part(material="ABS 1020")

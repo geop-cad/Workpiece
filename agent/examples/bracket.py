@@ -1,11 +1,11 @@
 """Alternator bracket (inch): an example of a script built to a declared original, with a drawing.
-Run it, then read out/bracket.workpiece.views/sheet.txt and the scorecard it prints."""
+Run it, then read out/bracket.wpc.views/sheet.txt and the scorecard it prints."""
 import os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))  # a checkout; `pip install workpiece` makes this line unnecessary
 from workpiece import Part, material, view, projected, note, original
 here = os.path.join(os.path.dirname(os.path.abspath(__file__)), "out")
 os.makedirs(here, exist_ok=True)
-out = os.path.join(here, "bracket.workpiece")
+out = os.path.join(here, "bracket.wpc")
 material(here, "6061 Aluminum", 2700)
 p = Part(unit="Inch", material="6061 Aluminum")
 

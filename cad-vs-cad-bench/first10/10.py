@@ -117,4 +117,4 @@ p.drawing(format="A3", scale=(1, 2), views=[view("plan", "Top", (110, 215), styl
                  note(None, (0, 0), "O.D.", dimension="od_ref"),
                  note("plan", (62, -86), "SPHERES and RIBS\nCENTERED ON PART", to=(4.7, 0, 1.2)),
                  note("iso", (8, 30), "CONCENTRIC", to=[(4.7, 0, 1.2), (-4.7, 0, 1.2)])])
-r = p.build("10.workpiece", render=True); r.show(); print("mass lb", r.volume * RHO)
+r = p.build("10.wpc", render=True); r.show(); print("mass lb", r.volume * RHO)

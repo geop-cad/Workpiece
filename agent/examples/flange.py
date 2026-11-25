@@ -3,7 +3,7 @@ import math, os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "python"))  # a checkout; `pip install workpiece` makes this line unnecessary
 from workpiece import Part, profile, axis
 
-out = sys.argv[1] if len(sys.argv) > 1 else "flange.workpiece"
+out = sys.argv[1] if len(sys.argv) > 1 else "flange.wpc"
 p = Part(material="Steel")
 
 # The disc with its bore: two circles on the origin, each with its diameter.

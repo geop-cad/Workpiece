@@ -13,8 +13,8 @@ except ImportError:  # a source checkout: the package's sources
 from workpiece import Part, axis, datum, view, section_view, topo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "pipe_elbow.workpiece")
-p = Part(material="Stainless steel", title="ELBOW 90° DN50", file="pipe_elbow.workpiece")
+OUT = os.path.join(HERE, "pipe_elbow.wpc")
+p = Part(material="Stainless steel", title="ELBOW 90° DN50", file="pipe_elbow.wpc")
 
 # The section: a Ø60 / Ø50 ring on the origin, square to z.
 sec = p.sketch("XY", id="section", on_drawing=False)    # (its sizes are measured on the tube in the section)

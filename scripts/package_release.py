@@ -24,7 +24,7 @@ import tarfile
 import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-BUNDLE_ID = "io.github.geop-cad.workpiece"
+BUNDLE_ID = "io.github.geop-cad.wpc"
 
 
 def copy_docs(stage: str, third_party: str) -> None:

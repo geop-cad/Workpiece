@@ -138,5 +138,5 @@ p.drawing(format="A3", scale=(1, 2), comma=False, views=[view("front", "Front", 
                  note("secv", (44, -22), "TANGENT", to=(0, 20, 50)),
                  note("top", (50, 22), "R20 SPHERICAL", to=(-14.1, 51.6, 188)),
                  note(None, (0, 0), "THRU", dimension="bore_sk/d43")])
-r = p.build("3.workpiece", render=True); r.show()
+r = p.build("3.wpc", render=True); r.show()
 print("mass g at 1020 kg/m^3:", r.volume * RHO * 1000)

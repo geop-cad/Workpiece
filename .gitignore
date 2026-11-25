@@ -6,7 +6,7 @@ __pycache__/
 *.pyc
 
 # What the authoring layer and the command line write next to a script
-*.workpiece.views/
+*.wpc.views/
 *.parts/
 
 # Editors and the OS

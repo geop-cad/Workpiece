@@ -427,7 +427,7 @@ mod tests {
             AddPart {
                 id: "bolt1".into(),
                 args: AddPartArgs {
-                    part: "bolt.workpiece".into(),
+                    part: "bolt.wpc".into(),
                     variant: None,
                     hold: Default::default(),
                     bodies: Vec::new(),
@@ -439,7 +439,7 @@ mod tests {
         let p = p.placing("bolt1", &at);
         let text = p.to_text()?;
         let back = Part::from_text(&text)?;
-        assert_eq!(back.placed_parts(), ["bolt.workpiece"]);
+        assert_eq!(back.placed_parts(), ["bolt.wpc"]);
         // Where the part is comes back with the part's cache.
         let placed = workpiece_ops_instances::assembly::placed(&back.cache, "bolt1");
         assert!(

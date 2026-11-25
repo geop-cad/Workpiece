@@ -23,7 +23,7 @@ def plate(name, thick, floor_from, title):
     """A 6 x 6 plate with the Ø5 bore and a Ø.875 rod hole at each of three corners. The rod holes have a flat floor
     .5 from the face they do not open on: `floor_from` is "bottom" (the base: the holes open to the top, floor .5
     above the underside) or "top" (the rack: they open from below, floor .5 under the top)."""
-    p = Part(unit="Inch", material="ABS", file=f"{name}.workpiece", title=title)
+    p = Part(unit="Inch", material="ABS", file=f"{name}.wpc", title=title)
     s = p.sketch("XY", id="outline", show_in="top")
     outline(s)
     p.extrude(s, thick, combine="NewBody", id=name)
@@ -53,7 +53,7 @@ def plate(name, thick, floor_from, title):
 
 base = plate("base", 2.0, "bottom", "LOWER BASE")
 rack = plate("rack", 2.5, "top", "UPPER RACK")
-rep = rack.build(os.path.join(folder, "rack.workpiece")); rep.show()
+rep = rack.build(os.path.join(folder, "rack.wpc")); rep.show()
 
 
 rim = rep.edges(where=lambda e: abs(e["middle"][2] - 2.5) < 1e-6 and not e["straight"] and abs(math.hypot(e["middle"][0] - 3, e["middle"][1] + 3) - 2.5) < 1e-3)
@@ -79,7 +79,7 @@ for p, n in ((base, "base"), (rack, "rack")):
 
 # The oak rod, turned from a profile that is the drawing's own numbers: 16.0 from the base's underside to the rack's top
 # (the construction line), the rod .5 short of it at each end, Ø.875.
-rod = Part(unit="Inch", material="Red oak", file="rod.workpiece", title="WOODEN RODS")
+rod = Part(unit="Inch", material="Red oak", file="rod.wpc", title="WOODEN RODS")
 r = rod.sketch("YZ", id="rod_profile", on_drawing=False)
 span0 = r.point(0, -0.5); span1 = r.point(0, 15.5)
 span = r.line(span0, span1, construction=True)
@@ -95,7 +95,7 @@ rod.revolve(r, about="v", combine="NewBody", id="rod")
 rod.on_sheet("rod", on_drawing=False)
 rod.dimension("rod/side/e14", kind="Diameter", show_in="front", id="rod_dia")
 rod.drawing(views=[view("front", "Front", (120, 150), style="HiddenDashed"), view("top", "Top", (300, 150))], scale=(1, 2))
-rrep = rod.build(os.path.join(folder, "rod.workpiece"), render=True); rrep.show()
+rrep = rod.build(os.path.join(folder, "rod.wpc"), render=True); rrep.show()
 for b in rrep.raw['bodies']:
     for f in b['faces']: print(f['name'], [round(x,2) for x in f['middle']], f['flat'])
 
@@ -104,9 +104,9 @@ for b in rrep.raw['bodies']:
 # rod hole floor fastened onto the first rod's top face.
 asm = Part(unit="Inch")
 asm.add_part(base, id="base")
-rb = asm.build(os.path.join(folder, "umbrella_stand.workpiece"))
+rb = asm.build(os.path.join(folder, "umbrella_stand.wpc"))
 fl = rb.faces(placed="base", where=lambda f: f["flat"] and abs(f["middle"][2] - 0.5) < 1e-6 and f["area"] < 1.0)
-rrep = rack.build(os.path.join(folder, "rack.workpiece"))
+rrep = rack.build(os.path.join(folder, "rack.wpc"))
 rack_floor = rrep.faces(where=lambda f: f["flat"] and abs(f["middle"][2] - 2.0) < 1e-6 and f["area"] < 1.0 and f["name"].startswith("rod_holes/"))
 print("hole floors", fl, rack_floor, rrep.faces(where=lambda f: f["flat"] and abs(f["middle"][2] - 2.0) < 1e-6 and f["area"] < 1.0))
 for k, name in enumerate(fl):
@@ -116,7 +116,7 @@ for k, name in enumerate(fl):
 asm.add_part(rack, id="rack", constraint="Fastened", flip=True,
              onto=anchor(topo("rod/side/e15"), "FaceCentre", instance="rod1"),
              with_=anchor(topo(rack_floor[0]), "FaceCentre"))
-rb = asm.build(os.path.join(folder, "umbrella_stand.workpiece")); rb.show()
+rb = asm.build(os.path.join(folder, "umbrella_stand.wpc")); rb.show()
 for pp in rb.placed: print(pp["name"], pp["pose"])
 for m in rb.masses: print(m["name"], m["material"], m["mass"] * 2.20462, "lb")
 print("total lb", rb.mass_total * 2.20462, "expected 3.061 +- 0.003")
@@ -165,5 +165,5 @@ asm.drawing(views=[view("front", "Front", (85, 90), style="HiddenDashed"),
                    note("isoA", (0, -52), "SECTION VIEW"),
                    note(None, (0, 0), "RODS AND HOLES", dimension="rod_below_top_s"),
                    note(None, (0, 0), "RODS AND HOLES", dimension="floor_s")])
-rb = asm.build(os.path.join(folder, "umbrella_stand.workpiece"), render=True); rb.show()
+rb = asm.build(os.path.join(folder, "umbrella_stand.wpc"), render=True); rb.show()
 print(rb.drawings[0]["problems"])

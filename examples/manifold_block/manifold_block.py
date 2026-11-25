@@ -12,8 +12,8 @@ except ImportError:  # a source checkout: the package's sources
 from workpiece import Part, axis, note, view, section_view, topo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "manifold_block.workpiece")
-p = Part(material="Aluminium", title="MANIFOLD BLOCK", file="manifold_block.workpiece")
+OUT = os.path.join(HERE, "manifold_block.wpc")
+p = Part(material="Aluminium", title="MANIFOLD BLOCK", file="manifold_block.wpc")
 
 # The block: 90 long (y), 60 deep (x), 50 high, standing on the origin.
 b = p.sketch("XY", id="block_outline", show_in="top")

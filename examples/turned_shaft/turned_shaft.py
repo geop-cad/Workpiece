@@ -12,8 +12,8 @@ except ImportError:  # a source checkout: the package's sources
 from workpiece import Part, axis, topo, view, projected, section_view, note, datum
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "turned_shaft.workpiece")
-p = Part(material="Steel", title="DRIVE SHAFT", file="turned_shaft.workpiece")
+OUT = os.path.join(HERE, "turned_shaft.wpc")
+p = Part(material="Steel", title="DRIVE SHAFT", file="turned_shaft.wpc")
 
 # Half the profile, above the axis: (length along the shaft, radius) as a starting guess.
 s = p.sketch("YZ", id="profile", show_in="front")

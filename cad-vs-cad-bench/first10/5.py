@@ -2,7 +2,7 @@ import os, sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
 from workpiece import Part, material, datum, view, projected, detail_view, topo, axis, note
 here = os.path.dirname(os.path.abspath(__file__))
-out = os.path.join(here, "5.workpiece")
+out = os.path.join(here, "5.wpc")
 OD, ID, ND, W15 = 9, 10, 11, 21
 material(here, "Plain carbon steel", 7800)
 p = Part(material="Plain carbon steel")

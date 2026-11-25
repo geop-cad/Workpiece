@@ -10,10 +10,10 @@
             "distance": null,
             "flip": false
           },
-          "part": "leaf.workpiece",
+          "part": "body.wpc",
           "variant": null
         },
-        "id": "leaf1"
+        "id": "body"
       }
     },
     {
@@ -23,30 +23,30 @@
           "hold": {
             "angle": null,
             "constraint": {
-              "Joint": "Fastened"
+              "Joint": "Slider"
             },
             "distance": null,
-            "flip": false,
+            "flip": true,
             "onto": {
               "instance": [
-                "leaf1"
+                "body"
               ],
-              "snap": "ArcCentre",
+              "snap": "FaceCentre",
               "source": {
-                "Topology": "plate/edge[knuckle/side/e7+side/e11]"
+                "Topology": "body/side/e16"
               }
             },
             "with": {
-              "snap": "ArcCentre",
+              "snap": "FaceCentre",
               "source": {
-                "Topology": "pin/start/e7"
+                "Topology": "jaw/side/e14"
               }
             }
           },
-          "part": "pin.workpiece",
+          "part": "jaw.wpc",
           "variant": null
         },
-        "id": "pin"
+        "id": "jaw"
       }
     },
     {
@@ -62,40 +62,82 @@
             "flip": true,
             "onto": {
               "instance": [
-                "leaf1"
+                "jaw"
               ],
-              "snap": "ArcCentre",
+              "snap": "FaceCentre",
               "source": {
-                "Topology": "plate/edge[knuckle/end+knuckle/side/e7]#2"
+                "Topology": "seat/side/e2"
               }
             },
             "with": {
-              "snap": "ArcCentre",
+              "snap": "FaceCentre",
               "source": {
-                "Topology": "plate/edge[knuckle/end+knuckle/side/e7]"
+                "Topology": "screw/side/e17"
               }
             }
           },
-          "part": "leaf.workpiece",
+          "part": "screw.wpc",
           "variant": null
         },
-        "id": "leaf2"
+        "id": "screw"
       }
     },
     {
       "Drive": {
         "args": {
-          "at": 110.0,
-          "joint": "leaf2",
+          "at": 40.0,
+          "joint": "jaw",
           "slide": false
         },
         "id": "open"
       }
     },
     {
+      "Section": {
+        "args": {
+          "along": "Plane",
+          "flip": false,
+          "offset": 0.0,
+          "plane": {
+            "FrameAxis": {
+              "axis": "Y",
+              "frame": "origin"
+            }
+          },
+          "sketch": null
+        },
+        "id": "A"
+      }
+    },
+    {
       "Drawing": {
         "args": {
-          "auto_balloons": true,
+          "balloons": [
+            {
+              "at": [
+                -40.0,
+                55.0
+              ],
+              "part": "body",
+              "view": "secA"
+            },
+            {
+              "at": [
+                30.0,
+                55.0
+              ],
+              "part": "jaw",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -80.0,
+                30.0
+              ],
+              "part": "screw",
+              "view": "secA"
+            }
+          ],
           "block": [
             {
               "at": [
@@ -403,7 +445,7 @@
           "parts_list": true,
           "projection": "ThirdAngle",
           "scale": [
-            2,
+            1,
             1
           ],
           "spacing": {
@@ -416,8 +458,32 @@
           "views": [
             {
               "at": [
-                110.0,
-                190.0
+                160.0,
+                185.0
+              ],
+              "caption_at": [
+                0.0,
+                -32.0
+              ],
+              "id": "secA",
+              "kind": {
+                "Section": {
+                  "letter": "A",
+                  "of": "top",
+                  "section": "A",
+                  "turn": 0.0
+                }
+              },
+              "scale": [
+                1,
+                1
+              ],
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                300.0,
+                150.0
               ],
               "id": "top",
               "kind": {
@@ -425,26 +491,16 @@
                   "side": "Top"
                 }
               },
-              "style": "HiddenRemoved"
-            },
-            {
-              "at": [
-                230.0,
-                190.0
+              "scale": [
+                1,
+                2
               ],
-              "id": "side",
-              "kind": {
-                "Projected": {
-                  "beside": "Right",
-                  "of": "top"
-                }
-              },
               "style": "HiddenRemoved"
             },
             {
               "at": [
-                335.0,
-                225.0
+                360.0,
+                235.0
               ],
               "id": "iso",
               "kind": {
@@ -454,7 +510,7 @@
               },
               "scale": [
                 1,
-                1
+                2
               ],
               "style": "HiddenRemoved"
             }
@@ -465,6 +521,6 @@
     }
   ],
   "properties": {
-    "Title": "BUTT HINGE"
+    "Title": "BENCH VISE"
   }
 }

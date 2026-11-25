@@ -21,8 +21,8 @@ for arg in sys.argv[1:]:
 globals().update(values)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "sheet_metal_cover.workpiece")
-p = Part(material="Steel", title="VENTED COVER", file="sheet_metal_cover.workpiece")
+OUT = os.path.join(HERE, "sheet_metal_cover.wpc")
+p = Part(material="Steel", title="VENTED COVER", file="sheet_metal_cover.wpc")
 
 # The base: LENGTH along x, WIDTH along y, THICKNESS thick.
 s = p.sketch("XY", id="base_outline", show_in="top")

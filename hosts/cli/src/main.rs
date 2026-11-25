@@ -1,6 +1,6 @@
 //! `workpiece`: the command line scripts and agents build parts with.
 //!
-//! `workpiece make recipe.json -o part.workpiece [--report report.json]
+//! `workpiece make recipe.json -o part.wpc [--report report.json]
 //! [--render dir]` makes a part of a recipe — its steps said compactly,
 //! sketches by named points and curves with their constraints and
 //! dimensions, every other step by its kind and the arguments that are
@@ -8,7 +8,7 @@
 //! says what came of it: which steps failed and why, what every sketch
 //! can still do, the bodies and their volumes after every step, the
 //! faces and edges of the result by name, and what in it does not look
-//! like a person made it. `workpiece report part.workpiece` says the same of a
+//! like a person made it. `workpiece report part.wpc` says the same of a
 //! part there is; `workpiece kinds` lists the kinds of steps with their
 //! arguments as by default.
 
@@ -60,7 +60,7 @@ fn run() -> anyhow::Result<()> {
         Some("make") => {
             let from = args.get(1).context("which recipe?")?;
             let recipe: Value = serde_json::from_str(&std::fs::read_to_string(from)?)?;
-            let out = flag("-o").context("where to (-o part.workpiece)?")?;
+            let out = flag("-o").context("where to (-o part.wpc)?")?;
             let (part, names) = made(&recipe, &out)?;
             std::fs::write(&out, part.to_text()?)?;
             // The drawings that are to show all that is said of the model.
@@ -98,9 +98,9 @@ fn run() -> anyhow::Result<()> {
 
 /// What the command line says of itself.
 const USAGE: &str = "usage:
-  workpiece make recipe.json -o part.workpiece [--report r.json] [--render dir [--no-pictures]] [--times]
+  workpiece make recipe.json -o part.wpc [--report r.json] [--render dir [--no-pictures]] [--times]
                   [--picture file.png [--size 1200x900] [--samples 256] [--seconds 5]]
-  workpiece report part.workpiece [--report r.json] [--render dir]
+  workpiece report part.wpc [--report r.json] [--render dir]
   workpiece kinds                      the kinds of steps, with their arguments as by default
   workpiece materials [--in folder]
   workpiece --version";
@@ -1726,14 +1726,8 @@ mod tests {
     fn a_step_with_an_argument_its_kind_lacks_is_refused() {
         let recipe = |args: Value| json!({ "steps": [{ "op": "Hole", "id": "h", "args": args }] });
         // A known argument is let by (and so is an empty unknown one).
-        assert!(
-            made(
-                &recipe(json!({ "diameter": { "value": 5.0 } })),
-                "part.workpiece"
-            )
-            .is_ok()
-        );
-        let said = match made(&recipe(json!({ "next": true })), "part.workpiece") {
+        assert!(made(&recipe(json!({ "diameter": { "value": 5.0 } })), "part.wpc").is_ok());
+        let said = match made(&recipe(json!({ "next": true })), "part.wpc") {
             Err(e) => e.to_string(),
             Ok(_) => panic!("refused"),
         };
@@ -1781,8 +1775,8 @@ mod tests {
             { "op": "Extrude", "id": "plate",
               "args": { "sketch": { "Profile": "s" }, "distance": 10.0, "combine": "NewBody" } },
         ] });
-        let (part, _) = made(&plate, &in_folder("plate.workpiece")).unwrap();
-        std::fs::write(in_folder("plate.workpiece"), part.to_text().unwrap()).unwrap();
+        let (part, _) = made(&plate, &in_folder("plate.wpc")).unwrap();
+        std::fs::write(in_folder("plate.wpc"), part.to_text().unwrap()).unwrap();
         // The assembly places it, projects the plate's top edge into a
         // sketch, lays a square on it and extrudes that.
         let mut square = rect("q", 10.0, 10.0);
@@ -1794,22 +1788,22 @@ mod tests {
             "source": { "Topology": "plate/end/e11" } } } });
         let assembly = json!({ "steps": [
             { "op": "AddPart", "id": "p1",
-              "args": { "part": "plate.workpiece", "hold": { "constraint": "Fixed", "flip": false }, "bodies": [] },
+              "args": { "part": "plate.wpc", "hold": { "constraint": "Fixed", "flip": false }, "bodies": [] },
               "pose": { "at": [0.0, 0.0, 5.0], "euler": [0.0, 0.0, 0.0] } },
             { "sketch": square },
             { "op": "Extrude", "id": "x",
               "args": { "sketch": { "Profile": "q" }, "distance": 3.0, "combine": "NewBody" } },
         ] });
-        let made_in_folder = made(&assembly, &in_folder("asm.workpiece"));
+        let made_in_folder = made(&assembly, &in_folder("asm.wpc"));
         let (assembly, _) = match made_in_folder {
             Ok(made) => made,
             Err(e) => panic!("{e:#}"),
         };
-        let workspace = workspace_of(&in_folder("asm.workpiece"), assembly).unwrap();
+        let workspace = workspace_of(&in_folder("asm.wpc"), assembly).unwrap();
         let built = workpiece_part::Engine::inline()
             .build(
                 &std::sync::Arc::new(workspace),
-                &in_folder("asm.workpiece"),
+                &in_folder("asm.wpc"),
                 None,
                 &|_| true,
                 &workpiece_part::Cancel::new(),

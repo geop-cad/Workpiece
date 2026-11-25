@@ -234,7 +234,7 @@ fn card(ui: &mut egui::Ui, previews: &mut Previews, file: &str, selected: bool) 
     // Its name, without the folders it is in and what kind of file it
     // is, cut short to fit.
     let name = file.rsplit('/').next().unwrap_or(file);
-    let name = name.strip_suffix(".workpiece").unwrap_or(name);
+    let name = name.strip_suffix(".wpc").unwrap_or(name);
     let font = egui::FontId::proportional(12.5);
     let ink = if selected { color::ACCENT } else { color::TEXT };
     let mut job = egui::text::LayoutJob::simple_singleline(name.to_owned(), font, ink);

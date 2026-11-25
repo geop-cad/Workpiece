@@ -1,7 +1,7 @@
 """Two parts and an assembly: an aluminium plate with two holes, a steel pin placed in each.
 
-Each item of the parts list is a part of its own (plate.workpiece, pin.workpiece); the assembly
-(pinned_plate.workpiece) places the plate once and the same pin file twice, and the report gives
+Each item of the parts list is a part of its own (plate.wpc, pin.wpc); the assembly
+(pinned_plate.wpc) places the plate once and the same pin file twice, and the report gives
 what each placed part and all of it weighs. Run: python3 pinned_plate.py [folder]
 """
 import math, os, sys
@@ -12,7 +12,7 @@ folder = sys.argv[1] if len(sys.argv) > 1 else "pinned_plate"
 os.makedirs(folder, exist_ok=True)
 
 # The plate: 60 x 40 x 10, two Ø10 holes 40 apart on its middle line.
-plate = Part(material="Aluminium", file="plate.workpiece")
+plate = Part(material="Aluminium", file="plate.wpc")
 s = plate.sketch("XY", show_in="top")
 r = s.rect("r", -30, -20, 60, 40)
 s.symmetric(r.points[0], r.points[1], "v")
@@ -28,7 +28,7 @@ h.distance(a, b, 40)
 plate.hole(h, 10, id="holes")
 
 # The pin: Ø10 x 30, standing on the origin.
-pin = Part(material="Steel", file="pin.workpiece")
+pin = Part(material="Steel", file="pin.wpc")
 c = pin.sketch("XY", show_in="top")
 c.diameter(c.circle(c.origin, 5), 10)
 pin.extrude(c, 30, combine="NewBody", id="pin")
@@ -39,7 +39,7 @@ asm = Part()
 asm.add_part(plate, id="plate")
 for k, x in enumerate((-20, 20)):
     asm.add_part(pin, id=f"pin{k + 1}", at=(x, 0, -5))
-report = asm.build(os.path.join(folder, "pinned_plate.workpiece"))
+report = asm.build(os.path.join(folder, "pinned_plate.wpc"))
 report.show()
 assert report.ok, report.errors
 
@@ -52,10 +52,10 @@ print("plate top:", top, " pin1 top end:", end, " as a reference:", placed("pin1
 # A third pin held by a joint instead of a pose: its bottom face fastened onto the middle
 # of the plate's top, facing it — it stands on the plate there.
 bottom = report.faces(placed="pin1", near=(-20, 0, -5))
-asm.add_part("pin.workpiece", id="pin3", constraint="Fastened", flip=True,
+asm.add_part("pin.wpc", id="pin3", constraint="Fastened", flip=True,
              onto=anchor(topo(top[0]), "FaceCentre", instance="plate"),
              with_=anchor(topo(bottom[0]), "FaceCentre"))
-report = asm.build(os.path.join(folder, "pinned_plate.workpiece"))
+report = asm.build(os.path.join(folder, "pinned_plate.wpc"))
 assert report.ok, report.errors
 pin3 = report.placed_part("pin3")["pose"]["at"]
 print("pin3 stands at", [round(x, 6) for x in pin3])
@@ -63,12 +63,12 @@ assert math.dist(pin3, (0, 0, 10)) < 1e-6, pin3
 
 # A fourth one fastened the same way, but 12 along x and 8 along y off the top's middle (in the
 # top face's own frame: x and y in its plane, z along its normal) — no helper frame needed.
-asm.add_part("pin.workpiece", id="pin4", constraint="Fastened", flip=True,
+asm.add_part("pin.wpc", id="pin4", constraint="Fastened", flip=True,
              onto=anchor(topo(top[0]), "FaceCentre", instance="plate"),
              with_=anchor(topo(bottom[0]), "FaceCentre"), offset=(12, 8, 0))
 # And how tall it stands over the plate, measured between the two placed parts.
 asm.dimension(placed("plate", topo(top[0])), placed("pin4", topo(end[0])), id="pin4_height")
-report = asm.build(os.path.join(folder, "pinned_plate.workpiece"))
+report = asm.build(os.path.join(folder, "pinned_plate.wpc"))
 assert report.ok, report.errors
 pin4 = report.placed_part("pin4")["pose"]["at"]
 print("pin4 stands at", [round(x, 6) for x in pin4])

@@ -1,7 +1,7 @@
 # Examples
 
 Original parts and assemblies, each a Python script that models it the way a person would (fully
-constrained sketches, features, patterns and mirrors, joints), the built `.workpiece` file(s) to open
+constrained sketches, features, patterns and mirrors, joints), the built `.wpc` file(s) to open
 in the app, an ISO drawing per part and assembly (`drawing*.pdf` / `.svg`), a shaded thumbnail and a path-traced
 picture (`render.png`).
 

@@ -18,7 +18,7 @@ mdbook build "$REPO/docs/book" -d "$OUT/docs"
 # the scripts keep beside the part files).
 if [ -d "$REPO/examples" ]; then
   (cd "$REPO/examples" && find . -name '*.views' -prune -o -type f \
-    \( -name '*.workpiece' -o -name '*.json' -o -name '*.png' -o -name '*.pdf' -o -name '*.svg' \
+    \( -name '*.wpc' -o -name '*.json' -o -name '*.png' -o -name '*.pdf' -o -name '*.svg' \
     -o -name '*.py' -o -name '*.step' -o -name '*.stp' \) -print) | while read -r f; do
     mkdir -p "$OUT/examples/$(dirname "$f")"
     cp "$REPO/examples/$f" "$OUT/examples/$f"

@@ -10,7 +10,7 @@
             "distance": null,
             "flip": false
           },
-          "part": "fork.workpiece",
+          "part": "fork.wpc",
           "variant": null
         },
         "id": "fork"
@@ -43,7 +43,7 @@
               }
             }
           },
-          "part": "pin.workpiece",
+          "part": "pin.wpc",
           "variant": null
         },
         "id": "pin"
@@ -81,7 +81,7 @@
               }
             }
           },
-          "part": "wheel.workpiece",
+          "part": "wheel.wpc",
           "variant": null
         },
         "id": "wheel"

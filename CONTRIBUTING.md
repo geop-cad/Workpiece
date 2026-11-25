@@ -48,8 +48,8 @@ Add a test with a fix: say what was wrong in a way a test can fail.
 - The history has short commit messages in the imperative mood, a sentence with a capital letter and no prefix ("Add fillets", "Fix nan bug"). Do the same; a line more of explanation after a blank line is welcome when the reason is not obvious.
 - One change per pull request, kept small enough to read. Say what it does and how you checked it; the pull request template asks for that.
 - Do not commit STEP, IGES or other CAD files, meshes, videos or other large binaries. Test data is built in code or fetched by the benchmark from a pinned address (`bench/boolean/datasets.tsv`). Pictures for the documentation go under `docs/images/` and stay below 400 kB.
-- Do not commit generated files: `target/`, `*.workpiece.views/`, `*.parts/` and `__pycache__/` are ignored for that reason.
-- Parts files (`.workpiece`) are not a stable format; a change that breaks old files needs no migration but should say so.
+- Do not commit generated files: `target/`, `*.wpc.views/`, `*.parts/` and `__pycache__/` are ignored for that reason.
+- Parts files (`.wpc`) are not a stable format; a change that breaks old files needs no migration but should say so.
 
 ## Licence of contributions
 

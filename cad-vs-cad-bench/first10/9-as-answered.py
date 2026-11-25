@@ -41,20 +41,20 @@ p.on_sheet("plate", on_drawing=False)
 
 
 # --- R.625 on the body's top edge and the dome's top edge, then R.25 at every concave junction
-r = p.build("9-as-answered.workpiece")
+r = p.build("9-as-answered.wpc")
 purple = r.edges(where=lambda e: e["name"].startswith("body/end/") or e["name"].startswith("dome/end/"))
 p.fillet(purple, 0.625, id="fillet_big")
 p.on_sheet("fillet_big", on_drawing=False)
-r = p.build("9-as-answered.workpiece")
+r = p.build("9-as-answered.wpc")
 base = r.edges(where=lambda e: e["name"] in ("body/edge[end+tower/side/e7]", "body/edge[dome/side/e8+end]"))
 p.fillet(base, 0.25, id="fillet_small")
 p.on_sheet("fillet_small", on_drawing=False)
-r = p.build("9-as-answered.workpiece")
+r = p.build("9-as-answered.wpc")
 # AS ANSWERED: the accepted model (Ricardo, video 6:52-6:57) also opened the dome's flat top in the shell.
 openings = r.faces(where=lambda f: f["flat"] and any(abs(f["middle"][2] - z) < 1e-6 for z in (0, 4.0, 6.125)))
 p.shell(openings, 0.375, id="shell")
 p.on_sheet("shell", on_drawing=False)
-r = p.build("9-as-answered.workpiece")
+r = p.build("9-as-answered.wpc")
 # --- base flange: 5.5 wide, 10.0 long tangent to tangent, R2.0 tips, 65 degree sides, R.5 corners.
 # It is added after the shell (a ring around the body's foot, whose inside is the body's outline
 # projected), so the wall runs straight down to the bottom, sharp, as section A-A shows.
@@ -93,7 +93,7 @@ s.coincident(i1, "pt_a"); s.coincident(i2, "pt_b"); s.coincident(i4, "pb_a"); s.
 p.extrude(s, 0.375, id="flange")
 p.on_sheet("flange", show_in="front")
 
-r = p.build("9-as-answered.workpiece")
+r = p.build("9-as-answered.wpc")
 foot = lambda e: e["name"].startswith("flange/end/") and abs(e["middle"][1]) < 2.25 + 1e-6 and -2.25 - 1e-6 < e["middle"][0] < 6.25 + 1e-6
 # AS ANSWERED: no R.25 at the flange foot (absent on the accepted model, video 6:52).
 rest = r.edges(where=lambda e: e["name"] in ("body/edge[plate/start+tower/side/e7]", "body/edge[plate/end+tower/side/e7#2]"))
@@ -125,4 +125,4 @@ p.drawing(format="A2", scale=(1, 2), views=[view("front", "Left", (160, 100)), p
           section_view("secv", "secA", (330, 230), of="plan"), projected("side", "front", "Right", 150)],
           notes=[note("plan", (-30, 105), "Ø.500 HOLE (4) PLACES"), note("secv", (0, 55), "THRU"), note("secv", (60, -45), "SHARP"),
                  note("secv", (60, -10), "WALL TYP"), note("front", (0, -35), "TANGENT TO TANGENT")])
-r = p.build("9-as-answered.workpiece", render=True); r.show(); print("mass lb", r.volume * RHO)
+r = p.build("9-as-answered.wpc", render=True); r.show(); print("mass lb", r.volume * RHO)

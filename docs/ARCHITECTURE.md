@@ -4,7 +4,7 @@ A map of the crates and of how a part is built, for someone who wants to find th
 
 ## The idea
 
-A **part** is a program: an ordered list of **operations** (also called steps) with arguments. Applying the operations in order to an empty **world** gives the part's geometry. The program, the parameters and a cache of solved values are what is saved in a `.workpiece` file (JSON); geometry is never saved, it is rebuilt.
+A **part** is a program: an ordered list of **operations** (also called steps) with arguments. Applying the operations in order to an empty **world** gives the part's geometry. The program, the parameters and a cache of solved values are what is saved in a `.wpc` file (JSON); geometry is never saved, it is rebuilt.
 
 A **step never depends on a later step**: a step sees only what the steps before it made. Across parts, a part never contains itself; building a part that is already being built fails.
 

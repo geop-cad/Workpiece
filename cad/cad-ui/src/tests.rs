@@ -292,7 +292,7 @@ fn placing_a_part_opens_its_file_field() -> anyhow::Result<()> {
     let Some(Widget::FileInput(file)) = fields.children.first() else {
         anyhow::bail!("expected the file field");
     };
-    assert_eq!(file.extension, "workpiece");
+    assert_eq!(file.extension, "wpc");
     // No part chosen yet: the step cannot be built.
     assert!(m.viewport.shown.error.is_some());
     m.update(file.set("nut"))?;
@@ -471,35 +471,32 @@ fn files_load_save_and_close() -> anyhow::Result<()> {
         program: vec![frame("g", 1.0)],
         ..Default::default()
     };
-    let bolt = Part::new(vec![place("nut1", "nut.workpiece")]).placing("nut1", &along(1.0));
+    let bolt = Part::new(vec![place("nut1", "nut.wpc")]).placing("nut1", &along(1.0));
     m.update(Message::Load {
-        parts: BTreeMap::from([
-            ("bolt.workpiece".into(), bolt),
-            ("nut.workpiece".into(), nut),
-        ]),
-        open: Some("bolt.workpiece".into()),
+        parts: BTreeMap::from([("bolt.wpc".into(), bolt), ("nut.wpc".into(), nut)]),
+        open: Some("bolt.wpc".into()),
     })?;
-    assert_eq!(m.active_part.as_deref(), Some("bolt.workpiece"));
-    assert!(!m.is_dirty("bolt.workpiece"));
+    assert_eq!(m.active_part.as_deref(), Some("bolt.wpc"));
+    assert!(!m.is_dirty("bolt.wpc"));
     click(&mut m, "Frame")?;
     m.update(Message::FinishEdit)?;
-    assert!(m.is_dirty("bolt.workpiece"));
-    m.update(Message::Saved("bolt.workpiece".into()))?;
-    assert!(!m.is_dirty("bolt.workpiece"));
+    assert!(m.is_dirty("bolt.wpc"));
+    m.update(Message::Saved("bolt.wpc".into()))?;
+    assert!(!m.is_dirty("bolt.wpc"));
     // Saving as another file; then closing drops it but keeps the nut
     // only while something places it.
-    m.update(Message::SaveAs("bolt2.workpiece".into()))?;
-    assert!(m.is_dirty("bolt2.workpiece"), "never written");
-    assert!(!m.workspace.parts.contains_key("bolt.workpiece"));
+    m.update(Message::SaveAs("bolt2.wpc".into()))?;
+    assert!(m.is_dirty("bolt2.wpc"), "never written");
+    assert!(!m.workspace.parts.contains_key("bolt.wpc"));
     m.update(Message::Close)?;
     assert_eq!(m.active_part, None);
-    m.update(Message::New("new.workpiece".into()))?;
-    assert_eq!(m.active_part.as_deref(), Some("new.workpiece"));
-    assert!(m.is_dirty("new.workpiece"), "never saved");
-    assert!(m.update(Message::New("new.workpiece".into())).is_err());
+    m.update(Message::New("new.wpc".into()))?;
+    assert_eq!(m.active_part.as_deref(), Some("new.wpc"));
+    assert!(m.is_dirty("new.wpc"), "never saved");
+    assert!(m.update(Message::New("new.wpc".into())).is_err());
     m.update(Message::Close)?;
-    assert!(!m.workspace.parts.contains_key("bolt2.workpiece"));
-    assert!(m.workspace.parts.contains_key("nut.workpiece"));
+    assert!(!m.workspace.parts.contains_key("bolt2.wpc"));
+    assert!(m.workspace.parts.contains_key("nut.wpc"));
     Ok(())
 }
 
@@ -1890,16 +1887,16 @@ fn hinged() -> anyhow::Result<Model> {
     hinge.args.a = origin("base");
     hinge.args.b = origin("arm");
     let assembly = Part::new(vec![
-        place("base", "base.workpiece", true),
-        place("arm", "arm.workpiece", false),
+        place("base", "base.wpc", true),
+        place("arm", "arm.wpc", false),
         hinge.into(),
     ]);
     let mut m = small(Model::new(Workspace::new(BTreeMap::from([
-        ("base.workpiece".into(), block([2.0, 2.0, 0.5])),
-        ("arm.workpiece".into(), block([6.0, 0.6, 0.6])),
-        ("hinged.workpiece".into(), assembly),
+        ("base.wpc".into(), block([2.0, 2.0, 0.5])),
+        ("arm.wpc".into(), block([6.0, 0.6, 0.6])),
+        ("hinged.wpc".into(), assembly),
     ]))));
-    m.update(Message::Open("hinged.workpiece".into()))?;
+    m.update(Message::Open("hinged.wpc".into()))?;
     m.update(Message::Tick(1.0))?;
     Ok(m)
 }
@@ -1947,7 +1944,7 @@ fn parts_are_dragged_as_far_as_their_joints_let_them() -> anyhow::Result<()> {
         Pose::IDENTITY
     );
     // Where the arm is belongs to the assembly's part, not to its steps.
-    let part = m.workspace.part("hinged.workpiece")?;
+    let part = m.workspace.part("hinged.wpc")?;
     assert!(part.cache.get("arm/pose").is_some());
     // Nothing was rasterized again: the same scenes, at other poses.
     assert!(!std::sync::Arc::ptr_eq(&drawn, &m.viewport.shown.scene));
@@ -2000,14 +1997,14 @@ fn a_joint_is_made_by_pointing_at_the_two_parts() -> anyhow::Result<()> {
     m.update(Message::RemoveOperation(vec!["hinge".into()]))?;
     let away = Pose::from_translation(Point3::new(1.0, 4.0, 2.0));
     m.update(Message::Keep {
-        part: "hinged.workpiece".into(),
+        part: "hinged.wpc".into(),
         id: "arm".into(),
         kept: workpiece_ops_instances::assembly::kept(&away),
     })?;
     assert_eq!(m.viewport.shown.world.instances["arm"].pose, away);
 
     m.update(Message::AddOperation {
-        part: "hinged.workpiece".into(),
+        part: "hinged.wpc".into(),
         op: Mate::of("joint1", JointKind::Fastened).into(),
     })?;
     // It asks for its first connector right away.
@@ -2052,12 +2049,12 @@ fn a_drag_moves_the_first_part_up_that_is_not_fixed() -> anyhow::Result<()> {
     // The hinged pair, placed in an assembly above it.
     m.update(Message::Load {
         parts: BTreeMap::from([(
-            "top.workpiece".to_owned(),
+            "top.wpc".to_owned(),
             Part::new(vec![
                 AddPart {
                     id: "sub".into(),
                     args: AddPartArgs {
-                        part: "hinged.workpiece".into(),
+                        part: "hinged.wpc".into(),
                         variant: None,
                         hold: Default::default(),
                         bodies: Vec::new(),
@@ -2066,7 +2063,7 @@ fn a_drag_moves_the_first_part_up_that_is_not_fixed() -> anyhow::Result<()> {
                 .into(),
             ]),
         )]),
-        open: Some("top.workpiece".into()),
+        open: Some("top.wpc".into()),
     })?;
     m.update(Message::Tick(1.0))?;
     let grab = Point3::new(2.7, 0.0, 0.3);
@@ -2078,39 +2075,33 @@ fn a_drag_moves_the_first_part_up_that_is_not_fixed() -> anyhow::Result<()> {
     // The arm is free in its own assembly: that is where it moves.
     start(&mut m)?;
     let moving = m.viewport.moving.clone().expect("the arm is grabbed");
-    assert_eq!(moving.part, "hinged.workpiece");
+    assert_eq!(moving.part, "hinged.wpc");
     assert_eq!(moving.within, ["sub"]);
     assert_eq!(moving.instance, "arm");
     hover(&mut m, Vec3::new(1.5, 2.0, 0.3))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     assert!(
         m.workspace
-            .part("hinged.workpiece")?
+            .part("hinged.wpc")?
             .cache
             .get("arm/pose")
             .is_some()
     );
-    assert!(
-        m.workspace
-            .part("top.workpiece")?
-            .cache
-            .get("sub/pose")
-            .is_none()
-    );
+    assert!(m.workspace.part("top.wpc")?.cache.get("sub/pose").is_none());
     m.update(Message::Undo)?;
 
     // Fixed in its own assembly, it takes that whole assembly along.
     {
-        let part = m.workspace.part_mut("hinged.workpiece")?;
+        let part = m.workspace.part_mut("hinged.wpc")?;
         let Some(add) = part.program[1].downcast_mut::<workpiece_ops_instances::AddPart>() else {
             anyhow::bail!("expected the arm's step");
         };
         add.args.hold = workpiece_ops_instances::Hold::fixed();
     }
-    m.update(Message::Open("top.workpiece".into()))?;
+    m.update(Message::Open("top.wpc".into()))?;
     start(&mut m)?;
     let moving = m.viewport.moving.clone().expect("the pair is grabbed");
-    assert_eq!(moving.part, "top.workpiece");
+    assert_eq!(moving.part, "top.wpc");
     assert!(moving.within.is_empty());
     assert_eq!(moving.instance, "sub");
     hover(&mut m, (grab + Point3::new(1.0, 0.5, 0.0)).as_vec3())?;
@@ -2130,11 +2121,11 @@ fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Resul
     m.update(Message::RemoveOperation(vec!["hinge".into()]))?;
     m.update(Message::RemoveOperation(vec!["arm".into()]))?;
     m.update(Message::AddOperation {
-        part: "hinged.workpiece".into(),
+        part: "hinged.wpc".into(),
         op: AddPart {
             id: "arm".into(),
             args: AddPartArgs {
-                part: "arm.workpiece".into(),
+                part: "arm.wpc".into(),
                 variant: None,
                 hold: Default::default(),
                 bodies: Vec::new(),
@@ -2187,7 +2178,7 @@ fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Resul
     assert_eq!(constraint.shown, workpiece_core::widgets::Shown::DropDown);
     assert_eq!(&constraint.options[..2], ["Free", "Fixed"]);
     assert!(constraint.options.len() > 2, "{:?}", constraint.options);
-    let added = m.workspace.part("hinged.workpiece")?;
+    let added = m.workspace.part("hinged.wpc")?;
     let added = added.operation("arm").expect("the step");
     let hold = &added.downcast_ref::<AddPart>().expect("a part").args.hold;
     assert_eq!(hold.constraint, Constraint::Joint(JointKind::Fastened));
@@ -2207,22 +2198,17 @@ fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Resul
 #[test]
 fn a_new_part_is_made_in_place_and_worked_on_there() -> anyhow::Result<()> {
     let mut m = hinged()?;
-    m.update(Message::NewPartHere(Some("cover.workpiece".into())))?;
-    assert!(m.workspace.parts.contains_key("cover.workpiece"));
+    m.update(Message::NewPartHere(Some("cover.wpc".into())))?;
+    assert!(m.workspace.parts.contains_key("cover.wpc"));
     // Added to the assembly, and focused: the next step goes into it.
-    let assembly = m.workspace.part("hinged.workpiece")?;
+    let assembly = m.workspace.part("hinged.wpc")?;
     assert!(assembly.operation("cover").is_some());
     assert_eq!(m.focus, ["cover"]);
-    assert_eq!(m.focused_part().as_deref(), Some("cover.workpiece"));
+    assert_eq!(m.focused_part().as_deref(), Some("cover.wpc"));
     // One step to undo.
     m.update(Message::Undo)?;
-    assert!(!m.workspace.parts.contains_key("cover.workpiece"));
-    assert!(
-        m.workspace
-            .part("hinged.workpiece")?
-            .operation("cover")
-            .is_none()
-    );
+    assert!(!m.workspace.parts.contains_key("cover.wpc"));
+    assert!(m.workspace.part("hinged.wpc")?.operation("cover").is_none());
     Ok(())
 }
 
@@ -2234,7 +2220,7 @@ fn a_mechanism_ties_two_joints_of_the_assembly() -> anyhow::Result<()> {
     // The hinge's own name is offered, and a second joint that turns
     // is needed: with the same one twice it is refused.
     m.update(Message::AddOperation {
-        part: "hinged.workpiece".into(),
+        part: "hinged.wpc".into(),
         op: Mechanism::new("mesh").into(),
     })?;
     let view = View::new(&m);
@@ -2248,7 +2234,7 @@ fn a_mechanism_ties_two_joints_of_the_assembly() -> anyhow::Result<()> {
         first.options
     );
     m.update(Message::ReplaceOperation {
-        part: "hinged.workpiece".into(),
+        part: "hinged.wpc".into(),
         op: Mechanism {
             id: "mesh".into(),
             args: MechanismArgs {
@@ -3299,7 +3285,7 @@ fn a_drawing_shows_the_model_and_what_is_said_of_it() -> anyhow::Result<()> {
 }
 
 /// How long a sheet of the part file `WORKPIECE_SHEET_OF` takes to lay out:
-/// run by hand, `WORKPIECE_SHEET_OF=part.workpiece cargo test --release -p
+/// run by hand, `WORKPIECE_SHEET_OF=part.wpc cargo test --release -p
 /// workpiece-ui a_sheet_is_timed -- --ignored --nocapture`.
 #[test]
 #[ignore = "run by hand, with a part file"]

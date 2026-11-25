@@ -34,7 +34,7 @@ use crate::theme::color;
 const EXAMPLES: &str = "../examples/index.json";
 
 /// The file types "Open from this computer" offers.
-const ACCEPT: &str = ".workpiece,.step,.stp,.igs,.iges,.stl,.3mf";
+const ACCEPT: &str = ".wpc,.step,.stp,.igs,.iges,.stl,.3mf";
 
 /// What the about text says of files.
 const ABOUT: &str = "Workpiece runs in this browser: parts build on your computer. \
@@ -58,7 +58,7 @@ enum Event {
 ///
 /// ```json
 /// { "examples": [ { "name": "flange", "title": "Flange",
-///   "description": "…", "file": "flange/flange.workpiece",
+///   "description": "…", "file": "flange/flange.wpc",
 ///   "thumbnail": "flange/flange.png", "tags": ["revolve"] } ] }
 /// ```
 ///

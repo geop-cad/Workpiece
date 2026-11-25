@@ -1,6 +1,6 @@
 //! Builds a part file step by step without a window, and says how each
 //! step went: `cargo run --release -p workpiece-part --example build --
-//! playground/part9.workpiece` (and, with a second path, writes its solids
+//! playground/part9.wpc` (and, with a second path, writes its solids
 //! there as STEP).
 
 use std::collections::BTreeMap;

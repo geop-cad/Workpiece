@@ -14,10 +14,10 @@ assignees: ""
 1.
 2.
 
-If you can, attach a minimal `.workpiece` part or the Python script that builds it. Please do not attach files you do not have the right to share.
+If you can, attach a minimal `.wpc` part or the Python script that builds it. Please do not attach files you do not have the right to share.
 
 **Output**
-The error message, or what `workpiece report part.workpiece` says.
+The error message, or what `workpiece report part.wpc` says.
 
 **Environment**
 - Workpiece version or commit:

@@ -1794,7 +1794,7 @@ mod tests {
         // A file that is no STEP file still stands for a part: building
         // it fails where the import does, not for there being no part.
         let ws = Workspace::default();
-        assert!(ws.resolve("missing.workpiece").is_err());
+        assert!(ws.resolve("missing.wpc").is_err());
         let part = ws.resolve("bracket.STEP")?;
         assert!(matches!(&part.program[..], [op] if op.is::<workpiece_ops_step::ImportStep>()));
         let err = build(&Engine::inline(), &ws, "bracket.step").expect_err("no such file");

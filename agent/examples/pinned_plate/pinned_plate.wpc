@@ -10,7 +10,7 @@
             "distance": null,
             "flip": false
           },
-          "part": "plate.workpiece",
+          "part": "plate.wpc",
           "variant": null
         },
         "id": "plate"
@@ -26,7 +26,7 @@
             "distance": null,
             "flip": false
           },
-          "part": "pin.workpiece",
+          "part": "pin.wpc",
           "variant": null
         },
         "id": "pin1"
@@ -42,7 +42,7 @@
             "distance": null,
             "flip": false
           },
-          "part": "pin.workpiece",
+          "part": "pin.wpc",
           "variant": null
         },
         "id": "pin2"
@@ -75,7 +75,7 @@
               }
             }
           },
-          "part": "pin.workpiece",
+          "part": "pin.wpc",
           "variant": null
         },
         "id": "pin3"
@@ -113,7 +113,7 @@
               }
             }
           },
-          "part": "pin.workpiece",
+          "part": "pin.wpc",
           "variant": null
         },
         "id": "pin4"

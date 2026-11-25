@@ -236,7 +236,7 @@ def flange_script():
     lines = [ln for ln in src.splitlines() if "sys.path.insert" not in ln]
     text = "\n".join(lines) + "\n"
     text = text.replace("import math, os, sys", "import math")
-    text = re.sub(r'out = sys\.argv\[1\] if len\(sys\.argv\) > 1 else "flange.workpiece"', 'out = "flange.workpiece"', text)
+    text = re.sub(r'out = sys\.argv\[1\] if len\(sys\.argv\) > 1 else "flange.wpc"', 'out = "flange.wpc"', text)
     text = text.replace("report.show()\n", "").replace('print("volume", report.volume)\n', 'print("volume", report.volume)  # mm^3\n')
     return text
 
@@ -499,7 +499,7 @@ s.coincident(r.points[0], s.origin)
 s.distance_u(r.points[0], r.points[1], 60)
 s.distance_v(r.points[1], r.points[2], 40)
 p.extrude(s, 10)
-p.build("plate.workpiece")
+p.build("plate.wpc")
 '''
 
 
@@ -558,7 +558,7 @@ def home():
     </div>
     <p>The script is <a href="{BLOB}/agent/examples/flange.py"><code>agent/examples/flange.py</code></a> without its checkout-only path line. The <a href="docs/scripting.html">scripting chapter</a> has the rest; the examples above are longer scripts.</p>
     <pre class="shell" tabindex="0"><code>{"" if CONF.get("released") else "# both coming with the first release" + chr(10)}pip install {e(PIP)}
-python -m workpiece flange.workpiece   # opens the part in the desktop app</code></pre>
+python -m workpiece flange.wpc   # opens the part in the desktop app</code></pre>
   </div>
 </section>
 

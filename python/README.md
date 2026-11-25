@@ -20,12 +20,12 @@ s.coincident(r.points[0], s.origin)
 s.distance_u(r.points[0], r.points[1], 60)
 s.distance_v(r.points[1], r.points[2], 40)
 p.extrude(s, 10)
-p.build("plate.workpiece").show()
+p.build("plate.wpc").show()
 ```
 
 | Command | What it does |
 |---|---|
-| `python -m workpiece [part.workpiece]` or `workpiece-app` | the desktop application, with a part opened |
+| `python -m workpiece [part.wpc]` or `workpiece-app` | the desktop application, with a part opened |
 | `workpiece ...` or `python -m workpiece.cli ...` | the command line (`kinds`, `make`, `report`) |
 | `python -m workpiece.tools help [topic]` or `workpiece-tools` | the layer's README by topic; `sheet`, `crop`, `tile` |
 

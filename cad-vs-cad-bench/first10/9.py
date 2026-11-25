@@ -57,19 +57,19 @@ p.on_sheet("plate", on_drawing=False)
 
 
 # --- R.625 on the body's top edge and the dome's top edge, then R.25 at every concave junction
-r = p.build("9.workpiece")
+r = p.build("9.wpc")
 purple = r.edges(where=lambda e: e["name"].startswith("body/end/") or e["name"].startswith("dome/end/"))
 p.fillet(purple, 0.625, id="fillet_big")
 p.on_sheet("fillet_big", on_drawing=False)
-r = p.build("9.workpiece")
+r = p.build("9.wpc")
 base = r.edges(where=lambda e: e["name"] in ("body/edge[end+tower/side/e7]", "body/edge[dome/side/e8+end]"))
 p.fillet(base, 0.25, id="fillet_small")
 p.on_sheet("fillet_small", on_drawing=False)
-r = p.build("9.workpiece")
+r = p.build("9.wpc")
 openings = r.faces(where=lambda f: f["flat"] and ((abs(f["middle"][2]) < 1e-6) or (abs(f["middle"][2] - 6.125) < 1e-6)))
 p.shell(openings, 0.375, id="shell")
 p.on_sheet("shell", on_drawing=False)
-r = p.build("9.workpiece")
+r = p.build("9.wpc")
 # --- base flange: 5.5 wide, 10.0 long tangent to tangent, R2.0 tips, 65 degree sides, R.5 corners.
 # It is added after the shell (a ring around the body's foot, whose inside is the body's outline
 # projected), so the wall runs straight down to the bottom, sharp, as section A-A shows.
@@ -108,7 +108,7 @@ s.coincident(i1, "pt_a"); s.coincident(i2, "pt_b"); s.coincident(i4, "pb_a"); s.
 p.extrude(s, 0.375, id="flange")
 p.on_sheet("flange", show_in="front")
 
-r = p.build("9.workpiece")
+r = p.build("9.wpc")
 foot = lambda e: e["name"].startswith("flange/end/") and abs(e["middle"][1]) < 2.25 + 1e-6 and -2.25 - 1e-6 < e["middle"][0] < 6.25 + 1e-6
 rest = r.edges(where=lambda e: foot(e) or e["name"] in ("body/edge[plate/start+tower/side/e7]", "body/edge[plate/end+tower/side/e7#2]"))
 assert len(rest) == 6, rest
@@ -125,7 +125,7 @@ p.dimension("body/side/e13", "body/side/e14", show_in="plan", at=(22, -47), deci
 p.on_sheet("body_sk/d21", decimals=2, at=(30, -38))
 p.on_sheet("body_sk/d22", at=(-84, 12))
 p.dimension("body/side/e16", kind="Radius", show_in="plan", at=(62, 28), id="body_r")
-r = p.build("9.workpiece")
+r = p.build("9.wpc")
 hole_face = r.faces(where=lambda f: f["name"].startswith("plate_holes") and not f["flat"])[0]
 p.dimension(hole_face, kind="Diameter", show_in="plan", at=(-100, 66), id="hole_dia")
 p.dimension("tower/side/e7", kind="Diameter", show_in="front")
@@ -141,11 +141,11 @@ p.dimension("dome/end", "thick/f10/far", reference=True, show_in="secv", id="wal
 p.dimension("fillet_small/e1/side/e0", kind="Radius", show_in="secv")
 p.dimension("fillet_big/e4/side/e0", kind="Radius", show_in="secv")
 p.op("Section", "secA", plane=axis("Y"), flip=True)
-tt = dim_id("9.workpiece", "flange_sk", "DistanceAlong", 10.0)
-ang = dim_id("9.workpiece", "flange_sk", "Angle", 65.0)
-tip = dim_id("9.workpiece", "flange_sk", "Size", 2.0)
-cr = dim_id("9.workpiece", "flange_sk", "Size", 0.5)
-pr = dim_id("9.workpiece", "plate_sk", "Size", 0.75)
+tt = dim_id("9.wpc", "flange_sk", "DistanceAlong", 10.0)
+ang = dim_id("9.wpc", "flange_sk", "Angle", 65.0)
+tip = dim_id("9.wpc", "flange_sk", "Size", 2.0)
+cr = dim_id("9.wpc", "flange_sk", "Size", 0.5)
+pr = dim_id("9.wpc", "plate_sk", "Size", 0.75)
 D = "HiddenDashed"
 p.drawing(format="A2", scale=(1, 2), views=[view("front", "Left", (160, 100)), projected("plan", "front", "Above", 120, style=D),
           section_view("secv", "secA", (330, 230), of="plan"), projected("side", "front", "Right", 150),
@@ -156,4 +156,4 @@ p.drawing(format="A2", scale=(1, 2), views=[view("front", "Left", (160, 100)), p
                  note(None, (0, 0), "HOLE (4) PLACES", dimension="hole_dia"),
                  note(None, (0, 0), "THRU", dimension="bore_dia"), note(None, (0, 0), "TYP", dimension="wall_a"),
                  note(None, (0, 0), "TANGENT TO TANGENT", dimension=tt), note("secv", (50, -48), "SHARP")])
-r = p.build("9.workpiece", render=True); r.show(); print("mass lb", r.volume * RHO)
+r = p.build("9.wpc", render=True); r.show(); print("mass lb", r.volume * RHO)

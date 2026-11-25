@@ -1,5 +1,5 @@
 """Wooden box with two metal dividers (an assembly of two parts, mm): an example of a multi-part script with
-a declared original. Run it, then read out/box.parts/box_assembly.workpiece.views/sheet.txt and the scorecard."""
+a declared original. Run it, then read out/box.parts/box_assembly.wpc.views/sheet.txt and the scorecard."""
 import math, os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))  # a checkout; `pip install workpiece` makes this line unnecessary
 from workpiece import Part, axis, topo, datum, profile, view, projected, detail_view, section_view, note, material, anchor, placed, balloon, original
@@ -8,8 +8,8 @@ folder = os.path.join(here, "box.parts")
 os.makedirs(folder, exist_ok=True)
 material(folder, "American cherry", 570)
 material(folder, "6061 aluminium", 2700)
-out = os.path.join(folder, "box.workpiece")
-p = Part(material="American cherry", file="box.workpiece", title="WOOD BOX")
+out = os.path.join(folder, "box.wpc")
+p = Part(material="American cherry", file="box.wpc", title="WOOD BOX")
 
 # The wooden box, long side along y (so the front view shows it as the drawing does): 200 x 100 x 92, its rim on
 # the origin plane z = 0, hanging down (so "18 from the top" and "4 below the rim" are measured from the origin).
@@ -100,7 +100,7 @@ rep = p.build(out, render=True); rep.show()
 # The divider, modelled where it stands in the box (origin = the box's rim middle): its footprint 4 thick with its inner
 # face 60 from the other divider's (a construction point mirrors it about v), its top 4 below the rim, its foot 9 above
 # the box bottom (a construction point 92 below the rim), 88 wide. The second divider is this one turned half a turn.
-dv = Part(material="6061 aluminium", file="divider.workpiece", title="METAL DIVIDERS")
+dv = Part(material="6061 aluminium", file="divider.wpc", title="METAL DIVIDERS")
 d = dv.sketch("YZ", id="divider_outline", show_in="front")
 r = d.rect("d", 30, -83, 4, 79)
 m = d.point(-30, -4, "m")
@@ -115,7 +115,7 @@ d.distance_v(bt, r.points[0], 9, id="above_bottom", on_drawing=False)
 dv.extrude(d, 88, symmetric=True, combine="NewBody", id="divider")
 dv.drawing(views=[view("front", "Front", (110, 150)), projected("right", "front", "Right", 90),
                   view("iso", "Isometric", (280, 150))], scale=(1, 1), comma=False)
-drep = dv.build(os.path.join(folder, "divider.workpiece"), render=True); drep.show()
+drep = dv.build(os.path.join(folder, "divider.wpc"), render=True); drep.show()
 # Assembly: the box and the divider, both modelled where they stand; the second divider is the first turned half a turn.
 asm = Part()
 # What the original sheet has, read once from its picture (mass question: XXX.X g +/- 0.3).
@@ -130,7 +130,7 @@ asm.expect(original(
 asm.add_part(p, id="box")
 asm.add_part(dv, id="divider1")
 asm.add_part(dv, id="divider2", euler=(0, 0, 180))
-rb = asm.build(os.path.join(folder, "box_assembly.workpiece")); rb.show()
+rb = asm.build(os.path.join(folder, "box_assembly.wpc")); rb.show()
 for pp in rb.placed: print(pp["name"], pp["pose"]["at"], pp["pose"]["euler"])
 for m in rb.masses: print(m["name"], m["material"], m["volume"], m["mass"] * 1000, "g")
 print("total g", rb.mass_total * 1000, "expected 450.0 +- 0.3")
@@ -182,5 +182,5 @@ asm.drawing(views=[view("top", "Top", (190, 215)), projected("front", "top", "Be
             notes=[note(None, (0, 0), "WIDE", dimension="div_wide"), note(None, (0, 0), "THICK", dimension="div_thick"),
                    note(None, (0, 0), "(4) PLACES", dimension="r_corner"), note(None, (0, 0), "WALL TYP", dimension="wall_top"), note(None, (0, 0), "OUTER\nTOP EDGE", dimension="rim_right"), note(None, (0, 0), "OUTER\nBOTTOM EDGE", dimension="bottom_right"), note(None, (0, 0), "WIDE", dimension="div_wide_p"), note(None, (0, 0), "THICK", dimension="div_thick_p"),
                    note(None, (0, 0), "(2) PLACES", dimension="slot_width"), note(None, (0, -3), "(2) PLACES", dimension="slot_length")])
-rb = asm.build(os.path.join(folder, "box_assembly.workpiece"), render=True); rb.show()
+rb = asm.build(os.path.join(folder, "box_assembly.wpc"), render=True); rb.show()
 print(rb.drawings[0]["problems"])

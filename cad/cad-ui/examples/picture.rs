@@ -1,5 +1,5 @@
 //! Renders a part file without a window: `cargo run --release -p
-//! workpiece-ui --example picture -- part.workpiece out.png [samples]`.
+//! workpiece-ui --example picture -- part.wpc out.png [samples]`.
 //! The picture is the part's last Render step, or, if it has none, one
 //! as a Render step starts out, from the front right; the materials
 //! are those of `materials.json` in the working directory.
@@ -14,7 +14,7 @@ use workpiece_ui::view::{camera, camera_of, lighting, scene};
 
 fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
-    let usage = || anyhow::anyhow!("picture <part.workpiece> <out.png> [samples]");
+    let usage = || anyhow::anyhow!("picture <part.wpc> <out.png> [samples]");
     let path = args.next().ok_or_else(usage)?;
     let out = args.next().ok_or_else(usage)?;
     let part = Part::from_text(&std::fs::read_to_string(&path)?)?;

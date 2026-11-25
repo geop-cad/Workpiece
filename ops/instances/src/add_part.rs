@@ -5,7 +5,7 @@ use workpiece_core::widgets::{Choice, FileInput, VBox};
 use workpiece_core::{Builder, EditVisualization, Operation};
 
 /// The extension of part files.
-pub const PART_EXTENSION: &str = "workpiece";
+pub const PART_EXTENSION: &str = "wpc";
 
 /// Which part to place, and where.
 #[derive(

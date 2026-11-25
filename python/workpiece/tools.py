@@ -2,7 +2,7 @@
 (or the console script `workpiece-tools`).
 
     python -m workpiece.tools help [topic]     one section of the README (no topic: the topics)
-    python -m workpiece.tools sheet part.workpiece
+    python -m workpiece.tools sheet part.wpc
     python -m workpiece.tools crop sheet.pdf X Y W H -o out.png
     python -m workpiece.tools tile picture.png --grid 3x2 -o tiles
 """

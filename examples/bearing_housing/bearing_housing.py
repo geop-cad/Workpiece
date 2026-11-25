@@ -12,8 +12,8 @@ except ImportError:  # a source checkout: the package's sources
 from workpiece import Part, axis, note, view, section_view, topo
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "bearing_housing.workpiece")
-p = Part(material="Cast iron", title="BEARING HOUSING 6205", file="bearing_housing.workpiece")
+OUT = os.path.join(HERE, "bearing_housing.wpc")
+p = Part(material="Cast iron", title="BEARING HOUSING 6205", file="bearing_housing.wpc")
 
 # The hub, turned about z: half its profile on YZ (u = y, v = z), its rotation axis drawn, the
 # diameters dimensioned about it. The bore runs through; the bearing seat is 15 deep from the top.

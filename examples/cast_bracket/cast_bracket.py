@@ -12,8 +12,8 @@ except ImportError:  # a source checkout: the package's sources
 from workpiece import Part, profile, topo, view, projected, note, datum
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "cast_bracket.workpiece")
-p = Part(material="Aluminium", title="CAST ANGLE BRACKET", file="cast_bracket.workpiece")
+OUT = os.path.join(HERE, "cast_bracket.wpc")
+p = Part(material="Aluminium", title="CAST ANGLE BRACKET", file="cast_bracket.wpc")
 
 # The L, on ZX (u = z, v = x): a base 70 long and 12 thick, a wall 10 thick and 80 high.
 s = p.sketch("ZX", id="l_profile", show_in="right")

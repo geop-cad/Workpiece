@@ -10,7 +10,7 @@
             "distance": null,
             "flip": false
           },
-          "part": "body.workpiece",
+          "part": "body.wpc",
           "variant": null
         },
         "id": "body"
@@ -43,7 +43,7 @@
               }
             }
           },
-          "part": "jaw.workpiece",
+          "part": "jaw.wpc",
           "variant": null
         },
         "id": "jaw"
@@ -76,7 +76,7 @@
               }
             }
           },
-          "part": "screw.workpiece",
+          "part": "screw.wpc",
           "variant": null
         },
         "id": "screw"

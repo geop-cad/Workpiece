@@ -1,7 +1,7 @@
 """`python -m workpiece.cli ...` and the console script `workpiece`: the command line program.
 
-Everything is passed on: `workpiece make recipe.json -o part.workpiece`, `workpiece report
-part.workpiece`, `workpiece kinds`, `workpiece --version`.
+Everything is passed on: `workpiece make recipe.json -o part.wpc`, `workpiece report
+part.wpc`, `workpiece kinds`, `workpiece --version`.
 """
 
 from __future__ import annotations

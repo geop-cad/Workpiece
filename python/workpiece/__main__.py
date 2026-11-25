@@ -1,4 +1,4 @@
-"""`python -m workpiece [part.workpiece]` and the console script `workpiece-app`: the desktop app."""
+"""`python -m workpiece [part.wpc]` and the console script `workpiece-app`: the desktop app."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import sys
 from . import _bin
 
 USAGE = """\
-usage: python -m workpiece [PART.workpiece] [--look X,Y,Z,DISTANCE] [--from X,Y,Z] [--perspective]
+usage: python -m workpiece [PART.wpc] [--look X,Y,Z,DISTANCE] [--from X,Y,Z] [--perspective]
 
 Starts the Workpiece desktop application; a part file named is opened.
 

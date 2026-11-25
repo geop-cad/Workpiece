@@ -50,7 +50,7 @@ fn about() -> bool {
     match std::env::args().nth(1).as_deref() {
         Some("--version" | "-V") => println!("Workpiece {}", env!("CARGO_PKG_VERSION")),
         Some("--help" | "-h") => println!(
-            "Workpiece {}\n\nusage: workpiece-app [PART.workpiece] [--look X,Y,Z,DISTANCE] [--from X,Y,Z] [--perspective]\n\nStarts the desktop application; a part file named is opened.",
+            "Workpiece {}\n\nusage: workpiece-app [PART.wpc] [--look X,Y,Z,DISTANCE] [--from X,Y,Z] [--perspective]\n\nStarts the desktop application; a part file named is opened.",
             env!("CARGO_PKG_VERSION")
         ),
         _ => return false,

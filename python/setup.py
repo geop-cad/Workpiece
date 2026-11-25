@@ -93,7 +93,7 @@ class Sdist(sdist):
         super().make_release_tree(base_dir, files)
         root, dest = workspace(), os.path.join(base_dir, "rust")
         os.makedirs(dest, exist_ok=True)
-        skip = shutil.ignore_patterns("target", ".git", "__pycache__", "*.workpiece", "*.parts")
+        skip = shutil.ignore_patterns("target", ".git", "__pycache__", "*.wpc", "*.parts")
         for name in WORKSPACE:
             src = os.path.join(root, name)
             if os.path.isdir(src):

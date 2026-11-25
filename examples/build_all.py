@@ -4,8 +4,8 @@
     python3 examples/build_all.py vise fan     # some, by folder name
     python3 examples/build_all.py --check      # exit with 1 if any example is not clean (CI)
 
-Each example's script builds its `.workpiece` file(s) beside itself, with sheets and pictures in
-`<file>.workpiece.views/` (not tracked). This script then copies what the gallery shows next to
+Each example's script builds its `.wpc` file(s) beside itself, with sheets and pictures in
+`<file>.wpc.views/` (not tracked). This script then copies what the gallery shows next to
 the script: `drawing.pdf` / `drawing.svg` (the example's main sheet: the assembly's, or the part's),
 `drawing-<part>.pdf` / `.svg` for the other parts of an assembly, `drawing-<sheet>.pdf` for a second
 sheet of a part (a flat pattern), and `thumbnail.png` (the shaded
@@ -26,9 +26,9 @@ def publish(name: str) -> None:
     """Copies the sheets and the thumbnail of a built example next to its script."""
     folder = os.path.join(HERE, name)
     for file in sorted(os.listdir(folder)):
-        if not file.endswith(".workpiece"):
+        if not file.endswith(".wpc"):
             continue
-        stem = file[: -len(".workpiece")]
+        stem = file[: -len(".wpc")]
         views = os.path.join(folder, file + ".views")
         if not os.path.isdir(views):
             continue

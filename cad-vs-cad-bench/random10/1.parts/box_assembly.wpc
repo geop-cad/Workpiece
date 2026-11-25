@@ -10,10 +10,10 @@
             "distance": null,
             "flip": false
           },
-          "part": "plate210.workpiece",
+          "part": "box.wpc",
           "variant": null
         },
-        "id": "plate210"
+        "id": "box"
       }
     },
     {
@@ -26,10 +26,10 @@
             "distance": null,
             "flip": false
           },
-          "part": "plate270.workpiece",
+          "part": "divider.wpc",
           "variant": null
         },
-        "id": "plate270"
+        "id": "divider1"
       }
     },
     {
@@ -42,10 +42,340 @@
             "distance": null,
             "flip": false
           },
-          "part": "plate330.workpiece",
+          "part": "divider.wpc",
           "variant": null
         },
-        "id": "plate330"
+        "id": "divider2"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/side/e13"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/side/e11"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "length"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/side/e12"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/side/e14"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "width"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/start"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/end"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "height"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/end"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/start"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "div_wide"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e14"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e16"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "div_thick"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/end"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/start"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "div_wide_p"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e14"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e16"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "div_thick_p"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/start"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e15"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "below_rim"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "box/end"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e13"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "above_bottom"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "divider1",
+                "source": {
+                  "Topology": "divider/side/e16"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider2",
+                "source": {
+                  "Topology": "divider/side/e16"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "between"
       }
     },
     {
@@ -58,9 +388,9 @@
           "of": [
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "pocket_cut/side/e21"
+                  "Topology": "corners/e3/side/e0"
                 }
               }
             }
@@ -70,7 +400,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "r20"
+        "id": "r_corner"
       }
     },
     {
@@ -79,129 +409,13 @@
           "bend": "Own",
           "centres": false,
           "far": false,
-          "kind": "Angle",
+          "kind": "Radius",
           "of": [
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "pocket_cut/side/e18"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "plate210",
-                "source": {
-                  "Topology": "pocket_cut/side/e19"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "a60"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Auto",
-          "of": [
-            {
-              "Placed": {
-                "instance": "plate210",
-                "source": {
-                  "Topology": "pocket_cut/side/e21"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "plate210",
-                "source": {
-                  "Topology": "plate/ring/p11"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "g8"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Diameter",
-          "of": [
-            {
-              "Placed": {
-                "instance": "plate210",
-                "source": {
-                  "Topology": "plate/side/e19"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "bore"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Diameter",
-          "of": [
-            {
-              "Placed": {
-                "instance": "plate210",
-                "source": {
-                  "Topology": "plate/ring/p11"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "hubdia"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Diameter",
-          "of": [
-            {
-              "Placed": {
-                "instance": "plate210",
-                "source": {
-                  "Topology": "plate/side/e19"
+                  "Topology": "thick/f9/far"
                 }
               }
             }
@@ -211,7 +425,7 @@
           "supplement": false,
           "tolerance": "Reference"
         },
-        "id": "bore_ref"
+        "id": "r_inner"
       }
     },
     {
@@ -224,17 +438,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e26"
+                  "Topology": "box/side/e12"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e24"
+                  "Topology": "thick/f1/far#2#2"
                 }
               }
             }
@@ -242,9 +456,9 @@
           "plain": false,
           "same_side": false,
           "supplement": false,
-          "tolerance": "General"
+          "tolerance": "Reference"
         },
-        "id": "d4_in"
+        "id": "wall_top"
       }
     },
     {
@@ -257,17 +471,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e24"
+                  "Topology": "box/end"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e26"
+                  "Topology": "thick/f4/far"
                 }
               }
             }
@@ -275,9 +489,9 @@
           "plain": false,
           "same_side": false,
           "supplement": false,
-          "tolerance": "General"
+          "tolerance": "Reference"
         },
-        "id": "d4_out"
+        "id": "floor_front"
       }
     },
     {
@@ -290,17 +504,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e26"
+                  "Topology": "box/end"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e28"
+                  "Topology": "thick/f4/far"
                 }
               }
             }
@@ -308,9 +522,9 @@
           "plain": false,
           "same_side": false,
           "supplement": false,
-          "tolerance": "General"
+          "tolerance": "Reference"
         },
-        "id": "t18_sec"
+        "id": "floor_right"
       }
     },
     {
@@ -319,13 +533,13 @@
           "bend": "Own",
           "centres": false,
           "far": false,
-          "kind": "Diameter",
+          "kind": "Radius",
           "of": [
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e27"
+                  "Topology": "rim/e0/side/e0"
                 }
               }
             }
@@ -333,9 +547,9 @@
           "plain": false,
           "same_side": false,
           "supplement": false,
-          "tolerance": "General"
+          "tolerance": "Reference"
         },
-        "id": "d210_big"
+        "id": "rim_front"
       }
     },
     {
@@ -344,21 +558,13 @@
           "bend": "Own",
           "centres": false,
           "far": false,
-          "kind": "Auto",
+          "kind": "Radius",
           "of": [
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e26"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "plate210",
-                "source": {
-                  "Topology": "plate/side/e28"
+                  "Topology": "bottom/e0/side/e0"
                 }
               }
             }
@@ -368,7 +574,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "t210_big"
+        "id": "bottom_front"
       }
     },
     {
@@ -377,21 +583,13 @@
           "bend": "Own",
           "centres": false,
           "far": false,
-          "kind": "Auto",
+          "kind": "Radius",
           "of": [
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e26"
-                }
-              }
-            },
-            {
-              "Placed": {
-                "instance": "plate210",
-                "source": {
-                  "Topology": "plate/side/e28"
+                  "Topology": "rim/e1/side/e0"
                 }
               }
             }
@@ -401,7 +599,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "t210"
+        "id": "rim_right"
       }
     },
     {
@@ -410,13 +608,13 @@
           "bend": "Own",
           "centres": false,
           "far": false,
-          "kind": "Diameter",
+          "kind": "Radius",
           "of": [
             {
               "Placed": {
-                "instance": "plate210",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e27"
+                  "Topology": "bottom/e1/side/e0"
                 }
               }
             }
@@ -426,7 +624,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "d210"
+        "id": "bottom_right"
       }
     },
     {
@@ -439,17 +637,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "plate270",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e26"
+                  "Topology": "box/start"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "plate270",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e28"
+                  "Topology": "slots/side/e15"
                 }
               }
             }
@@ -459,32 +657,7 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "t270"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Diameter",
-          "of": [
-            {
-              "Placed": {
-                "instance": "plate270",
-                "source": {
-                  "Topology": "plate/side/e27"
-                }
-              }
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "d270"
+        "id": "slot_depth"
       }
     },
     {
@@ -497,17 +670,17 @@
           "of": [
             {
               "Placed": {
-                "instance": "plate330",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e26"
+                  "Topology": "slots/side/e15"
                 }
               }
             },
             {
               "Placed": {
-                "instance": "plate330",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e28"
+                  "Topology": "slots/side/e16"
                 }
               }
             }
@@ -517,7 +690,40 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "t330"
+        "id": "slot_width"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": true,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "slots/side/e17"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "slots/side/e18"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "slot_length"
       }
     },
     {
@@ -526,13 +732,21 @@
           "bend": "Own",
           "centres": false,
           "far": false,
-          "kind": "Diameter",
+          "kind": "Auto",
           "of": [
             {
               "Placed": {
-                "instance": "plate330",
+                "instance": "box",
                 "source": {
-                  "Topology": "plate/side/e27"
+                  "Topology": "groove2/groove_cut/side/e22"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider2",
+                "source": {
+                  "Topology": "divider/side/e14"
                 }
               }
             }
@@ -542,204 +756,151 @@
           "supplement": false,
           "tolerance": "General"
         },
-        "id": "d330"
+        "id": "clear_a"
       }
     },
     {
-      "Sketch": {
+      "Dimension": {
         "args": {
-          "constraints": {
-            "12": {
-              "dimension": null,
-              "kind": {
-                "PointOn": {
-                  "entity": 6,
-                  "point": 9
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "groove2/groove_cut/side/e20#2"
                 }
               }
             },
-            "13": {
-              "dimension": null,
-              "kind": {
-                "PointOn": {
-                  "entity": 4,
-                  "point": 9
-                }
-              }
-            },
-            "14": {
-              "dimension": null,
-              "kind": {
-                "PointOn": {
-                  "entity": 4,
-                  "point": 10
-                }
-              }
-            },
-            "15": {
-              "dimension": null,
-              "kind": {
-                "PointOn": {
-                  "entity": 8,
-                  "point": 10
+            {
+              "Placed": {
+                "instance": "divider2",
+                "source": {
+                  "Topology": "divider/side/e16"
                 }
               }
             }
-          },
-          "entities": {
-            "11": {
-              "auto": false,
-              "axis": null,
-              "construction": false,
-              "projected": null,
-              "section": false,
-              "shape": {
-                "Line": [
-                  9,
-                  10
-                ]
-              },
-              "tolerance": 1e-7
-            },
-            "2": {
-              "auto": false,
-              "axis": null,
-              "construction": true,
-              "projected": null,
-              "section": false,
-              "shape": {
-                "Point": 1
-              },
-              "tolerance": 1e-7
-            },
-            "4": {
-              "auto": false,
-              "axis": "U",
-              "construction": true,
-              "projected": null,
-              "section": false,
-              "shape": {
-                "Line": [
-                  1,
-                  3
-                ]
-              },
-              "tolerance": 1e-7
-            },
-            "6": {
-              "auto": false,
-              "axis": "V",
-              "construction": true,
-              "projected": null,
-              "section": false,
-              "shape": {
-                "Line": [
-                  1,
-                  5
-                ]
-              },
-              "tolerance": 1e-7
-            },
-            "8": {
-              "auto": false,
-              "axis": null,
-              "construction": true,
-              "projected": {
-                "Placed": {
-                  "instance": "plate210",
-                  "source": {
-                    "Topology": "plate/ring/p15"
-                  }
-                }
-              },
-              "section": false,
-              "shape": {
-                "Circle": {
-                  "center": 7,
-                  "radius": 105.00000000000162
-                }
-              },
-              "tolerance": 1.0000319744231092e-7
-            }
-          },
-          "next": 15,
-          "plane": {
-            "FrameAxis": {
-              "axis": "Z",
-              "frame": "origin"
-            }
-          },
-          "points": {
-            "1": {
-              "at": [
-                0.0,
-                0.0
-              ],
-              "fixed": true,
-              "tolerance": 1e-7
-            },
-            "10": {
-              "at": [
-                104.99999999999817,
-                0.0
-              ],
-              "fixed": false,
-              "tolerance": 1e-7
-            },
-            "3": {
-              "at": [
-                1.0,
-                0.0
-              ],
-              "fixed": true,
-              "tolerance": 1e-7
-            },
-            "5": {
-              "at": [
-                0.0,
-                1.0
-              ],
-              "fixed": true,
-              "tolerance": 1e-7
-            },
-            "7": {
-              "at": [
-                -3.453237695794087e-12,
-                2.156481362298896e-13
-              ],
-              "fixed": true,
-              "tolerance": 1.0000319744231092e-7
-            },
-            "9": {
-              "at": [
-                0.0,
-                0.0
-              ],
-              "fixed": false,
-              "tolerance": 1e-7
-            }
-          }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
         },
-        "id": "cutline"
+        "id": "clear_b"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "box",
+                "source": {
+                  "Topology": "groove_cut/side/e23"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "divider2",
+                "source": {
+                  "Topology": "divider/end"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "clear_end"
+      }
+    },
+    {
+      "AddPlane": {
+        "args": {
+          "angle": 45.0,
+          "distance": 0.0,
+          "mode": "Offset",
+          "other": false,
+          "references": [
+            {
+              "FrameAxis": {
+                "axis": "Y",
+                "frame": "origin"
+              }
+            }
+          ]
+        },
+        "id": "midY"
+      }
+    },
+    {
+      "AddPlane": {
+        "args": {
+          "angle": 45.0,
+          "distance": 0.0,
+          "mode": "Offset",
+          "other": false,
+          "references": [
+            {
+              "FrameAxis": {
+                "axis": "X",
+                "frame": "origin"
+              }
+            }
+          ]
+        },
+        "id": "midX"
       }
     },
     {
       "Section": {
         "args": {
-          "along": "Sketch",
+          "along": "Plane",
           "flip": false,
           "offset": 0.0,
-          "plane": null,
-          "sketch": {
-            "Profile": "cutline"
-          }
+          "plane": {
+            "FrameAxis": {
+              "axis": "X",
+              "frame": "origin"
+            }
+          },
+          "sketch": null
         },
-        "id": "secA"
+        "id": "A"
       }
     },
     {
       "Drawing": {
         "args": {
+          "balloons": [
+            {
+              "at": [
+                -52.0,
+                34.0
+              ],
+              "part": "box",
+              "view": "iso"
+            },
+            {
+              "at": [
+                6.0,
+                44.0
+              ],
+              "part": "divider1",
+              "view": "iso"
+            }
+          ],
           "block": [
             {
               "at": [
@@ -1027,7 +1188,7 @@
               ]
             }
           ],
-          "centres": "All",
+          "centres": "None",
           "drafting": {
             "letter": 3.5,
             "past": 3.0,
@@ -1035,168 +1196,249 @@
             "wide": null
           },
           "format": "A3",
+          "lines": [
+            {
+              "label": "CL SYM",
+              "of": {
+                "Datum": "midY"
+              },
+              "symmetry": true,
+              "view": "top"
+            },
+            {
+              "label": "CL SYM",
+              "of": {
+                "Datum": "midY"
+              },
+              "symmetry": true,
+              "view": "front"
+            },
+            {
+              "label": "CL SYM",
+              "of": {
+                "Datum": "midX"
+              },
+              "symmetry": true,
+              "view": "right"
+            }
+          ],
           "name": "drawing1",
           "notes": [
             {
               "at": [
-                -22.0,
-                60.0
-              ],
-              "note": "a60",
-              "view": "face210"
-            },
-            {
-              "at": [
-                48.0,
-                55.0
-              ],
-              "note": "bore",
-              "view": "face210"
-            },
-            {
-              "at": [
-                22.0,
-                12.0
-              ],
-              "note": "bore_ref",
-              "view": "secA_view"
-            },
-            {
-              "at": [
-                -20.0,
-                26.0
-              ],
-              "note": "d210",
-              "view": "front"
-            },
-            {
-              "at": [
-                -2.842170943040401e-14,
-                14.500000000000085
-              ],
-              "note": "d210_big",
-              "view": "edge210"
-            },
-            {
-              "at": [
-                -20.0,
+                -7.0,
                 -14.0
               ],
-              "note": "d270",
+              "note": "above_bottom",
               "view": "front"
             },
             {
               "at": [
-                -20.0,
-                -54.0
+                -7.0,
+                12.0
               ],
-              "note": "d330",
+              "note": "below_rim",
               "view": "front"
             },
             {
               "at": [
-                -8.0,
-                -24.0
+                0.0,
+                9.0
               ],
-              "note": "d4_in",
-              "view": "secA_view"
+              "note": "between",
+              "view": "top"
             },
             {
               "at": [
-                -8.0,
-                -42.0
+                -60.802319534428676,
+                -25.873327461459013
               ],
-              "note": "d4_out",
-              "view": "secA_view"
-            },
-            {
-              "at": [
-                62.0,
-                22.0
-              ],
-              "note": "g8",
-              "view": "face210"
-            },
-            {
-              "at": [
-                35.0,
-                -45.0
-              ],
-              "note": "hubdia",
-              "view": "face210"
-            },
-            {
-              "at": [
-                -56.0,
-                36.0
-              ],
-              "note": "r20",
-              "view": "face210"
-            },
-            {
-              "at": [
-                16.0,
-                -40.0
-              ],
-              "note": "t18_sec",
-              "view": "secA_view"
-            },
-            {
-              "at": [
-                38.0,
-                34.0
-              ],
-              "note": "t210",
+              "note": "bottom_front",
               "view": "front"
             },
             {
               "at": [
-                -68.0,
-                0.0
-              ],
-              "note": "t210_big",
-              "view": "edge210"
-            },
-            {
-              "at": [
-                38.0,
-                -6.0
-              ],
-              "note": "t270",
-              "view": "front"
-            },
-            {
-              "at": [
-                38.0,
+                -26.0,
                 -46.0
               ],
-              "note": "t330",
+              "note": "bottom_right",
+              "view": "right"
+            },
+            {
+              "at": [
+                24.0,
+                20.0
+              ],
+              "note": "clear_a",
+              "view": "detail"
+            },
+            {
+              "at": [
+                26.0,
+                39.0
+              ],
+              "note": "clear_b",
+              "view": "detail"
+            },
+            {
+              "at": [
+                -24.0,
+                -30.0
+              ],
+              "note": "clear_end",
+              "view": "detail"
+            },
+            {
+              "at": [
+                30.0,
+                -34.0
+              ],
+              "note": "div_thick",
+              "view": "top"
+            },
+            {
+              "at": [
+                -20.114407447862277,
+                -34.83917566383971
+              ],
+              "note": "div_thick_p",
+              "view": "iso3"
+            },
+            {
+              "at": [
+                27.0,
+                14.0
+              ],
+              "note": "div_wide",
+              "view": "top"
+            },
+            {
+              "at": [
+                20.114407447862476,
+                -34.8391756638396
+              ],
+              "note": "div_wide_p",
+              "view": "iso3"
+            },
+            {
+              "at": [
+                -74.0,
+                -20.749999999999986
+              ],
+              "note": "floor_front",
               "view": "front"
             },
             {
               "at": [
-                -22.0,
-                -17.0
+                -35.0,
+                -20.749999999999986
               ],
-              "note": "plate210/profile/a45_in",
-              "view": "secA_view"
+              "note": "floor_right",
+              "view": "right"
             },
             {
               "at": [
-                -22.0,
-                -36.0
+                60.0,
+                0.0
               ],
-              "note": "plate210/profile/a45_out",
-              "view": "secA_view"
+              "note": "height",
+              "view": "front"
+            },
+            {
+              "at": [
+                -30.0,
+                -45.0
+              ],
+              "note": "length",
+              "view": "top"
+            },
+            {
+              "at": [
+                70.0,
+                30.0
+              ],
+              "note": "r_corner",
+              "view": "top"
+            },
+            {
+              "at": [
+                42.0,
+                42.0
+              ],
+              "note": "r_inner",
+              "view": "top"
+            },
+            {
+              "at": [
+                -60.84169702041643,
+                26.971061565751597
+              ],
+              "note": "rim_front",
+              "view": "front"
+            },
+            {
+              "at": [
+                -30.0,
+                44.0
+              ],
+              "note": "rim_right",
+              "view": "right"
+            },
+            {
+              "at": [
+                -34.0,
+                18.0
+              ],
+              "note": "slot_depth",
+              "view": "right"
+            },
+            {
+              "at": [
+                8.0,
+                -32.0
+              ],
+              "note": "slot_length",
+              "view": "right"
+            },
+            {
+              "at": [
+                -46.0,
+                -9.0
+              ],
+              "note": "slot_width",
+              "view": "right"
+            },
+            {
+              "at": [
+                -70.0,
+                -22.0
+              ],
+              "note": "wall_top",
+              "view": "top"
+            },
+            {
+              "at": [
+                74.0,
+                0.0
+              ],
+              "note": "width",
+              "view": "top"
             }
           ],
           "numbers": {
             "bare": false,
             "decimals": null,
-            "point": false
+            "point": true
           },
           "own": [],
-          "parts_columns": [],
+          "parts_columns": [
+            "Item",
+            "Qty",
+            "Name",
+            "Material",
+            "Density"
+          ],
+          "parts_list": true,
           "projection": "ThirdAngle",
           "scale": [
             1,
@@ -1212,13 +1454,10 @@
           "views": [
             {
               "at": [
-                88.0,
-                218.0
+                190.0,
+                215.0
               ],
-              "bodies": [
-                "plate210"
-              ],
-              "id": "face210",
+              "id": "top",
               "kind": {
                 "Base": {
                   "side": "Top"
@@ -1228,69 +1467,75 @@
             },
             {
               "at": [
-                205.0,
-                190.0
+                190.0,
+                135.0
               ],
-              "bodies": [
-                "plate210"
-              ],
-              "half": {
-                "cut": "Below",
-                "only": true
-              },
-              "id": "secA_view",
+              "id": "front",
               "kind": {
-                "Section": {
-                  "letter": "A",
-                  "of": "face210",
-                  "section": "secA",
-                  "turn": 90.0
+                "Projected": {
+                  "beside": "Below",
+                  "of": "top"
                 }
               },
+              "style": "HiddenDashed"
+            },
+            {
+              "at": [
+                310.0,
+                135.0
+              ],
+              "id": "right",
+              "kind": {
+                "Projected": {
+                  "beside": "Right",
+                  "of": "front"
+                }
+              },
+              "style": "HiddenDashed"
+            },
+            {
+              "at": [
+                342.0,
+                236.0
+              ],
+              "id": "iso",
+              "kind": {
+                "Base": {
+                  "side": "Isometric"
+                }
+              },
+              "scale": [
+                1,
+                2
+              ],
               "style": "HiddenRemoved"
             },
             {
               "at": [
-                100.0,
-                62.0
+                372.0,
+                112.0
               ],
-              "bodies": [
-                "plate210"
-              ],
-              "id": "edge210",
+              "id": "iso2",
               "kind": {
                 "Base": {
-                  "side": "Front"
-                }
-              },
-              "style": "HiddenDashed"
-            },
-            {
-              "at": [
-                362.0,
-                172.0
-              ],
-              "id": "front",
-              "kind": {
-                "Base": {
-                  "side": "Front"
+                  "side": "IsometricBackLeft"
                 }
               },
               "scale": [
                 1,
                 5
               ],
-              "style": "HiddenDashed"
+              "style": "HiddenRemoved"
             },
             {
               "at": [
-                262.0,
-                245.0
+                60.0,
+                150.0
               ],
               "bodies": [
-                "plate210"
+                "divider1"
               ],
-              "id": "iso210",
+              "id": "iso3",
               "kind": {
                 "Base": {
                   "side": "Isometric"
@@ -1298,106 +1543,59 @@
               },
               "scale": [
                 1,
-                5
+                2
               ],
-              "style": "Shaded"
+              "style": "HiddenRemoved"
             },
             {
               "at": [
-                262.0,
-                175.0
+                75.0,
+                225.0
               ],
-              "bodies": [
-                "plate270"
-              ],
-              "id": "iso270",
+              "id": "detail",
               "kind": {
-                "Base": {
-                  "side": "Isometric"
+                "Detail": {
+                  "centre": [
+                    -32.0,
+                    44.0
+                  ],
+                  "letter": "B",
+                  "of": "top",
+                  "radius": 4.0
                 }
               },
               "scale": [
-                1,
-                5
+                10,
+                1
               ],
-              "style": "Shaded"
+              "style": "HiddenRemoved"
             },
             {
               "at": [
-                262.0,
-                100.0
+                85.0,
+                60.0
               ],
-              "bodies": [
-                "plate330"
-              ],
-              "id": "iso330",
+              "id": "secA",
               "kind": {
-                "Base": {
-                  "side": "Isometric"
+                "Section": {
+                  "letter": "A",
+                  "of": "top",
+                  "section": "A",
+                  "turn": 0.0
                 }
               },
-              "scale": [
-                1,
-                5
-              ],
-              "style": "Shaded"
+              "style": "HiddenRemoved"
             }
           ],
           "words": [
             {
               "at": [
                 0.0,
-                17.0
-              ],
-              "height": 3.5,
-              "text": "210mm PLATE",
-              "view": "iso210"
-            },
-            {
-              "at": [
-                0.0,
-                21.0
-              ],
-              "height": 3.5,
-              "text": "270mm PLATE",
-              "view": "iso270"
-            },
-            {
-              "at": [
-                0.0,
-                30.0
-              ],
-              "height": 3.5,
-              "text": "330mm PLATE",
-              "view": "iso330"
-            },
-            {
-              "at": [
-                50.0,
-                -38.0
-              ],
-              "height": 3.5,
-              "text": "THESE ARE THE ONLY DIMENSIONS THAT CHANGE",
-              "to": [
-                [
-                  -105.0,
-                  -9.0
-                ],
-                [
-                  60.0,
-                  -9.0
-                ]
-              ],
-              "view": "edge210"
-            },
-            {
-              "at": [
-                0.0,
                 0.0
               ],
-              "dimension": "r20",
+              "dimension": "div_wide",
               "height": 3.5,
-              "text": "TYP",
+              "text": "WIDE",
               "view": null
             },
             {
@@ -1405,9 +1603,9 @@
                 0.0,
                 0.0
               ],
-              "dimension": "a60",
+              "dimension": "div_thick",
               "height": 3.5,
-              "text": "TYP",
+              "text": "THICK",
               "view": null
             },
             {
@@ -1415,9 +1613,9 @@
                 0.0,
                 0.0
               ],
-              "dimension": "g8",
+              "dimension": "r_corner",
               "height": 3.5,
-              "text": "TYP",
+              "text": "(4) PLACES",
               "view": null
             },
             {
@@ -1425,9 +1623,9 @@
                 0.0,
                 0.0
               ],
-              "dimension": "bore",
+              "dimension": "wall_top",
               "height": 3.5,
-              "text": "THRU",
+              "text": "WALL TYP",
               "view": null
             },
             {
@@ -1435,9 +1633,59 @@
                 0.0,
                 0.0
               ],
-              "dimension": "bore_ref",
+              "dimension": "rim_right",
               "height": 3.5,
-              "text": "THRU",
+              "text": "OUTER\nTOP EDGE",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "bottom_right",
+              "height": 3.5,
+              "text": "OUTER\nBOTTOM EDGE",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "div_wide_p",
+              "height": 3.5,
+              "text": "WIDE",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "div_thick_p",
+              "height": 3.5,
+              "text": "THICK",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "slot_width",
+              "height": 3.5,
+              "text": "(2) PLACES",
+              "view": null
+            },
+            {
+              "at": [
+                0.0,
+                -3.0
+              ],
+              "dimension": "slot_length",
+              "height": 3.5,
+              "text": "(2) PLACES",
               "view": null
             }
           ]
@@ -1447,32 +1695,14 @@
     }
   ],
   "cache": {
-    "plate210/pose": [
-      0.0,
-      0.0,
-      400.0,
-      0.0,
-      0.0,
-      0.0,
-      1.0
-    ],
-    "plate270/pose": [
-      0.0,
-      0.0,
-      200.0,
-      0.0,
-      0.0,
-      0.0,
-      1.0
-    ],
-    "plate330/pose": [
+    "divider2/pose": [
       0.0,
       0.0,
       0.0,
       0.0,
       0.0,
-      0.0,
-      1.0
+      1.0,
+      6.123233995736766e-17
     ]
   }
 }

@@ -46,7 +46,7 @@ def main() -> int:
         os.makedirs(work)
         with open(os.path.join(work, "flange.py"), "w") as f:
             f.write(text)
-        said = out(python, "flange.py", "flange.workpiece", cwd=work)
+        said = out(python, "flange.py", "flange.wpc", cwd=work)
         volume = float(re.search(r"^volume ([\d.]+)", said, re.M)[1])
         assert abs(volume - 80917.77) < 0.5, volume
         shown = out(python, "-c", "import workpiece; print(workpiece.__file__)", cwd=work).strip()

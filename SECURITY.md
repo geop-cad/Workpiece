@@ -1,6 +1,6 @@
 # Security policy
 
-Workpiece is an early prototype. It reads files from other programs (STEP, IGES, STL, 3MF, and its own `.workpiece` parts) and runs a command line that scripts call, so a malformed file that crashes it, uses unbounded memory or time, or makes it write where it should not is worth reporting.
+Workpiece is an early prototype. It reads files from other programs (STEP, IGES, STL, 3MF, and its own `.wpc` parts) and runs a command line that scripts call, so a malformed file that crashes it, uses unbounded memory or time, or makes it write where it should not is worth reporting.
 
 ## Reporting a vulnerability
 

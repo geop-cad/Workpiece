@@ -52,7 +52,7 @@ pub fn model(editing: Option<&str>) -> anyhow::Result<Model> {
         AddPart {
             id: id.into(),
             args: AddPartArgs {
-                part: "bracket.workpiece".into(),
+                part: "bracket.wpc".into(),
                 variant: None,
                 hold: Default::default(),
                 bodies: Vec::new(),
@@ -65,10 +65,10 @@ pub fn model(editing: Option<&str>) -> anyhow::Result<Model> {
         .placing("left", &beside(-1.0))
         .placing("right", &beside(1.0));
     let mut model = Model::new(Workspace::new(BTreeMap::from([
-        ("assembly.workpiece".into(), assembly),
-        ("bracket.workpiece".into(), bracket),
+        ("assembly.wpc".into(), assembly),
+        ("bracket.wpc".into(), bracket),
     ])));
-    model.update(Message::Open("assembly.workpiece".into()))?;
+    model.update(Message::Open("assembly.wpc".into()))?;
     // One placed part open in the timeline.
     model.update(Message::Toggle(vec!["left".into()]))?;
     if editing == Some("plane") {
@@ -78,7 +78,7 @@ pub fn model(editing: Option<&str>) -> anyhow::Result<Model> {
         let top = vec![workpiece_core::Source::Topology("plate/top".into())];
         let op = workpiece_ops_datum::AddPlane::from_selection("plane1".into(), &world, &top);
         model.update(Message::AddOperation {
-            part: "bracket.workpiece".into(),
+            part: "bracket.wpc".into(),
             op: op.into(),
         })?;
         return Ok(model);
@@ -112,11 +112,8 @@ pub fn sketch() -> anyhow::Result<Model> {
         name: "wide".into(),
         values: BTreeMap::from([("hole".to_owned(), workpiece_core::Measure::new(0.9))]),
     });
-    let mut model = Model::new(Workspace::new(BTreeMap::from([(
-        "plate.workpiece".into(),
-        part,
-    )])));
-    model.update(Message::Open("plate.workpiece".into()))?;
+    let mut model = Model::new(Workspace::new(BTreeMap::from([("plate.wpc".into(), part)])));
+    model.update(Message::Open("plate.wpc".into()))?;
     let world = model.viewport.shown.world.clone();
     let top = workpiece_core::Source::Topology("plate/top".into());
     let mut sketch = Sketch::from_selection("sketch1", &world, &[top]);
@@ -198,7 +195,7 @@ pub fn sketch() -> anyhow::Result<Model> {
     );
     anyhow::ensure!(a.solve(), "the demo sketch does not solve");
     model.update(Message::AddOperation {
-        part: "plate.workpiece".into(),
+        part: "plate.wpc".into(),
         op: sketch.into(),
     })?;
     Ok(model)
@@ -215,7 +212,7 @@ pub fn blends() -> anyhow::Result<Model> {
     use workpiece_ops_bodies::{CombineArgs, CombineBodies};
     use workpiece_shape::Combine;
 
-    const PART: &str = "bracket.workpiece";
+    const PART: &str = "bracket.wpc";
     let body = |name: &str| Some(Source::Topology(name.into()));
     let mut part = Part::default();
     part.program.push(
@@ -396,14 +393,14 @@ pub fn joints() -> anyhow::Result<Model> {
 
     let mut model = Model::new(Workspace::new(BTreeMap::from([
         (
-            "base.workpiece".into(),
+            "base.wpc".into(),
             block(
                 [2.4, 4.4, 0.4],
                 &[("pivot", at(0.0, -1.0, 0.2)), ("axle", at(0.0, 1.4, 0.2))],
             ),
         ),
         (
-            "arm.workpiece".into(),
+            "arm.wpc".into(),
             block(
                 [4.0, 0.6, 0.3],
                 &[
@@ -413,25 +410,25 @@ pub fn joints() -> anyhow::Result<Model> {
             ),
         ),
         (
-            "slide.workpiece".into(),
+            "slide.wpc".into(),
             block([0.8, 1.0, 0.4], &[("rail", along_x(0.0, -0.2))]),
         ),
         (
-            "wheel.workpiece".into(),
+            "wheel.wpc".into(),
             block([1.2, 1.2, 0.3], &[("hub", at(0.0, 0.0, -0.15))]),
         ),
         (
-            "joints.workpiece".into(),
+            "joints.wpc".into(),
             Part::new(vec![
-                place("base", "base.workpiece", None),
-                place("arm", "arm.workpiece", Some(hinge)),
-                place("slide", "slide.workpiece", Some(slider)),
-                place("wheel", "wheel.workpiece", Some(axle)),
+                place("base", "base.wpc", None),
+                place("arm", "arm.wpc", Some(hinge)),
+                place("slide", "slide.wpc", Some(slider)),
+                place("wheel", "wheel.wpc", Some(axle)),
                 gears.into(),
             ]),
         ),
     ])));
-    model.update(Message::Open("joints.workpiece".into()))?;
+    model.update(Message::Open("joints.wpc".into()))?;
     Ok(model)
 }
 

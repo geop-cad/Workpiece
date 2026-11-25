@@ -8,7 +8,7 @@
     s.distance_u(r.points[0], r.points[1], 60)
     s.distance_v(r.points[1], r.points[2], 40)
     p.extrude(s, 10)
-    report = p.build("plate.workpiece")         # solves, builds, reports
+    report = p.build("plate.wpc")         # solves, builds, reports
     report.show()
 
 A script is the model: sketches say their constraints and driving dimensions (the solver
@@ -991,7 +991,7 @@ class Part:
 
     def add_part(self, part, onto=None, with_=None, constraint: str = "Fixed", flip: bool = False,
                  offset=None, at=None, euler=None, bodies=None, variant: str | None = None, id: str | None = None) -> str:
-        """Places a part in this one: an assembly. `part` is a .workpiece file beside this one
+        """Places a part in this one: an assembly. `part` is a .wpc file beside this one
         (built already), or a `Part` of the script — given a `file` name (`Part(file=...)`), it is
         built into this one's folder first when this one is built, once however often it is
         placed. It is held by `constraint` — "Fixed" (stays where it is put), "Free", or a joint
@@ -1009,7 +1009,7 @@ class Part:
         `report.placed_part(id)`)."""
         if isinstance(part, Part):
             if not part.file:
-                raise ValueError("a Part placed by an assembly needs a file name: Part(file=\"pin.workpiece\")")
+                raise ValueError("a Part placed by an assembly needs a file name: Part(file=\"pin.wpc\")")
             self._placed_parts[part.file] = part
             part = part.file
         hold = {"constraint": constraint if constraint in ("Fixed", "Free") else {"Joint": constraint},
@@ -1052,7 +1052,7 @@ class Part:
 
     def build(self, path: str, render: bool = False, expect=None, pictures: bool | None = None,
               picture: str | None = None, samples: int = 256, size=(1200, 900), seconds: float = 5.0) -> "Report":
-        """Writes the part to `path` (a .workpiece file), builds it, and returns what came of it.
+        """Writes the part to `path` (a .wpc file), builds it, and returns what came of it.
         With render, the sheets are drawn too: `<path>.views/` gets each drawing as PDF, SVG and
         PNG, and one image per view (`view-<id>.png`), and — `pictures=True`, by default only for
         a part without a drawing — the four pictures iso/front/top/right.png; `sheet.txt` (the

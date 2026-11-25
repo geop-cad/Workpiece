@@ -18,7 +18,7 @@ at = lambda name: os.path.join(HERE, name)
 
 # --- The fork: a 60 × 50 × 70 block, its two top edges along x rounded R10, shelled 3 thick open at the
 # bottom and at both ends; a Ø8 axle hole 20 above the bottom through both legs; a Ø10 king pin hole.
-fork = Part(material="Steel", title="FORK", file="fork.workpiece")
+fork = Part(material="Steel", title="FORK", file="fork.wpc")
 s = fork.sketch("XY", id="fork_plan", show_in="top")
 r = s.rect("f", -30, -25, 60, 50)
 s.symmetric(r.points[0], r.points[1], "v")
@@ -26,10 +26,10 @@ s.symmetric(r.points[1], r.points[2], "u")
 s.distance_u(r.points[0], r.points[1], 60)
 s.distance_v(r.points[1], r.points[2], 50)
 fork.extrude(s, 70, combine="NewBody", id="block")
-rep = fork.build(at("fork.workpiece"))
+rep = fork.build(at("fork.wpc"))
 fork.fillet(rep.edges(where=lambda e: e["straight"] and abs(e["middle"][2] - 70) < 1e-6 and abs(e["from"][1] - e["to"][1]) < 1e-6), 10,
             id="crown")
-rep = fork.build(at("fork.workpiece"))
+rep = fork.build(at("fork.wpc"))
 fork.shell(rep.faces(where=lambda f: f["flat"] and (f["normal"][2] < -0.99 or abs(f["normal"][0]) > 0.99)), 3, id="wall")
 a = fork.sketch("ZX", id="axle_hole", show_in="front")
 c = a.point(20, 0, "c")
@@ -37,7 +37,7 @@ a.point_on(c, "u")
 a.distance_u(a.origin, c, 20)
 a.diameter(a.circle(c, 4, "hole"), 8)
 fork.cut(a, through=True, symmetric=True, id="axle")
-rep = fork.build(at("fork.workpiece"))
+rep = fork.build(at("fork.wpc"))
 top = rep.faces(where=lambda f: f["flat"] and f["normal"][2] > 0.99)[0]
 k = fork.sketch(topo(top), id="king_pin", show_in="top")
 k.coincident(k.dot(0, 0, "k"), k.origin)
@@ -48,7 +48,7 @@ fork.drawing(views=[view("front", "Front", (90, 130)), projected("top", "front",
 
 # --- The wheel: Ø75 × 30, its axis along y. The hub (Ø40, a Ø8 bore) and the tyre (Ø40 to Ø75, its
 # outer edges rounded R6) are two bodies; the tyre is rubber.
-wheel = Part(material="Aluminium", title="WHEEL", file="wheel.workpiece")
+wheel = Part(material="Aluminium", title="WHEEL", file="wheel.wpc")
 h = wheel.sketch("YZ", id="hub_profile", show_in="secW")
 ax = h.rotation_axis(h.origin, (1, 0))
 h.horizontal(ax)
@@ -64,7 +64,7 @@ wheel.revolve(h, combine="NewBody", id="hub")
 t = wheel.sketch("YZ", id="tyre_profile", show_in="secW")
 tax = t.rotation_axis(t.origin, (1, 0))
 t.horizontal(tax)
-wrep = wheel.build(at("wheel.workpiece"))
+wrep = wheel.build(at("wheel.wpc"))
 t.project("hub_rim", wrep.edges(where=lambda e: e["straight"] and e["middle"][2] > 19 and abs(e["middle"][0]) < 1e-6)[0])
 q0, q1, q2, q3 = t.point(-15, 20, "a"), t.point(15, 20, "b"), t.point(15, 37.5, "c"), t.point(-15, 37.5, "d")
 for u, v in ((q0, q1), (q1, q2), (q2, q3), (q3, q0)):
@@ -73,7 +73,7 @@ t.horizontal(q0, q1); t.vertical(q1, q2); t.horizontal(q2, q3); t.vertical(q3, q
 t.coincident(q0, "hub_rim_a"); t.coincident(q1, "hub_rim_b")
 t.diameter_about(q3, tax, 75)
 wheel.revolve(t, combine="NewBody", id="tyre")
-wrep = wheel.build(at("wheel.workpiece"))
+wrep = wheel.build(at("wheel.wpc"))
 wheel.fillet(wrep.edges(where=lambda e: not e["straight"] and e["name"].startswith("tyre") and abs(abs(e["middle"][1]) - 15) < 1e-6
                         and abs(e["middle"][0]) + abs(e["middle"][2]) > 30), 6, id="tyre_round")
 wheel.op("Appearance", id="rubber", of=[topo("tyre")], material="Rubber")
@@ -83,7 +83,7 @@ wheel.drawing(views=[view("right", "Right", (100, 165)), section_view("secW", "W
 
 # --- The axle pin: Ø8 × 56 under a Ø14 × 4 head.
 # (A pin is drawn whole where a section runs along it: not sectioned.)
-pin = Part(material="Steel", title="AXLE PIN", file="pin.workpiece", sectioned=False)
+pin = Part(material="Steel", title="AXLE PIN", file="pin.wpc", sectioned=False)
 pp = pin.sketch("YZ", id="pin_profile", show_in="front")
 pax = pp.rotation_axis(pp.origin, (1, 0))
 pp.horizontal(pax)
@@ -101,7 +101,7 @@ pin.drawing(views=[view("front", "Front", (150, 170)), view("iso", "Isometric", 
             scale=(2, 1), format="A3", id="drawing")
 
 # --- The assembly.
-frep, wrep, prep = fork.build(at("fork.workpiece")), wheel.build(at("wheel.workpiece")), pin.build(at("pin.workpiece"))
+frep, wrep, prep = fork.build(at("fork.wpc")), wheel.build(at("wheel.wpc")), pin.build(at("pin.wpc"))
 circle = lambda rep, y, r: rep.edges(where=lambda e: not e["straight"] and abs(e["middle"][1] - y) < 1e-6
                                      and abs(((e["middle"][0]) ** 2 + (e["middle"][2] - (20 if rep is frep else 0)) ** 2) ** .5 - r) < 1e-3)[0]
 asm = Part(title="CASTER")
@@ -116,7 +116,7 @@ asm.op("Section", id="A", along="Plane", plane=axis("X"), offset=0.0)
 asm.drawing(views=[view("right", "Right", (90, 175)), section_view("secA", "A", (215, 175), of="right"),
                    view("iso", "Isometric", (335, 215))], scale=(1, 1), format="A3", id="drawing",
             parts_list=True, balloons="auto")
-rep = asm.build(at("caster.workpiece"), pictures=True, render=True, picture=at("render.png"))
+rep = asm.build(at("caster.wpc"), pictures=True, render=True, picture=at("render.png"))
 for f, r in asm.reports.items():
     r.show()
 rep.show()

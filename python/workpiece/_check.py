@@ -328,13 +328,13 @@ _READS = re.compile(r"open\(|\.read_text|\.read_bytes|json\.load|os\.path\.exist
 
 def lint_source(source: str) -> list:
     """Private members of the layer used (`._x` of what the layer returns), and a script reading
-    its own output files (.workpiece, .views, reports) before its first build."""
+    its own output files (.wpc, .views, reports) before its first build."""
     out = []
     lines = source.splitlines()
     first_build = next((n for n, l in enumerate(lines) if ".build(" in l.split("#", 1)[0]), len(lines))
     for n, line in enumerate(lines[:first_build], 1):
         code = line.split("#", 1)[0]
-        if _READS.search(code) and re.search(r"\.workpiece|\.views|report\.json|\bout\b", code):
+        if _READS.search(code) and re.search(r"\.wpc|\.views|report\.json|\bout\b", code):
             out.append(f"line {n}: the script reads its own output before building: build first, and read what `build` returns")
     for n, line in enumerate(lines, 1):
         code = line.split("#", 1)[0]

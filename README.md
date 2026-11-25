@@ -2,7 +2,7 @@
 
 Workpiece is a CAD kernel and a desktop application written in Rust. A part is a list of steps (sketches with constraints, extrudes, fillets, holes, patterns, drawings and so on) that the program applies in order to build solids and surfaces on NURBS geometry; changing an early step rebuilds the ones after it. The same parts can be edited in the app, scripted from Python through a command line, and put together into assemblies with joints and drawn on ISO sheets.
 
-> **Status: early.** The code is a working prototype. The `.workpiece` part file format is not stable and changes without migration, and the API of the crates is not stable. Not everything in the app is finished; [`Ribbon.md`](Ribbon.md) lists per feature what is built and what is not.
+> **Status: early.** The code is a working prototype. The `.wpc` part file format is not stable and changes without migration, and the API of the crates is not stable. Not everything in the app is finished; [`Ribbon.md`](Ribbon.md) lists per feature what is built and what is not.
 
 ## Screenshots
 
@@ -79,13 +79,13 @@ cd Workpiece
 
 # The desktop app (optimized build: the geometry is slow without the optimizer)
 cargo run --release -p workpiece-app
-cargo run --release -p workpiece-app -- part.workpiece   # open a part file
+cargo run --release -p workpiece-app -- part.wpc   # open a part file
 
 # The command line
 cargo build --release -p workpiece-cli
 target/release/workpiece kinds                          # the kinds of steps and their arguments
-target/release/workpiece make recipe.json -o part.workpiece --report report.json
-target/release/workpiece report part.workpiece         # build a part there is, and say what came of it
+target/release/workpiece make recipe.json -o part.wpc --report report.json
+target/release/workpiece report part.wpc         # build a part there is, and say what came of it
 
 # A part from Python (builds the command line first; needs Python 3)
 cargo build --release -p workpiece-cli

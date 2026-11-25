@@ -188,7 +188,7 @@ pub fn save_settings(settings: &workpiece_ui::model::Settings) -> anyhow::Result
     write_settings_text(&serde_json::to_string_pretty(&json)?)
 }
 
-/// A name for a new part: `untitled.workpiece`, or with the smallest number
+/// A name for a new part: `untitled.wpc`, or with the smallest number
 /// from 2 that is neither in `workspace` nor on disk.
 pub fn untitled(workspace: &Workspace) -> String {
     let free = |name: &String| !workspace.parts.contains_key(name) && !files::exists(name);
@@ -273,24 +273,24 @@ mod tests {
             }
             .into()
         };
-        save(&path("nut.workpiece"), &Part::default())?;
+        save(&path("nut.wpc"), &Part::default())?;
         save(
-            &path("bolt.workpiece"),
+            &path("bolt.wpc"),
             &Part {
-                program: vec![place(path("nut.workpiece"))],
+                program: vec![place(path("nut.wpc"))],
                 ..Default::default()
             },
         )?;
-        let loaded = load(&path("bolt.workpiece"), &Workspace::default())?;
+        let loaded = load(&path("bolt.wpc"), &Workspace::default())?;
         assert_eq!(loaded.len(), 2);
         // What the workspace has already is not read again.
         let mut ws = Workspace::default();
-        ws.parts.insert(path("nut.workpiece"), Part::default());
-        assert_eq!(load(&path("bolt.workpiece"), &ws)?.len(), 1);
-        assert!(load(&path("missing.workpiece"), &ws).is_err());
+        ws.parts.insert(path("nut.wpc"), Part::default());
+        assert_eq!(load(&path("bolt.wpc"), &ws)?.len(), 1);
+        assert!(load(&path("missing.wpc"), &ws).is_err());
         std::fs::remove_dir_all(&dir)?;
-        assert_eq!(with_extension("a"), "a.workpiece");
-        assert_eq!(with_extension("a.workpiece"), "a.workpiece");
+        assert_eq!(with_extension("a"), "a.wpc");
+        assert_eq!(with_extension("a.wpc"), "a.wpc");
         Ok(())
     }
 }

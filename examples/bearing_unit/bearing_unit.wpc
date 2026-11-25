@@ -10,43 +10,76 @@
             "distance": null,
             "flip": false
           },
-          "part": "body.workpiece",
+          "part": "housing.wpc",
           "variant": null
         },
-        "id": "body"
+        "id": "housing"
       }
     },
     {
-      "AddPart": {
+      "StandardPart": {
         "args": {
-          "bodies": [],
           "hold": {
             "angle": null,
             "constraint": {
-              "Joint": "Slider"
+              "Joint": "Fastened"
             },
             "distance": null,
             "flip": true,
             "onto": {
               "instance": [
-                "body"
+                "housing"
               ],
               "snap": "FaceCentre",
               "source": {
-                "Topology": "body/side/e16"
+                "Topology": "housing/side/e17"
               }
             },
             "with": {
               "snap": "FaceCentre",
               "source": {
-                "Topology": "jaw/side/e14"
+                "Topology": "bearing1/end"
               }
             }
           },
-          "part": "jaw.workpiece",
-          "variant": null
+          "kind": "Bearing",
+          "length": 20.0,
+          "size": "6204"
         },
-        "id": "jaw"
+        "id": "bearing1"
+      }
+    },
+    {
+      "StandardPart": {
+        "args": {
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Fastened"
+            },
+            "distance": null,
+            "flip": true,
+            "onto": {
+              "instance": [
+                "housing"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "housing/side/e25"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "bearing2/end"
+              }
+            }
+          },
+          "kind": "Bearing",
+          "length": 20.0,
+          "size": "6204"
+        },
+        "id": "bearing2"
       }
     },
     {
@@ -62,34 +95,117 @@
             "flip": true,
             "onto": {
               "instance": [
-                "jaw"
+                "bearing1"
               ],
               "snap": "FaceCentre",
               "source": {
-                "Topology": "seat/side/e2"
+                "Topology": "bearing1/end"
               }
             },
             "with": {
               "snap": "FaceCentre",
               "source": {
-                "Topology": "screw/side/e17"
+                "Topology": "shaft/side/e17"
               }
             }
           },
-          "part": "screw.workpiece",
+          "part": "shaft.wpc",
           "variant": null
+        },
+        "id": "shaft"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Fastened"
+            },
+            "distance": null,
+            "flip": true,
+            "onto": {
+              "instance": [
+                "housing"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "housing/side/e19"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "cover/start"
+              }
+            }
+          },
+          "part": "cover.wpc",
+          "variant": null
+        },
+        "id": "cover"
+      }
+    },
+    {
+      "StandardPart": {
+        "args": {
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Fastened"
+            },
+            "distance": null,
+            "flip": true,
+            "offset": [
+              0.0,
+              44.0,
+              0.0
+            ],
+            "onto": {
+              "instance": [
+                "cover"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "cover/end"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "screw/head/start"
+              }
+            }
+          },
+          "kind": "SocketScrew",
+          "length": 12.0,
+          "size": "M5"
         },
         "id": "screw"
       }
     },
     {
-      "Drive": {
+      "PatternPart": {
         "args": {
-          "at": 40.0,
-          "joint": "jaw",
-          "slide": false
+          "count": 4,
+          "of": "screw",
+          "step": {
+            "rotation": [
+              0.0,
+              0.0,
+              -0.7071067811865475,
+              0.7071067811865476
+            ],
+            "translation": [
+              44.00000000000004,
+              -44.000000000000036,
+              0.0
+            ]
+          }
         },
-        "id": "open"
+        "id": "screws"
       }
     },
     {
@@ -100,7 +216,7 @@
           "offset": 0.0,
           "plane": {
             "FrameAxis": {
-              "axis": "Y",
+              "axis": "X",
               "frame": "origin"
             }
           },
@@ -115,26 +231,42 @@
           "balloons": [
             {
               "at": [
-                -40.0,
-                55.0
-              ],
-              "part": "body",
-              "view": "secA"
-            },
-            {
-              "at": [
-                30.0,
-                55.0
-              ],
-              "part": "jaw",
-              "view": "secA"
-            },
-            {
-              "at": [
-                -80.0,
-                30.0
+                -62.0,
+                64.0
               ],
               "part": "screw",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -30.0,
+                64.0
+              ],
+              "part": "bearing1",
+              "view": "secA"
+            },
+            {
+              "at": [
+                5.0,
+                64.0
+              ],
+              "part": "housing",
+              "view": "secA"
+            },
+            {
+              "at": [
+                80.0,
+                30.0
+              ],
+              "part": "shaft",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -62.0,
+                -64.0
+              ],
+              "part": "cover",
               "view": "secA"
             }
           ],
@@ -433,6 +565,14 @@
             "wide": null
           },
           "format": "A3",
+          "lines": [
+            {
+              "of": {
+                "Datum": "origin/y"
+              },
+              "view": "secA"
+            }
+          ],
           "name": "drawing",
           "notes": [],
           "numbers": {
@@ -458,54 +598,46 @@
           "views": [
             {
               "at": [
-                160.0,
-                185.0
+                80.0,
+                175.0
+              ],
+              "id": "left",
+              "kind": {
+                "Base": {
+                  "side": "Left"
+                }
+              },
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                205.0,
+                175.0
               ],
               "caption_at": [
                 0.0,
-                -32.0
+                -66.0
               ],
               "id": "secA",
               "kind": {
                 "Section": {
                   "letter": "A",
-                  "of": "top",
+                  "of": "left",
                   "section": "A",
                   "turn": 0.0
                 }
               },
-              "scale": [
-                1,
-                1
-              ],
               "style": "HiddenRemoved"
             },
             {
               "at": [
-                300.0,
-                150.0
-              ],
-              "id": "top",
-              "kind": {
-                "Base": {
-                  "side": "Top"
-                }
-              },
-              "scale": [
-                1,
-                2
-              ],
-              "style": "HiddenRemoved"
-            },
-            {
-              "at": [
-                360.0,
-                235.0
+                355.0,
+                215.0
               ],
               "id": "iso",
               "kind": {
                 "Base": {
-                  "side": "Isometric"
+                  "side": "IsometricFrontLeft"
                 }
               },
               "scale": [
@@ -521,6 +653,6 @@
     }
   ],
   "properties": {
-    "Title": "BENCH VISE"
+    "Title": "BEARING UNIT"
   }
 }
