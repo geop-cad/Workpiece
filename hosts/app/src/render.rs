@@ -672,11 +672,6 @@ impl Renderer {
 
     /// Draws `frame` into the callback's viewport.
     pub fn paint(&mut self, gl: &glow::Context, info: &egui::PaintCallbackInfo, frame: &Frame) {
-        let prof = std::time::Instant::now(); // PROF
-        self.paint_(gl, info, frame);
-        if std::env::var_os("WP_PROF").is_some() { eprintln!("PROF paint {:>7.2} ms", prof.elapsed().as_secs_f64()*1e3); } // PROF
-    }
-    fn paint_(&mut self, gl: &glow::Context, info: &egui::PaintCallbackInfo, frame: &Frame) { // PROF
         // What is drawn is uploaded unless it is there; what is no longer
         // drawn is let go.
         for layer in frame.scene.iter().chain(&frame.ghosts) {
