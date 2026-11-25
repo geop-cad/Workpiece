@@ -26,8 +26,8 @@ pub struct AddPartArgs {
     #[serde(default)]
     #[arg(hidden)]
     pub variant: Option<String>,
-    /// How it is held: free, fixed, or by a joint between a reference
-    /// on what is in the assembly already and one of its own.
+    /// How it is held: fixed or not, and by its mates, each between a
+    /// reference on what is in the assembly already and one of its own.
     #[serde(default)]
     #[arg(hidden)]
     pub hold: crate::placing::Hold,
@@ -190,24 +190,24 @@ impl Operation for AddPart {
         context: &workpiece_core::EditContext<'_>,
         (): &(),
     ) -> EditVisualization<workpiece_core::Edit<AddPartArgs, ()>> {
-        // The dialog chooses the part's file and its variant and edits its
-        // pose; the gizmo moves and turns it.
+        // The dialog chooses the part's file and its variant and its
+        // mates; while none holds it, it is dragged in the view (or its
+        // pose typed in).
         let args = self.args.clone();
-        // The fields the arguments give; where it is, and the gizmo, are
-        // the cache's.
+        // The fields the arguments give; where it is is the cache's.
         let fields = workpiece_core::Arguments::fields(&args, context);
-        let (place, handles) = crate::placing::pose_edit(&self.id, context, &self.args.hold);
+        let place = crate::placing::pose_field(&self.id, context, &self.args.hold);
         let mut all: Vec<workpiece_core::Widget<workpiece_core::Edit<AddPartArgs, ()>>> = fields
             .into_iter()
             .map(|field| field.map(workpiece_core::Edit::args))
             .collect();
         all.extend(place);
-        EditVisualization::new(VBox::new(all), handles)
+        EditVisualization::new(VBox::new(all), Default::default())
     }
 
     fn summary(&self) -> String {
         let op = self;
-        let fixed = op.args.hold.constraint.said();
+        let fixed = op.args.hold.said();
         let taken = match op.args.bodies.len() {
             0 => String::new(),
             _ => format!(" ({})", op.args.bodies.join(", ")),
@@ -220,7 +220,7 @@ impl Operation for AddPart {
 }
 
 /// The fields that say what part it is, which of its variants, and
-/// how it is held: its two references and the constraint between them.
+/// how it is held: fixed or not, and its mates.
 fn fields_of(
     args: &AddPartArgs,
     context: &workpiece_core::EditContext<'_>,
@@ -306,8 +306,8 @@ fn fields_of(
             fields.push(Choice::new(body.clone(), options, usize::from(!taken), tick).into());
         }
     }
-    // How it is held: a reference on what is there, one of its own,
-    // and the constraint between them.
+    // How it is held: fixed or not, and its mates, each a reference on
+    // what is there, one of its own and the constraint between them.
     for field in crate::placing::hold_fields(&args.hold, context.step, None) {
         let args = args.clone();
         fields.push(field.map(move |hold| AddPartArgs {
@@ -322,7 +322,6 @@ fn fields_of(
 mod tests {
     use super::*;
     use std::sync::Arc;
-    use workpiece_core::handles::Handle;
     use workpiece_core::math::Point3;
     use workpiece_core::{Pose, World};
 
@@ -423,22 +422,47 @@ mod tests {
     }
 
     #[test]
-    fn the_gizmo_moves_the_part_in_the_cache() -> anyhow::Result<()> {
-        let op = add("b", "bolt");
+    fn its_pose_is_typed_into_the_cache_until_a_mate_holds_it() -> anyhow::Result<()> {
+        let mut op = add("b", "bolt");
         let world = Arc::new(World::new());
         let cache = workpiece_core::Cache::default();
         let context = workpiece_core::EditContext::standalone(&world, &cache);
         let edit = op.visualize_edit(&context, &());
-        let Some(Handle::Gizmo(g)) = edit.handles.get("pose") else {
-            anyhow::bail!("expected a gizmo");
-        };
-        let moved = Pose::from_translation(Point3::Y);
-        let edit = (g.on_drag)(moved);
+        // No gizmo: the part is dragged in the view.
+        assert!(edit.handles.is_empty());
+        let mut pose = None;
+        edit.dialog.visit(&mut |w| {
+            if let workpiece_core::Widget::PoseInput(input) = w {
+                pose = input.set_position(workpiece_core::math::Axis::Y, 1.0);
+            }
+        });
+        let edit = pose.expect("the pose field");
         // The arguments stay; what the step keeps is where the part is.
         assert!(edit.args.is_none());
         let mut cache = workpiece_core::Cache::default();
         cache.replace("b", edit.kept.expect("where the part is"));
+        let moved = Pose::from_translation(Point3::Y);
         assert_eq!(crate::assembly::placed(&cache, "b"), moved);
+        // Held by a mate, it has no pose of its own to type.
+        let origin = crate::Anchor {
+            instance: vec!["base".into()],
+            source: workpiece_core::Source::Datum("origin".into()),
+            snap: crate::connector::Snap::Datum,
+        };
+        op.args.hold = crate::Hold::joint(
+            workpiece_core::world::JointKind::Fastened,
+            origin.clone(),
+            crate::Anchor {
+                instance: Vec::new(),
+                ..origin
+            },
+        );
+        let edit = op.visualize_edit(&context, &());
+        let mut any = false;
+        edit.dialog.visit(&mut |w| {
+            any |= matches!(w, workpiece_core::Widget::PoseInput(_));
+        });
+        assert!(!any);
         Ok(())
     }
 }

@@ -5,10 +5,8 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": "Fixed",
-            "distance": null,
-            "flip": false
+            "fixed": true,
+            "mates": []
           },
           "part": "base.wpc",
           "variant": null
@@ -21,27 +19,27 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "base"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "rod_holes/side/e0"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Fastened",
+                "onto": {
+                  "instance": [
+                    "base"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "rod_holes/side/e0"
+                  }
+                },
+                "with": {
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "rod/side/e13"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "rod/side/e13"
-              }
-            }
+            ]
           },
           "part": "rod.wpc",
           "variant": null
@@ -54,27 +52,27 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "base"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "rod_holes3/1/rod_holes/side/e0"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Fastened",
+                "onto": {
+                  "instance": [
+                    "base"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "rod_holes3/1/rod_holes/side/e0"
+                  }
+                },
+                "with": {
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "rod/side/e13"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "rod/side/e13"
-              }
-            }
+            ]
           },
           "part": "rod.wpc",
           "variant": null
@@ -87,27 +85,27 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "base"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "rod_holes3/2/rod_holes/side/e0"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Fastened",
+                "onto": {
+                  "instance": [
+                    "base"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "rod_holes3/2/rod_holes/side/e0"
+                  }
+                },
+                "with": {
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "rod/side/e13"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "rod/side/e13"
-              }
-            }
+            ]
           },
           "part": "rod.wpc",
           "variant": null
@@ -120,27 +118,27 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "rod1"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "rod/side/e15"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Fastened",
+                "onto": {
+                  "instance": [
+                    "rod1"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "rod/side/e15"
+                  }
+                },
+                "with": {
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "rod_holes/side/e0"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "rod_holes/side/e0"
-              }
-            }
+            ]
           },
           "part": "rack.wpc",
           "variant": null

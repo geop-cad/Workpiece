@@ -158,6 +158,7 @@ fn bodies_are_moved_mirrored_scaled_and_repeated() -> anyhow::Result<()> {
     base(&mut b)?;
     pattern(&mut b, &|a| {
         a.axis = x();
+        a.count = 3;
         a.spacing = Measure::new(3.0);
         a.combine = Combine::Join;
     })?;
@@ -170,9 +171,9 @@ fn bodies_are_moved_mirrored_scaled_and_repeated() -> anyhow::Result<()> {
     base(&mut b)?;
     transform(&mut b, "t", &|a| a.by = [6.0, 0.0, 0.0].map(Measure::new))?;
     pattern(&mut b, &|a| {
+        // (Four is how many there are to begin with.)
         a.along = Along::Circle;
         a.axis = z();
-        a.count = 4;
     })?;
     check(&b);
     for k in 1..4 {

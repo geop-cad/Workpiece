@@ -54,11 +54,16 @@ Curves in space (wire bodies to sweep along), one kind each: `p.op("CurveThrough
 start={"way": "Free|Tangent|Curvature|InFace|Normal", "to": topo(edge)|axis(..)|topo(face)|datum(plane)}, end=)`,
 `p.op("Helix", axis=axis("Z"), radius=, pitch=, turns=, grow=, start=deg, left=)`, `p.op("CurveIntersection", first=topo(f), second=topo(g))`,
 `p.op("CurveProjection", onto=[topo(face)], curves=[profile(s) | topo(edge_or_curve)], along=axis(..) | None for a sketch's normal)`.
+Emboss/engrave onto faces: `p.op("Emboss", faces=[topo(f)], sketch=profile(s), areas=[(u, v)], height=, engrave=,
+normal_to_face=)` (the sketch's areas thrown along its normal; only the first face they meet takes them — the near side of a ring;
+sides along the sketch's normal, or square to the face), or `outline="Curves", curves=[topo(curve_body) | topo(edge)]`: closed
+curves already on the face (a projection; rings inside others are holes), raised square to it.
 Pick faces/edges after a build: `rep.faces(where=lambda f: f["flat"] and f["normal"][2] > .99)`,
 `rep.edges(near=(x,y,z), count=1)`. Every wrapper takes `id=`.
 
 **Assembly**: parts `Part(file="a.wpc")`; `asm = Part(); asm.add_part(a, id="a", at=(x,y,z), euler=(..)
-| constraint="Fastened", onto=anchor(topo(face),"FaceCentre",instance="a"), with_=anchor(...), flip=)`;
+| mates=[mate(anchor(topo(face),"FaceCentre",instance="a"), anchor(...), "Fastened", flip_with=True)])`;
+`asm.standard_part("SocketScrew", "M5", 12, mates=[mate(onto, seat(), "Revolute")])`;
 `placed("a", topo(face))`; `rep.faces(placed="a", ...)`; `rep.masses`, `rep.mass_total` (kg).
 
 **Drawing**: `p.drawing(views=[view("front","Front",(110,165), style="HiddenDashed"),
@@ -438,21 +443,31 @@ print(report.mass_total)                                  # all of it (kg)
 - `add_part(part, ...)` takes a `Part(file=...)` of the script (built into the assembly's
   folder first, once however often it is placed; its report is `asm.reports[file]`) or the
   name of a .wpc file already in that folder. The step's `id` names the placed part.
-- **Where it goes**: `constraint="Fixed"` (default) or `"Free"` with `at=(x, y, z)` (where its
-  origin goes) and `euler=(x, y, z)` (degrees about the fixed x, y, z axes, in turn); or a
-  joint — `"Fastened"`, `"Revolute"`, `"Slider"`, `"Cylindrical"`, `"Planar"`, `"Ball"` —
-  between `onto=anchor(topo(face), "FaceCentre", instance="plate")` (a face of a part placed
-  before) and `with_=anchor(topo(face), "FaceCentre")` (one of the placed part's own), with
-  `flip=True` to have the two faces face each other (a pin standing on a plate). Snaps:
-  "Datum", "FaceCentre", "FaceAxis", "EdgeMiddle", "Vertex", "ArcCentre".
+- **Where it goes**: without mates it is fixed (`fixed=False`: free to drag) with `at=(x, y, z)`
+  (where its origin goes) and `euler=(x, y, z)` (degrees about the fixed x, y, z axes, in turn);
+  or held by `mates=[...]`, each `mate(onto, with_, constraint, flip_onto=, flip_with=,
+  offset=, angle=, distance=)`: `onto=anchor(topo(face), "FaceCentre", instance="plate")` (a
+  face of a part placed before), `with_=anchor(topo(face), "FaceCentre")` (one of the placed
+  part's own), and the constraint between them — `"Fastened"` (default), `"Revolute"`
+  (concentric and coincident), `"Slider"`, `"Cylindrical"`, `"Planar"`, `"Ball"`.
+  `flip_with=True` turns the part's reference over, to have two faces face each other (a pin
+  standing on a plate); `flip_onto=True` turns the other. Two mates hold what one leaves free
+  (a revolute mate on an axis and a second one off it). Snaps: "Datum", "FaceCentre",
+  "FaceAxis", "EdgeMiddle", "Vertex", "ArcCentre". The joints are named after the step (the
+  second mate's `id/2`), for `Drive` and `Mechanism`.
+- **Standard parts**: `standard_part(kind, size, length=None, mates=..., id=...)` — kinds
+  "HexScrew", "SocketScrew", "HexNut", "Washer", "DowelPin", "Bearing". Each has a seat, the
+  frame `seat()` on its axis where it naturally sits, z into it (a screw's ring under its head, a
+  nut's or a washer's face, a pin's end, a bearing's side face): `mate(anchor(topo(top),
+  "FaceCentre", instance="plate"), seat(), "Revolute", offset=(x, y, 0))` stands it on that face.
 - **Off the reference's middle**: `offset=(x, y, z)` holds it that far off `onto`, in that
   reference's own frame — for a face, x and y in its plane (along the part's x and y for a top
   face) and z along its normal — after the joint lines the two up. For a face, x and y are the
   face's own axes (for a flat face parallel to the XY plane they follow the model's x and y), so
   the first number runs along that axis, not always along the part's long side. A divider fastened onto a
   floor 32 off the floor's middle is one step, no helper frame:
-  `asm.add_part(divider, id="divider1", constraint="Fastened", flip=True, onto=anchor(topo(floor),
-  "FaceCentre", instance="box"), with_=anchor(topo(foot), "FaceCentre"), offset=(32, 0, 0))`.
+  `asm.add_part(divider, id="divider1", mates=[mate(anchor(topo(floor), "FaceCentre", instance="box"),
+  anchor(topo(foot), "FaceCentre"), flip_with=True, offset=(32, 0, 0))])`.
   A step after the joints (a dimension, a drawing, a cut across parts) sees each part where its
   joints hold it, as the report does.
 - **Picking faces of placed parts**: `report.placed` lists each placed part (name, file,

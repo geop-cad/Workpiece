@@ -1,7 +1,7 @@
 //! The [`Mechanism`] operation: two joints whose travels go together.
 
-use workpiece_core::widgets::{Choice, Label, Mood, NumericInput};
-use workpiece_core::world::{Coupling, CouplingKind};
+use workpiece_core::widgets::{Choice, JointInput, Label, Mood, NumericInput};
+use workpiece_core::world::{Coupling, CouplingKind, JointKind};
 use workpiece_core::{Builder, EditContext, Operation};
 
 /// The arguments of [`Mechanism`].
@@ -131,12 +131,12 @@ impl Operation for Mechanism {
     }
 }
 
-/// The fields of a mechanism: what it is, the two joints it ties (of
-/// those that can be its first, and its second), its ratio, and what
-/// that means.
+/// The fields of a mechanism: what it is, the two joints it ties (each
+/// picked in the view, of the joints that can be its first, and its
+/// second), its ratio, and what that means.
 fn fields_of(
     args: &MechanismArgs,
-    context: &EditContext<'_>,
+    _: &EditContext<'_>,
 ) -> Vec<workpiece_core::Widget<MechanismArgs>> {
     let args = args.clone();
     let same = |k: &CouplingKind| std::mem::discriminant(k) == std::mem::discriminant(&args.kind);
@@ -160,51 +160,48 @@ fn fields_of(
         )
         .into(),
     ];
-    // The joints of the assembly so far that can be its first, and
-    // its second.
+    // The two joints, each pointed at in the view: of those that turn,
+    // or that slide, as the mechanism wants.
     let (wants_a, wants_b) = args.kind.turns();
-    let joints = |turns: bool| -> Vec<String> {
-        context
-            .world
-            .joints
-            .iter()
-            .filter(|j| {
-                if turns {
-                    j.kind.turns()
-                } else {
-                    j.kind.slides()
-                }
-            })
-            .map(|j| j.name.clone())
+    let kinds = |turns: bool| -> Vec<JointKind> {
+        JointKind::ALL
+            .into_iter()
+            .filter(|k| if turns { k.turns() } else { k.slides() })
             .collect()
     };
-    let what = |turns: bool| if turns { "turns" } else { "slides" };
     for (first, label, turns) in [
         (true, "First joint", wants_a),
         (false, "Second joint", wants_b),
     ] {
         let chosen = if first { &args.a } else { &args.b };
-        let mut options = vec![format!("Choose a joint that {}…", what(turns))];
-        let names = joints(turns);
-        options.extend(names.iter().cloned());
-        let selected = chosen
-            .as_ref()
-            .and_then(|c| names.iter().position(|n| n == c))
-            .map_or(0, |i| i + 1);
         let with = {
             let args = args.clone();
-            move |i: usize| {
-                let joint = (i > 0).then(|| names[i - 1].clone());
+            move |joint: String| {
                 let mut args = args.clone();
                 if first {
-                    args.a = joint;
+                    args.a = Some(joint);
                 } else {
-                    args.b = joint;
+                    args.b = Some(joint);
                 }
                 args
             }
         };
-        fields.push(Choice::new(label, options, selected, with).into());
+        fields.push(JointInput::new(label, chosen.clone(), kinds(turns), with).into());
+    }
+    if args.a.is_none() || args.b.is_none() {
+        let what = |turns: bool| if turns { "turns" } else { "slides" };
+        fields.push(
+            Label::new(
+                "",
+                format!(
+                    "Point at the joints in the view: first one that {}, then one that {}.",
+                    what(wants_a),
+                    what(wants_b)
+                ),
+                Mood::Plain,
+            )
+            .into(),
+        );
     }
     let number = |label: &str, value: f64, kind: fn(f64) -> CouplingKind| {
         let args = args.clone();

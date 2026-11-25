@@ -312,7 +312,7 @@ pub fn blends() -> anyhow::Result<Model> {
 pub fn joints() -> anyhow::Result<Model> {
     use workpiece_core::world::{CouplingKind, JointKind};
     use workpiece_ops_instances::connector::Snap;
-    use workpiece_ops_instances::{Anchor, Constraint, Hold, MateArgs, Mechanism, MechanismArgs};
+    use workpiece_ops_instances::{Anchor, Hold, MateArgs, Mating, Mechanism, MechanismArgs};
 
     let block = |size: [f64; 3], frames: &[(&str, Pose)]| {
         let mut program = vec![AnyOperation::from(AddBox {
@@ -347,13 +347,16 @@ pub fn joints() -> anyhow::Result<Model> {
                 variant: None,
                 hold: match joint {
                     Some(joint) => Hold {
-                        onto: joint.a,
-                        with: joint.b,
-                        constraint: Constraint::Joint(joint.kind),
-                        flip: joint.flip,
-                        angle: joint.angle,
-                        distance: joint.distance,
-                        offset: [0.0; 3],
+                        fixed: false,
+                        mates: vec![Mating {
+                            onto: joint.a,
+                            with: joint.b,
+                            kind: joint.kind,
+                            flip_with: joint.flip,
+                            angle: joint.angle,
+                            distance: joint.distance,
+                            ..Mating::default()
+                        }],
                     },
                     None => Hold::fixed(),
                 },

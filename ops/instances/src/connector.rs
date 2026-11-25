@@ -527,6 +527,24 @@ pub fn frame(world: &World, source: &Source, snap: &Snap) -> anyhow::Result<Pose
     })
 }
 
+/// The flat face the arc `name` (an edge of `world`) bounds, if there
+/// is one: the face a hole's rim lies in, the end of a shaft. Its name.
+pub fn rim_face(world: &World, name: &str) -> Option<String> {
+    let topo = &world.topo;
+    let id: EdgeId = topo.resolve(name)?;
+    edge(topo, id)?.arc()?;
+    topo.faces().iter().find_map(|(face, f)| {
+        let surface = topo.surface(f.surface)?;
+        let flat = matches!(
+            workpiece_shape::known::known(surface),
+            Some(workpiece_shape::known::Known::Plane { .. })
+        );
+        (flat && boundary(topo, face).1.contains(&id))
+            .then(|| topo.name_of(face).map(str::to_owned))
+            .flatten()
+    })
+}
+
 /// How a connector on `source` of `world` sits there when the pointer is
 /// at `at` on it (in the world's coordinates); `near` is how close to a
 /// vertex or an edge counts as on it.

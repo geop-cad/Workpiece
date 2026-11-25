@@ -478,6 +478,8 @@ fn files_load_save_and_close() -> anyhow::Result<()> {
     })?;
     assert_eq!(m.active_part.as_deref(), Some("bolt.wpc"));
     assert!(!m.is_dirty("bolt.wpc"));
+    // A file opened is one opened recently.
+    assert_eq!(m.settings.recent, ["bolt.wpc"]);
     click(&mut m, "Frame")?;
     m.update(Message::FinishEdit)?;
     assert!(m.is_dirty("bolt.wpc"));
@@ -497,6 +499,50 @@ fn files_load_save_and_close() -> anyhow::Result<()> {
     m.update(Message::Close)?;
     assert!(!m.workspace.parts.contains_key("bolt2.wpc"));
     assert!(m.workspace.parts.contains_key("nut.wpc"));
+    // Recent files, the latest first: a new part, never written, is
+    // none; one saved or opened is.
+    assert_eq!(m.settings.recent, ["bolt.wpc"]);
+    m.update(Message::Open("nut.wpc".into()))?;
+    assert_eq!(m.settings.recent, ["nut.wpc", "bolt.wpc"]);
+    m.update(Message::Open("nut.wpc".into()))?;
+    assert_eq!(m.settings.recent, ["nut.wpc", "bolt.wpc"], "once each");
+    Ok(())
+}
+
+#[test]
+fn steps_go_in_at_the_scrubber_and_an_edit_comes_back_to_it() -> anyhow::Result<()> {
+    let mut m = model();
+    m.workspace.part_mut("bolt")?.program = vec![frame("a", 0.0), frame("b", 1.0), frame("c", 2.0)];
+    m.update(Message::Open("bolt".into()))?;
+    // Scrubbed back to after the first step: a step added goes in
+    // there, and the scrubber after it.
+    m.update(Message::Scrub(Some(1)))?;
+    click(&mut m, "Frame")?;
+    let added = program(&m, "bolt")[1].clone();
+    assert_eq!(program(&m, "bolt"), ["a", added.as_str(), "b", "c"]);
+    assert_eq!(m.scrub, Some(2));
+    m.update(Message::FinishEdit)?;
+    assert_eq!((m.scrub, m.shown_steps()), (Some(2), 2));
+    // A step after the scrubber edited: shown while it is, and when the
+    // edit is done the scrubber is where it was.
+    m.update(Message::Edit(vec!["c".into()]))?;
+    assert_eq!(m.shown_steps(), 4);
+    m.update(Message::FinishEdit)?;
+    assert_eq!((m.scrub, m.shown_steps()), (Some(2), 2));
+    // A step added there and cancelled: the scrubber stays.
+    click(&mut m, "Frame")?;
+    assert_eq!((program(&m, "bolt").len(), m.scrub), (5, Some(3)));
+    m.update(Message::CancelEdit)?;
+    assert_eq!((program(&m, "bolt").len(), m.scrub), (4, Some(2)));
+    // With all shown, at the end.
+    m.update(Message::Scrub(None))?;
+    click(&mut m, "Pattern")?;
+    let last = m.workspace.parts["bolt"].program.last().expect("a step");
+    let pattern = last
+        .downcast_ref::<workpiece_ops_bodies::Pattern>()
+        .expect("the pattern, last");
+    // (Four of what is repeated, to begin with.)
+    assert_eq!((pattern.args.count, m.scrub), (4, None));
     Ok(())
 }
 
@@ -915,6 +961,28 @@ fn a_hole_goes_where_its_face_is_clicked_and_is_then_placed() -> anyhow::Result<
     let args = hole(&m).args;
     assert!(args.first.is_some() && args.second.is_some());
     assert!((centre(&mut m)? - clicked).length() < 1e-3);
+    // The knob at the hole moves it over the face, as a gizmo's centre
+    // does: both distances follow.
+    let was = centre(&mut m)?;
+    hover(&mut m, was.as_vec3())?;
+    let knob = Candidate::Handle {
+        name: "place".into(),
+        part: Some(workpiece_core::handles::GizmoPart::Free),
+    };
+    assert_eq!(m.viewport.hovered(), Some(&knob));
+    let to = Point3::new(-0.1, -0.2, 0.5);
+    m.update(Message::Pointer(Pointer::Press))?;
+    m.update(Message::Pointer(Pointer::DragStart))?;
+    hover(&mut m, Vec3::new(0.05, 0.0, 0.5))?;
+    hover(&mut m, to.as_vec3())?;
+    m.update(Message::Pointer(Pointer::DragEnd))?;
+    assert!(
+        (centre(&mut m)? - to).length() < 1e-2,
+        "{:?}",
+        centre(&mut m)?
+    );
+    let moved = hole(&m).args;
+    assert!(moved.first_offset != args.first_offset && moved.second_offset != args.second_offset);
     Ok(())
 }
 
@@ -2114,7 +2182,6 @@ fn a_drag_moves_the_first_part_up_that_is_not_fixed() -> anyhow::Result<()> {
 #[test]
 fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Result<()> {
     use workpiece_core::world::JointKind;
-    use workpiece_ops_instances::Constraint;
     let mut m = hinged()?;
     // The base alone; the arm is added again: a reference on each of
     // the two, and then the constraint between them.
@@ -2127,7 +2194,7 @@ fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Resul
             args: AddPartArgs {
                 part: "arm.wpc".into(),
                 variant: None,
-                hold: Default::default(),
+                hold: workpiece_ops_instances::Hold::to_pick(),
                 bodies: Vec::new(),
             },
         }
@@ -2165,23 +2232,25 @@ fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Resul
     );
     assert!(View::new(&m).viewport.ghosts.items.len() > m.viewport.shown.ghosts.items.len());
     m.update(Message::Pointer(Pointer::Click { add: false }))?;
-    // With the pair complete, the joints that fit it are offered as a
-    // drop-down, and one of them is chosen already.
+    // With the pair complete, the constraints that fit it are offered
+    // as a drop-down, and one of them is chosen already.
     let view = View::new(&m);
     let fields = &view.edit_dialog.as_ref().expect("the dialog").fields;
-    let Some(Widget::Choice(constraint)) = (0..12)
-        .filter_map(|i| fields.at(&[i]))
-        .find(|w| matches!(w, Widget::Choice(c) if c.label == "Constraint"))
-    else {
-        anyhow::bail!("expected the constraint's choice");
-    };
-    assert_eq!(constraint.shown, workpiece_core::widgets::Shown::DropDown);
-    assert_eq!(&constraint.options[..2], ["Free", "Fixed"]);
-    assert!(constraint.options.len() > 2, "{:?}", constraint.options);
+    let mut constraint = None;
+    fields.visit(&mut |w| {
+        if let Widget::Choice(c) = w
+            && c.label == "Constraint"
+        {
+            constraint = Some((c.shown, c.options.clone(), c.pictured()));
+        }
+    });
+    let (shown, options, pictured) = constraint.expect("the constraint's choice");
+    assert_eq!(shown, workpiece_core::widgets::Shown::DropDown);
+    assert!(options.len() > 2 && pictured, "{options:?}");
     let added = m.workspace.part("hinged.wpc")?;
     let added = added.operation("arm").expect("the step");
     let hold = &added.downcast_ref::<AddPart>().expect("a part").args.hold;
-    assert_eq!(hold.constraint, Constraint::Joint(JointKind::Fastened));
+    assert_eq!(hold.mates[0].kind, JointKind::Fastened);
     m.update(Message::FinishEdit)?;
     assert_eq!(m.error(), None);
     // It lies where it was previewed, held by a joint named after it.
@@ -2213,43 +2282,118 @@ fn a_new_part_is_made_in_place_and_worked_on_there() -> anyhow::Result<()> {
 }
 
 #[test]
-fn a_mechanism_ties_two_joints_of_the_assembly() -> anyhow::Result<()> {
+fn a_mechanism_ties_two_joints_pointed_at_in_the_view() -> anyhow::Result<()> {
     use workpiece_core::world::CouplingKind;
     use workpiece_ops_instances::{Mechanism, MechanismArgs};
     let mut m = hinged()?;
-    // The hinge's own name is offered, and a second joint that turns
-    // is needed: with the same one twice it is refused.
     m.update(Message::AddOperation {
         part: "hinged.wpc".into(),
         op: Mechanism::new("mesh").into(),
     })?;
-    let view = View::new(&m);
-    let dialog = view.edit_dialog.as_ref().expect("the mechanism's dialog");
-    let Some(Widget::Choice(first)) = dialog.fields.at(&[1]) else {
-        anyhow::bail!("expected the first joint's choice");
-    };
-    assert!(
-        first.options.iter().any(|o| o == "hinge"),
-        "{:?}",
-        first.options
-    );
-    m.update(Message::ReplaceOperation {
-        part: "hinged.wpc".into(),
-        op: Mechanism {
-            id: "mesh".into(),
-            args: MechanismArgs {
-                kind: CouplingKind::Gear { ratio: 2.0 },
-                a: Some("hinge".into()),
-                b: Some("hinge".into()),
-            },
+    // It asks for its first joint at once: the joints that turn are
+    // drawn where they are, the hinge at the base's origin.
+    let picking = |m: &Model| {
+        let view = View::new(m);
+        let field = view.edit_dialog.as_ref()?.fields.at(m.picking.as_ref()?)?;
+        match field {
+            Widget::JointInput(input) => Some(input.label.clone()),
+            _ => None,
         }
-        .into(),
-    })?;
+    };
+    assert_eq!(picking(&m).as_deref(), Some("First joint"));
+    let quiet = m.handle_scene().front.lines.len();
+    assert!(quiet > 20, "the hinge's glyph");
+    // Pointed at, it is the candidate, named at the pointer, and
+    // highlighted; clicked, it is the mechanism's first joint.
+    hover(&mut m, Vec3::new(0.0, 0.0, 0.0))?;
+    assert!(matches!(
+        m.viewport.hovered(),
+        Some(Candidate::Joint { name, .. }) if name == "hinge"
+    ));
+    let view = View::new(&m);
+    let said = view.viewport.candidate.map(|c| c.2);
+    assert_eq!(said.as_deref(), Some("Revolute joint hinge"));
+    m.update(Message::Pointer(Pointer::Click { add: false }))?;
+    let mechanism = |m: &Model| -> Option<MechanismArgs> {
+        let part = m.workspace.part("hinged.wpc").ok()?;
+        let op = part.operation("mesh")?;
+        Some(op.downcast_ref::<Mechanism>()?.args.clone())
+    };
+    assert_eq!(mechanism(&m).and_then(|a| a.a).as_deref(), Some("hinge"));
+    // On to the second; the same hinge twice is refused.
+    assert_eq!(picking(&m).as_deref(), Some("Second joint"));
+    hover(&mut m, Vec3::new(0.0, 0.0, 0.0))?;
+    m.update(Message::Pointer(Pointer::Click { add: false }))?;
+    let args = mechanism(&m).expect("the mechanism");
+    assert_eq!(args.b.as_deref(), Some("hinge"));
+    assert!(matches!(args.kind, CouplingKind::Gear { .. }));
     assert!(
         m.error().is_some_and(|e| e.contains("two joints")),
         "{:?}",
         m.error()
     );
+    Ok(())
+}
+
+#[test]
+fn parts_are_dragged_while_they_are_placed_and_fixed_ones_stay() -> anyhow::Result<()> {
+    let mut m = hinged()?;
+    // Another arm is added, lying off to the side: it asks for what it
+    // goes onto, and has no gizmo — it is dragged.
+    m.update(Message::AddOperation {
+        part: "hinged.wpc".into(),
+        op: AddPart {
+            id: "arm2".into(),
+            args: AddPartArgs {
+                part: "arm.wpc".into(),
+                variant: None,
+                hold: workpiece_ops_instances::Hold::to_pick(),
+                bodies: Vec::new(),
+            },
+        }
+        .into(),
+    })?;
+    m.update(Message::Keep {
+        part: "hinged.wpc".into(),
+        id: "arm2".into(),
+        kept: workpiece_ops_instances::assembly::kept(&Pose::from_translation(Point3::new(
+            0.0, 3.0, 0.0,
+        ))),
+    })?;
+    assert!(m.picking.is_some());
+    assert!(
+        m.session()
+            .is_some_and(|s| s.visualization.handles.is_empty())
+    );
+    let pose = |m: &Model, name: &str| m.viewport.shown.world.instances[name].pose;
+    let drag = |m: &mut Model, from: Point3, to: Point3| -> anyhow::Result<()> {
+        hover(m, from.as_vec3())?;
+        m.update(Message::Pointer(Pointer::Press))?;
+        m.update(Message::Pointer(Pointer::DragStart))?;
+        for step in 1..=10 {
+            hover(m, from.lerp(to, f64::from(step) / 10.0).as_vec3())?;
+        }
+        m.update(Message::Pointer(Pointer::DragEnd))
+    };
+    // Free, it goes where it is pulled; the step is still edited.
+    drag(
+        &mut m,
+        Point3::new(2.0, 3.0, 0.3),
+        Point3::new(2.0, 4.5, 0.3),
+    )?;
+    // (Its point under the pointer follows the pointer, in the plane
+    // through where it was grabbed that faces the view.)
+    let moved = pose(&m, "arm2").translation();
+    assert!(moved.distance(Point3::new(0.0, 3.0, 0.0)) > 0.8, "{moved}");
+    assert!(moved.y > 3.8, "{moved}");
+    assert_eq!(m.editing, ["arm2"]);
+    // The base is fixed: pulled, it stays where it is.
+    drag(
+        &mut m,
+        Point3::new(-0.7, -0.7, 0.25),
+        Point3::new(-2.0, -2.0, 0.25),
+    )?;
+    assert_eq!(pose(&m, "base"), Pose::IDENTITY);
     Ok(())
 }
 
@@ -3922,8 +4066,25 @@ fn what_is_selected_in_a_sketch_shows_in_its_panel_and_its_keys_win() -> anyhow:
     press_key(&mut m, workpiece_core::Hotkey::key('R'))?;
     click_at(&mut m, 0.5, 0.5)?;
     click_at(&mut m, 1.5, 1.0)?;
-    // The rectangle drawn is selected: its panel, with a Construction
-    // mark whose X switches the lines, not the tools' mode.
+    // What is drawn is not selected: still no panel.
+    let selection = |m: &Model| {
+        m.edit_state
+            .as_ref()
+            .and_then(|s| s.downcast_ref::<workpiece_ops_sketch::SketchState>())
+            .map(|s| s.selection.clone())
+            .unwrap_or_default()
+    };
+    assert!(selection(&m).is_empty());
+    let inspector = |m: &Model| View::new(m).edit_dialog.and_then(|d| d.inspector).is_some();
+    assert!(!inspector(&m));
+    // A line of it selected: its panel, with a Construction mark whose
+    // X switches the line, not the tools' mode.
+    press_key(
+        &mut m,
+        workpiece_core::Hotkey::named(workpiece_core::Key::Escape),
+    )?;
+    click_at(&mut m, 1.0, 0.5)?;
+    assert_eq!(selection(&m).len(), 1);
     let view = View::new(&m);
     let panel = view
         .edit_dialog
@@ -3938,11 +4099,17 @@ fn what_is_selected_in_a_sketch_shows_in_its_panel_and_its_keys_win() -> anyhow:
     });
     assert!(marks.contains(&"Construction".to_owned()), "{marks:?}");
     press_key(&mut m, workpiece_core::Hotkey::key('X'))?;
-    let drawn = sketch(&m)
+    let drawn: Vec<bool> = sketch(&m)
         .entities
         .iter()
-        .filter(|(e, _)| sketch(&m).is_line(**e) && !sketch(&m).is_axis(**e));
-    assert!(drawn.into_iter().all(|(_, e)| e.construction));
+        .filter(|(e, _)| sketch(&m).is_line(**e) && !sketch(&m).is_axis(**e))
+        .map(|(_, e)| e.construction)
+        .collect();
+    assert_eq!(drawn.iter().filter(|c| **c).count(), 1, "{drawn:?}");
+    // D with something selected: the dimension tool, from nothing.
+    assert_eq!(selection(&m).len(), 1);
+    press_key(&mut m, workpiece_core::Hotkey::key('D'))?;
+    assert!(selection(&m).is_empty());
     Ok(())
 }
 

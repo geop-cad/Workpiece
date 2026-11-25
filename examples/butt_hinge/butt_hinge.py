@@ -10,7 +10,7 @@ try:
     import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from workpiece import Part, anchor, axis, note, topo, view, projected, section_view, datum
+from workpiece import Part, anchor, mate, axis, note, topo, view, projected, section_view, datum
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 at = lambda name: os.path.join(HERE, name)
@@ -86,10 +86,10 @@ rim = lambda rep, y: rep.edges(where=lambda e: not e["straight"] and abs(e["midd
 pin_end = lambda y: prep.edges(where=lambda e: not e["straight"] and abs(e["middle"][1] - y) < 1e-6)[0]
 asm = Part(title="BUTT HINGE")
 asm.add_part(leaf, id="leaf1")
-asm.add_part(pin, id="pin", constraint="Fastened",
-             onto=anchor(topo(rim(lrep, 0)), "ArcCentre", instance="leaf1"), with_=anchor(topo(pin_end(0)), "ArcCentre"))
-asm.add_part(leaf, id="leaf2", constraint="Revolute", flip=True,
-             onto=anchor(topo(rim(lrep, 45)), "ArcCentre", instance="leaf1"), with_=anchor(topo(rim(lrep, 15)), "ArcCentre"))
+asm.add_part(pin, id="pin", mates=[mate(anchor(topo(rim(lrep, 0)), "ArcCentre", instance="leaf1"),
+                                         anchor(topo(pin_end(0)), "ArcCentre"), "Fastened")])
+asm.add_part(leaf, id="leaf2", mates=[mate(anchor(topo(rim(lrep, 45)), "ArcCentre", instance="leaf1"),
+                                           anchor(topo(rim(lrep, 15)), "ArcCentre"), "Revolute", flip_with=True)])
 asm.op("Drive", "open", joint="leaf2", at=OPEN)
 # (Beside the plan, the view along the hinge's axis: how far it is open.)
 asm.drawing(views=[view("top", "Top", (110, 190)), projected("side", "top", "Right", 120),

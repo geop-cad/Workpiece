@@ -42,6 +42,13 @@ pub enum Candidate {
         /// The datum, frame axis or named topology.
         source: Source,
     },
+    /// A joint of the assembly, at its glyph: while a field picks one.
+    Joint {
+        /// The joint's name.
+        name: String,
+        /// Its kind.
+        kind: workpiece_core::world::JointKind,
+    },
     /// A piece of one of the edited step's handles.
     Handle {
         /// The handle's name.
@@ -58,6 +65,7 @@ impl From<&Candidate> for Pick {
                 instance: instance.clone(),
                 source: source.clone(),
             },
+            Candidate::Joint { name, .. } => Pick::Joint { name: name.clone() },
             Candidate::Handle { name, part } => Pick::Handle {
                 name: name.clone(),
                 part: *part,
@@ -137,7 +145,7 @@ pub fn references(
             let source = Source::placed(instance, source.clone());
             accepted.is_empty() || accepted.iter().any(|k| k.accepts(world, &source))
         }
-        Candidate::Handle { .. } => false,
+        Candidate::Handle { .. } | Candidate::Joint { .. } => false,
     };
     hits.sorted().into_iter().filter(accepts).collect()
 }

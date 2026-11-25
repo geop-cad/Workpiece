@@ -6,7 +6,7 @@
 
 use crate::math::{Axis, Point3};
 
-use super::{AngularHandle, Gizmo, GizmoPart, Handle, LinearHandle};
+use super::{AngularHandle, Gizmo, GizmoPart, Handle, LinearHandle, PlanarHandle};
 
 /// Length of a linear handle's arrow, in pixels.
 pub const ARROW_PX: f64 = 60.0;
@@ -14,6 +14,9 @@ pub const ARROW_PX: f64 = 60.0;
 pub const ANGLE_PX: f64 = 70.0;
 /// A gizmo's rings, as a fraction of its size.
 pub const RING_RADIUS: f64 = 0.7;
+/// Radius of the ring that lies around a planar handle's knob, in its
+/// plane, in pixels.
+pub const PLANAR_PX: f64 = 14.0;
 
 /// The geometry of a piece.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -51,6 +54,7 @@ impl<M: 'static> Handle<M> {
         match self {
             Handle::Linear(h) => h.tip(),
             Handle::Gizmo(g) => g.origin(),
+            Handle::Planar(h) => h.at,
             Handle::Angular(h) => h.center,
             Handle::Canvas(c) => c.place(c.anchor),
             Handle::Space(s) => s.anchor,
@@ -63,6 +67,7 @@ impl<M: 'static> Handle<M> {
         match self {
             Handle::Linear(h) => linear(h, pixel),
             Handle::Gizmo(g) => gizmo(g, pixel),
+            Handle::Planar(h) => planar(h, pixel),
             Handle::Angular(h) => angular(h, pixel),
             // A canvas draws its own shapes (see `Canvas::shapes`).
             Handle::Canvas(_) | Handle::Space(_) => Vec::new(),
@@ -82,6 +87,24 @@ fn linear<M: 'static>(h: &LinearHandle<M>, pixel: f64) -> Vec<Piece> {
     vec![
         piece(Shape::Arrow(tip, tip + h.direction * ARROW_PX * pixel)),
         piece(Shape::Knob(tip)),
+    ]
+}
+
+/// A knob, picked before what else is there (as a gizmo's centre is),
+/// with a small ring around it in the plane it moves in.
+fn planar<M: 'static>(h: &PlanarHandle<M>, pixel: f64) -> Vec<Piece> {
+    let piece = |shape| Piece {
+        part: Some(GizmoPart::Free),
+        axis: None,
+        shape,
+    };
+    vec![
+        piece(Shape::Ring {
+            center: h.at,
+            normal: h.normal,
+            radius: PLANAR_PX * pixel,
+        }),
+        piece(Shape::Knob(h.at)),
     ]
 }
 

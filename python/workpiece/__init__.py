@@ -101,7 +101,7 @@ def placed(instance, ref) -> dict:
 
 
 def anchor(ref, snap: str = "Datum", instance=None) -> dict:
-    """Where a placed part is held, for `Part.add_part(onto=..., with_=...)`: a reference
+    """A reference a mate holds a placed part by, for `mate(onto, with_)`: a reference
     (`datum("origin")`, `axis("Z")`, `topo(face_or_edge)`) and how a frame sits on it — snap
     "Datum" (a datum's own frame), "FaceCentre" (a face's middle, z its normal), "FaceAxis"
     (the axis of a round face), "EdgeMiddle", "Vertex", "ArcCentre". `instance` names the
@@ -111,6 +111,57 @@ def anchor(ref, snap: str = "Datum", instance=None) -> dict:
     if instance:
         made["instance"] = [instance] if isinstance(instance, str) else list(instance)
     return made
+
+
+def seat() -> dict:
+    """The seat of a standard part, as the `with_` of its mate: the frame on its axis where it
+    naturally sits, z into it — a screw's ring under its head, a nut's or a washer's face, a pin's
+    end, a bearing's side face. `mate(onto=<a face, or a hole's rim on one>, with_=seat())` stands
+    it on that face (concentric with the hole), as the app's Standard part does by one pick."""
+    return {"source": {"Datum": "seat"}, "snap": "Datum"}
+
+
+_CONSTRAINTS = ("Fastened", "Revolute", "Slider", "Cylindrical", "Planar", "Ball")
+
+
+def mate(onto, with_, constraint: str = "Fastened", flip_onto: bool = False, flip_with: bool = False,
+         offset=None, angle=None, distance=None) -> dict:
+    """One mate of a placed part, for `add_part(mates=[...])` and `standard_part(mates=[...])`: a
+    reference `onto` what is in the assembly already and one `with_` of the placed part (both
+    `anchor(...)`; `anchor(topo(face), "FaceCentre", instance="plate")` for a face of a part placed
+    before), and the constraint between them — "Fastened" (one frame), "Revolute" (concentric and
+    coincident: it turns about the axis), "Slider", "Cylindrical" (concentric), "Planar", "Ball".
+    flip_onto / flip_with turn that reference over (its z the other way): two faces put against
+    each other need one of them flipped (flip_with=True). offset=(x, y, z) holds it that far off
+    `onto`, in that reference's own frame (for a face: x and y in its plane, z along its normal),
+    after the mate lines the two up. angle=(lo, hi) degrees and distance=(lo, hi) limit what the
+    constraint lets go. Several mates hold what one leaves free."""
+    if constraint not in _CONSTRAINTS:
+        raise ValueError(f"constraint {constraint!r}: one of {', '.join(_CONSTRAINTS)}")
+    made = {"onto": onto, "with": with_, "kind": constraint}
+    if flip_onto:
+        made["flip_onto"] = True
+    if flip_with:
+        made["flip_with"] = True
+    if offset is not None:
+        made["offset"] = [float(x) for x in offset]
+    if angle is not None:
+        made["angle"] = [float(x) for x in angle]
+    if distance is not None:
+        made["distance"] = [float(x) for x in distance]
+    return made
+
+
+def _hold(mates, fixed) -> dict:
+    """How a placed part is held: fixed (where it is put) unless said, when it has no mates."""
+    mates = list(mates or [])
+    for m in mates:
+        if not isinstance(m, dict) or "kind" not in m:
+            raise ValueError("each of mates is a mate(onto, with_, ...)")
+    hold = {"mates": mates}
+    if fixed if fixed is not None else not mates:
+        hold["fixed"] = True
+    return hold
 
 
 def material(folder: str, name: str, density: float, colour=(180, 180, 186)) -> None:
@@ -989,47 +1040,54 @@ class Part:
             self._dimension_decimals[made] = decimals
         return made
 
-    def add_part(self, part, onto=None, with_=None, constraint: str = "Fixed", flip: bool = False,
-                 offset=None, at=None, euler=None, bodies=None, variant: str | None = None, id: str | None = None) -> str:
+    def add_part(self, part, mates=None, fixed: bool | None = None, at=None, euler=None, bodies=None,
+                 variant: str | None = None, id: str | None = None) -> str:
         """Places a part in this one: an assembly. `part` is a .wpc file beside this one
         (built already), or a `Part` of the script — given a `file` name (`Part(file=...)`), it is
         built into this one's folder first when this one is built, once however often it is
-        placed. It is held by `constraint` — "Fixed" (stays where it is put), "Free", or a joint
-        ("Fastened", "Revolute", "Slider", "Cylindrical", "Planar", "Ball") between `onto`, a
-        reference on what is here already, and `with_`, one of its own (both made with
-        `anchor(...)`; `anchor(topo(face), "FaceCentre", instance="plate")` for a face of a part
-        placed before). "Fastened" with the two origins puts it where it was modelled; flip=True
-        turns its reference to face the other. offset=(x, y, z) holds it that far off `onto`, in
-        that reference's own frame (for a face: x and y in its plane, z along its normal), after the
-        joint lines the two up — a part fastened 32 off a face's middle needs no helper frame. For "Fixed" and "Free", `at=(x, y, z)` and
-        `euler=(x, y, z)` (degrees about the fixed x, y, z axes, in turn) say where its origin
-        goes. bodies=[names] brings only those of its bodies — not for parts you model: each
-        item of a parts list is a standalone part (see README). Returns the step's id, which
-        also names the placed part (`placed(id, ...)`, `anchor(..., instance=id)`,
-        `report.placed_part(id)`)."""
+        placed. It is held by its `mates` (a list of `mate(onto, with_, constraint, ...)`): each a
+        reference on what is here already, one of its own and the constraint between them;
+        "Fastened" with the two origins puts it where it was modelled. Without mates it is fixed
+        where it is put (`at=(x, y, z)`, `euler=(x, y, z)` degrees about the fixed x, y, z axes,
+        in turn, say where its origin goes); fixed=False leaves it free to drag, fixed=True keeps
+        a mated part where it is (its mates then move what they join to it). bodies=[names] brings
+        only those of its bodies — not for parts you model: each item of a parts list is a
+        standalone part (see README). Returns the step's id, which also names the placed part
+        (`placed(id, ...)`, `anchor(..., instance=id)`, `report.placed_part(id)`); its joints are
+        named after it (the second mate's `id/2`)."""
         if isinstance(part, Part):
             if not part.file:
                 raise ValueError("a Part placed by an assembly needs a file name: Part(file=\"pin.wpc\")")
             self._placed_parts[part.file] = part
             part = part.file
-        hold = {"constraint": constraint if constraint in ("Fixed", "Free") else {"Joint": constraint},
-                "flip": flip}
-        if onto is not None:
-            hold["onto"] = onto
-        if with_ is not None:
-            hold["with"] = with_
-        if offset is not None:
-            if onto is None:
-                raise ValueError("offset is measured from `onto`: give the reference it is off")
-            hold["offset"] = [float(x) for x in offset]
-        args = {"part": part, "hold": hold, "bodies": list(bodies or [])}
+        args = {"part": part, "hold": _hold(mates, fixed), "bodies": list(bodies or [])}
         if variant is not None:
             args["variant"] = variant
         made = self.op("AddPart", id or self._fresh(os.path.splitext(os.path.basename(part))[0]), **args)
+        self._pose(at, euler)
+        return made
+
+    def standard_part(self, kind: str, size: str, length: float | None = None, mates=None,
+                      fixed: bool | None = None, at=None, euler=None, id: str | None = None) -> str:
+        """Places a part out of the standards: kind "HexScrew" (ISO 4017), "SocketScrew" (ISO 4762),
+        "HexNut" (ISO 4032), "Washer" (ISO 7089), "DowelPin" (ISO 8734), "Bearing" (ISO 15); size
+        "M3".."M16" (a pin's diameter "3".."16", a bearing "608", "6204", ...); a screw's or a
+        pin's `length` (one it comes in). Held as `add_part` holds a part: by `mates` — its seat,
+        `mate(onto=..., with_=seat(), constraint="Revolute")`, stands it on a face or a hole's rim —
+        or fixed `at` a pose. Its bodies are named after the step: "<id>/head/start" is a screw's
+        face under the head. Returns the step's id."""
+        args = {"kind": kind, "size": size, "hold": _hold(mates, fixed)}
+        if length is not None:
+            args["length"] = float(length)
+        made = self.op("StandardPart", id or self._fresh(kind.lower()), **args)
+        self._pose(at, euler)
+        return made
+
+    def _pose(self, at, euler) -> None:
+        """Where the part the last step placed is put, while no mate holds it."""
         if at is not None or euler is not None:
             self._steps[-1]["pose"] = {"at": [float(x) for x in (at or (0, 0, 0))],
                                       "euler": [float(x) for x in (euler or (0, 0, 0))]}
-        return made
 
     def mass_properties(self, id: str | None = None, **more) -> str:
         return self.op("MassProperties", id, **more)

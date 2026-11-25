@@ -198,8 +198,25 @@ pub(crate) fn cuts_by(
     cuts
 }
 
-/// A new point at `cut`, on the curve that cuts there.
+/// The point at `cut`: an end of the curve that cuts there, where it ends
+/// there (a T); else a new point, on that curve.
 fn cut_point(args: &mut SketchArgs, cut: &(f64, Id, Point2)) -> Id {
+    let ends = match args.entities.get(&cut.1).map(|e| &e.shape) {
+        Some(
+            Shape::Line(a, b)
+            | Shape::Arc {
+                start: a, end: b, ..
+            },
+        ) => vec![*a, *b],
+        _ => Vec::new(),
+    };
+    let near = touch_gap(args).max(1e-9);
+    if let Some(end) = ends
+        .into_iter()
+        .find(|&e| args.at(e).distance(cut.2) <= near)
+    {
+        return end;
+    }
     let point = args.add_point(cut.2);
     args.constrain(Kind::PointOn {
         point,
@@ -299,6 +316,11 @@ fn trim_at(args: &mut SketchArgs, id: Id, p: Point2) -> bool {
         }
         _ => return false,
     }
+    // What held a point at the middle of the curve goes with the piece
+    // cut away: the middle is elsewhere now (the point is not kept on the
+    // curve either).
+    args.constraints
+        .retain(|_, c| !matches!(c.kind, Kind::Midpoint { line, .. } if line == id));
     true
 }
 

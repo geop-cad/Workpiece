@@ -9,7 +9,7 @@ mod shell;
 mod thicken;
 
 pub use draft::{Draft, DraftArgs};
-pub use emboss::{Emboss, EmbossArgs, embossed};
+pub use emboss::{Area, Emboss, EmbossArgs, Outline, curve_profiles, embossed, sketch_areas};
 pub use move_face::{FaceWay, MoveFace, MoveFaceArgs};
 pub use shell::{Shell, ShellArgs};
 pub use thicken::{Thicken, ThickenArgs, ThickenSide};
@@ -123,7 +123,11 @@ macro_rules! icons {
 const OPTION_ICONS: &[(&str, &str)] = icons!(
     "draft-both",
     "draft-one",
+    "emboss-along-face",
+    "emboss-along-sketch",
+    "emboss-curves",
     "emboss-raised",
+    "emboss-sketch",
     "emboss-sunk",
     "moveface-along",
     "moveface-offset",

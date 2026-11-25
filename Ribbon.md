@@ -153,17 +153,17 @@ button a way.
 ### Part
 - Insert part (a part file or a STEP file) ✓
 - New part (made in place) ✓
-- Standard part ✓ (one catalogue searched by typing — hexagon head screws ISO 4017 and socket head cap screws ISO 4762 in their lengths, nuts and washers M3–M16, eight ball bearings — with filters for the kind of part and the size; then what it goes onto and with what, and the constraint between the two as a drop-down, fastened by default; threads, sockets and bearing balls drawn plain; in millimetres)
+- Standard part ✓ (one catalogue searched by typing — hexagon head screws ISO 4017 and socket head cap screws ISO 4762 in their lengths, nuts and washers M3–M16, dowel pins ISO 8734, eight ball bearings — with filters for the kind of part and the size; each kind has a seat — a screw's ring under its head, a nut's or a washer's face, a pin's end, a bearing's side face — that its first mate starts at, so one pick of a face or a hole's rim stands it there, revolute (concentric, coincident); more mates as for any placed part; threads, sockets and bearing balls drawn plain; in millimetres)
 - Replace part ✓ (edit the step that places it and choose another file)
 - Pattern part ✓ (each a step — a move, a turn — from the one before; fastened to the first)
 - Mirror part ✓ (the part's bodies mirrored in a plane; fastened to the part; not implemented: sub-assemblies)
 
 ### Position
 - Connector (a frame on a part to join by) ✓
-- Joint (rigid, revolute, slider, cylindrical, planar, ball) ✓ — a placed part (Add part, Standard part) is held by picking a reference on what is there (Onto) and one on the part (With); the constraint is then chosen from a drop-down of Free, Fixed and the joints that fit the two (two axes turn in each other by default, anything else is fastened)
+- Joint (rigid, revolute, slider, cylindrical, planar, ball) ✓ — a placed part (Add part, Standard part) is held by a list of mates, rows added and removed: each a reference on what is there (Onto) and one on the part (With), each with a button that turns it over, and the constraint between them from a drop-down with icons of the joints that fit the two (two axes or rims turn in each other by default, anything else is fastened); two mates hold what one leaves free. Fixed or not is a choice of its own. No gizmo: a part not yet held is dragged where it goes
 - Ground (fix a part where it is) ✓ (a part's "Fixed" way of moving)
-- Move (drag within what the joints allow) ✓
-- Mechanism (gear, rack and pinion, screw: one joint driving another) ✓
+- Move (drag within what the joints allow) ✓ (the left button drags a placed part, while nothing is edited and while a step is — a part being placed too; a fixed part stays)
+- Mechanism (gear, rack and pinion, screw: one joint driving another) ✓ (its joints are pointed at in the view: while a joint field picks, the joints it takes are drawn where they are, highlighted under the pointer and named beside it)
 - Joint limits ✓ and drives ✓ (Drive holds a joint at an angle or a distance; with a parameter there, the variants run it through its range; and Contents → Display → Motion runs a joint that has limits from one to the other by a slider, the parts drawn where that leaves them)
 
 ### Assembly Features

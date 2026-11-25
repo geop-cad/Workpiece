@@ -19,6 +19,7 @@ mod colour_input;
 mod connector_input;
 mod file_input;
 mod hbox;
+mod joint_input;
 mod label_icon;
 mod numeric_input;
 mod pose_input;
@@ -36,6 +37,7 @@ pub use colour_input::ColourInput;
 pub use connector_input::{ConnectorInput, Picked, Scope};
 pub use file_input::FileInput;
 pub use hbox::HBox;
+pub use joint_input::JointInput;
 pub use label_icon::{kind_icon, label_icon, register_icons};
 pub use numeric_input::NumericInput;
 pub use pose_input::PoseInput;
@@ -73,6 +75,8 @@ pub enum Widget<M> {
     ReferenceInput(ReferenceInput<M>),
     /// A field that picks a connector on a placed part.
     ConnectorInput(ConnectorInput<M>),
+    /// A field that picks a joint of the assembly.
+    JointInput(JointInput<M>),
     /// A box of references of several kinds.
     ReferenceList(ReferenceList<M>),
     /// A field that chooses a file.
@@ -110,6 +114,7 @@ impl<M: 'static> Widget<M> {
             Widget::PoseInput(w) => Widget::PoseInput(w.map_rc(f)),
             Widget::ReferenceInput(w) => Widget::ReferenceInput(w.map_rc(f)),
             Widget::ConnectorInput(w) => Widget::ConnectorInput(w.map_rc(f)),
+            Widget::JointInput(w) => Widget::JointInput(w.map_rc(f)),
             Widget::ReferenceList(w) => Widget::ReferenceList(w.map_rc(f)),
             Widget::FileInput(w) => Widget::FileInput(w.map_rc(f)),
             Widget::VBox(w) => Widget::VBox(w.map_rc(f)),
@@ -167,6 +172,7 @@ into_widget!(
     PoseInput,
     ReferenceInput,
     ConnectorInput,
+    JointInput,
     ReferenceList,
     FileInput,
     VBox,

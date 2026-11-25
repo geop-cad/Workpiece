@@ -5,10 +5,8 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": "Fixed",
-            "distance": null,
-            "flip": false
+            "fixed": true,
+            "mates": []
           },
           "part": "housing.wpc",
           "variant": null
@@ -20,27 +18,27 @@
       "StandardPart": {
         "args": {
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "housing"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "housing/side/e17"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Fastened",
+                "onto": {
+                  "instance": [
+                    "housing"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "housing/side/e17"
+                  }
+                },
+                "with": {
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "bearing1/end"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "bearing1/end"
-              }
-            }
+            ]
           },
           "kind": "Bearing",
           "length": 20.0,
@@ -53,27 +51,27 @@
       "StandardPart": {
         "args": {
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "housing"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "housing/side/e25"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Fastened",
+                "onto": {
+                  "instance": [
+                    "housing"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "housing/side/e25"
+                  }
+                },
+                "with": {
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "bearing2/end"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "bearing2/end"
-              }
-            }
+            ]
           },
           "kind": "Bearing",
           "length": 20.0,
@@ -87,27 +85,27 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Revolute"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "bearing1"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "bearing1/end"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Revolute",
+                "onto": {
+                  "instance": [
+                    "bearing1"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "bearing1/end"
+                  }
+                },
+                "with": {
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "shaft/side/e17"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "shaft/side/e17"
-              }
-            }
+            ]
           },
           "part": "shaft.wpc",
           "variant": null
@@ -120,27 +118,27 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "housing"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "housing/side/e19"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Fastened",
+                "onto": {
+                  "instance": [
+                    "housing"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "housing/side/e19"
+                  }
+                },
+                "with": {
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "cover/start"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "cover/start"
-              }
-            }
+            ]
           },
           "part": "cover.wpc",
           "variant": null
@@ -152,32 +150,31 @@
       "StandardPart": {
         "args": {
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "offset": [
-              0.0,
-              44.0,
-              0.0
-            ],
-            "onto": {
-              "instance": [
-                "cover"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "cover/end"
+            "mates": [
+              {
+                "kind": "Fastened",
+                "offset": [
+                  0.0,
+                  44.0,
+                  0.0
+                ],
+                "onto": {
+                  "instance": [
+                    "cover"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "cover/end"
+                  }
+                },
+                "with": {
+                  "snap": "Datum",
+                  "source": {
+                    "Datum": "seat"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "screw/head/start"
-              }
-            }
+            ]
           },
           "kind": "SocketScrew",
           "length": 12.0,
@@ -199,8 +196,8 @@
               0.7071067811865476
             ],
             "translation": [
-              44.00000000000004,
-              -44.000000000000036,
+              44.000000000000036,
+              -44.00000000000003,
               0.0
             ]
           }

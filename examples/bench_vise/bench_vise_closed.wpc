@@ -5,10 +5,8 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": "Fixed",
-            "distance": null,
-            "flip": false
+            "fixed": true,
+            "mates": []
           },
           "part": "body.wpc",
           "variant": null
@@ -21,27 +19,27 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Slider"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "body"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "body/side/e16"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Slider",
+                "onto": {
+                  "instance": [
+                    "body"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "body/side/e16"
+                  }
+                },
+                "with": {
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "jaw/side/e14"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "jaw/side/e14"
-              }
-            }
+            ]
           },
           "part": "jaw.wpc",
           "variant": null
@@ -54,27 +52,27 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Revolute"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "jaw"
-              ],
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "seat/side/e2"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Revolute",
+                "onto": {
+                  "instance": [
+                    "jaw"
+                  ],
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "seat/side/e2"
+                  }
+                },
+                "with": {
+                  "snap": "FaceCentre",
+                  "source": {
+                    "Topology": "screw/side/e17"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "FaceCentre",
-              "source": {
-                "Topology": "screw/side/e17"
-              }
-            }
+            ]
           },
           "part": "screw.wpc",
           "variant": null

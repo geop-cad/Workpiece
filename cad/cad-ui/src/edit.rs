@@ -188,6 +188,8 @@ pub(crate) fn first_empty_reference<M: 'static>(root: &Widget<M>) -> Option<Vec<
         Widget::ReferenceInput(input) => input.value.is_none() && input.optional.is_none(),
         // A joint's connectors, one after the other.
         Widget::ConnectorInput(input) => input.value.is_none(),
+        // A mechanism's joints, one after the other.
+        Widget::JointInput(input) => input.value.is_none(),
         _ => false,
     };
     // A construction whose chosen mode does not fit yet.

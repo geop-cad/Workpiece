@@ -28,6 +28,12 @@ pub enum Pick {
         /// The datum, frame axis or named topology.
         source: Source,
     },
+    /// A joint of the assembly, drawn where it is while a field picks
+    /// one.
+    Joint {
+        /// The joint's name.
+        name: String,
+    },
     /// One of the edited operation's handles, or one part of it.
     Handle {
         /// The handle's name.

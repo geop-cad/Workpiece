@@ -61,7 +61,13 @@ pub fn show(
             out: &mut *out,
             choose_file: &mut *choose_file,
         };
-        fields.widget(ui, &dialog.fields, &mut Vec::new());
+        // A dialog longer than the window has room for (a part placed
+        // by several mates) scrolls, its buttons below staying in view.
+        let room = (area.height() - 120.0).max(160.0);
+        egui::ScrollArea::vertical()
+            .max_height(room)
+            .auto_shrink([false, true])
+            .show(ui, |ui| fields.widget(ui, &dialog.fields, &mut Vec::new()));
         if let Some(error) = &dialog.error {
             ui.add_space(4.0);
             ui.colored_label(color::ERROR, error);
@@ -605,6 +611,43 @@ impl Fields<'_> {
                         ));
                     let hint = "Click, then point at a vertex, an edge or a face of a placed \
                                 part: the frame shown there is the connector";
+                    let hint = match &input.value {
+                        Some(on) => format!("{on}\n{hint}"),
+                        None => hint.to_owned(),
+                    };
+                    // (Cut short, with room left for a button beside it:
+                    // the one that turns it over.)
+                    let response = ui
+                        .scope(|ui| {
+                            ui.set_max_width((ui.available_width() - 34.0).max(60.0));
+                            ui.add(button.truncate())
+                        })
+                        .inner;
+                    if response.on_hover_text(hint).clicked() {
+                        self.out
+                            .push(Message::Pick((!active).then(|| path.clone())));
+                    }
+                });
+            }
+            Widget::JointInput(input) => {
+                ui.horizontal(|ui| {
+                    caption(ui, &input.label, Some("joint"));
+                    let active = self.picking == Some(path.as_slice());
+                    let text = match (&input.value, active) {
+                        (_, true) => egui::RichText::new("Point at a joint…").color(color::ACCENT),
+                        (Some(on), false) => egui::RichText::new(on),
+                        (None, false) => {
+                            egui::RichText::new("Pick a joint").color(color::TEXT_WEAK)
+                        }
+                    };
+                    let button = egui::Button::new(text)
+                        .selected(active)
+                        .fill(color::HOVER)
+                        .stroke(egui::Stroke::new(
+                            1.0,
+                            if active { color::ACCENT } else { color::BORDER },
+                        ));
+                    let hint = "Click, then point at one of the joints drawn in the view";
                     if ui.add(button).on_hover_text(hint).clicked() {
                         self.out
                             .push(Message::Pick((!active).then(|| path.clone())));

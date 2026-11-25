@@ -691,6 +691,11 @@ pub struct Rolled {
     run_out: std::cell::RefCell<[Option<RunOut>; 2]>,
 }
 
+/// A tool's sections swept along its edge: the degree and knots along
+/// it, and the control sections (each the control points of all its
+/// sides, in weighted coordinates).
+type Swept = (usize, Vec<f64>, Vec<Vec<[f64; 4]>>);
+
 /// How a blend that only moves along its edge moves, and its station at
 /// the edge's start.
 type Steady = (Motion, Station);
@@ -733,6 +738,12 @@ pub struct Stretch {
     /// The half of the edge it is to blend, if not all of it: the first
     /// or the second.
     pub half: Option<usize>,
+    /// At each end, whether the blend of another edge goes on from it
+    /// there, smoothly, as one tool with it ([`Chain`]): it just ends.
+    pub joined: [bool; 2],
+    /// At each end, whether it ends in its own last section, laid flat,
+    /// though it would be cut back there ([`EndCut::smooth`]).
+    pub square: [bool; 2],
 }
 
 /// Where a blend's tool, run on past an end of its edge, is cut back
@@ -755,6 +766,11 @@ pub struct EndCut {
     /// the end. The tool then ends where the round comes to nothing,
     /// and is not cut back.
     pub over: Option<Point3>,
+    /// Whether it is cut back only because the faces go on smoothly
+    /// past the end: to the plane through the end square to the edge
+    /// — which, where that cannot be made, its own last section is
+    /// nearly ([`Stretch::square`]).
+    pub smooth: bool,
 }
 
 /// Where a round fades out at an end of its edge on a face that only
@@ -798,6 +814,53 @@ impl RunOut {
             ((rim - self.rim_from) / span).clamp(0.0, 1.0)
         };
         self.rim.point_at(rim) + (self.corner - self.rim.point_at(self.tip)) * share
+    }
+}
+
+/// `ring`, a tool's section whose first `count` control points are the
+/// blend's (from rail to rail), laid into one plane — as a flat cap
+/// over it has to be: the plane the blend's own side lies in (a round's
+/// arc and its ball's centre), the other sides' points moved into it
+/// square to it; or, where the blend's side is straight or not in one
+/// plane, the plane through its two rails that is nearest square to
+/// `way`, all but the rails moved into that. Nothing is moved where all
+/// is within `within` of the plane already.
+fn flatten(ring: &mut [[f64; 4]], count: usize, way: Point3, within: f64) {
+    let points: Vec<Point3> = ring
+        .iter()
+        .map(|h| Point3::new(h[0], h[1], h[2]) / h[3])
+        .collect();
+    let (a, b) = (points[0], points[count - 1]);
+    let newell: Point3 = points[..count]
+        .windows(2)
+        .map(|w| (w[0] - a).cross(w[1] - a))
+        .sum();
+    let chord = (b - a).length();
+    let own = newell
+        .try_normalize()
+        .filter(|_| newell.length() > chord * chord * 1e-6)
+        .filter(|n| {
+            points[..count]
+                .iter()
+                .all(|p| (*p - a).dot(*n).abs() <= within)
+        });
+    let (normal, from) = match own {
+        Some(normal) => (normal, count),
+        None => match way.reject_from(b - a).try_normalize() {
+            Some(normal) => (normal, 1),
+            None => return,
+        },
+    };
+    if points.iter().all(|p| (*p - a).dot(normal).abs() <= within) {
+        return;
+    }
+    for (k, (h, p)) in ring.iter_mut().zip(&points).enumerate() {
+        // (The rails stay where they are.)
+        if k < from || k == count - 1 || k == points.len() - 1 {
+            continue;
+        }
+        let q = *p - normal * (*p - a).dot(normal);
+        *h = [q.x * h[3], q.y * h[3], q.z * h[3], h[3]];
     }
 }
 
@@ -1743,30 +1806,41 @@ impl Rolled {
     /// stand still or back up — along an edge that bends, outside,
     /// more tightly than the ball is round.
     pub fn tight(&self) -> bool {
+        self.tight_at(0.0).is_some()
+    }
+
+    /// Where the ball's centre backs up by more than `slack` from one
+    /// of a few places along the edge to the next ([`Rolled::tight`]):
+    /// the edge's point there. (One that only stands still — a round
+    /// of a rim as large as the rim, which closes it in a dome — does
+    /// not cut into itself.)
+    pub fn tight_at(&self, slack: f64) -> Option<Point3> {
         const N: usize = 12;
         // (Along a straight line the ball's centre goes on with the
         // plane it is in, whatever the faces do.)
         if self.line {
-            return false;
+            return None;
         }
         let (t0, t1) = self.range;
-        let mut before: Option<(Point3, Point3)> = None;
+        let mut stations = Vec::with_capacity(N + 1);
         for k in 0..=N {
             let t = t0 + (t1 - t0) * k as f64 / N as f64;
-            let Ok(station) = self.station(t, None) else {
-                return false;
-            };
-            let Some(centre) = station.centre else {
-                return false;
-            };
-            if let Some((from, along)) = before
-                && (centre - from).dot(along + station.along) <= 0.0
-            {
-                return true;
-            }
-            before = Some((centre, station.along));
+            let station = self.station(t, None).ok()?;
+            let centre = station.centre?;
+            stations.push((centre, station.along, station.at));
         }
-        false
+        // (A centre that stays where it is, all along: the ball turns
+        // on the spot.)
+        let still = stations
+            .iter()
+            .all(|s| s.0.distance(stations[0].0) <= slack.max(self.size * 1e-9));
+        if still && slack > 0.0 {
+            return None;
+        }
+        stations.windows(2).find_map(|w| {
+            let ((from, along, _), (centre, way, at)) = (w[0], w[1]);
+            ((centre - from).dot(along + way) <= -slack).then_some(at)
+        })
     }
 
     /// How many times its size the blend is at `t`, where it grows
@@ -2786,6 +2860,30 @@ impl Rolled {
     /// short of each end, where that is more than nothing, and else
     /// runs on past an end the body turns away from.
     pub fn tool(&self, id: &str, margin: f64, stretch: &Stretch) -> anyhow::Result<Solid> {
+        let (from, to) = self.reach(stretch)?;
+        let (margin, probes) = self.held(margin, from, to)?;
+        let swept = self.sections(margin, &probes, stretch, (from, to), true)?;
+        let closed = self.closed && stretch.inset == [0.0, 0.0] && stretch.half.is_none();
+        self.lofted(id, margin, &probes[0], swept, closed)
+    }
+
+    /// Whether the tool of `stretch` just ends at the edge's end `end`:
+    /// in the middle of the edge, where it is in halves, or where
+    /// another piece of its chain goes on from it.
+    fn inner(stretch: &Stretch, end: usize) -> bool {
+        stretch.half.is_some_and(|half| half != end) || stretch.joined[end]
+    }
+
+    /// How far a tool of `stretch` is to run on past the end `end`
+    /// along the edge's curve run on, if it is.
+    fn rolled_on(&self, stretch: &Stretch, end: usize) -> Option<f64> {
+        stretch.rolled_on[end]
+            .filter(|_| !Self::inner(stretch, end) && stretch.inset[end] <= 0.0 && !self.closed)
+    }
+
+    /// From where to where along the edge's curve (run on past its
+    /// ends) the tool of `stretch` goes.
+    fn reach(&self, stretch: &Stretch) -> anyhow::Result<(f64, f64)> {
         let inset = stretch.inset;
         let (from, to) = (self.inset(0, inset[0]), self.inset(1, inset[1]));
         let middle = (self.range.0 + self.range.1) / 2.0;
@@ -2794,16 +2892,10 @@ impl Rolled {
             Some(_) => (middle, to),
             None => (from, to),
         };
-        // (Where a half ends in the middle of the edge, it just ends.)
-        let inner = |end: usize| stretch.half.is_some_and(|half| half != end);
-        // Rolled on past an end, along the edge's curve run on.
-        let rolled_on = |end: usize| {
-            stretch.rolled_on[end].filter(|_| !inner(end) && inset[end] <= 0.0 && !self.closed)
-        };
         let (from, to) = {
             let (lo, hi) = self.onward.domain();
             let by = |end: usize, t: f64| {
-                rolled_on(end).map_or(0.0, |long| {
+                self.rolled_on(stretch, end).map_or(0.0, |long| {
                     long / self.curve_at(t).derivative_at(t).1.length().max(1e-300)
                 })
             };
@@ -2815,8 +2907,25 @@ impl Rolled {
             )
         };
         ensure!(to > from, "nothing is left of the edge to blend");
+        Ok((from, to))
+    }
+
+    /// The tool's sections from `from` to `to` (see [`Rolled::reach`])
+    /// as a spline along the edge: its degree, knots and control
+    /// sections, with what the ends of `stretch` ask for. With `plain`,
+    /// of the edge's own degree where that is all the blend is.
+    fn sections(
+        &self,
+        margin: f64,
+        probes: &[Station],
+        stretch: &Stretch,
+        (from, to): (f64, f64),
+        plain: bool,
+    ) -> anyhow::Result<Swept> {
+        let inset = stretch.inset;
+        let inner = |end: usize| Self::inner(stretch, end);
+        let rolled_on = |end: usize| self.rolled_on(stretch, end);
         let tolerance = self.size * 1e-9;
-        let (margin, probes) = self.held(margin, from, to)?;
         // The sections change along the edge as a spline over the
         // edge's own knots, of its degree or the third: what the blend
         // of a line or of a circle between flat and round faces is
@@ -2889,9 +2998,13 @@ impl Rolled {
             .collect();
         breaks.sort_by(f64::total_cmp);
         let (degree, mut knots, mut rings) = if breaks.is_empty() {
-            let plain = sweep::along_plain(curve, (from, to), tolerance, self.size, &mut flat)
-                .ok()
-                .flatten();
+            let plain = if plain {
+                sweep::along_plain(curve, (from, to), tolerance, self.size, &mut flat)
+                    .ok()
+                    .flatten()
+            } else {
+                None
+            };
             match plain {
                 Some(swept) => swept,
                 None => {
@@ -2932,7 +3045,7 @@ impl Rolled {
                 {
                     continue;
                 }
-                let past = self.past(margin, &probes).max(asked.unwrap_or(0.0));
+                let past = self.past(margin, probes).max(asked.unwrap_or(0.0));
                 let n = rings.len();
                 let t = if end == 0 { from } else { to };
                 let (_, d) = self.curve_at(t).derivative_at(t);
@@ -3015,14 +3128,16 @@ impl Rolled {
         // the plane square to the way it goes there: its section laid
         // into that plane, flat as its cap is. (On curved faces the
         // ball touches them a little out of the plane of its station.)
+        let count = self.ring(&probes[0], margin)?[0].len();
         for (end, &short) in inset.iter().enumerate() {
             let runs_on = !closed
                 && short <= 0.0
                 && !inner(end)
+                && !stretch.square[end]
                 && (rolled_on(end).is_some()
                     || stretch.on[end].is_some()
                     || self.cut_back.get()[end]);
-            if !runs_on {
+            if closed || stretch.joined[end] {
                 continue;
             }
             let ring = if end == 0 {
@@ -3034,6 +3149,33 @@ impl Rolled {
                 continue;
             };
             let t = if end == 0 { from } else { to };
+            if !runs_on {
+                // Where a half ends in the middle, the other starts with
+                // the very same section: the one found there from the
+                // edge itself, not from the section before it.
+                if stretch.half.is_some_and(|half| half != end) {
+                    let station = self.station(t, None)?;
+                    // (In weighted coordinates, scaled as the sweep has
+                    // them there: by the weight of a straight side's
+                    // point, one in itself.)
+                    let scale = ring[count][3];
+                    *ring = self
+                        .ring(&station, margin)?
+                        .into_iter()
+                        .flatten()
+                        .map(|h| {
+                            let w = h[3] * scale;
+                            [h[0] * w, h[1] * w, h[2] * w, w]
+                        })
+                        .collect();
+                }
+                // An end where it just ends is the blend's own section:
+                // the plane of that, the rest of the section laid into
+                // it.
+                let way = self.curve_at(t).derivative_at(t).1.normalize_or_zero();
+                flatten(ring, count, way, self.size * 1e-12);
+                continue;
+            }
             let way = self.curve_at(t).derivative_at(t).1.normalize_or_zero();
             let points: Vec<Point3> = ring
                 .iter()
@@ -3052,15 +3194,26 @@ impl Rolled {
                 *h = [q.x * h[3], q.y * h[3], q.z * h[3], h[3]];
             }
         }
-        let (side, across, _) = self.section(&probes[0])?;
+        Ok((degree, knots, rings))
+    }
+
+    /// The tool of the sections `swept` (as [`Rolled::sections`] gives
+    /// them, all the way round where `closed`), its section's sides as
+    /// they are at `probe`.
+    fn lofted(
+        &self,
+        id: &str,
+        margin: f64,
+        probe: &Station,
+        (degree, knots, rings): Swept,
+        closed: bool,
+    ) -> anyhow::Result<Solid> {
+        let tolerance = self.size * 1e-9;
+        let (side, across, _) = self.section(probe)?;
         let line = || (1, vec![0.0, 0.0, 1.0, 1.0]);
         let loft = Loft {
             sides: vec![(side, across), line(), line(), line(), line()],
-            counts: self
-                .ring(&probes[0], margin)?
-                .iter()
-                .map(Vec::len)
-                .collect(),
+            counts: self.ring(probe, margin)?.iter().map(Vec::len).collect(),
             degree,
             knots,
             rings,
@@ -3239,6 +3392,10 @@ impl Rolled {
         let mut slant = 0.0_f64;
         // (The faces of those that only touch a face of the edge.)
         let mut touching: Vec<usize> = Vec::new();
+        // Whether a face here runs on smoothly from one of the edge's
+        // own, across an edge with it: the body goes on past the end
+        // beside the edge, and so does its edge, most likely.
+        let mut goes_on = false;
         let taken = |f: usize, planes: &[(usize, Point3)], curved: &[(usize, Point3, bool)]| {
             planes.iter().any(|p| p.0 == f) || curved.iter().any(|c| c.0 == f)
         };
@@ -3281,6 +3438,8 @@ impl Rolled {
                             curved.push((f, n * off.signum(), true));
                         }
                         touching.push(f);
+                    } else {
+                        goes_on = true;
                     }
                     continue;
                 }
@@ -3295,6 +3454,16 @@ impl Rolled {
                 }
                 slant = slant.max((1.0 - lean * lean).max(0.0).sqrt() / lean.abs());
             }
+        }
+        // Where the faces go on smoothly past the end, the tool is
+        // cut off in the plane through the end square to the edge: run
+        // on past it and cut back there. (Its own last section is not
+        // flat where the faces are curved: the ball touches them a
+        // little out of the plane of its station, so a cap laid over
+        // that section would not lie on its edges.)
+        let smooth = planes.is_empty() && curved.is_empty() && goes_on;
+        if smooth {
+            planes.push((usize::MAX, way));
         }
         if planes.is_empty() && curved.is_empty() {
             return Ok(None);
@@ -3342,6 +3511,201 @@ impl Rolled {
             curved: curved.into_iter().map(|c| (c.0, c.1)).collect(),
             long: runs_on.then_some(long),
             over: along_rim,
+            smooth,
         }))
+    }
+}
+
+/// Blends of edges that run on into each other smoothly, end to end (a
+/// tangent chain of them): one tool along them all, with no end between
+/// two of them — two tools laid end to end there would meet in a section
+/// each has only as closely as it is swept. Each piece is a blend and
+/// whether it runs against the chain's way.
+pub struct Chain<'a> {
+    /// The blends, one after the other, each with whether it runs
+    /// against the chain.
+    pub pieces: Vec<(&'a Rolled, bool)>,
+    /// Whether the last ends where the first starts, smoothly: the
+    /// chain has no end.
+    pub closed: bool,
+}
+
+impl<'a> Chain<'a> {
+    /// The piece at the chain's end `end`, and which end of it that is.
+    pub fn end(&self, end: usize) -> (&'a Rolled, usize) {
+        let (rolled, reversed) = if end == 0 {
+            self.pieces[0]
+        } else {
+            self.pieces[self.pieces.len() - 1]
+        };
+        (rolled, usize::from(reversed) ^ end)
+    }
+
+    /// The vertices the chain ends at.
+    pub fn vertices(&self) -> [usize; 2] {
+        [0, 1].map(|end| {
+            let (rolled, own) = self.end(end);
+            rolled.vertices[own]
+        })
+    }
+
+    /// The way along the chain at its end `end`, away from that end.
+    pub fn away(&self, end: usize) -> Point3 {
+        let (rolled, own) = self.end(end);
+        rolled.away(own)
+    }
+
+    /// At each end, how far its tool is to run on straight past it
+    /// whatever is there ([`Rolled::on`]).
+    pub fn on(&self) -> [Option<f64>; 2] {
+        [0, 1].map(|end| {
+            let (rolled, own) = self.end(end);
+            rolled.on[own]
+        })
+    }
+
+    /// The tool along the whole chain (see [`Rolled::tool`]), `stretch`
+    /// told of the chain's ends; its halves are each from an end to the
+    /// middle of the middle piece.
+    pub fn tool(&self, id: &str, margin: f64, stretch: &Stretch) -> anyhow::Result<Solid> {
+        let n = self.pieces.len();
+        if n == 1 && !self.pieces[0].1 && !self.closed {
+            return self.pieces[0].0.tool(id, margin, stretch);
+        }
+        // Each piece's own stretch: the chain's at its ends, joined to
+        // the next piece elsewhere.
+        let middle = n / 2;
+        let which: Vec<usize> = match stretch.half {
+            None => (0..n).collect(),
+            Some(0) => (0..=middle).collect(),
+            Some(_) => (middle..n).collect(),
+        };
+        let mut parts = Vec::new();
+        for i in 0..n {
+            let (rolled, reversed) = self.pieces[i];
+            let own = |end: usize| usize::from(reversed) ^ end;
+            let mut piece = Stretch::default();
+            for end in 0..2 {
+                let outer = if end == 0 { i == 0 } else { i == n - 1 };
+                if outer && !self.closed {
+                    piece.inset[own(end)] = stretch.inset[end];
+                    piece.on[own(end)] = stretch.on[end];
+                    piece.rolled_on[own(end)] = stretch.rolled_on[end];
+                    piece.square[own(end)] = stretch.square[end];
+                } else {
+                    piece.joined[own(end)] = true;
+                }
+            }
+            // (The margin is the whole chain's: the two halves meet
+            // in one section.)
+            let whole = rolled.reach(&piece)?;
+            let (need, mut probes) = rolled.held(margin, whole.0, whole.1)?;
+            let mut reach = whole;
+            if let Some(half) = stretch.half
+                && i == middle
+            {
+                // (It ends in its middle there, joined to nothing.)
+                piece.half = Some(own(half));
+                piece.joined[own(1 - half.min(1))] = false;
+                reach = rolled.reach(&piece)?;
+                probes = rolled.held(margin, reach.0, reach.1)?.1;
+            }
+            parts.push((rolled, reversed, piece, reach, need, probes));
+        }
+        // (One margin for all: their sections meet where they join.)
+        let margin = parts.iter().map(|p| p.4).fold(margin, f64::max);
+        let parts: Vec<_> = parts
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| which.contains(i))
+            .map(|(_, part)| part)
+            .collect();
+        let blend_count = |rolled: &Rolled, probe: &Station| -> anyhow::Result<usize> {
+            Ok(rolled.ring(probe, margin)?[0].len())
+        };
+        let count = blend_count(parts[0].0, &parts[0].5[0])?;
+        let size = parts[0].0.size;
+        let point = |h: &[f64; 4]| Point3::new(h[0], h[1], h[2]) / h[3];
+        // (Two sections that are to be one: the balls either piece finds
+        // where they join are one ball.)
+        let meet = |one: &[[f64; 4]], other: &[[f64; 4]]| -> anyhow::Result<()> {
+            let apart = one
+                .iter()
+                .zip(other)
+                .map(|(p, q)| point(p).distance(point(q)))
+                .fold(0.0, f64::max);
+            let at = (point(&other[0]) + point(&other[count - 1])) / 2.0;
+            ensure!(
+                apart <= size * 1e-6,
+                "the blends of two edges that run on into each other do not meet where the edges do, near ({:.3}, {:.3}, {:.3}): the balls rolled along the two are {apart:.2e} apart there",
+                at.x,
+                at.y,
+                at.z
+            );
+            Ok(())
+        };
+        let mut swept: Vec<Swept> = Vec::new();
+        for (rolled, reversed, piece, reach, _, probes) in &parts {
+            ensure!(
+                blend_count(rolled, &probes[0])? == count,
+                "the blends of the edges of a chain are not of one kind of section"
+            );
+            let (degree, mut knots, mut rings) =
+                rolled.sections(margin, probes, piece, *reach, false)?;
+            if *reversed {
+                rings.reverse();
+                let (lo, hi) = (knots[0], knots[knots.len() - 1]);
+                knots = knots.iter().rev().map(|k| lo + hi - k).collect();
+            }
+            if let Some((_, _, before)) = swept.last() {
+                let last = &before[before.len() - 1];
+                let first = &rings[0];
+                // (Its faces taken the other way round: each section
+                // turned to start where the last one's starts.)
+                let (a, b) = (point(&last[0]), point(&last[count - 1]));
+                if point(&first[0]).distance(a) > point(&first[0]).distance(b) {
+                    let (_, across, _) = rolled.section(&probes[0])?;
+                    let (lo, hi) = (across[0], across[across.len() - 1]);
+                    ensure!(
+                        across
+                            .iter()
+                            .zip(across.iter().rev())
+                            .all(|(x, y)| (x - lo - (hi - y)).abs() <= 1e-12 * (hi - lo)),
+                        "the blends of two edges that run on into each other have their faces the other way round, and a section that is not the same turned"
+                    );
+                    for ring in &mut rings {
+                        ring.reverse();
+                        ring.rotate_right(count);
+                    }
+                }
+                // Where the two join, the one section both have.
+                meet(&rings[0], last)?;
+                rings[0] = last.clone();
+            }
+            swept.push((degree, knots, rings));
+        }
+        let degree = swept[0].0;
+        ensure!(
+            swept.iter().all(|s| s.0 == degree),
+            "the blends of the edges of a chain are not of one degree along them"
+        );
+        // One after the other along one parameter.
+        let mut at = swept[0].1[swept[0].1.len() - 1];
+        for piece in swept.iter_mut().skip(1) {
+            let by = at - piece.1[0];
+            for k in &mut piece.1 {
+                *k += by;
+            }
+            at = piece.1[piece.1.len() - 1];
+        }
+        let (degree, knots, mut rings) = end_to_end(swept);
+        let closed = self.closed && stretch.half.is_none();
+        if closed {
+            let first = rings[0].clone();
+            meet(&rings[rings.len() - 1], &first)?;
+            *rings.last_mut().expect("never empty") = first;
+        }
+        let (rolled, _, _, _, _, probes) = &parts[0];
+        rolled.lofted(id, margin, &probes[0], (degree, knots, rings), closed)
     }
 }

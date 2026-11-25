@@ -1700,8 +1700,8 @@ mod tests {
                 face(&["plate"], "top"),
                 face(&[], "bottom"),
             );
-            hold.flip = true;
-            hold.offset = offset;
+            hold.mates[0].flip_with = true;
+            hold.mates[0].offset = offset;
             AddPart {
                 id: "pin".into(),
                 args: AddPartArgs {

@@ -198,7 +198,7 @@ impl Default for PatternArgs {
             sketch: None,
             face: None,
             grid: Grid::Square,
-            count: 3,
+            count: 4,
             spacing: Measure::new(10.0),
             across: Measure::new(10.0),
             angle: Measure::new(360.0),

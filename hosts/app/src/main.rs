@@ -259,6 +259,13 @@ impl App {
         model.workspace.schema = kept.1.clone();
         let settings = files::settings();
         model.settings = settings.clone();
+        // (The file named on the command line is one opened recently.)
+        if std::env::var_os("WORKPIECE_DEMO").is_none()
+            && let Some(path) = model.active_part.clone()
+            && workpiece_core::files::exists(&path)
+        {
+            model.settings.remember(&path);
+        }
         Ok(Self {
             model,
             settings,
@@ -489,6 +496,23 @@ impl eframe::App for App {
                             self.file_dialog = Some(FileDialog::new(Purpose::Open, ""));
                             ui.close();
                         }
+                        // The files opened or saved last here, the latest
+                        // first; one that is gone shows greyed.
+                        let recent = &self.model.settings.recent;
+                        ui.add_enabled_ui(!recent.is_empty(), |ui| {
+                            ui.menu_button("Open recent", |ui| {
+                                for path in recent {
+                                    let there = workpiece_core::files::exists(path);
+                                    let button = ui
+                                        .add_enabled(there, egui::Button::new(path.as_str()))
+                                        .on_disabled_hover_text("The file is not there any more");
+                                    if button.clicked() {
+                                        actions.push(FileAction::Open(path.clone()));
+                                        ui.close();
+                                    }
+                                }
+                            });
+                        });
                         #[cfg(target_arch = "wasm32")]
                         web::file_menu(ui);
                         let open = view.document.is_some();

@@ -5,10 +5,8 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": "Fixed",
-            "distance": null,
-            "flip": false
+            "fixed": true,
+            "mates": []
           },
           "part": "fork.wpc",
           "variant": null
@@ -21,27 +19,27 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "fork"
-              ],
-              "snap": "ArcCentre",
-              "source": {
-                "Topology": "block/edge[axle/side/e8+side/e11]"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Fastened",
+                "onto": {
+                  "instance": [
+                    "fork"
+                  ],
+                  "snap": "ArcCentre",
+                  "source": {
+                    "Topology": "block/edge[axle/side/e8+side/e11]"
+                  }
+                },
+                "with": {
+                  "snap": "ArcCentre",
+                  "source": {
+                    "Topology": "pin/ring/p10"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "ArcCentre",
-              "source": {
-                "Topology": "pin/ring/p10"
-              }
-            }
+            ]
           },
           "part": "pin.wpc",
           "variant": null
@@ -54,32 +52,32 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Revolute"
-            },
-            "distance": null,
-            "flip": true,
-            "offset": [
-              0.0,
-              0.0,
-              -7.0
-            ],
-            "onto": {
-              "instance": [
-                "fork"
-              ],
-              "snap": "ArcCentre",
-              "source": {
-                "Topology": "block/edge[axle/side/e8+thick/f0/far]"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Revolute",
+                "offset": [
+                  0.0,
+                  0.0,
+                  -7.0
+                ],
+                "onto": {
+                  "instance": [
+                    "fork"
+                  ],
+                  "snap": "ArcCentre",
+                  "source": {
+                    "Topology": "block/edge[axle/side/e8+thick/f0/far]"
+                  }
+                },
+                "with": {
+                  "snap": "ArcCentre",
+                  "source": {
+                    "Topology": "hub/ring/p7"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "ArcCentre",
-              "source": {
-                "Topology": "hub/ring/p7"
-              }
-            }
+            ]
           },
           "part": "wheel.wpc",
           "variant": null

@@ -56,6 +56,9 @@ pub struct ConnectorInput<M> {
     pub on_change: WidgetHandler<Picked, M>,
     /// Which placed parts it may be on.
     pub scope: Scope,
+    /// Which pair of connectors of the step it is one of (a part that
+    /// is placed has a pair for each of its mates): the first is 0.
+    pub pair: usize,
 }
 
 impl<M: 'static> ConnectorInput<M> {
@@ -70,6 +73,7 @@ impl<M: 'static> ConnectorInput<M> {
             value,
             on_change: Box::new(on_change),
             scope: Scope::Any,
+            pair: 0,
         }
     }
 
@@ -77,6 +81,13 @@ impl<M: 'static> ConnectorInput<M> {
     #[must_use]
     pub fn within(mut self, scope: Scope) -> Self {
         self.scope = scope;
+        self
+    }
+
+    /// The same field, one of the pair `pair` of the step's connectors.
+    #[must_use]
+    pub fn of_pair(mut self, pair: usize) -> Self {
+        self.pair = pair;
         self
     }
 
@@ -91,6 +102,7 @@ impl<M: 'static> ConnectorInput<M> {
             value: self.value,
             on_change: map_handler(self.on_change, f),
             scope: self.scope,
+            pair: self.pair,
         }
     }
 }

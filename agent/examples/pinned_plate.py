@@ -6,7 +6,7 @@ what each placed part and all of it weighs. Run: python3 pinned_plate.py [folder
 """
 import math, os, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "python"))  # a checkout; `pip install workpiece` makes this line unnecessary
-from workpiece import Part, anchor, placed, topo, datum
+from workpiece import Part, anchor, mate, placed, topo, datum
 
 folder = sys.argv[1] if len(sys.argv) > 1 else "pinned_plate"
 os.makedirs(folder, exist_ok=True)
@@ -52,9 +52,8 @@ print("plate top:", top, " pin1 top end:", end, " as a reference:", placed("pin1
 # A third pin held by a joint instead of a pose: its bottom face fastened onto the middle
 # of the plate's top, facing it — it stands on the plate there.
 bottom = report.faces(placed="pin1", near=(-20, 0, -5))
-asm.add_part("pin.wpc", id="pin3", constraint="Fastened", flip=True,
-             onto=anchor(topo(top[0]), "FaceCentre", instance="plate"),
-             with_=anchor(topo(bottom[0]), "FaceCentre"))
+asm.add_part("pin.wpc", id="pin3", mates=[mate(anchor(topo(top[0]), "FaceCentre", instance="plate"),
+                                              anchor(topo(bottom[0]), "FaceCentre"), "Fastened", flip_with=True)])
 report = asm.build(os.path.join(folder, "pinned_plate.wpc"))
 assert report.ok, report.errors
 pin3 = report.placed_part("pin3")["pose"]["at"]
@@ -63,9 +62,9 @@ assert math.dist(pin3, (0, 0, 10)) < 1e-6, pin3
 
 # A fourth one fastened the same way, but 12 along x and 8 along y off the top's middle (in the
 # top face's own frame: x and y in its plane, z along its normal) — no helper frame needed.
-asm.add_part("pin.wpc", id="pin4", constraint="Fastened", flip=True,
-             onto=anchor(topo(top[0]), "FaceCentre", instance="plate"),
-             with_=anchor(topo(bottom[0]), "FaceCentre"), offset=(12, 8, 0))
+asm.add_part("pin.wpc", id="pin4", mates=[mate(anchor(topo(top[0]), "FaceCentre", instance="plate"),
+                                              anchor(topo(bottom[0]), "FaceCentre"), "Fastened", flip_with=True,
+                                              offset=(12, 8, 0))])
 # And how tall it stands over the plate, measured between the two placed parts.
 asm.dimension(placed("plate", topo(top[0])), placed("pin4", topo(end[0])), id="pin4_height")
 report = asm.build(os.path.join(folder, "pinned_plate.wpc"))

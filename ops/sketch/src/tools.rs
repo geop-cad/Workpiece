@@ -397,13 +397,47 @@ pub(crate) fn snap(
         }
         None
     };
+    let horizontal = SketchAxis::nearest(view.right);
     if let Some(snap) = onto(false) {
-        return snap;
+        // On a curve and level with the click before (or with a point
+        // hovered before) as well, where the level crosses the curve
+        // near the pointer: both hold.
+        let Some(Item::Entity(id)) = snap.to else {
+            return snap;
+        };
+        let mut levels: Vec<(Point2, SketchAxis, Option<Id>)> = Vec::new();
+        for axis in [horizontal, horizontal.other()] {
+            levels.extend(level_with.map(|from| (from, axis, None)));
+        }
+        for &p in remembered {
+            if let Some(from) = args.points.get(&p).map(|q| q.at) {
+                for axis in [horizontal, horizontal.other()] {
+                    levels.push((from, axis, Some(p)));
+                }
+            }
+        }
+        let best = levels
+            .into_iter()
+            .filter_map(|(from, axis, point)| {
+                let on = level_crossing(args, id, from, axis, at, reach)?;
+                Some((on, axis, point))
+            })
+            .min_by(|a, b| a.0.distance(at).total_cmp(&b.0.distance(at)));
+        return match best {
+            Some((on, axis, None)) => Snap {
+                along: Some(axis),
+                ..Snap::to(on, Item::Entity(id))
+            },
+            Some((on, axis, Some(point))) => Snap {
+                aligned: Some((point, axis)),
+                ..Snap::to(on, Item::Entity(id))
+            },
+            None => snap,
+        };
     }
     // Level with the click before, and with a point hovered before: each
     // along one axis, so both can hold at once (a corner).
     let mut out = Snap::free(at);
-    let horizontal = SketchAxis::nearest(view.right);
     let level = |p: Point2, from: Point2, axis: SketchAxis| {
         let d = p - from;
         let off = d.dot(axis.other().unit());
@@ -472,6 +506,46 @@ pub(crate) fn snap(
         }
         out
     })
+}
+
+/// Where the level through `from` along `axis` crosses the line or circle
+/// `id` within `reach` of `at` (and not at `from` itself): the nearest
+/// such place, if there is one.
+fn level_crossing(
+    args: &SketchArgs,
+    id: Id,
+    from: Point2,
+    axis: SketchAxis,
+    at: Point2,
+    reach: f64,
+) -> Option<Point2> {
+    let (u, n) = (axis.unit(), axis.other().unit());
+    let places = if let Some((a, b)) = args.line(id) {
+        let d = b - a;
+        let across = d.dot(n);
+        let s = (from - a).dot(n) / across;
+        if across.abs() > 1e-12 && (0.0..=1.0).contains(&s) {
+            vec![a + d * s]
+        } else {
+            Vec::new()
+        }
+    } else if let Some((_, c, r)) = args.circle(id) {
+        let w = from - c;
+        let (b, k) = (w.dot(u), w.length_squared() - r * r);
+        let disc = b * b - k;
+        if disc >= 0.0 {
+            let root = disc.sqrt();
+            vec![from + u * (-b - root), from + u * (-b + root)]
+        } else {
+            Vec::new()
+        }
+    } else {
+        Vec::new()
+    };
+    places
+        .into_iter()
+        .filter(|p| p.distance(at) <= 1.5 * reach && (*p - from).dot(u).abs() > reach)
+        .min_by(|a, b| a.distance(at).total_cmp(&b.distance(at)))
 }
 
 /// Lines, circles and points drawn elsewhere — the views of a drawing
@@ -1037,7 +1111,9 @@ pub(crate) fn finish(args: &SketchArgs, state: &SketchState) -> SketchEdit {
                 entity.construction = state.construction;
             }
             args.solve();
-            done.selection = vec![Item::Entity(spline)];
+            // (What is drawn is not selected: the next tool starts from
+            // nothing.)
+            done.selection.clear();
             return Edit::both(args, done);
         }
     }
@@ -1048,12 +1124,10 @@ pub(crate) fn finish(args: &SketchArgs, state: &SketchState) -> SketchEdit {
 pub(crate) fn switch(args: &SketchArgs, state: &SketchState, tool: Tool) -> SketchEdit {
     let mut edit = finish(args, state);
     if let Some(s) = &mut edit.state {
-        if tool == Tool::Select && state.tool == Tool::Select {
-            s.selection.clear();
-        }
-        // The dimension tool starts from what is selected; drawing tools
-        // from nothing.
-        if !matches!(tool, Tool::Select | Tool::Dimension) {
+        // Every tool but the select tool starts from nothing selected
+        // (the dimension tool too: what it measures is clicked anew);
+        // the select tool, chosen again, selects nothing.
+        if tool != Tool::Select || state.tool == Tool::Select {
             s.selection.clear();
         }
         s.tool = tool;
@@ -1279,9 +1353,10 @@ pub(crate) fn handle(
                 let mut new = args.clone();
                 let made = build(&mut new, &next);
                 next.clicks.clear();
-                if let Some(made) = made {
+                if made.is_some() {
                     new.solve();
-                    next.selection = made;
+                    // What is drawn is not selected.
+                    next.selection.clear();
                     edited = Some(new);
                 }
             }

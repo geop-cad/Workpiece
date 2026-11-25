@@ -1502,6 +1502,44 @@ impl Operation for Hole {
                     handles.insert(name.to_owned(), arrow.into());
                 }
             }
+            // A knob at the hole moves it over its face, as a gizmo's
+            // centre moves it: the two values that place it follow (for
+            // each little move, by how the hole moves as each grows).
+            let pair: Option<[Get; 2]> = match args.place {
+                HolePlace::Point => Some([|a| &mut a.at[0], |a| &mut a.at[1]]),
+                HolePlace::Offsets => Some([|a| &mut a.first_offset, |a| &mut a.second_offset]),
+                HolePlace::Polar => Some([|a| &mut a.radius, |a| &mut a.angle]),
+                HolePlace::Sketch => None,
+            };
+            let ways = pair.and_then(|pair| {
+                let way = |get: Get| {
+                    let mut probe = args.clone();
+                    let now = value(get(&mut probe));
+                    *get(&mut probe) = Measure::new(now + 1.0);
+                    Some((get, now, where_(&probe)?.0[0] - at))
+                };
+                Some([way(pair[0])?, way(pair[1])?])
+            });
+            if let Some([(get_a, a, way_a), (get_b, b, way_b)]) = ways {
+                let start = args.clone();
+                let drag = move |p: Point3| {
+                    // The move as so much of each way (least squares, in
+                    // the face's plane).
+                    let d = p - at;
+                    let (aa, ab, bb) = (way_a.dot(way_a), way_a.dot(way_b), way_b.dot(way_b));
+                    let det = aa * bb - ab * ab;
+                    let mut new = start.clone();
+                    if det.abs() > 1e-12 {
+                        let (da, db) = (d.dot(way_a), d.dot(way_b));
+                        *get_a(&mut new) = round(a + (bb * da - ab * db) / det);
+                        *get_b(&mut new) = round(b + (aa * db - ab * da) / det);
+                    }
+                    new
+                };
+                if let Some(knob) = workpiece_core::handles::PlanarHandle::new(at, normal, drag) {
+                    handles.insert("place".to_owned(), knob.into());
+                }
+            }
             if args.place == HolePlace::Polar
                 && let Some(Ok(axis)) = args.axis.as_ref().map(|a| context.world.resolve(a))
             {

@@ -369,6 +369,16 @@ pub fn settle(world: &mut World, cache: &mut workpiece_core::Cache) {
     for (name, instance) in &mut world.instances {
         instance.pose = placed(cache, name);
     }
+    // The parts a joint that was made before holds already: another
+    // joint just made (a second mate) does not snap them to itself but
+    // is solved from where they are.
+    let mut held: std::collections::BTreeSet<String> = world
+        .joints
+        .iter()
+        .filter(|j| cache.get(&entry(&j.name, "made")).is_some())
+        .flat_map(|j| [j.a.instance.clone(), j.b.instance.clone()])
+        .flatten()
+        .collect();
     for joint in &world.joints {
         if cache.get(&entry(&joint.name, "made")).is_some() {
             continue;
@@ -383,12 +393,15 @@ pub fn settle(world: &mut World, cache: &mut workpiece_core::Cache) {
         };
         // The second comes to the first; the first, if the second is
         // held.
-        let (moved, pose) = if !fixed_b {
+        let free = |c: &workpiece_core::world::Connector| {
+            c.instance.as_ref().is_some_and(|n| !held.contains(n))
+        };
+        let (moved, pose) = if !fixed_b && free(&joint.b) {
             (
                 &joint.b.instance,
                 snapped(&pose_a, &joint.a.frame, &joint.b.frame),
             )
-        } else if !fixed_a {
+        } else if !fixed_a && free(&joint.a) {
             (
                 &joint.a.instance,
                 snapped(&pose_b, &joint.b.frame, &joint.a.frame),
@@ -399,6 +412,7 @@ pub fn settle(world: &mut World, cache: &mut workpiece_core::Cache) {
         if let Some(instance) = moved.as_ref().and_then(|n| world.instances.get_mut(n)) {
             instance.pose = pose;
         }
+        held.extend(moved.clone());
     }
     let solved = solve(world, None);
     for (name, pose) in solved.poses {
@@ -456,6 +470,27 @@ pub fn solve(world: &World, drag: Option<&Drag>) -> Solved {
         ..Solved::default()
     };
     if index.is_empty() {
+        return solved;
+    }
+    // A part that nothing holds follows the pointer as it is: moved,
+    // never turned.
+    let held = |name: &str| {
+        world.joints.iter().any(|j| {
+            [&j.a.instance, &j.b.instance]
+                .into_iter()
+                .any(|i| i.as_deref() == Some(name))
+        })
+    };
+    if let Some(drag) = drag
+        && index.len() == 1
+        && index.contains_key(drag.instance.as_str())
+        && !held(&drag.instance)
+    {
+        let pose = world.instances[&drag.instance].pose;
+        let shift = drag.target - pose.transform_point(drag.local);
+        solved
+            .poses
+            .insert(drag.instance.clone(), Pose::from_translation(shift) * pose);
         return solved;
     }
     let body = |name: &Option<String>| -> Option<Body> {

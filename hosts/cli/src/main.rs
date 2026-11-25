@@ -1788,7 +1788,7 @@ mod tests {
             "source": { "Topology": "plate/end/e11" } } } });
         let assembly = json!({ "steps": [
             { "op": "AddPart", "id": "p1",
-              "args": { "part": "plate.wpc", "hold": { "constraint": "Fixed", "flip": false }, "bodies": [] },
+              "args": { "part": "plate.wpc", "hold": { "fixed": true, "mates": [] }, "bodies": [] },
               "pose": { "at": [0.0, 0.0, 5.0], "euler": [0.0, 0.0, 0.0] } },
             { "sketch": square },
             { "op": "Extrude", "id": "x",

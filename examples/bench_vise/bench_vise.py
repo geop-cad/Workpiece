@@ -15,7 +15,7 @@ try:
     import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from workpiece import Part, anchor, axis, balloon, topo, view, projected, section_view
+from workpiece import Part, anchor, mate, axis, balloon, topo, view, projected, section_view
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 at = lambda name: os.path.join(HERE, name)
@@ -110,10 +110,10 @@ def vise(open_at: float, drawing: bool) -> Part:
     """The vise with its jaws `open_at` apart; with its sheet, if `drawing`."""
     asm = Part(title="BENCH VISE")
     asm.add_part(body, id="body")
-    asm.add_part(jaw, id="jaw", constraint="Slider", flip=True,
-                 onto=anchor(topo(inner), "FaceCentre", instance="body"), with_=anchor(topo(back), "FaceCentre"))
-    asm.add_part(screw, id="screw", constraint="Revolute", flip=True,
-                 onto=anchor(topo(seat_floor), "FaceCentre", instance="jaw"), with_=anchor(topo(tip), "FaceCentre"))
+    asm.add_part(jaw, id="jaw", mates=[mate(anchor(topo(inner), "FaceCentre", instance="body"),
+                                            anchor(topo(back), "FaceCentre"), "Slider", flip_with=True)])
+    asm.add_part(screw, id="screw", mates=[mate(anchor(topo(seat_floor), "FaceCentre", instance="jaw"),
+                                                anchor(topo(tip), "FaceCentre"), "Revolute", flip_with=True)])
     asm.op("Drive", "open", joint="jaw", at=open_at)
     if drawing:
         asm.op("Section", id="A", along="Plane", plane=axis("Y"), offset=0.0)

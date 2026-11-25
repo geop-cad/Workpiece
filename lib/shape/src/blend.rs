@@ -27,7 +27,7 @@ use workpiece_core::math::{Point2, Point3};
 use workpiece_core::world::topo::{BodyId, Curve2, Topo};
 use workpiece_core::world::{DatumPlane, Profile, ProfileEdge, ProfileRegion, ProfileVertex};
 
-use crate::roll::{EndCut, Rolled, Station, Stretch};
+use crate::roll::{Chain, EndCut, Rolled, Station, Stretch};
 use crate::sweep::{self, Make, Turn};
 
 /// How a round's section runs from one face to the other.
@@ -648,6 +648,19 @@ fn sharp(solid: &Solid, edge: usize) -> bool {
         }
     }
     normals.len() == 2 && d.length() > 0.0 && normals[0].cross(normals[1]).length() > 1e-4
+}
+
+/// How an edge of `solid` is called where a blend of it is told of: by
+/// its name, or where it has none, by where its middle is.
+fn called(solid: &Solid, edge: usize) -> String {
+    let e = &solid.edges[edge];
+    match e.name.as_deref() {
+        Some(name) => format!("edge {name}"),
+        None => {
+            let p = e.point(e.middle());
+            format!("the edge through ({:.3}, {:.3}, {:.3})", p.x, p.y, p.z)
+        }
+    }
 }
 
 /// Blends what is `picked` of the bodies of `topo` to `shape`: edges by
@@ -1517,10 +1530,7 @@ fn blend_back(
         Shape::Chamfer { first, second } => first.max(second),
     };
     ensure!(reach > 0.0 && reach.is_finite(), "a blend needs a size");
-    let called = |edge: usize| {
-        let name = solid.edges[edge].name.as_deref();
-        format!("edge {}", name.unwrap_or("without a name"))
-    };
+    let called = |edge: usize| called(solid, edge);
     // Each edge's blend, or why it has none.
     let fits = |rolled: anyhow::Result<Rolled>| -> anyhow::Result<(Rolled, Station)> {
         let rolled = rolled?;
@@ -1693,6 +1703,21 @@ fn blend_back(
                     }
                 }
             }
+        }
+    }
+    // A ball too large to roll along an edge that is left as it is: its
+    // round would cut into itself there.
+    for (&edge, roll) in edges.iter().zip(&rolls) {
+        if let Some(Ok((rolled, _))) = roll
+            && let Some(p) = rolled.tight_at(reach * 1e-3)
+        {
+            anyhow::bail!(
+                "the blend of {} is too large for it: near ({:.3}, {:.3}, {:.3}) the edge bends more tightly than the blend is round, and it would cut into itself",
+                called(edge),
+                p.x,
+                p.y,
+                p.z
+            );
         }
     }
     let mut found: Vec<(usize, Rolled)> = Vec::new();
@@ -1922,10 +1947,7 @@ fn blend_found(
     let grows = matches!(shape, Shape::Fillet { until: Some(_), .. });
     // Small beside the blend, so that the tool stays by its edge.
     let margin = (reach * 0.25).min(size * 0.01);
-    let called = |edge: usize| {
-        let name = solid.edges[edge].name.as_deref();
-        format!("edge {}", name.unwrap_or("without a name"))
-    };
+    let called = |edge: usize| called(solid, edge);
     // No blend reaches into what another takes of a face they share:
     // together they would be wider than the face. (But for two that
     // meet at a corner: there each runs into the other's.)
@@ -2017,6 +2039,57 @@ fn blend_found(
             }
         }
     }
+    // Where two blends of a kind meet with no patch between them and
+    // run on into each other smoothly (the edges of a tangent chain):
+    // each end of the one, the end of the other there. They are made
+    // as one tool along both ([`Chain`]).
+    let mut joined: std::collections::BTreeMap<(usize, usize), (usize, usize)> =
+        std::collections::BTreeMap::new();
+    for (v, at) in &meets {
+        let &[a, b] = &at[..] else {
+            continue;
+        };
+        let (ra, rb) = (&found[a.0].1, &found[b.0].1);
+        let smooth = ra.away(a.1).dot(rb.away(b.1)) <= -1.0 + 1e-6;
+        if a.0 != b.0 && ra.convex == rb.convex && smooth && !patches.contains_key(v) {
+            joined.insert(a, b);
+            joined.insert(b, a);
+        }
+    }
+    // The chains, each from one end to the other (around, for one
+    // that closes on itself): which blends, each with whether it runs
+    // against the chain's way.
+    let mut chains: Vec<(Vec<(usize, bool)>, bool)> = Vec::new();
+    let mut taken = vec![false; found.len()];
+    for k in 0..found.len() {
+        if taken[k] {
+            continue;
+        }
+        // Back to where it starts: the piece before is the one joined
+        // at the start of this one.
+        let (mut first, mut reversed) = (k, false);
+        let mut closed = false;
+        while let Some(&(before, end)) = joined.get(&(first, usize::from(reversed))) {
+            (first, reversed) = (before, end == 0);
+            if first == k {
+                closed = true;
+                reversed = false;
+                break;
+            }
+        }
+        let mut pieces = vec![(first, reversed)];
+        taken[first] = true;
+        let (mut at, mut back) = (first, reversed);
+        while let Some(&(next, end)) = joined.get(&(at, usize::from(!back))) {
+            if taken[next] {
+                break;
+            }
+            (at, back) = (next, end == 1);
+            taken[next] = true;
+            pieces.push((at, back));
+        }
+        chains.push((pieces, closed));
+    }
     let kinks: Vec<(usize, [(usize, usize); 2])> = meets
         .into_iter()
         .filter_map(|(v, at)| {
@@ -2060,7 +2133,8 @@ fn blend_found(
     for (k, (edge, rolled)) in found.iter().enumerate() {
         let mut slant = [None, None];
         for (end, slant) in slant.iter_mut().enumerate() {
-            if !kinks.iter().any(|kink| kink.1.contains(&(k, end))) {
+            let kinked = kinks.iter().any(|kink| kink.1.contains(&(k, end)));
+            if !kinked && !joined.contains_key(&(k, end)) {
                 *slant = rolled
                     .check_end(solid, end, margin)
                     .with_context(|| called(*edge))?;
@@ -2185,18 +2259,38 @@ fn blend_found(
                 "closing a corner between the blends came to nothing"
             );
         }
-        for (k, (_, corner)) in found.iter().enumerate() {
-            if corner.convex != convex {
+        for (pieces, closed) in &chains {
+            let k = pieces[0].0;
+            let corner = Chain {
+                pieces: pieces
+                    .iter()
+                    .map(|&(j, back)| (&found[j].1, back))
+                    .collect(),
+                closed: *closed,
+            };
+            if found[k].1.convex != convex {
                 continue;
             }
+            // Of each end of the chain: the blend there, and which end
+            // of it that is.
+            let ends = [0, 1].map(|end| {
+                let (j, back) = if end == 0 {
+                    pieces[0]
+                } else {
+                    pieces[pieces.len() - 1]
+                };
+                (j, usize::from(back) ^ end)
+            });
             // (An inside round starts within the stretch of it that
             // its corner brought along: laid end to end with the
             // corner, the two would share a whole face and a tangent
             // seam.)
             let edge = found[k].0;
-            let inset = corner.vertices.map(|v| match patches.get(&v) {
+            let inset = [0, 1].map(|end| match patches.get(&corner.vertices()[end]) {
+                _ if *closed => 0.0,
                 Some(p) if p.convex => p.radius,
                 Some(p) => {
+                    let edge = found[ends[end].0].0;
                     let at = p.edges.iter().position(|e| *e == edge).unwrap_or(0);
                     // (All of the round came with the corner.)
                     if p.stubs[at] >= p.lengths[at] {
@@ -2218,8 +2312,8 @@ fn blend_found(
                 .filter_map(|end| {
                     let (v, [a, b]) = kinks
                         .iter()
-                        .find(|kink| kink.1.contains(&(k, end)) && !turning(kink.0))?;
-                    let other = if *a == (k, end) { b } else { a };
+                        .find(|kink| kink.1.contains(&ends[end]) && !turning(kink.0))?;
+                    let other = if *a == ends[end] { b } else { a };
                     let (own, their) = (-corner.away(end), -found[other.0].1.away(other.1));
                     let half = own.angle_between(their) / 2.0;
                     let long = (reach + margin) / half.tan().max(0.05) * 1.5 + margin * 4.0;
@@ -2227,138 +2321,141 @@ fn blend_found(
                     Some((end, solid.vertices[*v].point, across, long))
                 })
                 .collect();
-            let whole = corner.vertices[0] != corner.vertices[1] || cuts.len() < 2;
-            let halves: Vec<Option<usize>> = if whole {
-                vec![None]
-            } else {
-                vec![Some(0), Some(1)]
-            };
-            for half in halves {
+            let whole = corner.vertices()[0] != corner.vertices()[1] || cuts.len() < 2;
+            // How it ends at each end of the chain, where that is cut
+            // back to a face.
+            let slant = ends.map(|(j, end)| slants[j][end].clone());
+            // The tool of a half of it (or of all), cut back where it is
+            // to end: rolled on past those ends, or run on straight.
+            let make = |half: Option<usize>, rolled: bool, square: bool| -> anyhow::Result<Solid> {
+                // (Ended square in their own last sections, the ends it is
+                // cut back at only because the faces go on past them.)
+                let slant = slant.clone().map(|s| s.filter(|s| !(square && s.smooth)));
                 let mut stretch = Stretch {
                     inset,
                     half,
+                    square: [0, 1].map(|end| square && slant[end].is_none()),
                     ..Stretch::default()
                 };
-                stretch.on = corner.on;
+                stretch.on = corner.on();
                 for (end, _, _, long) in &cuts {
                     stretch.on[*end] = Some(*long);
+                }
+                for (end, slant) in slant.iter().enumerate() {
+                    let Some(long) = slant.as_ref().and_then(|s| s.long) else {
+                        continue;
+                    };
+                    if rolled {
+                        stretch.rolled_on[end] = Some(long);
+                    } else {
+                        stretch.on[end] = Some(long.max(stretch.on[end].unwrap_or(0.0)));
+                    }
+                }
+                // (Past a corner where it meets another blend, rolled on
+                // too: run on straight, a round leaves a curved face it is
+                // to go on along.)
+                if rolled {
+                    for (end, _, _, long) in &cuts {
+                        if half.is_none_or(|half| half == *end) {
+                            stretch.rolled_on[*end] = Some(*long);
+                            stretch.on[*end] = None;
+                        }
+                    }
                 }
                 let name = match half {
                     Some(half) => format!("{id}/e{k}/h{half}"),
                     None => format!("{id}/e{k}"),
                 };
-                // The tool, cut back where it is to end, and what the body
-                // is with it.
-                let attempt = |stretch: &Stretch,
-                               slant: &[Option<EndCut>; 2]|
-                 -> anyhow::Result<(Solid, f64)> {
-                    let mut tool = corner
-                        .tool(&name, margin, stretch)
-                        .with_context(|| called(edge))?;
-                    for (end, at, across, long) in &cuts {
-                        if half.is_some_and(|half| half != *end) {
-                            continue;
-                        }
-                        let far = long + (reach + margin) * 4.0;
-                        let (b, c) = across.any_orthonormal_pair();
+                let mut tool = corner
+                    .tool(&name, margin, &stretch)
+                    .with_context(|| called(edge))?;
+                for (end, at, across, long) in &cuts {
+                    if half.is_some_and(|half| half != *end) {
+                        continue;
+                    }
+                    let far = long + (reach + margin) * 4.0;
+                    let (b, c) = across.any_orthonormal_pair();
+                    let beyond = cuboid(
+                        &format!("{name}/beyond{end}"),
+                        *at - (b + c) * far,
+                        [*across, b, c],
+                        [far, far * 2.0, far * 2.0],
+                    )?;
+                    tool = less(&tool, &beyond)
+                        .with_context(|| format!("ending the blend of {}", called(edge)))?;
+                }
+                for (end, slant) in slant.iter().enumerate() {
+                    let Some(slant) = slant else {
+                        continue;
+                    };
+                    if half.is_some_and(|half| half != end) || slant.over.is_some() {
+                        continue;
+                    }
+                    let far = slant.long.unwrap_or(0.0) + (reach + margin) * 4.0;
+                    for (j, (face, keep)) in slant.curved.iter().enumerate() {
+                        let beyond = past_face(
+                            solid,
+                            *face,
+                            slant.at,
+                            *keep,
+                            far,
+                            &format!("{name}/past{end}/c{j}"),
+                        )
+                        .with_context(|| format!("ending the blend of {}", called(edge)))?;
+                        tool = less(&tool, &beyond)
+                            .with_context(|| format!("ending the blend of {}", called(edge)))?;
+                    }
+                    for (j, keep) in slant.keep.iter().enumerate() {
+                        let (b, c) = keep.any_orthonormal_pair();
                         let beyond = cuboid(
-                            &format!("{name}/beyond{end}"),
-                            *at - (b + c) * far,
-                            [*across, b, c],
+                            &format!("{name}/past{end}/{j}"),
+                            slant.at - (b + c) * far,
+                            [-*keep, b, c],
                             [far, far * 2.0, far * 2.0],
                         )?;
                         tool = less(&tool, &beyond)
                             .with_context(|| format!("ending the blend of {}", called(edge)))?;
                     }
-                    for (end, slant) in slant.iter().enumerate() {
-                        let Some(slant) = slant else {
-                            continue;
-                        };
-                        if half.is_some_and(|half| half != end) || slant.over.is_some() {
-                            continue;
-                        }
-                        let far = slant.long.unwrap_or(0.0) + (reach + margin) * 4.0;
-                        for (j, (face, keep)) in slant.curved.iter().enumerate() {
-                            let beyond = past_face(
-                                solid,
-                                *face,
-                                slant.at,
-                                *keep,
-                                far,
-                                &format!("{name}/past{end}/c{j}"),
-                            )
-                            .with_context(|| format!("ending the blend of {}", called(edge)))?;
-                            tool = less(&tool, &beyond)
-                                .with_context(|| format!("ending the blend of {}", called(edge)))?;
-                        }
-                        for (j, keep) in slant.keep.iter().enumerate() {
-                            let (b, c) = keep.any_orthonormal_pair();
-                            let beyond = cuboid(
-                                &format!("{name}/past{end}/{j}"),
-                                slant.at - (b + c) * far,
-                                [-*keep, b, c],
-                                [far, far * 2.0, far * 2.0],
-                            )?;
-                            tool = less(&tool, &beyond)
-                                .with_context(|| format!("ending the blend of {}", called(edge)))?;
-                        }
-                    }
-                    let mut tool = fit(tool);
-                    // Where the ball rolls over a rim, its rail runs along
-                    // the rim: the two are one edge there, from where it
-                    // reaches the rim to the end.
-                    let mut body = result.clone();
-                    for (end, slant) in slant.iter().enumerate() {
-                        let Some(from) = slant.as_ref().and_then(|s| s.over) else {
-                            continue;
-                        };
-                        if half.is_some_and(|half| half != end) {
-                            continue;
-                        }
-                        for solid in [&mut body, &mut tool] {
-                            split_at(solid, from, size * 1e-7);
-                        }
-                    }
-                    let op = if convex { Op::Cut } else { Op::Union };
-                    let made = combine(op, &body, &tool)
+                }
+                Ok(fit(tool))
+            };
+            // The tool, and what the body is with it. (In halves, the two
+            // are put together first: they meet face to face in the one
+            // section both end in, and are added to the body or taken
+            // from it as one.)
+            let before = held.unwrap_or_else(|| measure(&result).volume);
+            let attempt = |(rolled, square): (bool, bool)| -> anyhow::Result<(Solid, f64)> {
+                let mut tool = if whole {
+                    make(None, rolled, square)?
+                } else {
+                    let first = make(Some(0), rolled, square)?;
+                    let second = make(Some(1), rolled, square)?;
+                    combine(Op::Union, &first, &second)
                         .with_context(|| format!("blending {}", called(edge)))?
-                        .solid;
-                    Ok((made, measure(&tool).volume))
+                        .solid
                 };
-                // Rolled on past an end it is cut back at; or, where that
-                // does not come out, run on straight.
-                let tried = |slant: &[Option<EndCut>; 2]| {
-                    let mut rolled = stretch;
-                    for (end, slant) in slant.iter().enumerate() {
-                        if let Some(long) = slant.as_ref().and_then(|s| s.long) {
-                            rolled.rolled_on[end] = Some(long);
-                        }
-                    }
-                    let straight = {
-                        let mut straight = stretch;
-                        for (end, slant) in slant.iter().enumerate() {
-                            if let Some(long) = slant.as_ref().and_then(|s| s.long) {
-                                straight.on[end] = Some(long.max(straight.on[end].unwrap_or(0.0)));
-                            }
-                        }
-                        straight
+                // Where the ball rolls over a rim, its rail runs along
+                // the rim: the two are one edge there, from where it
+                // reaches the rim to the end.
+                let mut body = result.clone();
+                for slant in slant
+                    .iter()
+                    .filter(|s| !(square && s.as_ref().is_some_and(|s| s.smooth)))
+                {
+                    let Some(from) = slant.as_ref().and_then(|s| s.over) else {
+                        continue;
                     };
-                    if slant.iter().any(Option::is_some) {
-                        attempt(&rolled, slant).or_else(|_| attempt(&straight, slant))
-                    } else {
-                        attempt(&stretch, slant)
+                    for solid in [&mut body, &mut tool] {
+                        split_at(solid, from, size * 1e-7);
                     }
-                };
-                let before = held.unwrap_or_else(|| measure(&result).volume);
-                // (Where the ball is to roll over a rim and that does not
-                // come out, the blend is not made: cut back to the face it
-                // ends on instead, it would leave more than it is to.)
-                let (made, holds) = tried(&slants[k])?;
-                result = made;
-                // The blend takes something away, or adds something —
-                // and no more than its tool holds.
-                let after = measure(&result).volume;
-                held = Some(after);
+                }
+                let op = if convex { Op::Cut } else { Op::Union };
+                let made = combine(op, &body, &tool)
+                    .with_context(|| format!("blending {}", called(edge)))?
+                    .solid;
+                // The blend takes something away, or adds something — and
+                // no more than its tool holds.
+                let (after, holds) = (measure(&made).volume, measure(&tool).volume);
                 let change = after - before;
                 ensure!(
                     if convex { change < 0.0 } else { change > 0.0 },
@@ -2370,7 +2467,34 @@ fn blend_found(
                     "blending {} did not come out as a blend: it would change the body by more than the blend is",
                     called(edge)
                 );
+                Ok((made, after))
+            };
+            // Rolled on past an end it is cut back at; or, where that
+            // does not come out, run on straight. (Where the ball is to
+            // roll over a rim and that does not come out, the blend is
+            // not made: cut back to the face it ends on instead, it would
+            // leave more than it is to.)
+            // (And where it is only cut back because the faces go on
+            // past an end, and that cannot be made, ended there in its
+            // own last section: square to the edge but for how far the
+            // ball touches the faces out of the plane of its centre.)
+            let mut tries = vec![(false, false)];
+            if slant.iter().any(Option::is_some) || !cuts.is_empty() {
+                tries.insert(0, (true, false));
             }
+            if slant.iter().flatten().any(|s| s.smooth) {
+                tries.extend([(true, true), (false, true)]);
+            }
+            let mut outcome = attempt(tries[0]);
+            for &how in &tries[1..] {
+                if outcome.is_ok() {
+                    break;
+                }
+                outcome = outcome.or_else(|_| attempt(how));
+            }
+            let (made, after) = outcome?;
+            result = made;
+            held = Some(after);
         }
     }
     // Then what the ball takes turning about the ends of inside edges:

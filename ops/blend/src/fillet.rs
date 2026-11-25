@@ -9,6 +9,60 @@ fn names(edges: &[workpiece_core::Reference<EdgesOf>]) -> Vec<String> {
     edges.iter().map(|s| s.name().to_owned()).collect()
 }
 
+/// The corner at the middle of the first edge `picked` stands for: an
+/// edge picked, or the first edge of a face or of a body picked; `None`
+/// if none is an edge between two faces of a solid.
+fn first_corner(
+    topo: &workpiece_core::world::topo::Topo,
+    picked: &[String],
+) -> Option<workpiece_shape::on::Corner> {
+    let name = picked.first()?;
+    if let Some(corner) = workpiece_shape::on::corner(topo, name) {
+        return Some(corner);
+    }
+    let (body, _) = workpiece_shape::bodies::bodies_with(topo, &picked[..1])
+        .into_iter()
+        .next()?;
+    let solid = workpiece_boolean::read(topo, body).ok()?;
+    let named = |n: &Option<String>, also: &[String]| {
+        n.as_deref() == Some(name.as_str()) || also.contains(name)
+    };
+    let edge = match solid.faces.iter().find(|f| named(&f.name, &f.also)) {
+        Some(face) => face.loops.iter().flatten().find_map(|u| match u.walk {
+            workpiece_boolean::model::Walk::Edge { edge, .. } => Some(edge),
+            _ => None,
+        })?,
+        // (A body: its first edge.)
+        None => 0,
+    };
+    workpiece_shape::on::corners_of(&solid, edge)
+        .into_iter()
+        .next()
+}
+
+/// A size as typed after a drag: to a thousandth, and more than nothing.
+fn dragged(x: f64) -> Measure {
+    Measure::new(((x * 1000.0).round() / 1000.0).max(0.001))
+}
+
+/// An arrow at the middle of the first edge, across face `face` of the
+/// two there, its tip where the blend starts on that face when the size
+/// is `size`: the blend starts `per` times its size from the edge.
+fn arrow<A: Clone + 'static>(
+    corner: &workpiece_shape::on::Corner,
+    face: usize,
+    per: f64,
+    size: f64,
+    args: &A,
+    put: fn(&mut A, Measure),
+) -> Option<workpiece_core::handles::Handle<A>> {
+    (per.is_finite() && per > 1e-6).then_some(())?;
+    let set = workpiece_shape::ui::set(args, move |a: &mut A, x: f64| put(a, dragged(x / per)));
+    let arrow =
+        workpiece_core::handles::LinearHandle::new(corner.at, corner.into[face], size * per, set)?;
+    Some(arrow.into())
+}
+
 /// What a fillet rounds, and how.
 #[derive(
     Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
@@ -154,6 +208,42 @@ impl Operation for Fillet {
                 .push((format!("{}/{what}", self.id), held));
         }
         Ok(out.made)
+    }
+
+    fn visualize_edit(
+        &self,
+        context: &workpiece_core::EditContext<'_>,
+        (): &(),
+    ) -> workpiece_core::EditVisualization<workpiece_core::Edit<FilletArgs, ()>> {
+        let args = &self.args;
+        let fields = workpiece_core::Arguments::fields(args, context);
+        let mut handles = std::collections::BTreeMap::new();
+        // An arrow across the first face at the first edge, its tip
+        // where the fillet starts there: dragged, the size follows.
+        let size = args
+            .size
+            .resolve(context.parameters)
+            .unwrap_or(args.size.value);
+        if let Some(c) = first_corner(&context.world.topo, &names(&args.edges)) {
+            // (How far from the edge it starts on each face, for a
+            // radius of one.)
+            let ball = c.ball(1.0) - c.at;
+            let setback = [ball.dot(c.into[0]), ball.dot(c.into[1])];
+            let per = match args.by {
+                By::Radius => setback[0],
+                By::Distance => 1.0,
+                By::Width => {
+                    let chord = (c.into[0] * setback[0] - c.into[1] * setback[1]).length();
+                    setback[0] / chord
+                }
+            };
+            let put: fn(&mut FilletArgs, Measure) = |a, m| a.size = m;
+            if let Some(h) = arrow(&c, 0, per, size, args, put) {
+                handles.insert("size".to_owned(), h);
+            }
+        }
+        workpiece_core::EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles)
+            .map(workpiece_core::Edit::args)
     }
 
     fn summary(&self) -> String {
@@ -317,6 +407,34 @@ impl Operation for Chamfer {
             }
         }
         Ok(out.made)
+    }
+
+    fn visualize_edit(
+        &self,
+        context: &workpiece_core::EditContext<'_>,
+        (): &(),
+    ) -> workpiece_core::EditVisualization<workpiece_core::Edit<ChamferArgs, ()>> {
+        let args = &self.args;
+        let fields = workpiece_core::Arguments::fields(args, context);
+        let mut handles = std::collections::BTreeMap::new();
+        // An arrow across each face at the first edge that has a
+        // distance of its own, its tip where the chamfer starts there.
+        if let Some(c) = first_corner(&context.world.topo, &names(&args.edges)) {
+            let value = |m: &Measure| m.resolve(context.parameters).unwrap_or(m.value);
+            let first = if args.two && args.flip { 1 } else { 0 };
+            let put: fn(&mut ChamferArgs, Measure) = |a, m| a.distance = m;
+            if let Some(h) = arrow(&c, first, 1.0, value(&args.distance), args, put) {
+                handles.insert("distance".to_owned(), h);
+            }
+            if args.two {
+                let put: fn(&mut ChamferArgs, Measure) = |a, m| a.second = m;
+                if let Some(h) = arrow(&c, 1 - first, 1.0, value(&args.second), args, put) {
+                    handles.insert("second".to_owned(), h);
+                }
+            }
+        }
+        workpiece_core::EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles)
+            .map(workpiece_core::Edit::args)
     }
 
     fn summary(&self) -> String {

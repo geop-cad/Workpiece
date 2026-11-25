@@ -19,7 +19,7 @@ pub use mate::{Anchor, Mate, MateArgs, joint_fields};
 pub use mechanism::{Mechanism, MechanismArgs};
 pub use mirror_part::{MirrorPart, MirrorPartArgs};
 pub use pattern_part::{PatternPart, PatternPartArgs};
-pub use placing::{Constraint, Hold};
+pub use placing::{Hold, Mating, constraint_label, joint_name};
 pub use weld::{Weld, WeldArgs};
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
@@ -34,9 +34,9 @@ pub fn register(r: &mut workpiece_core::Registry) {
         label: "Add part",
         icon: "part",
         key: 'I',
-        hint: "Add a part to this one: a part of this project, or a STEP file. Pick a reference on what is there and one on the part, then the constraint between them: free, fixed, or a joint that fits the two",
+        hint: "Add a part to this one: a part of this project, or a STEP file. Drag it where it goes, or mate it: a reference on what is there, one on the part, and the constraint between them; as many mates as it takes",
         small: false,
-        make: |cx| AddPart { id: (cx.fresh_id)("part"), args: AddPartArgs::default() }.into(),
+        make: |cx| AddPart { id: (cx.fresh_id)("part"), args: AddPartArgs { hold: Hold::to_pick(), ..Default::default() } }.into(),
     });
     r.kind::<Mechanism>("mechanism");
     r.tool(Tool {
@@ -45,7 +45,7 @@ pub fn register(r: &mut workpiece_core::Registry) {
         label: "Mechanism",
         icon: "mechanism",
         key: 'M',
-        hint: "Tie two joints together: gears at a ratio, a pinion on a rack, a screw, slides that travel together",
+        hint: "Tie two joints together: gears at a ratio, a pinion on a rack, a screw, slides that travel together. Point at the joints in the view",
         small: false,
         make: |cx| Mechanism::new((cx.fresh_id)("mechanism")).into(),
     });
@@ -135,6 +135,9 @@ macro_rules! icons {
 const OPTION_ICONS: &[(&str, &str)] = icons!(
     "constraint-fixed",
     "constraint-free",
+    "mate-add",
+    "mate-flip",
+    "mate-remove",
     "mech-gear",
     "mech-linear",
     "mech-rack",
@@ -142,6 +145,7 @@ const OPTION_ICONS: &[(&str, &str)] = icons!(
     "std-all",
     "std-bearing",
     "std-nut",
+    "std-pin",
     "std-screw",
     "std-washer",
 );

@@ -155,3 +155,176 @@ fn the_catalogue_is_one_list_that_filters_narrow() -> anyhow::Result<()> {
     screw.apply(&mut Standalone::new())?;
     Ok(())
 }
+
+/// A builder holding a plate 3 thick with a hole 17 across through its
+/// middle (an M16 washer, as good a plate as any), placed and fixed:
+/// its top at z = 3.
+fn plate() -> anyhow::Result<Standalone> {
+    use workpiece_ops_standard::{StandardKind, standard};
+    let mut world = workpiece_core::World::new();
+    let ring = standard("plate", StandardKind::Washer, "M16", 0.0)?;
+    workpiece_boolean::write(&mut world.topo, &ring, "plate")?;
+    let mut b = Standalone::new();
+    b.world.instances.insert(
+        "plate".into(),
+        workpiece_core::world::Instance {
+            pose: workpiece_core::Pose::IDENTITY,
+            world: std::sync::Arc::new(world),
+            fixed: true,
+        },
+    );
+    Ok(b)
+}
+
+/// Picks, in the dialog of `op`, its first field `label` with the
+/// pointer at `at` on `source` of the plate: as a click there would.
+fn pick(
+    op: &workpiece_ops_standard::StandardPart,
+    b: &Standalone,
+    label: &str,
+    source: &str,
+    at: workpiece_core::math::Point3,
+) -> anyhow::Result<workpiece_ops_standard::StandardPart> {
+    use workpiece_core::Widget;
+    use workpiece_core::widgets::Picked;
+    let world = std::sync::Arc::new(b.world.clone());
+    let context = workpiece_core::EditContext::standalone(&world, &b.cache);
+    let edit = op.visualize_edit(&context, &Default::default());
+    let mut found = None;
+    edit.dialog.visit(&mut |w| {
+        if let Widget::ConnectorInput(input) = w
+            && input.label == label
+            && found.is_none()
+        {
+            found = Some(input.set(Picked {
+                instance: vec!["plate".into()],
+                source: Source::Topology(source.into()),
+                at,
+                near: 0.5,
+                within: b.world.instances["plate"].world.clone(),
+            }));
+        }
+    });
+    let args = found
+        .and_then(|e| e.args)
+        .ok_or_else(|| anyhow::anyhow!("no field {label}"))?;
+    Ok(workpiece_ops_standard::StandardPart {
+        id: op.id.clone(),
+        args,
+    })
+}
+
+#[test]
+fn every_kind_has_a_seat_and_a_screw_sits_on_a_hole_by_one_pick() -> anyhow::Result<()> {
+    use workpiece_core::math::{Axis, Point3};
+    use workpiece_core::world::{Datum, JointKind};
+    use workpiece_ops_instances::assembly;
+    use workpiece_ops_standard::{SEAT, StandardKind, StandardPart, lengths};
+    // Each kind is placed with its seat as a frame of its own, on its
+    // axis and on its solid; its first mate starts there.
+    for kind in StandardKind::ALL {
+        let mut op = StandardPart::new("p");
+        op.args.kind = kind;
+        op.args.size = kind.sizes()[3].to_owned();
+        op.args.length = lengths(&op.args.size).first().copied().unwrap_or(0.0);
+        let mut b = Standalone::new();
+        op.apply(&mut b)?;
+        let part = &b.world.instances["p"].world;
+        let Some(Datum::Frame(seat)) = part.datums.get(SEAT) else {
+            anyhow::bail!("{kind:?} has no seat");
+        };
+        let o = seat.pose().translation();
+        assert!(o.x.abs() + o.y.abs() < 1e-9, "{kind:?}: {o}");
+        let (lo, hi) = part.extent().expect("a solid");
+        assert!(o.z >= lo.z - 1e-9 && o.z <= hi.z + 1e-9, "{kind:?}");
+        assert_eq!(op.args.hold.mates.len(), 1);
+        assert_eq!(op.args.hold.mates[0].kind, JointKind::Revolute);
+        assert!(op.args.hold.mates[0].onto.is_none());
+    }
+    // An M6 screw: one pick on the plate's top, by the rim of the
+    // hole, and it stands in the hole, its head on the top.
+    let mut b = plate()?;
+    let screw = StandardPart::new("screw");
+    let screw = pick(&screw, &b, "Onto", "plate/end", Point3::new(-6.1, 6.1, 3.0))?;
+    screw.apply(&mut b)?;
+    assembly::settle(&mut b.world, &mut b.cache);
+    let pose = b.world.instances["screw"].pose;
+    assert!(
+        pose.translation()
+            .abs_diff_eq(Point3::new(0.0, 0.0, 3.0), 1e-6),
+        "{pose:?}"
+    );
+    assert!(pose.axis(Axis::Z).abs_diff_eq(Point3::Z, 1e-6));
+    // Pointed at the rim itself, the same: a rim is out of its face.
+    let world = &b.world.instances["plate"].world;
+    let topo = &world.topo;
+    let rim = topo
+        .edges()
+        .iter()
+        .filter_map(|(id, e)| {
+            let name = topo.name_of(id)?;
+            let p = topo.vertex(e.start)?.point;
+            (p.z > 2.9 && p.truncate().length() < 9.0).then(|| name.to_owned())
+        })
+        .find(|name| workpiece_ops_instances::connector::rim_face(world, name).is_some())
+        .expect("the hole's rim on the top");
+    let mut again = plate()?;
+    let by_rim = pick(
+        &StandardPart::new("screw"),
+        &again,
+        "Onto",
+        &rim,
+        Point3::new(-6.0, 6.0, 3.0),
+    )?;
+    by_rim.apply(&mut again)?;
+    assembly::settle(&mut again.world, &mut again.cache);
+    let by_rim = again.world.instances["screw"].pose;
+    assert!(by_rim.translation().abs_diff_eq(pose.translation(), 1e-6));
+    assert!(by_rim.axis(Axis::Z).abs_diff_eq(Point3::Z, 1e-6));
+
+    // Turned over, by the button beside its own reference: the head
+    // under the plate's top, the shank up out of it.
+    let mut flipped = screw.clone();
+    flipped.args.hold.mates[0].flip_with = true;
+    let mut again = plate()?;
+    again.cache = b.cache.clone();
+    flipped.apply(&mut again)?;
+    assembly::settle(&mut again.world, &mut again.cache);
+    let pose = again.world.instances["screw"].pose;
+    assert!(
+        pose.translation()
+            .abs_diff_eq(Point3::new(0.0, 0.0, 3.0), 1e-6)
+    );
+    assert!(pose.axis(Axis::Z).abs_diff_eq(-Point3::Z, 1e-6), "{pose:?}");
+
+    // One mate leaves it to turn about its axis; a second, fastening
+    // its origin 3 above the plate's, holds that too: dragged round, it
+    // stays.
+    let turned = |b: &Standalone| {
+        let drag = assembly::Drag {
+            instance: "screw".into(),
+            local: Point3::new(5.0, 0.0, 0.0),
+            target: Point3::new(0.0, 5.0, 3.0),
+        };
+        let solved = assembly::solve(&b.world, Some(&drag));
+        solved.poses["screw"].axis(Axis::X).y
+    };
+    assert!(turned(&b) > 0.5);
+    let mut two = screw.clone();
+    let origin = |instance: &[&str]| workpiece_ops_instances::Anchor {
+        instance: instance.iter().map(|s| (*s).to_owned()).collect(),
+        source: Source::Datum(ORIGIN.into()),
+        snap: workpiece_ops_instances::connector::Snap::Datum,
+    };
+    two.args.hold.mates.push(workpiece_ops_instances::Mating {
+        offset: [0.0, 0.0, 3.0],
+        ..workpiece_ops_instances::Mating::new(JointKind::Fastened, origin(&["plate"]), origin(&[]))
+    });
+    let mut b = plate()?;
+    two.apply(&mut b)?;
+    let names: Vec<_> = b.world.joints.iter().map(|j| j.name.as_str()).collect();
+    assert_eq!(names, ["screw", "screw/2"]);
+    assembly::settle(&mut b.world, &mut b.cache);
+    assert!(turned(&b).abs() < 1e-6, "{}", turned(&b));
+    Ok(())
+}

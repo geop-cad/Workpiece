@@ -1,6 +1,6 @@
 import math, os, sys
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[2] / "python"))
-from workpiece import Part, axis, topo, datum, profile, view, projected, section_view, note, material, anchor, placed, balloon
+from workpiece import Part, axis, topo, datum, profile, view, projected, section_view, note, material, anchor, mate, placed, balloon
 here = os.path.dirname(os.path.abspath(__file__))
 folder = os.path.join(here, "2.parts")
 os.makedirs(folder, exist_ok=True)
@@ -110,12 +110,10 @@ rrep = rack.build(os.path.join(folder, "rack.wpc"))
 rack_floor = rrep.faces(where=lambda f: f["flat"] and abs(f["middle"][2] - 2.0) < 1e-6 and f["area"] < 1.0 and f["name"].startswith("rod_holes/"))
 print("hole floors", fl, rack_floor, rrep.faces(where=lambda f: f["flat"] and abs(f["middle"][2] - 2.0) < 1e-6 and f["area"] < 1.0))
 for k, name in enumerate(fl):
-    asm.add_part(rod, id=f"rod{k + 1}", constraint="Fastened", flip=True,
-                 onto=anchor(topo(name), "FaceCentre", instance="base"),
-                 with_=anchor(topo("rod/side/e13"), "FaceCentre"))
-asm.add_part(rack, id="rack", constraint="Fastened", flip=True,
-             onto=anchor(topo("rod/side/e15"), "FaceCentre", instance="rod1"),
-             with_=anchor(topo(rack_floor[0]), "FaceCentre"))
+    asm.add_part(rod, id=f"rod{k + 1}", mates=[mate(anchor(topo(name), "FaceCentre", instance="base"),
+                                                    anchor(topo("rod/side/e13"), "FaceCentre"), flip_with=True)])
+asm.add_part(rack, id="rack", mates=[mate(anchor(topo("rod/side/e15"), "FaceCentre", instance="rod1"),
+                                          anchor(topo(rack_floor[0]), "FaceCentre"), flip_with=True)])
 rb = asm.build(os.path.join(folder, "umbrella_stand.wpc")); rb.show()
 for pp in rb.placed: print(pp["name"], pp["pose"])
 for m in rb.masses: print(m["name"], m["material"], m["mass"] * 2.20462, "lb")

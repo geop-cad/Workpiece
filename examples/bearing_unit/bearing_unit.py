@@ -12,7 +12,7 @@ try:
     import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from workpiece import Part, anchor, axis, balloon, note, topo, view, section_view
+from workpiece import Part, anchor, mate, seat, axis, balloon, note, topo, view, section_view
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -118,21 +118,21 @@ crep = cover.build(os.path.join(HERE, "cover.wpc"))
 face_at = lambda rep, ny, y: rep.faces(where=lambda f: abs(f["normal"][1] - ny) < 1e-6 and abs(f["middle"][1] - y) < 1e-6)[0]
 # The bearings, each against its shoulder in the housing.
 for k, shoulder in enumerate((face_at(hrep, -1, 14), face_at(hrep, 1, 46))):
-    asm.op("StandardPart", f"bearing{k + 1}", kind="Bearing", size="6204",
-           hold={"constraint": {"Joint": "Fastened"}, "flip": True,
-                 "onto": anchor(topo(shoulder), "FaceCentre", instance="housing"), "with": anchor(topo(f"bearing{k + 1}/end"), "FaceCentre")})
+    asm.standard_part("Bearing", "6204", id=f"bearing{k + 1}",
+                      mates=[mate(anchor(topo(shoulder), "FaceCentre", instance="housing"),
+                                  anchor(topo(f"bearing{k + 1}/end"), "FaceCentre"), flip_with=True)])
 # The shaft turns in them: its collar's shoulder (a revolved annulus) against the first bearing's face.
-asm.add_part(shaft, id="shaft", constraint="Revolute", flip=True,
-             onto=anchor(topo("bearing1/end"), "FaceCentre", instance="bearing1"),
-             with_=anchor(topo(face_at(srep, -1, 49)), "FaceCentre"))
+asm.add_part(shaft, id="shaft", mates=[mate(anchor(topo("bearing1/end"), "FaceCentre", instance="bearing1"),
+                                            anchor(topo(face_at(srep, -1, 49)), "FaceCentre"), "Revolute",
+                                            flip_with=True)])
 # The cover on the housing's face, one screw in it, and the screw four times about the axis.
-asm.add_part(cover, id="cover", constraint="Fastened", flip=True,
-             onto=anchor(topo(face_at(hrep, -1, 0)), "FaceCentre", instance="housing"),
-             with_=anchor(topo(face_at(crep, 1, 0)), "FaceCentre"))
-asm.op("StandardPart", "screw", kind="SocketScrew", size="M5", length=12.0,
-       hold={"constraint": {"Joint": "Fastened"}, "flip": True, "offset": [0.0, 44.0, 0.0],
-             "onto": anchor(topo(face_at(crep, -1, -8)), "FaceCentre", instance="cover"),
-             "with": anchor(topo("screw/head/start"), "FaceCentre")})
+asm.add_part(cover, id="cover", mates=[mate(anchor(topo(face_at(hrep, -1, 0)), "FaceCentre", instance="housing"),
+                                            anchor(topo(face_at(crep, 1, 0)), "FaceCentre"), flip_with=True)])
+# (Its seat — the ring under its head — on the cover's face, 44 off the face's middle: on the
+# pitch circle of the holes.)
+asm.standard_part("SocketScrew", "M5", 12.0, id="screw",
+                  mates=[mate(anchor(topo(face_at(crep, -1, -8)), "FaceCentre", instance="cover"), seat(),
+                              offset=(0.0, 44.0, 0.0))])
 rep = asm.build(os.path.join(HERE, "bearing_unit.wpc"))
 
 

@@ -17,6 +17,7 @@ mod angular;
 pub mod canvas;
 mod gizmo;
 mod linear;
+mod planar;
 pub mod shape;
 pub mod space;
 
@@ -29,6 +30,7 @@ pub use canvas::{
 };
 pub use gizmo::{Gizmo, GizmoPart};
 pub use linear::LinearHandle;
+pub use planar::PlanarHandle;
 pub use space::{Space, SpaceDraw, SpaceEvent, SpaceHandler, SpaceShape, SpaceView};
 
 use crate::widgets::MapFn;
@@ -39,6 +41,8 @@ pub enum Handle<M> {
     Linear(LinearHandle<M>),
     /// A translate/rotate gizmo.
     Gizmo(Gizmo<M>),
+    /// A knob moved over a plane.
+    Planar(PlanarHandle<M>),
     /// A knob turned about an axis.
     Angular(AngularHandle<M>),
     /// A plane that takes every pointer event on it.
@@ -57,6 +61,7 @@ impl<M: 'static> Handle<M> {
         match self {
             Handle::Linear(h) => Handle::Linear(h.map_rc(f)),
             Handle::Gizmo(h) => Handle::Gizmo(h.map_rc(f)),
+            Handle::Planar(h) => Handle::Planar(h.map_rc(f)),
             Handle::Angular(h) => Handle::Angular(h.map_rc(f)),
             Handle::Canvas(h) => Handle::Canvas(h.map_rc(f)),
             Handle::Space(h) => Handle::Space(h.map_rc(f)),
@@ -73,6 +78,12 @@ impl<M> From<LinearHandle<M>> for Handle<M> {
 impl<M> From<AngularHandle<M>> for Handle<M> {
     fn from(h: AngularHandle<M>) -> Self {
         Handle::Angular(h)
+    }
+}
+
+impl<M> From<PlanarHandle<M>> for Handle<M> {
+    fn from(h: PlanarHandle<M>) -> Self {
+        Handle::Planar(h)
     }
 }
 

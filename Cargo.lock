@@ -3943,6 +3943,7 @@ dependencies = [
  "workpiece-core",
  "workpiece-ops-basic-shapes",
  "workpiece-ops-sketch",
+ "workpiece-ops-surface",
  "workpiece-ops-sweep",
  "workpiece-ops-testing",
  "workpiece-rasterize",

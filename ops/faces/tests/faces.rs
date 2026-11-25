@@ -304,6 +304,148 @@ fn areas_are_embossed_and_engraved_following_the_face() -> anyhow::Result<()> {
 }
 
 #[test]
+fn an_area_is_raised_where_it_first_meets_a_ring_its_sides_as_asked() -> anyhow::Result<()> {
+    use workpiece_ops_basic_shapes::{AddCylinder, AddCylinderArgs};
+    use workpiece_ops_faces::{Emboss, EmbossArgs, Outline};
+    use workpiece_ops_surface::{CurveProjection, CurveProjectionArgs};
+    // A square 0.6 wide on a plane 3 off a rod of radius 1, thrown
+    // along x onto its side: it meets the rod twice, on both sides.
+    let rod = || -> anyhow::Result<Standalone> {
+        let mut b = Standalone::new();
+        AddCylinder {
+            id: "rod".into(),
+            args: AddCylinderArgs {
+                frame: Some(Reference::datum(ORIGIN)),
+                radius: Measure::new(1.0),
+                height: Measure::new(2.0),
+            },
+        }
+        .apply(&mut b)?;
+        let plane = workpiece_core::world::DatumPlane::new(
+            workpiece_core::math::Point3::new(3.0, 0.0, 0.0),
+            workpiece_core::math::Point3::X,
+            workpiece_core::math::Point3::Y,
+        )?;
+        b.world.datums.insert("front".into(), plane.into());
+        let flat = |p: [f64; 3]| {
+            let d = workpiece_core::math::Point3::from_array(p) - plane.origin();
+            [d.dot(plane.x_dir()), d.dot(plane.y_dir())]
+        };
+        let (a, c) = (flat([3.0, -0.3, 0.7]), flat([3.0, 0.3, 1.3]));
+        let lo = [a[0].min(c[0]), a[1].min(c[1])];
+        let hi = [a[0].max(c[0]), a[1].max(c[1])];
+        sketch(
+            &mut b,
+            "square",
+            Reference::datum("front"),
+            Some((lo, hi)),
+            &[],
+        )?;
+        Ok(b)
+    };
+    let raised = |b: &mut Standalone, args: EmbossArgs| -> anyhow::Result<(f64, f64, f64)> {
+        Emboss {
+            id: "mark".into(),
+            args: EmbossArgs {
+                faces: vec![Source::Topology("rod/side".into()).into()],
+                height: Measure::new(0.1),
+                ..args
+            },
+        }
+        .apply(b)?;
+        check(b);
+        let rod = workpiece_boolean::read(&b.world.topo, body(b, "rod"))?;
+        let x = rod.vertices.iter().map(|v| v.point.x);
+        let (lo, hi) = x.fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), x| {
+            (l.min(x), h.max(x))
+        });
+        Ok((workpiece_boolean::measure(&rod).volume - 2.0 * PI, lo, hi))
+    };
+    let thrown = || EmbossArgs {
+        sketch: Some(Source::Profile("square".into()).into()),
+        ..EmbossArgs::default()
+    };
+    // Text on the plane: its letters (an "A" and a "b", each with a
+    // hole) raised on the near side only, either way.
+    let lettered = |square: bool| -> anyhow::Result<(f64, f64, f64)> {
+        use workpiece_ops_sketch::{Align, Shape, Sketch, TextBox};
+        let mut b = rod()?;
+        let mut text = Sketch::new("text");
+        text.args.plane = Some(Reference::datum("front"));
+        let corners = [[-0.5, 0.7], [0.5, 0.7], [0.5, 1.3], [-0.5, 1.3]].map(|p| {
+            text.args
+                .add_point(workpiece_core::math::Point2::from_array(p))
+        });
+        text.args.add(Shape::Text(TextBox {
+            corners,
+            text: "Ab".into(),
+            size: 0.5,
+            align: Align::Start,
+            valign: Align::Start,
+            wrap: false,
+        }));
+        text.apply(&mut b)?;
+        let args = EmbossArgs {
+            sketch: Some(Source::Profile("text".into()).into()),
+            normal_to_face: square,
+            ..EmbossArgs::default()
+        };
+        raised(&mut b, args)
+    };
+    let (along, lo, hi) = lettered(false)?;
+    assert!(
+        along > 0.0 && hi > 1.05 && lo > -1.0 - 1e-6,
+        "{along} {lo} {hi}"
+    );
+    let (normal, lo, hi) = lettered(true)?;
+    assert!(
+        normal > 0.0 && hi > 1.05 && lo > -1.0 - 1e-6,
+        "{normal} {lo} {hi}"
+    );
+    assert!((normal - along).abs() > 1e-5, "{normal} {along}");
+    // Along the sketch's normal: on the near side only, its sides along x.
+    let segment = |r: f64| {
+        let half = (0.3_f64 / r).asin();
+        r * r * half + 0.3 * (r * r - 0.09).sqrt()
+    };
+    let (along, lo, hi) = raised(&mut rod()?, thrown())?;
+    close(along, (segment(1.1) - segment(1.0)) * 0.6, 1e-6);
+    assert!(hi > 1.05 && lo > -1.0 - 1e-6, "{lo} {hi}");
+    // Square to the face: its sides run out from the axis, standing on
+    // what the square covers of the rod.
+    let wedge = |angle: f64| (1.1 * 1.1 - 1.0) / 2.0 * angle * 0.6;
+    let square = EmbossArgs {
+        normal_to_face: true,
+        ..thrown()
+    };
+    let (normal, lo, hi) = raised(&mut rod()?, square)?;
+    close(normal, wedge(2.0 * 0.3_f64.asin()), 1e-4);
+    assert!(hi > 1.05 && lo > -1.0 - 1e-6, "{lo} {hi}");
+    assert!((normal - along).abs() > 1e-3, "{normal} {along}");
+    // The square projected onto the rod first: curves on both its
+    // sides, each raised square to the face.
+    let mut b = rod()?;
+    CurveProjection {
+        id: "projected".into(),
+        args: CurveProjectionArgs {
+            onto: vec![Source::Topology("rod/side".into()).into()],
+            curves: vec![Source::Profile("square".into()).into()],
+            along: None,
+        },
+    }
+    .apply(&mut b)?;
+    let curves = EmbossArgs {
+        outline: Outline::Curves,
+        curves: vec![Source::Topology("projected".into()).into()],
+        ..EmbossArgs::default()
+    };
+    let (both, lo, hi) = raised(&mut b, curves)?;
+    close(both, 2.0 * normal, 1e-4);
+    assert!(hi > 1.05 && lo < -1.04, "{lo} {hi}");
+    Ok(())
+}
+
+#[test]
 fn faces_are_pushed_and_pulled() -> anyhow::Result<()> {
     use workpiece_ops_faces::{FaceWay, MoveFace, MoveFaceArgs};
     // The 4 × 4 × 2 box with a hole of radius 0.5 through it.
@@ -466,5 +608,39 @@ fn a_slot_on_a_flange_as_thick_as_the_wall_is_shelled_sharp_inside() -> anyhow::
     let sharp = 6000.0 * 5.0 + slot(40.0) * 25.0 - slot(30.0) * 25.0;
     let solid = workpiece_boolean::read(&b.world.topo, body(&b, "flange"))?;
     close(workpiece_boolean::measure(&solid).volume, sharp, 1e-6);
+    Ok(())
+}
+
+#[test]
+fn a_moved_face_has_an_arrow_for_how_far() -> anyhow::Result<()> {
+    use workpiece_core::handles::Handle;
+    use workpiece_ops_faces::{MoveFace, MoveFaceArgs};
+    // The top of the 4 × 4 × 2 box, out by 0.5: an arrow up from its
+    // middle to where it goes.
+    let mut b = Standalone::new();
+    base(&mut b)?;
+    let op = MoveFace {
+        id: "moved".into(),
+        args: MoveFaceArgs {
+            faces: vec![Source::Topology("base/top".into()).into()],
+            distance: Measure::new(0.5),
+            ..MoveFaceArgs::default()
+        },
+    };
+    let edit = workpiece_core::operation::edit_arguments(&op, &b.world);
+    let Some(Handle::Linear(arrow)) = edit.handles.get("distance") else {
+        panic!("an arrow");
+    };
+    let top = workpiece_core::math::Point3::new(0.0, 0.0, 1.0);
+    assert!(arrow.origin.distance(top) < 1e-6, "{}", arrow.origin);
+    assert!(
+        arrow
+            .tip()
+            .distance(top + workpiece_core::math::Point3::Z * 0.5)
+            < 1e-6
+    );
+    // Dragged back through the face: in, by as much.
+    let args = (arrow.on_drag)(-0.25);
+    assert!(args.flip && (args.distance.value - 0.25).abs() < 1e-9);
     Ok(())
 }

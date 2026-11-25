@@ -62,13 +62,30 @@ pub struct Settings {
     /// Whether the model shows cut at the plane of a sketch that is
     /// drawn on a plane, so what is in front of it hides nothing.
     pub sketch_section: bool,
+    /// The part files opened or saved last in this workspace, most
+    /// recent first (paths as the workspace has them), at most
+    /// [`RECENT`].
+    pub recent: Vec<String>,
 }
+
+/// How many part files [`Settings::recent`] remembers.
+pub const RECENT: usize = 10;
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             sketch_section: true,
+            recent: Vec::new(),
         }
+    }
+}
+
+impl Settings {
+    /// Puts `path` first among the recent files.
+    pub fn remember(&mut self, path: &str) {
+        self.recent.retain(|p| p != path);
+        self.recent.insert(0, path.to_owned());
+        self.recent.truncate(RECENT);
     }
 }
 
@@ -274,6 +291,12 @@ impl Model {
                     },
                     ..Self::default()
                 };
+                // A part read from its file is one opened recently.
+                if let Some(path) = self.active_part.clone()
+                    && self.saved.contains_key(&path)
+                {
+                    self.settings.remember(&path);
+                }
                 self.history.seal();
                 true
             }
@@ -319,6 +342,7 @@ impl Model {
             }
             Message::Saved(path) => {
                 let part = self.workspace.part(&path)?.clone();
+                self.settings.remember(&path);
                 self.saved.insert(path, part);
                 false
             }
@@ -635,6 +659,11 @@ impl Model {
             Message::AddOperation { part, op } => {
                 let depth = self.history.depth();
                 let id = op.id().to_owned();
+                // With the focused part scrubbed back, the step goes in at
+                // the scrubber (and the scrubber after it); else at the end.
+                let focused = self.focused_part().as_deref() == Some(&part);
+                let steps = self.workspace.part(&part)?.program.len();
+                let at = self.scrub.filter(|&s| focused && s < steps);
                 self.change(None, |ws| {
                     let program = &mut ws.part_mut(&part)?.program;
                     anyhow::ensure!(
@@ -642,18 +671,19 @@ impl Model {
                         "operation {:?} exists",
                         op.id()
                     );
-                    program.push(op);
+                    program.insert(at.unwrap_or(program.len()), op);
                     Ok(())
                 })?;
-                if self.focused_part().as_deref() == Some(&part) {
-                    self.editing = self.focus.iter().cloned().chain([id]).collect();
+                if focused {
+                    self.scrub = at.map(|k| k + 1);
+                    self.editing = self.focus.iter().cloned().chain([id.clone()]).collect();
                     self.edit_checkpoint = Some(depth);
                     self.edit_untouched = true;
                     self.edit_added = true;
                     // The selection went into the step.
                     self.selection.clear();
                     self.pick_next();
-                    self.take_last_sketch(&part)?;
+                    self.take_last_sketch(&part, &id)?;
                 }
                 true
             }
@@ -866,7 +896,11 @@ impl Model {
                     .operation(id)
                     .with_context(|| format!("no step {id:?} in part {part:?}"))?;
                 self.finish_edit();
+                // Within the part in focus, the scrubber stays where it
+                // is: where it shows again when the edit is done.
+                let scrub = (self.focus == focus).then_some(self.scrub).flatten();
                 self.set_focus(focus.to_vec());
+                self.scrub = scrub;
                 self.editing = path;
                 self.edit_checkpoint = Some(self.history.depth());
                 self.edit_untouched = false;
@@ -889,6 +923,22 @@ impl Model {
             }
             Message::CancelEdit => {
                 let back = self.returning.take();
+                // Where the step that goes was: the scrubber after it
+                // comes back by one.
+                let added_at = self
+                    .editing
+                    .last()
+                    .filter(|_| self.edit_added)
+                    .zip(self.focused_part())
+                    .and_then(|(id, part)| {
+                        let program = &self.workspace.part(&part).ok()?.program;
+                        program.iter().position(|op| op.id() == id)
+                    });
+                if let (Some(at), Some(s)) = (added_at, self.scrub)
+                    && at < s
+                {
+                    self.scrub = Some(s - 1);
+                }
                 match (
                     self.edit_keeps && self.edit_added,
                     self.editing.split_last(),
@@ -1014,7 +1064,7 @@ impl Model {
                 Candidate::Reference { instance, source } => {
                     Some(Source::placed(instance, source.clone()))
                 }
-                Candidate::Handle { .. } => None,
+                Candidate::Handle { .. } | Candidate::Joint { .. } => None,
             })
             .collect()
     }
@@ -1166,7 +1216,127 @@ impl Model {
         if let Some(pose) = self.offered_connector() {
             self.draw_connector(&mut scene, &pose);
         }
+        self.draw_joints(&mut scene);
         scene
+    }
+
+    /// The joints the joint field being picked takes, each with its
+    /// kind and its frame (its first connector's) in the active part's
+    /// coordinates: where it is drawn and pointed at. None while no such
+    /// field is picked.
+    fn joint_glyphs(
+        &self,
+    ) -> Vec<(
+        String,
+        workpiece_core::world::JointKind,
+        workpiece_core::Pose,
+    )> {
+        let Some(session) = self.session() else {
+            return Vec::new();
+        };
+        let field = self
+            .picking
+            .as_ref()
+            .and_then(|f| edit::widget_at(&session.visualization.dialog, f));
+        let Some(Widget::JointInput(input)) = field else {
+            return Vec::new();
+        };
+        let shown = &self.viewport.shown;
+        shown
+            .world
+            .joints
+            .iter()
+            .filter(|j| input.takes(j.kind))
+            .filter_map(|j| {
+                let at = match &j.a.instance {
+                    Some(name) => shown.world.instances.get(name)?.pose,
+                    None => workpiece_core::Pose::IDENTITY,
+                };
+                Some((j.name.clone(), j.kind, shown.pose * at * j.a.frame))
+            })
+            .collect()
+    }
+
+    /// The joints under `ray` (in the active part's coordinates) that
+    /// the joint field being picked takes, nearest first: those whose
+    /// glyph the pointer is on.
+    fn joint_candidates(&self, ray: &workpiece_core::Ray) -> Vec<Candidate> {
+        let mut found: Vec<(f64, Candidate)> = self
+            .joint_glyphs()
+            .into_iter()
+            .filter_map(|(name, kind, frame)| {
+                let o = frame.translation();
+                let along = (o - ray.start()).dot(ray.direction());
+                let off = (o - ray.at(along)).length() / self.pixel(o);
+                (off <= JOINT_GLYPH + 6.0).then_some((off, Candidate::Joint { name, kind }))
+            })
+            .collect();
+        found.sort_by(|a, b| a.0.total_cmp(&b.0));
+        found.into_iter().map(|(_, c)| c).collect()
+    }
+
+    /// Draws the joints the joint field being picked takes, each where
+    /// it is: a ring about its axis (with arrows along it, for one that
+    /// slides), the one under the pointer highlighted.
+    fn draw_joints(&self, scene: &mut Scene) {
+        use workpiece_rasterize::{Line, Vertex, palette};
+        let hovered = match self.viewport.hovered() {
+            Some(Candidate::Joint { name, .. }) => Some(name.clone()),
+            _ => None,
+        };
+        for (name, kind, frame) in self.joint_glyphs() {
+            let color = if hovered.as_ref() == Some(&name) {
+                palette::HANDLE_HOVER
+            } else {
+                palette::REFERENCE
+            };
+            let width = if hovered.as_ref() == Some(&name) {
+                3.5
+            } else {
+                2.5
+            };
+            let o = frame.translation();
+            let pixel = self.pixel(o);
+            let (x, y, z) = (
+                frame.axis(workpiece_core::Axis::X),
+                frame.axis(workpiece_core::Axis::Y),
+                frame.axis(workpiece_core::Axis::Z),
+            );
+            let r = JOINT_GLYPH * pixel;
+            let mut line = |a: Point3, b: Point3, w: [f32; 2]| {
+                scene.front.lines.push(Line {
+                    a: a.as_vec3(),
+                    b: b.as_vec3(),
+                    width: w,
+                    color,
+                    pick: None,
+                });
+            };
+            // The ring about its axis.
+            let round = |k: usize| {
+                let t = std::f64::consts::TAU * k as f64 / 24.0;
+                o + (x * t.cos() + y * t.sin()) * r
+            };
+            for k in 0..24 {
+                line(round(k), round(k + 1), [width; 2]);
+            }
+            // Its axis through it; arrowheads at its ends where it
+            // slides.
+            let reach = z * (r * 1.8);
+            line(o - reach, o + reach, [width; 2]);
+            if kind.slides() {
+                for end in [reach, -reach] {
+                    let tip = o + end * 1.3;
+                    line(o + end, tip, [width * 3.0, 0.0]);
+                }
+            }
+            scene.front.vertices.push(Vertex {
+                position: o.as_vec3(),
+                size: 8.0,
+                color,
+                pick: None,
+            });
+        }
     }
 
     /// The part and the id of the step at the step path `path`.
@@ -1285,13 +1455,14 @@ impl Model {
     /// An extrusion or a revolution just added without a sketch takes the
     /// sketch drawn last, if no step uses it yet; its field still picks
     /// (unless another has to be picked first), so a click takes another.
-    fn take_last_sketch(&mut self, part: &str) -> anyhow::Result<()> {
+    fn take_last_sketch(&mut self, part: &str, added: &str) -> anyhow::Result<()> {
         let Ok(program) = self.workspace.part(part).map(|p| &p.program) else {
             return Ok(());
         };
-        let Some((added, before)) = program.split_last() else {
+        let Some(at) = program.iter().position(|op| op.id() == added) else {
             return Ok(());
         };
+        let (added, before) = (&program[at], &program[..at]);
         if !matches!(added.kind(), "Extrude" | "Revolve") {
             return Ok(());
         }
@@ -1813,11 +1984,12 @@ impl Model {
         })
     }
 
-    /// The connector field being picked, if one is.
-    fn connector_field(&self) -> Option<workpiece_core::widgets::Scope> {
+    /// The connector field being picked, if one is: what it takes, and
+    /// which pair of the step's connectors it is one of.
+    fn connector_field(&self) -> Option<(workpiece_core::widgets::Scope, usize)> {
         let session = self.session()?;
         match edit::widget_at(&session.visualization.dialog, self.picking.as_ref()?)? {
-            Widget::ConnectorInput(input) => Some(input.scope.clone()),
+            Widget::ConnectorInput(input) => Some((input.scope.clone(), input.pair)),
             _ => None,
         }
     }
@@ -1843,7 +2015,7 @@ impl Model {
     /// the joint is chosen already.
     pub fn joint_preview(&self) -> workpiece_rasterize::Drawing {
         let none = workpiece_rasterize::Drawing::default();
-        let (Some(scope), Some(session)) = (self.connector_field(), self.session()) else {
+        let (Some((scope, pair)), Some(session)) = (self.connector_field(), self.session()) else {
             return none;
         };
         // (Of a part of the project, or one out of the standards.)
@@ -1855,7 +2027,9 @@ impl Model {
                 op.downcast_ref::<workpiece_ops_standard::StandardPart>()
                     .map(|standard| &standard.args.hold)
             });
-        let (Some(hold), Some(offered)) = (hold, self.offered_anchor()) else {
+        // (The mate whose reference is picked.)
+        let mate = hold.and_then(|hold| hold.mates.get(pair));
+        let (Some(mate), Some(offered)) = (mate, self.offered_anchor()) else {
             return none;
         };
         let shown = &self.viewport.shown;
@@ -1866,9 +2040,9 @@ impl Model {
         // from inside it): one of them chosen, the other offered.
         let on_part = matches!(scope, workpiece_core::widgets::Scope::Inside(_));
         let (onto, own) = if on_part {
-            (hold.onto.clone(), Some(offered.inside()))
+            (mate.onto.clone(), Some(offered.inside()))
         } else {
-            (Some(offered), hold.with.clone())
+            (Some(offered), mate.with.clone())
         };
         let (Some(onto), Some(own)) = (onto, own) else {
             return none;
@@ -1876,7 +2050,7 @@ impl Model {
         let (Ok(onto), Ok(own)) = (onto.frame_in(&shown.world), own.frame_in(&placed.world)) else {
             return none;
         };
-        let pose = shown.pose * hold.shifted(onto) * hold.facing(own).inverse();
+        let pose = shown.pose * mate.onto_frame(onto) * mate.with_frame(own).inverse();
         self.scenes.draw(
             &placed.world,
             pose,
@@ -2149,6 +2323,15 @@ impl Model {
                     return Ok(());
                 }
                 let hovered = self.viewport.hovered().cloned();
+                // While a step is edited, what a drag moves is the placed
+                // part under the pointer, whatever the field being picked
+                // takes (a part being placed, while what it goes onto is
+                // picked); a handle still comes first.
+                let hovered = match hovered {
+                    Some(handle @ Candidate::Handle { .. }) => Some(handle),
+                    other if !self.editing.is_empty() => self.placed_under_pointer().or(other),
+                    other => other,
+                };
                 self.viewport.pressed = hovered.zip(self.viewport.pointer);
             }
             Pointer::DragStart => {
@@ -2163,10 +2346,11 @@ impl Model {
                             return self.drag(at, now);
                         }
                     }
-                    // A placed part, while nothing is edited: it moves
-                    // with the pointer, as far as its joints let it.
+                    // A placed part: it moves with the pointer, as far as
+                    // its mates and joints let it — while a step is edited
+                    // too (a part being placed is dragged where it goes).
                     Some((Candidate::Reference { instance, source }, at))
-                        if self.editing.is_empty() && !instance.is_empty() =>
+                        if !instance.is_empty() =>
                     {
                         self.viewport.moving = self.grab_part(&instance, &source, at);
                         if let (Some(_), Some(now)) = (&self.viewport.moving, self.viewport.pointer)
@@ -2190,6 +2374,16 @@ impl Model {
             }
         }
         Ok(())
+    }
+
+    /// What of a placed part is under the pointer, in the world that
+    /// shows: what a drag that starts there moves.
+    fn placed_under_pointer(&self) -> Option<Candidate> {
+        let shown = &self.viewport.shown;
+        let ray = self.ray(self.viewport.pointer?)?;
+        picking::references(&shown.world, shown.pose, &shown.visibility, &ray, &[])
+            .into_iter()
+            .find(|c| matches!(c, Candidate::Reference { instance, .. } if !instance.is_empty()))
     }
 
     /// What moves when the pointer drags `source` of the instance at
@@ -2323,6 +2517,8 @@ impl Model {
                     // A connector sits on anything, of the placed
                     // parts its field takes: in the world with the
                     // edited step, where a part just added is.
+                    // The joints, at their glyphs.
+                    Some(Widget::JointInput(_)) => self.joint_candidates(&ray),
                     Some(Widget::ConnectorInput(input)) => {
                         let mut found = picking::references(
                             &shown.world,
@@ -2333,7 +2529,7 @@ impl Model {
                         );
                         found.retain(|c| match c {
                             Candidate::Reference { instance, .. } => input.scope.takes(instance),
-                            Candidate::Handle { .. } => false,
+                            Candidate::Handle { .. } | Candidate::Joint { .. } => false,
                         });
                         found
                     }
@@ -2424,6 +2620,21 @@ impl Model {
         }
         if let (Some(field), Some(session)) = (self.picking.clone(), self.session()) {
             let picked = self.picked();
+            // A joint pointed at, for a field that picks one.
+            if let Some(Candidate::Joint { name, .. }) = &hovered {
+                let Some(Widget::JointInput(input)) =
+                    edit::widget_at(&session.visualization.dialog, &field)
+                else {
+                    return Ok(());
+                };
+                let message = input.set(name.clone());
+                self.picking = None;
+                self.viewport.candidates.clear();
+                self.update(message)?;
+                self.history.seal();
+                self.pick_next();
+                return Ok(());
+            }
             let Some(Candidate::Reference { instance, source }) = hovered else {
                 return Ok(());
             };
@@ -2515,15 +2726,21 @@ impl Model {
             checkpoint: self.edit_checkpoint,
             added: self.edit_added,
         };
+        let at = self
+            .workspace
+            .part(&part)?
+            .program
+            .iter()
+            .position(|op| op.id() == step)
+            .context("the edited step is gone")?;
         self.change(None, |ws| {
-            let program = &mut ws.part_mut(&part)?.program;
-            let at = program
-                .iter()
-                .position(|op| op.id() == step)
-                .context("the edited step is gone")?;
-            program.insert(at, sketch.into());
+            ws.part_mut(&part)?.program.insert(at, sketch.into());
             Ok(())
         })?;
+        // (The scrubber after the step stays after it.)
+        if let Some(s) = self.scrub.filter(|&s| at < s) {
+            self.scrub = Some(s + 1);
+        }
         // (Into the field, as it would be picked.)
         let made = Source::Profile(id.clone());
         let message = self.session().and_then(|session| {
@@ -2587,6 +2804,7 @@ impl Model {
         let message = match (session.visualization.handles.get(&name), part) {
             (Some(Handle::Linear(h)), None) => h.drag(&from, &to),
             (Some(Handle::Angular(h)), None) => h.drag(&from, &to),
+            (Some(Handle::Planar(h)), _) => h.drag(&from, &to),
             (Some(Handle::Gizmo(g)), Some(part)) => g.drag(part, &from, &to),
             _ => None,
         };
@@ -2596,6 +2814,10 @@ impl Model {
         }
     }
 }
+
+/// How far a joint's glyph reaches from its middle, in pixels: the
+/// radius of its ring.
+const JOINT_GLYPH: f64 = 14.0;
 
 /// Whether what is called `name` in the world `before` a step is still
 /// there in the world `after` it: a vertex at its place, an edge along

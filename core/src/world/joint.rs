@@ -8,7 +8,9 @@
 use crate::pose::Pose;
 
 /// How the second connector of a joint may move against the first.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
 pub enum JointKind {
     /// Not at all: the frames are one.
     #[default]

@@ -292,3 +292,206 @@ fn a_sweep_asks_for_no_section_past_its_ends() -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+/// A wing standing on a plate: lofted from a root section below the
+/// plate's top (z = 0) to a smaller tip section set back and up, each an
+/// airfoil-ish outline of cubic pieces in its plane — the egg of four
+/// quarters (`sharp` false: smooth all round, a tight round tail) or two
+/// pieces that meet smoothly at the nose and at an angle at the tail —
+/// and joined with the plate. The edges where the wing meets the plate.
+fn wing_on_plate(sharp: bool) -> anyhow::Result<(workpiece_boolean::Solid, Vec<usize>)> {
+    use workpiece_core::world::topo::Curve3;
+    let cubic = |p: [Point3; 4]| {
+        Curve3::new(
+            3,
+            vec![0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0],
+            p.to_vec(),
+            None,
+        )
+    };
+    // In the plane z, the nose at x = at, `scale` times as large.
+    let section = |z: f64, at: f64, scale: f64| -> anyhow::Result<Vec<Curve3>> {
+        let p = |x: f64, y: f64| Point3::new(at + x * scale, y * scale, z);
+        let (front, back, half) = (8.0, 24.0, 3.0);
+        let k = 0.552_284_75;
+        Ok(if sharp {
+            vec![
+                cubic([
+                    p(0.0, 0.0),
+                    p(0.0, half * 1.3),
+                    p(back * 0.4, half * 1.3),
+                    p(back, 0.0),
+                ])?,
+                cubic([
+                    p(back, 0.0),
+                    p(back * 0.4, -half * 1.1),
+                    p(0.0, -half * 1.1),
+                    p(0.0, 0.0),
+                ])?,
+            ]
+        } else {
+            // An egg about (front, 0): a short nose, a long tail.
+            let c = |x: f64, y: f64| p(front + x, y);
+            vec![
+                cubic([
+                    c(-front, 0.0),
+                    c(-front, half * k),
+                    c(-front * k, half),
+                    c(0.0, half),
+                ])?,
+                cubic([
+                    c(0.0, half),
+                    c(back * k, half),
+                    c(back, half * k),
+                    c(back, 0.0),
+                ])?,
+                cubic([
+                    c(back, 0.0),
+                    c(back, -half * k),
+                    c(back * k, -half),
+                    c(0.0, -half),
+                ])?,
+                cubic([
+                    c(0.0, -half),
+                    c(-front * k, -half),
+                    c(-front, -half * k),
+                    c(-front, 0.0),
+                ])?,
+            ]
+        })
+    };
+    let wing = crate::swept::through_sections(
+        "wing",
+        &[section(-2.0, 0.0, 1.0)?, section(30.0, 6.0, 0.7)?],
+        &Default::default(),
+    )?;
+    let plate = block(
+        "plate",
+        Point3::new(-20.0, -20.0, -6.0),
+        [Point3::X, Point3::Y, Point3::Z],
+        [80.0, 40.0, 6.0],
+    )?;
+    let solid = workpiece_boolean::combine(workpiece_boolean::Op::Union, &plate, &wing)?.solid;
+    // (On the plate's top, inside its rim.)
+    let junction = (0..solid.edges.len())
+        .filter(|&e| {
+            let edge = &solid.edges[e];
+            let (t0, t1) = edge.range;
+            (0..=4).all(|k| {
+                let p = edge.point(t0 + (t1 - t0) * f64::from(k) / 4.0);
+                p.z.abs() < 1e-6 && p.x > -15.0 && p.x < 55.0 && p.y.abs() < 15.0
+            })
+        })
+        .collect();
+    Ok((solid, junction))
+}
+
+/// What a solid's checker finds wrong with it, written to a topology.
+fn faults(solid: &workpiece_boolean::Solid) -> Vec<String> {
+    let mut topo = workpiece_core::world::topo::Topo::new();
+    if let Err(e) = workpiece_boolean::write(&mut topo, solid, "solid") {
+        return vec![e.to_string()];
+    }
+    topo.validate()
+        .err()
+        .map(|all| all.iter().map(ToString::to_string).collect())
+        .unwrap_or_default()
+}
+
+fn round(size: f64) -> Shape {
+    Shape::Fillet {
+        by: crate::blend::By::Radius,
+        size,
+        until: None,
+        section: crate::blend::Section::Circular,
+        rho: 0.5,
+    }
+}
+
+#[test]
+fn a_wing_is_rounded_where_it_meets_the_plate() -> anyhow::Result<()> {
+    let (solid, junction) = wing_on_plate(false)?;
+    // The egg's four pieces, each running on smoothly into the next.
+    assert_eq!(junction.len(), 4);
+    let before = measure(&solid).volume;
+    // One of them alone: it ends square at the vertices where the next
+    // one goes on (cut back to the plane through each, square to it).
+    let one = crate::blend_solid(&solid, "fillet", &junction[..1], &round(1.0), true)?;
+    assert_eq!(faults(&one), Vec::<String>::new());
+    let added = measure(&one).volume - before;
+    assert!(added > 0.0, "{added}");
+    // All four: one round all the way round, made as one tool. What it
+    // adds is about what a quarter round in a square corner holds,
+    // (1 − π/4) r² — the wing's side stands up from the plate at a
+    // slant — times the outline's length.
+    let all = crate::blend_solid(&solid, "fillet", &junction, &round(1.0), true)?;
+    assert_eq!(faults(&all), Vec::<String>::new());
+    let length: f64 = junction
+        .iter()
+        .map(|&e| {
+            let edge = &solid.edges[e];
+            let (t0, t1) = edge.range;
+            (0..64)
+                .map(|k| {
+                    let at = |k: usize| edge.point(t0 + (t1 - t0) * k as f64 / 64.0);
+                    at(k).distance(at(k + 1))
+                })
+                .sum::<f64>()
+        })
+        .sum();
+    let added = measure(&all).volume - before;
+    let corner = (1.0 - std::f64::consts::FRAC_PI_4) * length;
+    assert!(
+        added > corner * 0.7 && added < corner * 1.5,
+        "{added} {corner}"
+    );
+    // Mirrored, the same.
+    let mirror = |p: Point3| Point3::new(p.x, -p.y, p.z);
+    let mirrored = solid.mapped(&mirror, true, 1.0)?;
+    let theirs = crate::blend_solid(&mirrored, "fillet", &junction, &round(1.0), true)?;
+    let delta = measure(&theirs).volume - measure(&all).volume;
+    assert!(delta.abs() < 1e-6 * before, "{delta}");
+    Ok(())
+}
+
+#[test]
+fn a_sharp_tailed_wing_is_rounded_all_round_and_its_tip_refused_when_too_large()
+-> anyhow::Result<()> {
+    let (solid, junction) = wing_on_plate(true)?;
+    // Smooth at the nose, at an angle at the tail: the one round runs
+    // from the tail round to the tail, and is cut back at the plane
+    // halfway between its two ends there.
+    assert!(junction.len() >= 2);
+    let before = measure(&solid).volume;
+    let made = crate::blend_solid(&solid, "fillet", &junction, &round(1.0), true)?;
+    assert_eq!(faults(&made), Vec::<String>::new());
+    assert!(measure(&made).volume > before);
+    // The egg's tail bends tighter than 2 at the tip: a round of its top
+    // edge that large would cut into itself there, and is refused,
+    // saying where.
+    let (egg, _) = wing_on_plate(false)?;
+    let tip: Vec<usize> = (0..egg.edges.len())
+        .filter(|&e| {
+            let edge = &egg.edges[e];
+            let middle = edge.point(edge.middle());
+            (middle.z - 30.0).abs() < 1e-6
+        })
+        .collect();
+    let tail = tip
+        .iter()
+        .copied()
+        .max_by(|&a, &b| {
+            let x = |e: usize| egg.edges[e].point(egg.edges[e].middle()).x;
+            x(a).total_cmp(&x(b))
+        })
+        .expect("a tip edge");
+    let why = crate::blend_solid(&egg, "fillet", &[tail], &round(2.0), true)
+        .err()
+        .map(|e| format!("{e:#}"))
+        .unwrap_or_default();
+    assert!(
+        why.contains("bends more tightly") && why.contains("near ("),
+        "{why}"
+    );
+    Ok(())
+}

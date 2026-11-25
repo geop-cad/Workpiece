@@ -178,6 +178,53 @@ impl Operation for MoveFace {
         Ok(out)
     }
 
+    fn visualize_edit(
+        &self,
+        context: &workpiece_core::EditContext<'_>,
+        (): &(),
+    ) -> workpiece_core::EditVisualization<workpiece_core::Edit<MoveFaceArgs, ()>> {
+        let args = &self.args;
+        let fields = workpiece_core::Arguments::fields(args, context);
+        let mut handles = std::collections::BTreeMap::new();
+        // An arrow from the middle of the first face, the way it moves:
+        // dragged, the distance follows, and dragged back through the
+        // face, the faces go the other way.
+        let world = context.world;
+        let first = args.faces.first().map(|f| f.name());
+        let middle = first
+            .and_then(|name| workpiece_shape::on::face(&world.topo, name).ok())
+            .map(|(solid, face)| workpiece_shape::on::middle(&solid, face));
+        let way = match args.way {
+            FaceWay::Offset => middle.map(|m| m.1),
+            FaceWay::Along => args
+                .axis
+                .as_ref()
+                .and_then(|a| world.resolve(a).ok())
+                .map(|a| a.direction()),
+            FaceWay::ToPlane => None,
+        };
+        if let (Some((from, _)), Some(way)) = (middle, way) {
+            let sign = if args.flip { -1.0 } else { 1.0 };
+            let value = args
+                .distance
+                .resolve(context.parameters)
+                .unwrap_or(args.distance.value);
+            let drag = workpiece_shape::ui::set(args, |a, x: f64| {
+                if x < 0.0 {
+                    a.flip = !a.flip;
+                }
+                a.distance = Measure::new(((x.abs() * 1000.0).round() / 1000.0).max(0.001));
+            });
+            if let Some(arrow) =
+                workpiece_core::handles::LinearHandle::new(from, way * sign, value, drag)
+            {
+                handles.insert("distance".to_owned(), arrow.into());
+            }
+        }
+        workpiece_core::EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles)
+            .map(workpiece_core::Edit::args)
+    }
+
     fn summary(&self) -> String {
         let a = &self.args;
         let n = a.faces.len();

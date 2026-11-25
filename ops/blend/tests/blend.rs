@@ -335,3 +335,57 @@ fn blends_say_their_sizes_where_they_are() -> anyhow::Result<()> {
     }
     Ok(())
 }
+
+#[test]
+fn blends_have_an_arrow_for_their_size_at_their_first_edge() -> anyhow::Result<()> {
+    use workpiece_core::handles::Handle;
+    // The top edge of the box at x = 2: an arrow from its middle across
+    // one of its faces, its tip where the blend starts there.
+    let mut b = Standalone::new();
+    base(&mut b)?;
+    let edges = edges_where(&b, "base", |a, c| {
+        a.x > 1.9 && c.x > 1.9 && a.z > 0.9 && c.z > 0.9
+    });
+    let fillet = workpiece_ops_blend::Fillet {
+        id: "fillet".into(),
+        args: workpiece_ops_blend::FilletArgs {
+            edges: workpiece_core::Reference::each(edges.clone()),
+            size: Measure::new(0.5),
+            ..Default::default()
+        },
+    };
+    let edit = workpiece_core::operation::edit_arguments(&fillet, &b.world);
+    let Some(Handle::Linear(arrow)) = edit.handles.get("size") else {
+        panic!("an arrow for the radius");
+    };
+    let middle = workpiece_core::math::Point3::new(2.0, 0.0, 1.0);
+    assert!(arrow.origin.distance(middle) < 1e-6, "{}", arrow.origin);
+    // (Square faces: as far from the edge as the radius.)
+    assert!((arrow.tip().distance(middle) - 0.5).abs() < 1e-6);
+    let dragged = (arrow.on_drag)(0.8);
+    assert!((dragged.size.value - 0.8).abs() < 1e-9);
+    // A chamfer by two distances: an arrow across each face.
+    let chamfer = workpiece_ops_blend::Chamfer {
+        id: "chamfer".into(),
+        args: workpiece_ops_blend::ChamferArgs {
+            edges: workpiece_core::Reference::each(edges),
+            two: true,
+            distance: Measure::new(0.3),
+            second: Measure::new(0.6),
+            ..Default::default()
+        },
+    };
+    let edit = workpiece_core::operation::edit_arguments(&chamfer, &b.world);
+    let (Some(Handle::Linear(first)), Some(Handle::Linear(second))) =
+        (edit.handles.get("distance"), edit.handles.get("second"))
+    else {
+        panic!("two arrows");
+    };
+    assert!((first.tip().distance(middle) - 0.3).abs() < 1e-6);
+    assert!((second.tip().distance(middle) - 0.6).abs() < 1e-6);
+    assert!(
+        first.direction.dot(second.direction).abs() < 1e-6,
+        "across two faces"
+    );
+    Ok(())
+}

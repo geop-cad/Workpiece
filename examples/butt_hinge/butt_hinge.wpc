@@ -5,10 +5,8 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": "Fixed",
-            "distance": null,
-            "flip": false
+            "fixed": true,
+            "mates": []
           },
           "part": "leaf.wpc",
           "variant": null
@@ -21,27 +19,26 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Fastened"
-            },
-            "distance": null,
-            "flip": false,
-            "onto": {
-              "instance": [
-                "leaf1"
-              ],
-              "snap": "ArcCentre",
-              "source": {
-                "Topology": "plate/edge[knuckle/side/e7+side/e11]"
+            "mates": [
+              {
+                "kind": "Fastened",
+                "onto": {
+                  "instance": [
+                    "leaf1"
+                  ],
+                  "snap": "ArcCentre",
+                  "source": {
+                    "Topology": "plate/edge[knuckle/side/e7+side/e11]"
+                  }
+                },
+                "with": {
+                  "snap": "ArcCentre",
+                  "source": {
+                    "Topology": "pin/start/e7"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "ArcCentre",
-              "source": {
-                "Topology": "pin/start/e7"
-              }
-            }
+            ]
           },
           "part": "pin.wpc",
           "variant": null
@@ -54,27 +51,27 @@
         "args": {
           "bodies": [],
           "hold": {
-            "angle": null,
-            "constraint": {
-              "Joint": "Revolute"
-            },
-            "distance": null,
-            "flip": true,
-            "onto": {
-              "instance": [
-                "leaf1"
-              ],
-              "snap": "ArcCentre",
-              "source": {
-                "Topology": "plate/edge[knuckle/end+knuckle/side/e7]#2"
+            "mates": [
+              {
+                "flip_with": true,
+                "kind": "Revolute",
+                "onto": {
+                  "instance": [
+                    "leaf1"
+                  ],
+                  "snap": "ArcCentre",
+                  "source": {
+                    "Topology": "plate/edge[knuckle/end+knuckle/side/e7]#2"
+                  }
+                },
+                "with": {
+                  "snap": "ArcCentre",
+                  "source": {
+                    "Topology": "plate/edge[knuckle/end+knuckle/side/e7]"
+                  }
+                }
               }
-            },
-            "with": {
-              "snap": "ArcCentre",
-              "source": {
-                "Topology": "plate/edge[knuckle/end+knuckle/side/e7]"
-              }
-            }
+            ]
           },
           "part": "leaf.wpc",
           "variant": null

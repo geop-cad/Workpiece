@@ -167,11 +167,16 @@ fn write_settings_text(text: &str) -> anyhow::Result<()> {
 const SETTINGS_KEY: &str = "workpiece.settings";
 
 /// The settings the user's file has; those not in it are as they are by
-/// default.
+/// default. The recent files are those of the working directory.
 pub fn settings() -> workpiece_ui::model::Settings {
+    settings_from(settings_text().as_deref(), &workspace_key())
+}
+
+/// The settings `text` (a settings file) has, the recent files those of
+/// the workspace `key`.
+fn settings_from(text: Option<&str>, key: &str) -> workpiece_ui::model::Settings {
     let mut settings = workpiece_ui::model::Settings::default();
-    let json: Option<serde_json::Value> =
-        settings_text().and_then(|t| serde_json::from_str(&t).ok());
+    let json: Option<serde_json::Value> = text.and_then(|t| serde_json::from_str(t).ok());
     if let Some(on) = json
         .as_ref()
         .and_then(|j| j.get("sketch_section"))
@@ -179,13 +184,55 @@ pub fn settings() -> workpiece_ui::model::Settings {
     {
         settings.sketch_section = on;
     }
+    if let Some(recent) = json
+        .as_ref()
+        .and_then(|j| j.get("recent"))
+        .and_then(|r| r.get(key))
+        .and_then(serde_json::Value::as_array)
+    {
+        settings.recent = recent
+            .iter()
+            .filter_map(|p| p.as_str().map(str::to_owned))
+            .take(workpiece_ui::model::RECENT)
+            .collect();
+    }
     settings
 }
 
-/// Writes `settings` to the user's file of them.
+/// Writes `settings` to the user's file of them (the recent files under
+/// the working directory, beside those of other workspaces).
 pub fn save_settings(settings: &workpiece_ui::model::Settings) -> anyhow::Result<()> {
-    let json = serde_json::json!({ "sketch_section": settings.sketch_section });
-    write_settings_text(&serde_json::to_string_pretty(&json)?)
+    let text = settings_into(settings_text().as_deref(), &workspace_key(), settings)?;
+    write_settings_text(&text)
+}
+
+/// The settings file `text` with `settings` in it, for the workspace
+/// `key`.
+fn settings_into(
+    text: Option<&str>,
+    key: &str,
+    settings: &workpiece_ui::model::Settings,
+) -> anyhow::Result<String> {
+    let mut json: serde_json::Value = text
+        .and_then(|t| serde_json::from_str(t).ok())
+        .filter(serde_json::Value::is_object)
+        .unwrap_or_else(|| serde_json::json!({}));
+    json["sketch_section"] = settings.sketch_section.into();
+    if !json.get("recent").is_some_and(serde_json::Value::is_object) {
+        json["recent"] = serde_json::json!({});
+    }
+    json["recent"][key] = settings.recent.clone().into();
+    Ok(serde_json::to_string_pretty(&json)?)
+}
+
+/// What the workspace is known by among the recent files: the working
+/// directory, in full (in a browser, which has none, the empty name).
+fn workspace_key() -> String {
+    std::env::current_dir()
+        .ok()
+        .map(|d| d.canonicalize().unwrap_or(d))
+        .map(|d| d.to_string_lossy().into_owned())
+        .unwrap_or_default()
 }
 
 /// A name for a new part: `untitled.wpc`, or with the smallest number
@@ -291,6 +338,25 @@ mod tests {
         std::fs::remove_dir_all(&dir)?;
         assert_eq!(with_extension("a"), "a.wpc");
         assert_eq!(with_extension("a.wpc"), "a.wpc");
+        Ok(())
+    }
+
+    #[test]
+    fn recent_files_are_kept_for_each_workspace() -> anyhow::Result<()> {
+        let mut here = settings_from(None, "/a");
+        assert!(here.recent.is_empty());
+        here.remember("x.wpc");
+        here.remember("y.wpc");
+        here.remember("x.wpc");
+        assert_eq!(here.recent, ["x.wpc", "y.wpc"]);
+        let text = settings_into(None, "/a", &here)?;
+        // Another workspace has its own; the first keeps its.
+        let mut there = settings_from(Some(&text), "/b");
+        assert!(there.recent.is_empty());
+        there.remember("z.wpc");
+        let text = settings_into(Some(&text), "/b", &there)?;
+        assert_eq!(settings_from(Some(&text), "/a").recent, ["x.wpc", "y.wpc"]);
+        assert_eq!(settings_from(Some(&text), "/b").recent, ["z.wpc"]);
         Ok(())
     }
 }

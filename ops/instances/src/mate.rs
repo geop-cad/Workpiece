@@ -70,9 +70,23 @@ impl Anchor {
         }
     }
 
-    /// The connector the pointer offers on what was picked.
+    /// The connector the pointer offers on what was picked. The rim of
+    /// a hole, or of a shaft's end, is the centre of its arc on the flat
+    /// face it bounds, z that face's normal: it says which way is out.
     pub fn picked(picked: &Picked) -> Option<Anchor> {
         let snap = connector::infer(&picked.within, &picked.source, picked.at, picked.near)?;
+        if let (Snap::ArcCentre, Source::Topology(edge)) = (&snap, &picked.source)
+            && let Some(face) = connector::rim_face(&picked.within, edge)
+        {
+            return Some(Anchor {
+                instance: picked.instance.clone(),
+                source: Source::Topology(face),
+                snap: Snap::FaceEdge {
+                    edge: edge.clone(),
+                    at: connector::EdgeAt::Centre,
+                },
+            });
+        }
         Some(Anchor {
             instance: picked.instance.clone(),
             // A frame's axis stands for the frame.

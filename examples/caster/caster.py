@@ -11,7 +11,7 @@ try:
     import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from workpiece import Part, anchor, axis, topo, view, projected, section_view
+from workpiece import Part, anchor, mate, axis, topo, view, projected, section_view
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 at = lambda name: os.path.join(HERE, name)
@@ -106,12 +106,11 @@ circle = lambda rep, y, r: rep.edges(where=lambda e: not e["straight"] and abs(e
                                      and abs(((e["middle"][0]) ** 2 + (e["middle"][2] - (20 if rep is frep else 0)) ** 2) ** .5 - r) < 1e-3)[0]
 asm = Part(title="CASTER")
 asm.add_part(fork, id="fork")
-asm.add_part(pin, id="pin", constraint="Fastened", flip=True,
-             onto=anchor(topo(circle(frep, -25, 4)), "ArcCentre", instance="fork"),
-             with_=anchor(topo(circle(prep, 4, 4)), "ArcCentre"))
-asm.add_part(wheel, id="wheel", constraint="Revolute", flip=True,
-             onto=anchor(topo(circle(frep, -22, 4)), "ArcCentre", instance="fork"),
-             with_=anchor(topo(circle(wrep, -15, 4)), "ArcCentre"), offset=(0, 0, -7))
+asm.add_part(pin, id="pin", mates=[mate(anchor(topo(circle(frep, -25, 4)), "ArcCentre", instance="fork"),
+                                        anchor(topo(circle(prep, 4, 4)), "ArcCentre"), "Fastened", flip_with=True)])
+asm.add_part(wheel, id="wheel", mates=[mate(anchor(topo(circle(frep, -22, 4)), "ArcCentre", instance="fork"),
+                                            anchor(topo(circle(wrep, -15, 4)), "ArcCentre"), "Revolute",
+                                            flip_with=True, offset=(0, 0, -7))])
 asm.op("Section", id="A", along="Plane", plane=axis("X"), offset=0.0)
 asm.drawing(views=[view("right", "Right", (90, 175)), section_view("secA", "A", (215, 175), of="right"),
                    view("iso", "Isometric", (335, 215))], scale=(1, 1), format="A3", id="drawing",

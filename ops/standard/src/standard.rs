@@ -1,5 +1,7 @@
-//! Standard parts: screws, nuts, washers and bearings by their sizes in
-//! the standards, in millimetres.
+//! Standard parts: screws, nuts, washers, pins and bearings by their
+//! sizes in the standards, in millimetres. Each kind says where it
+//! naturally sits (its seat), and is placed by that at first: only what
+//! it goes onto is left to pick.
 
 use std::f64::consts::TAU;
 
@@ -7,9 +9,12 @@ use anyhow::Context;
 use workpiece_boolean::{Op, Solid, combine};
 use workpiece_core::math::{Point2, Point3};
 use workpiece_core::widgets::{Choice, HBox};
+use workpiece_core::world::JointKind;
 use workpiece_core::world::topo::Curve3;
 use workpiece_core::{Builder, Edit, EditContext, EditVisualization, Operation, Widget};
-use workpiece_ops_instances::placing::{self, Hold};
+use workpiece_ops_instances::Anchor;
+use workpiece_ops_instances::connector::Snap;
+use workpiece_ops_instances::placing::{self, Hold, Mating};
 
 use workpiece_shape::swept::{Outline, Sides, Weighted, circle, polygon, steady, swept};
 use workpiece_shape::ui;
@@ -29,6 +34,8 @@ pub enum StandardKind {
     HexNut,
     /// A plain washer (ISO 7089).
     Washer,
+    /// A parallel pin, hardened (ISO 8734): a dowel.
+    DowelPin,
     /// A deep groove ball bearing (ISO 15), drawn as its two rings.
     Bearing,
 }
@@ -62,16 +69,19 @@ pub enum Family {
     Nuts,
     /// Washers.
     Washers,
+    /// Pins.
+    Pins,
     /// Bearings.
     Bearings,
 }
 
 impl Family {
     /// Every family.
-    pub const ALL: [Family; 4] = [
+    pub const ALL: [Family; 5] = [
         Family::Screws,
         Family::Nuts,
         Family::Washers,
+        Family::Pins,
         Family::Bearings,
     ];
 
@@ -81,6 +91,7 @@ impl Family {
             Family::Screws => "Screws",
             Family::Nuts => "Nuts",
             Family::Washers => "Washers",
+            Family::Pins => "Pins",
             Family::Bearings => "Bearings",
         }
     }
@@ -98,6 +109,19 @@ const THREADS: [Thread; 8] = [
     ("M16", 16.0, 24.0, 10.0, 14.8, [17.0, 30.0, 3.0]),
 ];
 
+/// The pins: each one's name (its diameter) and the shortest and the
+/// longest it comes in (ISO 8734).
+const PINS: [(&str, f64, f64, f64); 8] = [
+    ("3", 3.0, 8.0, 30.0),
+    ("4", 4.0, 10.0, 40.0),
+    ("5", 5.0, 12.0, 50.0),
+    ("6", 6.0, 12.0, 60.0),
+    ("8", 8.0, 16.0, 80.0),
+    ("10", 10.0, 20.0, 100.0),
+    ("12", 12.0, 25.0, 100.0),
+    ("16", 16.0, 30.0, 100.0),
+];
+
 /// The bearings: each one's name, bore, outside diameter and width.
 const BEARINGS: [(&str, f64, f64, f64); 8] = [
     ("608", 8.0, 22.0, 7.0),
@@ -112,11 +136,12 @@ const BEARINGS: [(&str, f64, f64, f64); 8] = [
 
 impl StandardKind {
     /// Every kind.
-    pub const ALL: [StandardKind; 5] = [
+    pub const ALL: [StandardKind; 6] = [
         StandardKind::HexScrew,
         StandardKind::SocketScrew,
         StandardKind::HexNut,
         StandardKind::Washer,
+        StandardKind::DowelPin,
         StandardKind::Bearing,
     ];
 
@@ -127,6 +152,7 @@ impl StandardKind {
             StandardKind::SocketScrew => "Socket head cap screw",
             StandardKind::HexNut => "Hexagon nut",
             StandardKind::Washer => "Plain washer",
+            StandardKind::DowelPin => "Dowel pin",
             StandardKind::Bearing => "Deep groove ball bearing",
         }
     }
@@ -138,6 +164,7 @@ impl StandardKind {
             StandardKind::SocketScrew => "ISO 4762",
             StandardKind::HexNut => "ISO 4032",
             StandardKind::Washer => "ISO 7089",
+            StandardKind::DowelPin => "ISO 8734",
             StandardKind::Bearing => "ISO 15",
         }
     }
@@ -153,11 +180,14 @@ impl StandardKind {
         }
     }
 
-    /// How a section treats it (ISO 128-50): a screw cut along its axis
-    /// is drawn whole; a nut, a washer and a bearing's rings are cut.
+    /// How a section treats it (ISO 128-50): a screw or a pin cut along
+    /// its axis is drawn whole; a nut, a washer and a bearing's rings are
+    /// cut.
     pub fn sectioned(self) -> workpiece_core::world::Sectioned {
         match self.family() {
-            Family::Screws => workpiece_core::world::Sectioned::WholeAlong(Point3::Z),
+            Family::Screws | Family::Pins => {
+                workpiece_core::world::Sectioned::WholeAlong(Point3::Z)
+            }
             _ => workpiece_core::world::Sectioned::Cut,
         }
     }
@@ -168,21 +198,65 @@ impl StandardKind {
             StandardKind::HexScrew | StandardKind::SocketScrew => Family::Screws,
             StandardKind::HexNut => Family::Nuts,
             StandardKind::Washer => Family::Washers,
+            StandardKind::DowelPin => Family::Pins,
             StandardKind::Bearing => Family::Bearings,
         }
     }
 
-    /// Whether it has a length to choose: a screw's, under its head.
+    /// Whether it has a length to choose: a screw's, under its head; a
+    /// pin's.
     pub fn long(self) -> bool {
-        self.family() == Family::Screws
+        matches!(self.family(), Family::Screws | Family::Pins)
     }
 
     /// The sizes it comes in, by name.
     pub fn sizes(self) -> Vec<&'static str> {
         match self {
             StandardKind::Bearing => BEARINGS.iter().map(|b| b.0).collect(),
+            StandardKind::DowelPin => PINS.iter().map(|p| p.0).collect(),
             _ => THREADS.iter().map(|t| t.0).collect(),
         }
+    }
+
+    /// Where it naturally sits, in its own coordinates: on its axis, z
+    /// into it — a screw's or a bolt's bearing ring under its head, a
+    /// nut's or a washer's face, a pin's end, a bearing's side face. Put
+    /// against a face (or the rim of a hole in one) z along that face's
+    /// normal, it stands on the face, concentric with the hole: a screw
+    /// with its head on the face and its shank in the hole.
+    pub fn seat(self) -> workpiece_core::Pose {
+        match self.family() {
+            // The ring under the head is the screw's xy plane; the head
+            // is above it.
+            Family::Screws => workpiece_core::Pose::IDENTITY,
+            // A face, an end, a side: each stands on its xy plane.
+            Family::Nuts | Family::Washers | Family::Pins | Family::Bearings => {
+                workpiece_core::Pose::IDENTITY
+            }
+        }
+    }
+
+    /// How it is held at its seat: concentric with what it goes onto and
+    /// against it, free to turn about its axis (as a screw is turned in).
+    pub fn seated(self) -> JointKind {
+        JointKind::Revolute
+    }
+}
+
+/// The name of the frame a standard part has at its seat.
+pub const SEAT: &str = "seat";
+
+/// The mate a standard part of `kind` starts with: its seat, the
+/// reference on what it goes onto still to pick.
+pub fn seat_mate(kind: StandardKind) -> Mating {
+    Mating {
+        with: Some(Anchor {
+            instance: Vec::new(),
+            source: workpiece_core::Source::Datum(SEAT.into()),
+            snap: Snap::Datum,
+        }),
+        kind: kind.seated(),
+        ..Mating::default()
     }
 }
 
@@ -225,6 +299,14 @@ fn ring(id: &str, bore: f64, outside: f64, height: f64) -> anyhow::Result<Solid>
     Ok(combine(Op::Cut, &disk, &hole)?.solid)
 }
 
+/// A pin's diameter.
+fn pin(size: &str) -> anyhow::Result<f64> {
+    PINS.iter()
+        .find(|p| p.0 == size)
+        .map(|p| p.1)
+        .with_context(|| format!("there is no pin {size:?}"))
+}
+
 /// The bodies of the part of `kind` and `size` (see [`standard`]), each
 /// with its name: one, called `id`; of a bearing, its outer ring `id`
 /// and its inner ring `id/inner` (cut, each hatched its own way).
@@ -261,9 +343,9 @@ fn bearing(size: &str) -> anyhow::Result<(f64, f64, f64)> {
 }
 
 /// The part of `kind` and `size` (a screw `length` long under its
-/// head) as one solid on the xy plane, about z: a screw's head above
-/// the plane and its shank below, anything else standing on it (a
-/// bearing as one ring from its bore to its outside).
+/// head, a pin `length` long) as one solid on the xy plane, about z: a
+/// screw's head above the plane and its shank below, anything else
+/// standing on it (a bearing as one ring from its bore to its outside).
 pub fn standard(id: &str, kind: StandardKind, size: &str, length: f64) -> anyhow::Result<Solid> {
     let thread = || {
         THREADS
@@ -312,6 +394,10 @@ pub fn standard(id: &str, kind: StandardKind, size: &str, length: f64) -> anyhow
             let &(.., [bore, outside, height]) = thread()?;
             ring(id, bore, outside, height)
         }
+        StandardKind::DowelPin => {
+            anyhow::ensure!(length > 0.0, "a pin has some length");
+            column(id, &circle(Point2::ZERO, pin(size)? / 2.0), 0.0, length)
+        }
         StandardKind::Bearing => {
             let (bore, outside, width) = bearing(size)?;
             ring(id, bore, outside, width)
@@ -338,10 +424,16 @@ const LENGTH_RANGES: [(&str, f64, f64); 8] = [
     ("M16", 30.0, 150.0),
 ];
 
-/// The lengths a screw of thread `size` comes in: those of the
-/// standard between its shortest and its longest.
+/// The lengths a screw of thread `size`, or a pin of that diameter,
+/// comes in: those of the standard between its shortest and its
+/// longest.
 pub fn lengths(size: &str) -> Vec<f64> {
-    let Some(&(_, shortest, longest)) = LENGTH_RANGES.iter().find(|r| r.0 == size) else {
+    let screw = LENGTH_RANGES
+        .iter()
+        .find(|r| r.0 == size)
+        .map(|r| (r.1, r.2));
+    let pin = PINS.iter().find(|p| p.0 == size).map(|p| (p.2, p.3));
+    let Some((shortest, longest)) = screw.or(pin) else {
         return Vec::new();
     };
     LENGTHS
@@ -359,7 +451,7 @@ pub struct Entry {
     pub kind: StandardKind,
     /// Its size.
     pub size: &'static str,
-    /// A screw's length; nothing else has one.
+    /// A screw's or a pin's length; nothing else has one.
     pub length: Option<f64>,
 }
 
@@ -444,12 +536,13 @@ pub struct StandardPartArgs {
     /// Its size, as the standard names it: `M6`, `608`.
     #[arg(hidden)]
     pub size: String,
-    /// A screw's length under its head, in millimetres: one of those
-    /// its size comes in.
+    /// A screw's length under its head (a pin's length), in
+    /// millimetres: one of those its size comes in.
     #[arg(hidden)]
     pub length: f64,
-    /// How it is held: free, fixed, or by a joint between a reference
-    /// on what is there already and one of its own.
+    /// How it is held: fixed or not, and by its mates, each between a
+    /// reference on what is there already and one of its own — the
+    /// first starts at its seat ([`StandardKind::seat`]).
     #[arg(hidden)]
     pub hold: Hold,
 }
@@ -465,9 +558,25 @@ impl Default for StandardPartArgs {
     }
 }
 
+impl StandardPart {
+    /// A standard part called `id` as the tool starts one: an M6 × 20
+    /// hexagon head screw at its seat, what it goes onto still to pick.
+    pub fn new(id: impl Into<String>) -> Self {
+        let args = StandardPartArgs::default();
+        let hold = Hold {
+            fixed: false,
+            mates: vec![seat_mate(args.kind)],
+        };
+        Self {
+            id: id.into(),
+            args: StandardPartArgs { hold, ..args },
+        }
+    }
+}
+
 /// Places a part out of the standards — a screw, a nut, a washer, a
-/// bearing, by its size — as a part of its own named after the
-/// operation's id: dragged, fixed or held by a joint like any part
+/// pin, a bearing, by its size — as a part of its own named after the
+/// operation's id: dragged, fixed or held by its mates like any part
 /// that is placed. Its numbers are millimetres.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct StandardPart {
@@ -506,7 +615,8 @@ impl Operation for StandardPart {
         if args.kind.long() {
             anyhow::ensure!(
                 lengths(&args.size).contains(&args.length),
-                "a screw {} does not come {} long",
+                "a {} {} does not come {} long",
+                args.kind.label().to_lowercase(),
                 args.size,
                 args.length
             );
@@ -524,6 +634,14 @@ impl Operation for StandardPart {
         for (solid, name) in bodies(&self.id, args.kind, &args.size, args.length)? {
             workpiece_boolean::write(&mut world.topo, &solid, &name)?;
         }
+        // Where it sits, as a frame of its own: what its first mate
+        // starts at.
+        world.datums.insert(
+            SEAT.into(),
+            workpiece_core::world::Datum::Frame(workpiece_core::world::DatumFrame::from_pose(
+                args.kind.seat(),
+            )?),
+        );
         let mut made = workpiece_core::Made::default();
         workpiece_ops_instances::placing::place(
             &mut made,
@@ -540,18 +658,17 @@ impl Operation for StandardPart {
         context: &EditContext<'_>,
         filter: &Filter,
     ) -> EditVisualization<Edit<StandardPartArgs, Filter>> {
-        // The catalogue, searched and filtered; then what it goes onto
-        // and with what, and the constraint between the two; where it
-        // is, and the gizmo, from the part's cache — as for any part
-        // that is placed.
+        // The catalogue, searched and filtered; then how it is held: its
+        // mates, the first at its seat; where it is from the part's cache
+        // while no mate holds it, and dragged in the view — as for any
+        // part that is placed.
         let mut all: Vec<Widget<Edit<StandardPartArgs, Filter>>> = filter_fields(filter)
             .into_iter()
             .map(|field| field.map(Edit::state))
             .collect();
         all.push(catalogue_field(&self.args, filter).map(Edit::args));
-        // (A screw or a nut is fastened where it is put, most likely.)
-        let prefer = Some(workpiece_core::world::JointKind::Fastened);
-        for field in placing::hold_fields(&self.args.hold, context.step, prefer) {
+        let seat = seat_mate(self.args.kind);
+        for field in placing::hold_fields(&self.args.hold, context.step, Some(&seat)) {
             let args = self.args.clone();
             all.push(field.map(move |hold| {
                 Edit::args(StandardPartArgs {
@@ -560,14 +677,13 @@ impl Operation for StandardPart {
                 })
             }));
         }
-        let (place, handles) = placing::pose_edit(&self.id, context, &self.args.hold);
-        all.extend(place);
-        EditVisualization::new(workpiece_core::widgets::VBox::new(all), handles)
+        all.extend(placing::pose_field(&self.id, context, &self.args.hold));
+        EditVisualization::new(workpiece_core::widgets::VBox::new(all), Default::default())
     }
 
     fn summary(&self) -> String {
         let a = &self.args;
-        let held = a.hold.constraint.said();
+        let held = a.hold.said();
         if a.kind.long() {
             format!("{} {} × {}{held}", a.kind.label(), a.size, a.length)
         } else {
@@ -621,6 +737,7 @@ fn filter_fields(filter: &Filter) -> Vec<Widget<Filter>> {
                         "std-screw",
                         "std-nut",
                         "std-washer",
+                        "std-pin",
                         "std-bearing",
                     ]
                     .map(Some)

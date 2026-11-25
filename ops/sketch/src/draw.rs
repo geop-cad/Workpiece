@@ -571,6 +571,37 @@ fn preview(pen: &mut Pen<'_>, args: &SketchArgs, state: &SketchState) {
         }
         (Tool::Rectangle, [a]) => pen.line(rectangle(*a, to), tone, CURVE, false),
         (Tool::CenterRectangle, [m]) => pen.line(rectangle(*m * 2.0 - to, to), tone, CURVE, false),
+        (Tool::RotationAxis, [a]) => {
+            // The axis as it will be: a centre line across the view,
+            // through the first click towards the pointer, with the point
+            // it passes through.
+            if let Some(along) = (to - *a).try_normalize() {
+                let foot = *a + along * (pen.view.middle - *a).dot(along);
+                let reach = along * AXIS_REACH * pen.view.pixel;
+                pen.chain_dotted(vec![foot - reach, foot + reach], tone, CURVE);
+            }
+            pen.out.push(CanvasShape::Dot {
+                at: *a,
+                tone,
+                size: POINT,
+            });
+            if cursor.along.is_some() {
+                let text = if cursor.along == Some(state.horizontal()) {
+                    "H"
+                } else {
+                    "V"
+                };
+                pen.out.push(CanvasShape::Text {
+                    at: (*a + to) / 2.0 + pen.view.up * pen.px(BADGE_LIFT),
+                    along: pen.view.right,
+                    text: text.to_owned(),
+                    upper: String::new(),
+                    lower: String::new(),
+                    tone,
+                    badge: true,
+                });
+            }
+        }
         (Tool::RotatedRectangle | Tool::Text, [a]) => pen.line(vec![*a, to], tone, CURVE, false),
         (Tool::RotatedRectangle | Tool::Text, [a, b]) => {
             let across = (*b - *a).normalize_or_zero().perp();

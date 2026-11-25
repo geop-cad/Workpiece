@@ -94,6 +94,9 @@ pub fn describe_candidate(candidate: &Candidate) -> String {
                 format!("{} › {source}", instance.join(" › "))
             }
         }
+        Candidate::Joint { name, kind } => {
+            format!("{} joint {name}", kind.label())
+        }
         Candidate::Handle { name, part } => match part {
             Some(GizmoPart::Free) => format!("{name}: move freely"),
             Some(GizmoPart::Translate(a)) => format!("{name}: move along {}", a.name()),

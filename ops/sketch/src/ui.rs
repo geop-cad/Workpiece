@@ -411,17 +411,13 @@ impl Session {
         .active(self.state.construction)
     }
 
-    /// The dimension button: with a selection that can be measured, it
-    /// dimensions that right away; else it is the dimension tool, whose
-    /// kind of dimension follows from what is picked and where its text
-    /// is put.
-    fn dimension(&self) -> ToolButton<SketchEdit> {
+    /// The context menu's dimension of what is selected (when that can
+    /// be measured): placed right away. (The ribbon's dimension button
+    /// and its key are the dimension tool, which starts from nothing
+    /// selected.)
+    fn dimension_selected(&self) -> ToolButton<SketchEdit> {
         let (args, state) = (self.args.clone(), self.state.clone());
-        let fits = modify::no_dimension(&self.args, &self.state).is_none();
-        let button = self.tool(Tool::Dimension).large();
-        if !fits || self.state.tool == Tool::Dimension {
-            return button;
-        }
+        let button = self.tool(Tool::Dimension);
         ToolButton::new(button.icon, "Dimension", button.hotkey, move || {
             // The text goes above the middle of what is measured.
             let mut sum = Point2::ZERO;
@@ -449,7 +445,6 @@ impl Session {
             Edit::both(new, next)
         })
         .with_hint("Dimension what is selected")
-        .large()
     }
 
     /// The panel of the one dimension selected: its value (a number, or
@@ -981,7 +976,7 @@ impl Session {
             Group::new("Draw", draw).into(),
             Group::new("Project", vec![self.projection()]).into(),
             Group::new("Constrain", CONSTRAIN.map(|a| self.action(a).into()).into()).into(),
-            Group::new("Dimension", vec![self.dimension().into()]).into(),
+            Group::new("Dimension", vec![self.tool(Tool::Dimension).large().into()]).into(),
             Group::new("Modify", modify).into(),
         ])
         .into()
@@ -1010,7 +1005,7 @@ impl Session {
             .filter(ToolButton::enabled)
             .collect();
         if modify::no_dimension(&self.args, &self.state).is_none() {
-            menu.insert(0, self.dimension());
+            menu.insert(0, self.dimension_selected());
         }
         menu
     }

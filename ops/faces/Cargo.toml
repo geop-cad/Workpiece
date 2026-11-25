@@ -24,6 +24,7 @@ workpiece-ops-basic-shapes.workspace = true
 workpiece-ops-sketch.workspace = true
 workpiece-ops-testing.workspace = true
 workpiece-ops-sweep.workspace = true
+workpiece-ops-surface.workspace = true
 
 [lints]
 workspace = true

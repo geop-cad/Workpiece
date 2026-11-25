@@ -2128,17 +2128,20 @@ fn text_rows(args: &SketchArgs, id: crate::Id) -> (f64, f64) {
 #[test]
 fn text_is_written_in_a_box_that_turns_wraps_and_aligns() -> anyhow::Result<()> {
     // Three clicks: along its baseline from (1, 1) to (9, 1), then 3
-    // up. The box's corners are points with its sides between them; the
-    // text is selected.
+    // up. The box's corners are points with its sides between them.
     let mut b = Bench::new();
     b.state.text = "IO".into();
     b.tool(Tool::Text);
     b.click(1.0, 1.0);
     b.click(9.0, 1.0);
     b.click(5.0, 4.0);
-    let [Item::Entity(text)] = b.state.selection[..] else {
-        panic!("the text is selected: {:?}", b.state.selection);
-    };
+    let text = *b
+        .args
+        .entities
+        .iter()
+        .find(|(_, e)| matches!(e.shape, Shape::Text(_)))
+        .expect("a text")
+        .0;
     let Some(Shape::Text(boxed)) = b.args.entities.get(&text).map(|e| e.shape.clone()) else {
         panic!("a text");
     };
@@ -2256,15 +2259,8 @@ fn a_turned_rectangle_is_four_square_sides_by_three_clicks() {
     );
     // To the left of the first side, 2 across.
     b.click(1.0 - 1.6, 1.0 + 1.2);
-    let lines: Vec<crate::Id> = b
-        .state
-        .selection
-        .iter()
-        .map(|i| match i {
-            Item::Entity(e) => *e,
-            _ => panic!("lines"),
-        })
-        .collect();
+    // (Its sides in the order drawn.)
+    let lines: Vec<crate::Id> = b.lines();
     assert_eq!(lines.len(), 4);
     let length = |b: &Bench, k: usize| {
         let (p, q) = b.args.line(lines[k]).expect("a line");
@@ -2627,4 +2623,138 @@ fn the_canvas_draws_a_dimension_as_the_shared_layout_has_it() {
             assert!(all.contains(shape), "{shape:?} is not on the canvas");
         }
     }
+}
+
+#[test]
+fn what_is_drawn_is_not_selected_and_the_dimension_tool_starts_from_nothing() {
+    let mut b = Bench::new();
+    b.tool(Tool::Rectangle);
+    b.click(0.0, 0.0);
+    b.click(4.0, 3.0);
+    assert_eq!(b.lines().len(), 4);
+    assert!(b.state.selection.is_empty());
+    b.tool(Tool::Circle);
+    b.click(8.0, 0.0);
+    b.click(9.0, 0.0);
+    assert!(b.state.selection.is_empty());
+    // A spline, ended by a double click.
+    b.tool(Tool::Spline);
+    b.click(0.0, 6.0);
+    b.click(2.0, 7.0);
+    b.click(4.0, 6.0);
+    b.event(CanvasEventKind::DoubleClick, 4.0, 6.0);
+    assert!(b.state.selection.is_empty());
+    // Something selected, then the dimension tool: nothing is.
+    b.tool(Tool::Select);
+    b.click(2.0, 0.0);
+    assert_eq!(b.state.selection.len(), 1);
+    b.tool(Tool::Dimension);
+    assert!(b.state.selection.is_empty());
+}
+
+#[test]
+fn a_rotation_axis_shows_before_its_second_click() {
+    use workpiece_core::handles::{CanvasShape, Tone};
+    let mut b = Bench::new();
+    b.tool(Tool::RotationAxis);
+    b.click(1.0, 1.0);
+    b.hover(3.0, 4.0);
+    // A centre line through the click towards the pointer, across the
+    // view: far longer than from the click to the pointer.
+    let shapes = canvas_of(&b).shapes(&b.view);
+    let along = Point2::new(2.0, 3.0).normalize();
+    let dashes: Vec<(Point2, Point2)> = shapes
+        .iter()
+        .filter_map(|s| match s {
+            CanvasShape::Polyline {
+                points,
+                tone: Tone::Preview,
+                ..
+            } if points.len() == 2 => Some((points[0], points[1])),
+            _ => None,
+        })
+        .filter(|(p, q)| {
+            let on = |x: Point2| (x - Point2::new(1.0, 1.0)).perp_dot(along).abs() < 1e-9;
+            on(*p) && on(*q)
+        })
+        .collect();
+    let reach = dashes
+        .iter()
+        .flat_map(|(p, q)| [*p, *q])
+        .map(|p| (p - Point2::new(1.0, 1.0)).dot(along))
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), d| {
+            (lo.min(d), hi.max(d))
+        });
+    assert!(dashes.len() > 10 && reach.1 - reach.0 > 20.0, "{reach:?}");
+}
+
+#[test]
+fn a_point_on_a_line_is_level_with_the_one_before_as_well() {
+    // A slanted line; a line drawn from (0, 2) to near where the level
+    // y = 2 crosses it: on it, and level.
+    let mut b = Bench::new();
+    b.tool(Tool::Line);
+    b.click(3.0, -1.0);
+    b.click(7.0, 7.0);
+    b.tool(Tool::Line);
+    let slanted = b.lines()[0];
+    b.click(0.0, 2.0);
+    // The slanted line is at y = 2 where x = 4.5: hovered a little off.
+    b.click(4.53, 2.04);
+    let drawn = *b.lines().iter().find(|&&l| l != slanted).expect("drawn");
+    let end = b.args.points_of(drawn)[1];
+    assert!(b.args.at(end).abs_diff_eq(Point2::new(4.5, 2.0), 1e-9));
+    let kinds: Vec<&Kind> = b.args.constraints.values().map(|c| &c.kind).collect();
+    assert!(
+        kinds.iter().any(
+            |k| matches!(k, Kind::PointOn { point, entity } if *point == end && *entity == slanted)
+        ),
+        "{kinds:?}"
+    );
+    assert!(
+        kinds
+            .iter()
+            .any(|k| matches!(k, Kind::Along { b: e, axis: SketchAxis::U, .. } if *e == end)),
+        "{kinds:?}"
+    );
+}
+
+#[test]
+fn trimming_at_a_middle_point_lets_go_of_the_middle() {
+    // A line from (0, 0) to (4, 0), and one from its middle up: a T.
+    let mut b = Bench::new();
+    b.tool(Tool::Line);
+    b.click(0.0, 0.0);
+    b.click(4.0, 0.0);
+    b.tool(Tool::Line);
+    let long = b.lines()[0];
+    b.click(2.0, 0.02);
+    b.click(2.0, 3.0);
+    let middle = |b: &Bench| {
+        b.args
+            .constraints
+            .values()
+            .filter(|c| matches!(c.kind, Kind::Midpoint { line, .. } if line == long))
+            .count()
+    };
+    assert_eq!(middle(&b), 1);
+    let up = *b.lines().iter().find(|&&l| l != long).expect("the upright");
+    let foot = b.args.points_of(up)[0];
+    // The left half trimmed: the line now ends at the upright's foot,
+    // the same point (not one only "on" the upright), and nothing holds
+    // that foot at the middle any more.
+    b.tool(Tool::Trim);
+    b.click(1.0, 0.0);
+    assert_eq!(middle(&b), 0);
+    assert!(b.args.points_of(long).contains(&foot));
+    let on_upright = b
+        .args
+        .constraints
+        .values()
+        .any(|c| matches!(c.kind, Kind::PointOn { entity, .. } if entity == up));
+    assert!(!on_upright);
+    let (a, c) = b.args.line(long).expect("the rest");
+    assert!(
+        a.abs_diff_eq(Point2::new(2.0, 0.0), 1e-9) && c.abs_diff_eq(Point2::new(4.0, 0.0), 1e-9)
+    );
 }
