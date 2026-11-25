@@ -69,8 +69,9 @@ fn samples(surface: &NurbsSurface, along_v: bool) -> Vec<f64> {
             let step = std::f64::consts::TAU / (8 * FINEST) as f64;
             // A span that bends at all gets a few steps however little
             // it turns: mirrored stripes show every corner of a nearly
-            // flat face.
-            let least = if turned > 1e-9 {
+            // flat face. (Below a thousandth of a radian the turning is
+            // the rounding of a flat face's angles.)
+            let least = if turned > 1e-3 {
                 (GENTLEST / (distinct.len() - 1)).max(2)
             } else {
                 1
