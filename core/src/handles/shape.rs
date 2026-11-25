@@ -14,6 +14,9 @@ pub const ARROW_PX: f64 = 60.0;
 pub const ANGLE_PX: f64 = 70.0;
 /// A gizmo's rings, as a fraction of its size.
 pub const RING_RADIUS: f64 = 0.7;
+/// A gizmo's outer ring, that scales, as a fraction of its size: out
+/// beyond its arrows' tips.
+pub const SCALE_RADIUS: f64 = 1.25;
 /// Radius of the ring that lies around a planar handle's knob, in its
 /// plane, in pixels.
 pub const PLANAR_PX: f64 = 14.0;
@@ -62,11 +65,12 @@ impl<M: 'static> Handle<M> {
     }
 
     /// The handle's pieces where a pixel at [`anchor`](Self::anchor) is
-    /// `pixel` model units long.
-    pub fn pieces(&self, pixel: f64) -> Vec<Piece> {
+    /// `pixel` model units long, seen from the unit direction `facing`
+    /// (towards the eye).
+    pub fn pieces(&self, pixel: f64, facing: Point3) -> Vec<Piece> {
         match self {
             Handle::Linear(h) => linear(h, pixel),
-            Handle::Gizmo(g) => gizmo(g, pixel),
+            Handle::Gizmo(g) => gizmo(g, pixel, facing),
             Handle::Planar(h) => planar(h, pixel),
             Handle::Angular(h) => angular(h, pixel),
             // A canvas draws its own shapes (see `Canvas::shapes`).
@@ -98,14 +102,19 @@ fn planar<M: 'static>(h: &PlanarHandle<M>, pixel: f64) -> Vec<Piece> {
         axis: None,
         shape,
     };
-    vec![
+    let mut pieces = vec![
         piece(Shape::Ring {
             center: h.at,
             normal: h.normal,
             radius: PLANAR_PX * pixel,
         }),
         piece(Shape::Knob(h.at)),
-    ]
+    ];
+    // (The tip of a direction: the arrow to it.)
+    if let Some(from) = h.from {
+        pieces.insert(0, piece(Shape::Arrow(from, h.at)));
+    }
+    pieces
 }
 
 /// A ring about the axis, and a knob on it at the angle.
@@ -127,8 +136,9 @@ fn angular<M: 'static>(h: &AngularHandle<M>, pixel: f64) -> Vec<Piece> {
 }
 
 /// A center knob that moves freely, an arrow along each axis and a ring
-/// about it, `size` pixels across.
-fn gizmo<M: 'static>(g: &Gizmo<M>, pixel: f64) -> Vec<Piece> {
+/// about it, `size` pixels across; and, for a gizmo that scales, a ring
+/// around it all, facing the eye (`facing`).
+fn gizmo<M: 'static>(g: &Gizmo<M>, pixel: f64, facing: Point3) -> Vec<Piece> {
     let o = g.origin();
     let size = g.size * pixel;
     let mut pieces = vec![Piece {
@@ -150,6 +160,17 @@ fn gizmo<M: 'static>(g: &Gizmo<M>, pixel: f64) -> Vec<Piece> {
                 center: o,
                 normal: direction,
                 radius: size * RING_RADIUS,
+            },
+        });
+    }
+    if g.on_scale.is_some() {
+        pieces.push(Piece {
+            part: Some(GizmoPart::Scale),
+            axis: None,
+            shape: Shape::Ring {
+                center: o,
+                normal: facing,
+                radius: size * SCALE_RADIUS,
             },
         });
     }

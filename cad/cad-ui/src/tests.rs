@@ -194,28 +194,25 @@ fn edits_of_one_step_are_one_undo_step_until_ended() -> anyhow::Result<()> {
         Some(f) => f.args.pose.translation().x,
         None => f64::NAN,
     };
-    let field = |m: &Model| -> anyhow::Result<_> {
+    let set_x = |m: &Model, v: f64| -> anyhow::Result<_> {
         let dialog = View::new(m)
             .edit_dialog
             .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
-        let Widget::VBox(fields) = dialog.fields else {
+        let Widget::VBox(fields) = dialog.fields() else {
             anyhow::bail!("expected the fields");
         };
-        let Some(Widget::PoseInput(pose)) = fields.children.into_iter().nth(2) else {
+        let Some(Widget::PoseInput(pose)) = fields.children.get(2) else {
             anyhow::bail!("expected the pose fields");
         };
-        Ok(pose)
+        pose.set_position(Axis::X, v)
+            .ok_or_else(|| anyhow::anyhow!("no edit"))
     };
     for v in 1..=3 {
-        let message = field(&m)?
-            .set_position(Axis::X, f64::from(v))
-            .ok_or_else(|| anyhow::anyhow!("no edit"))?;
+        let message = set_x(&m, f64::from(v))?;
         m.update(message)?;
     }
     m.update(Message::EndEdit)?;
-    let message = field(&m)?
-        .set_position(Axis::X, 9.0)
-        .ok_or_else(|| anyhow::anyhow!("no edit"))?;
+    let message = set_x(&m, 9.0)?;
     m.update(message)?;
     assert_eq!(x(&m), 9.0);
     m.update(Message::Undo)?;
@@ -266,10 +263,10 @@ fn placed_parts_are_tree_nodes_and_edit_in_context() -> anyhow::Result<()> {
     let dialog = View::new(&m)
         .edit_dialog
         .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
-    let Widget::VBox(fields) = dialog.fields else {
+    let Widget::VBox(fields) = dialog.fields() else {
         anyhow::bail!("expected the fields");
     };
-    let Some(Widget::PoseInput(pose)) = fields.children.into_iter().nth(2) else {
+    let Some(Widget::PoseInput(pose)) = fields.children.get(2) else {
         anyhow::bail!("expected the pose fields");
     };
     let Some(Message::ReplaceOperation { part, .. }) = pose.set_angle(Axis::Z, 45.0) else {
@@ -286,7 +283,7 @@ fn placing_a_part_opens_its_file_field() -> anyhow::Result<()> {
     let dialog = View::new(&m)
         .edit_dialog
         .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
-    let Widget::VBox(fields) = dialog.fields else {
+    let Widget::VBox(fields) = dialog.fields() else {
         anyhow::bail!("expected fields");
     };
     let Some(Widget::FileInput(file)) = fields.children.first() else {
@@ -346,7 +343,7 @@ fn a_placed_part_brings_the_bodies_ticked() -> anyhow::Result<()> {
     // Its dialog ticks each of them; the one left out stays behind.
     m.update(Message::Edit(vec!["p".into()]))?;
     let dialog = View::new(&m).edit_dialog.context("no dialog")?;
-    let Widget::VBox(fields) = dialog.fields else {
+    let Widget::VBox(fields) = dialog.fields() else {
         anyhow::bail!("expected fields");
     };
     let tick = |name: &str| {
@@ -712,31 +709,30 @@ fn without_the_preview_edits_do_not_rebuild() -> anyhow::Result<()> {
     click(&mut m, "Box")?;
     m.update(Message::SetPreview(false))?;
     let scene = m.viewport.shown.scene.clone();
+    // The width field: its value, and what setting it to 3 sends.
     let field = |m: &Model| -> anyhow::Result<_> {
         let dialog = View::new(m)
             .edit_dialog
             .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
         assert!(!dialog.preview);
-        let Widget::VBox(fields) = dialog.fields else {
+        let Widget::VBox(fields) = dialog.fields() else {
             anyhow::bail!("expected fields");
         };
-        let Some(Widget::HBox(sizes)) = fields.children.into_iter().nth(1) else {
+        let Some(Widget::HBox(sizes)) = fields.children.get(1) else {
             anyhow::bail!("expected the sizes");
         };
-        let Some(Widget::NumericInput(width)) = sizes.children.into_iter().next() else {
+        let Some(Widget::NumericInput(width)) = sizes.children.first() else {
             anyhow::bail!("expected the width");
         };
-        Ok(width)
+        Ok((width.value, width.set(3.0)))
     };
-    let message = field(&m)?
-        .set(3.0)
-        .ok_or_else(|| anyhow::anyhow!("no edit"))?;
+    let message = field(&m)?.1.ok_or_else(|| anyhow::anyhow!("no edit"))?;
     m.update(message)?;
     assert!(
         std::sync::Arc::ptr_eq(&scene, &m.viewport.shown.scene),
         "not rebuilt"
     );
-    assert_eq!(field(&m)?.value, 3.0, "the dialog shows the edit");
+    assert_eq!(field(&m)?.0, 3.0, "the dialog shows the edit");
     m.update(Message::FinishEdit)?;
     assert!(
         !std::sync::Arc::ptr_eq(&scene, &m.viewport.shown.scene),
@@ -815,7 +811,7 @@ fn the_selection_becomes_the_references_and_picks_the_mode() -> anyhow::Result<(
     let dialog = View::new(&m)
         .edit_dialog
         .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
-    let Widget::VBox(fields) = dialog.fields else {
+    let Widget::VBox(fields) = dialog.fields() else {
         anyhow::bail!("expected fields");
     };
     let Some(Widget::Choice(modes)) = fields.children.get(1) else {
@@ -885,7 +881,7 @@ fn a_hole_goes_where_its_face_is_clicked_and_is_then_placed() -> anyhow::Result<
     let dialog = View::new(&m)
         .edit_dialog
         .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
-    let Widget::VBox(fields) = dialog.fields else {
+    let Widget::VBox(fields) = dialog.fields() else {
         anyhow::bail!("expected fields");
     };
     let Some(Widget::Group(where_)) = fields.children.first() else {
@@ -904,7 +900,7 @@ fn a_hole_goes_where_its_face_is_clicked_and_is_then_placed() -> anyhow::Result<
     let dialog = View::new(&m)
         .edit_dialog
         .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
-    let Widget::VBox(fields) = dialog.fields else {
+    let Widget::VBox(fields) = dialog.fields() else {
         anyhow::bail!("expected fields");
     };
     let Some(Widget::Group(where_)) = fields.children.first() else {
@@ -944,7 +940,7 @@ fn a_hole_goes_where_its_face_is_clicked_and_is_then_placed() -> anyhow::Result<
         let dialog = View::new(&m)
             .edit_dialog
             .ok_or_else(|| anyhow::anyhow!("no dialog"))?;
-        let Widget::VBox(fields) = dialog.fields else {
+        let Widget::VBox(fields) = dialog.fields() else {
             anyhow::bail!("expected fields");
         };
         let Some(Widget::Group(where_)) = fields.children.first() else {
@@ -1089,7 +1085,8 @@ fn new_steps_say_nothing_wrong_until_changed() -> anyhow::Result<()> {
     hover(&mut m, Vec3::new(0.2, 0.15, 0.5))?;
     m.update(Message::Pointer(Pointer::Click { add: false }))?;
     assert!(m.viewport.shown.error.is_none());
-    let Some(Widget::VBox(fields)) = View::new(&m).edit_dialog.map(|d| d.fields) else {
+    let view = View::new(&m);
+    let Some(Widget::VBox(fields)) = view.edit_dialog.as_ref().map(|d| d.fields()) else {
         anyhow::bail!("expected the fields");
     };
     let Some(Widget::ReferenceList(references)) = fields.children.first() else {
@@ -1383,7 +1380,7 @@ fn parameters_drive_steps_and_variants_show_and_place() -> anyhow::Result<()> {
     let view = View::new(&m);
     let dialog = view.edit_dialog.as_ref().expect("the dialog");
     let mut width = None;
-    dialog.fields.visit(&mut |w| {
+    dialog.fields().visit(&mut |w| {
         if let Widget::NumericInput(input) = w
             && input.label == "Width"
         {
@@ -1420,14 +1417,14 @@ fn parameters_drive_steps_and_variants_show_and_place() -> anyhow::Result<()> {
     m.update(Message::Open("bolt".into()))?;
     click(&mut m, "Add part")?;
     let view = View::new(&m);
-    let Some(Widget::FileInput(file)) = view.edit_dialog.as_ref().and_then(|d| d.fields.at(&[0]))
+    let Some(Widget::FileInput(file)) = view.edit_dialog.as_ref().and_then(|d| d.fields().at(&[0]))
     else {
         anyhow::bail!("expected the file field");
     };
     m.update(file.set("nut"))?;
     let view = View::new(&m);
     let dialog = view.edit_dialog.as_ref().expect("the dialog");
-    let Some(Widget::Choice(variants)) = dialog.fields.at(&[1]) else {
+    let Some(Widget::Choice(variants)) = dialog.fields().at(&[1]) else {
         anyhow::bail!("expected the variants");
     };
     assert_eq!(variants.options, ["Default", "L"]);
@@ -1890,7 +1887,7 @@ fn a_revolve_takes_the_last_sketch_and_its_rotation_axis() -> anyhow::Result<()>
     let view = View::new(&m);
     let dialog = view.edit_dialog.as_ref().expect("the dialog");
     let mut takes = None;
-    dialog.fields.visit(&mut |w| {
+    dialog.fields().visit(&mut |w| {
         if let Widget::ReferenceInput(input) = w
             && input.label == "Rotation axis"
         {
@@ -2079,7 +2076,7 @@ fn a_joint_is_made_by_pointing_at_the_two_parts() -> anyhow::Result<()> {
     let picking = |m: &Model| {
         let view = View::new(m);
         let dialog = view.edit_dialog.as_ref()?;
-        let field = dialog.fields.at(m.picking.as_ref()?)?;
+        let field = dialog.fields().at(m.picking.as_ref()?)?;
         match field {
             Widget::ConnectorInput(input) => Some(input.label.clone()),
             _ => None,
@@ -2202,7 +2199,11 @@ fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Resul
     })?;
     let picking = |m: &Model| {
         let view = View::new(m);
-        let field = view.edit_dialog.as_ref()?.fields.at(m.picking.as_ref()?)?;
+        let field = view
+            .edit_dialog
+            .as_ref()?
+            .fields()
+            .at(m.picking.as_ref()?)?;
         match field {
             Widget::ConnectorInput(input) => Some(input.label.clone()),
             _ => None,
@@ -2235,7 +2236,7 @@ fn a_part_is_added_with_its_joint_and_previewed_where_it_goes() -> anyhow::Resul
     // With the pair complete, the constraints that fit it are offered
     // as a drop-down, and one of them is chosen already.
     let view = View::new(&m);
-    let fields = &view.edit_dialog.as_ref().expect("the dialog").fields;
+    let fields = &view.edit_dialog.as_ref().expect("the dialog").fields();
     let mut constraint = None;
     fields.visit(&mut |w| {
         if let Widget::Choice(c) = w
@@ -2294,7 +2295,11 @@ fn a_mechanism_ties_two_joints_pointed_at_in_the_view() -> anyhow::Result<()> {
     // drawn where they are, the hinge at the base's origin.
     let picking = |m: &Model| {
         let view = View::new(m);
-        let field = view.edit_dialog.as_ref()?.fields.at(m.picking.as_ref()?)?;
+        let field = view
+            .edit_dialog
+            .as_ref()?
+            .fields()
+            .at(m.picking.as_ref()?)?;
         match field {
             Widget::JointInput(input) => Some(input.label.clone()),
             _ => None,
@@ -3013,7 +3018,7 @@ fn a_part_is_made_of_a_material_and_steps_give_faces_their_own() -> anyhow::Resu
     // Its dialog offers the library's materials, and a colour.
     let dialog = View::new(&m).edit_dialog.expect("its dialog");
     let mut choose = None;
-    dialog.fields.visit(&mut |widget| {
+    dialog.fields().visit(&mut |widget| {
         if let workpiece_core::Widget::Choice(choice) = widget
             && choice.label == "Material"
         {
@@ -3517,7 +3522,9 @@ fn meshes_are_edited_by_their_faces_edges_and_points() -> anyhow::Result<()> {
     assert_eq!(args.mesh.faces.len(), 10);
     assert!(args.mesh.center(top).z > 1.5);
     assert!(state.last.is_some(), "its distance can still be typed");
-    // Its gizmo moves it on: the arrow up, dragged.
+    // Its gizmo moves it on: the arrow up, dragged (free of snapping:
+    // Alt is held).
+    m.update(Message::SuspendSnaps(true))?;
     let at = args.mesh.center(top).as_vec3();
     hover(&mut m, at + Vec3::Z * 0.2)?;
     assert!(matches!(
@@ -3531,6 +3538,7 @@ fn meshes_are_edited_by_their_faces_edges_and_points() -> anyhow::Result<()> {
     let (moved, _) = mesh(&m);
     let up = moved.mesh.center(top).z - args.mesh.center(top).z;
     assert!((up - 0.5).abs() < 0.05, "{up}");
+    m.update(Message::SuspendSnaps(false))?;
     // A frame dragged open beside the mesh and over it picks what is
     // inside: in the mode of points, all of them.
     press_key(&mut m, workpiece_core::Hotkey::key('1'))?;
@@ -3582,18 +3590,18 @@ fn a_mesh_is_stretched_by_its_arrows_and_cut_by_a_loop() -> anyhow::Result<()> {
     assert!(!mesh(&m).0.smooth);
     hover(&mut m, Vec3::new(0.2, 0.1, 1.0))?;
     m.update(Message::Pointer(Pointer::Click { add: false }))?;
-    // The scale tool: an arrow along x, half as far out as the face
-    // reaches, dragged twice as far out.
-    press_key(&mut m, workpiece_core::Hotkey::key('S'))?;
+    // An arrow along x on the far side of the gizmo, half as far out as
+    // the face reaches, dragged twice as far out (free of snapping).
+    m.update(Message::SuspendSnaps(true))?;
     let reach = 2.0_f32.sqrt() / 2.0;
-    hover(&mut m, Vec3::new(reach, 0.0, 1.0))?;
+    hover(&mut m, Vec3::new(-reach, 0.0, 1.0))?;
     let Some(Candidate::Handle { name, .. }) = m.viewport.hovered().cloned() else {
         anyhow::bail!("expected an arrow under the pointer");
     };
     assert_eq!(name, "scale-0");
     m.update(Message::Pointer(Pointer::Press))?;
     m.update(Message::Pointer(Pointer::DragStart))?;
-    hover(&mut m, Vec3::new(2.0 * reach, 0.0, 1.0))?;
+    hover(&mut m, Vec3::new(-2.0 * reach, 0.0, 1.0))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     let (args, state) = mesh(&m);
     let [Item::Face(top)] = state.picked[..] else {
@@ -4060,7 +4068,7 @@ fn what_is_selected_in_a_sketch_shows_in_its_panel_and_its_keys_win() -> anyhow:
         view.edit_dialog
             .as_ref()
             .expect("a ribbon")
-            .inspector
+            .inspector()
             .is_none()
     );
     press_key(&mut m, workpiece_core::Hotkey::key('R'))?;
@@ -4075,7 +4083,12 @@ fn what_is_selected_in_a_sketch_shows_in_its_panel_and_its_keys_win() -> anyhow:
             .unwrap_or_default()
     };
     assert!(selection(&m).is_empty());
-    let inspector = |m: &Model| View::new(m).edit_dialog.and_then(|d| d.inspector).is_some();
+    let inspector = |m: &Model| {
+        View::new(m)
+            .edit_dialog
+            .and_then(|d| d.inspector().map(|_| ()))
+            .is_some()
+    };
     assert!(!inspector(&m));
     // A line of it selected: its panel, with a Construction mark whose
     // X switches the line, not the tools' mode.
@@ -4089,7 +4102,7 @@ fn what_is_selected_in_a_sketch_shows_in_its_panel_and_its_keys_win() -> anyhow:
     let panel = view
         .edit_dialog
         .as_ref()
-        .and_then(|d| d.inspector.as_ref())
+        .and_then(|d| d.inspector())
         .expect("a panel");
     let mut marks = Vec::new();
     panel.visit(&mut |w| {
@@ -4173,5 +4186,245 @@ fn a_sketch_dimension_dragged_on_the_annotate_tab_moves_in_its_sketch() -> anyho
             .filter_map(|c| c.dimension.as_ref())
             .all(|d| d.label.distance(Point2::new(2.5, -2.25)) > 1e-9)
     );
+    Ok(())
+}
+
+#[test]
+fn a_mode_that_brings_up_a_picker_picks_into_it_at_once() -> anyhow::Result<()> {
+    let mut m = with_box()?;
+    // A curve through points opens picking its points.
+    click(&mut m, "Curve through points")?;
+    let points = m.picking.clone().expect("picking the points");
+    let field = |m: &Model, path: &[usize]| -> Option<String> {
+        let view = View::new(m);
+        match view.edit_dialog.as_ref()?.fields().at(path)? {
+            Widget::ReferenceInput(input) => Some(input.label.clone()),
+            Widget::ReferenceList(list) => Some(list.label.clone()),
+            _ => None,
+        }
+    };
+    let choose = |m: &mut Model, end: &str, option: usize| -> anyhow::Result<()> {
+        let view = View::new(m);
+        let mut message = None;
+        view.edit_dialog
+            .as_ref()
+            .expect("the dialog")
+            .fields()
+            .visit(&mut |w| {
+                if let Widget::Choice(c) = w
+                    && c.label.starts_with(end)
+                {
+                    message = c.set(option);
+                }
+            });
+        m.update(message.expect("the end's way"))
+    };
+    // Its start made tangent: picking goes to what it is tangent to.
+    choose(&mut m, "Start", 1)?;
+    let picking = m.picking.clone().expect("picking");
+    assert_ne!(picking, points);
+    assert_eq!(field(&m, &picking).as_deref(), Some("Edge or axis"));
+    // Picked, the focus goes on as it does (back to nothing left to
+    // pick, here: the points' box does not have to be filled first).
+    select(&mut m, Vec3::new(0.5, 0.0, 0.5), false)?;
+    let curve = m.workspace.parts["bolt"].program[1]
+        .downcast_ref::<workpiece_ops_surface::CurveThrough>()
+        .expect("the curve")
+        .clone();
+    assert!(curve.args.start.to.is_some(), "the edge picked");
+    // The end made tangent too, with the start's picker filled: the
+    // end's picker is the one picked into.
+    choose(&mut m, "End", 1)?;
+    let picking = m.picking.clone().expect("picking");
+    assert_eq!(field(&m, &picking).as_deref(), Some("Edge or axis"));
+    let start = View::new(&m);
+    let mut inputs = Vec::new();
+    start
+        .edit_dialog
+        .as_ref()
+        .expect("dialog")
+        .fields()
+        .visit(&mut |w| {
+            if let Widget::ReferenceInput(i) = w {
+                inputs.push(i.value.is_some());
+            }
+        });
+    assert_eq!(inputs, [true, false]);
+    Ok(())
+}
+
+/// Drags the point of the mesh being edited at `from` (in the mode of
+/// points) to where `to` shows; what it snapped to.
+fn drag_point(
+    m: &mut Model,
+    from: Vec3,
+    to: Vec3,
+) -> anyhow::Result<Option<workpiece_core::handles::Snap>> {
+    hover(m, from)?;
+    m.update(Message::Pointer(Pointer::Press))?;
+    m.update(Message::Pointer(Pointer::DragStart))?;
+    hover(m, to)?;
+    let snapped = m.viewport.snapped;
+    m.update(Message::Pointer(Pointer::DragEnd))?;
+    Ok(snapped)
+}
+
+#[test]
+fn a_dragged_point_snaps_to_points_middles_and_the_grid() -> anyhow::Result<()> {
+    use workpiece_core::handles::{SnapKind, SnapKinds};
+    let mut m = with_box()?;
+    click(&mut m, "SubD")?;
+    press_key(&mut m, workpiece_core::Hotkey::key('1'))?;
+    // The mesh's corner onto a corner of the box: there, exactly.
+    let corner = Point3::new(1.0, -1.0, 1.0);
+    let at = |m: &Model, p: Point3| {
+        let (args, _) = mesh(m);
+        args.mesh.points.iter().position(|q| q.distance(p) < 1e-9)
+    };
+    let v = at(&m, corner).expect("the corner");
+    let target = Point3::new(0.5, -0.5, 0.5);
+    let snapped = drag_point(&mut m, corner.as_vec3(), target.as_vec3())?;
+    assert_eq!(snapped.map(|s| s.kind), Some(SnapKind::Point));
+    assert!(mesh(&m).0.mesh.points[v].distance(target) < 1e-9);
+    // On to the middle of an edge of the box.
+    let middle = Point3::new(0.5, 0.0, 0.5);
+    let snapped = drag_point(&mut m, target.as_vec3(), middle.as_vec3())?;
+    assert_eq!(snapped.map(|s| s.kind), Some(SnapKind::Middle));
+    assert!(mesh(&m).0.mesh.points[v].distance(middle) < 1e-9);
+    // With the middles off, not to the middle: onto the edge there.
+    let kinds = SnapKinds::default().with(SnapKind::Middle, false);
+    m.update(Message::SetSnaps(kinds))?;
+    let back = Point3::new(0.0, -0.5, 0.5);
+    let snapped = drag_point(&mut m, middle.as_vec3(), back.as_vec3())?;
+    assert_eq!(snapped.map(|s| s.kind), Some(SnapKind::Edge));
+    // The gizmo's arrow, with only the grid on: the point goes up to a
+    // whole step of z.
+    let grid = SnapKinds {
+        on: true,
+        kinds: [false; 8],
+    }
+    .with(SnapKind::Grid, true);
+    m.update(Message::SetSnaps(grid))?;
+    let was = mesh(&m).0.mesh.points[v];
+    hover(&mut m, was.as_vec3())?;
+    m.update(Message::Pointer(Pointer::Click { add: false }))?;
+    assert_eq!(mesh(&m).1.picked, [workpiece_ops_mesh::Item::Vertex(v)]);
+    let arrow = was.as_vec3() + Vec3::Z * 0.2;
+    hover(&mut m, arrow)?;
+    assert!(matches!(
+        m.viewport.hovered(),
+        Some(Candidate::Handle {
+            part: Some(workpiece_core::handles::GizmoPart::Translate(Axis::Z)),
+            ..
+        })
+    ));
+    m.update(Message::Pointer(Pointer::Press))?;
+    m.update(Message::Pointer(Pointer::DragStart))?;
+    hover(&mut m, arrow + Vec3::Z * 0.37)?;
+    let snapped = m.viewport.snapped;
+    m.update(Message::Pointer(Pointer::DragEnd))?;
+    assert_eq!(snapped.map(|s| s.kind), Some(SnapKind::Grid));
+    let now = mesh(&m).0.mesh.points[v];
+    let step = workpiece_core::handles::snap::grid_step(m.pixel(now));
+    assert!((now.x - was.x).abs() < 1e-9 && (now.y - was.y).abs() < 1e-9);
+    let steps = now.z / step;
+    assert!(
+        (steps - steps.round()).abs() < 1e-6,
+        "{} in steps of {step}",
+        now.z
+    );
+    assert!(now.z > was.z + 0.2);
+    Ok(())
+}
+
+#[test]
+fn the_gizmo_scales_all_at_once_by_its_outer_ring() -> anyhow::Result<()> {
+    use workpiece_core::handles::GizmoPart;
+    let mut m = model();
+    m.update(Message::Open("bolt".into()))?;
+    click(&mut m, "SubD")?;
+    hover(&mut m, Vec3::new(0.2, 0.1, 1.0))?;
+    m.update(Message::Pointer(Pointer::Click { add: false }))?;
+    let (args, state) = mesh(&m);
+    let [workpiece_ops_mesh::Item::Face(top)] = state.picked[..] else {
+        anyhow::bail!("expected the top picked");
+    };
+    let middle = args.mesh.center(top);
+    let reach = |a: &workpiece_ops_mesh::MeshArgs| {
+        let p = a.mesh.faces[top][0];
+        a.mesh.points[p].distance(middle)
+    };
+    // The ring, out beyond the arrows, round the middle as seen.
+    let [x, y] = screen(&m, middle.as_vec3());
+    let ring = 1.25 * 90.0;
+    let at = |r: f32| Pointer::Moved {
+        position: [x - r, y],
+        size: SIZE,
+    };
+    m.update(Message::SuspendSnaps(true))?;
+    m.update(Message::Pointer(at(ring)))?;
+    assert!(matches!(
+        m.viewport.hovered(),
+        Some(Candidate::Handle {
+            part: Some(GizmoPart::Scale),
+            ..
+        })
+    ));
+    m.update(Message::Pointer(Pointer::Press))?;
+    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(at(ring * 1.5)))?;
+    let factor = m.viewport.gizmo_drag.map(|d| d.factor);
+    m.update(Message::Pointer(Pointer::DragEnd))?;
+    assert!(factor.is_some_and(|f| (f - 1.5).abs() < 0.01), "{factor:?}");
+    let (scaled, state) = mesh(&m);
+    let by = reach(&scaled) / reach(&args);
+    assert!((by - 1.5).abs() < 0.01, "{by}");
+    // It can be typed on: the factor of all three axes.
+    let last = state.last.expect("the scale, to type");
+    assert!((last.by.x - 1.5).abs() < 0.01 && (last.by.z - 1.5).abs() < 0.01);
+    Ok(())
+}
+
+#[test]
+fn a_subd_line_is_a_curve_later_steps_take() -> anyhow::Result<()> {
+    use workpiece_core::{Measure, Operation, Reference};
+    use workpiece_ops_mesh::{Mesh, MeshArgs, Poly};
+    use workpiece_ops_sweep::{Extrude, ExtrudeArgs};
+    let mut b = workpiece_core::Standalone::new();
+    // Four points, three lines: one smooth curve.
+    let mut mesh = Poly::default();
+    for p in [
+        [0.0, 0.0, 0.0],
+        [3.0, 0.0, 0.0],
+        [3.0, 3.0, 0.0],
+        [6.0, 3.0, 0.0],
+    ] {
+        mesh.points.push(Point3::from_array(p));
+    }
+    mesh.lines = [(0, 1), (1, 2), (2, 3)].into();
+    Mesh {
+        id: "subd1".into(),
+        args: MeshArgs {
+            mesh,
+            smooth: true,
+            ..MeshArgs::default()
+        },
+    }
+    .apply(&mut b)?;
+    // Swept up into a surface by a later step.
+    Extrude {
+        id: "wall".into(),
+        args: ExtrudeArgs {
+            curves: vec![Reference::topology("subd1/curves/e0")],
+            direction: Some(Reference::frame_axis("origin", Axis::Z)),
+            distance: Measure::new(2.0),
+            surface: true,
+            ..ExtrudeArgs::default()
+        },
+    }
+    .apply(&mut b)?;
+    let topo = &b.world.topo;
+    let wall = topo.body_called("wall").expect("the swept surface");
+    assert!(!topo.body_faces(wall).unwrap_or_default().is_empty());
     Ok(())
 }

@@ -1,4 +1,4 @@
-//! The meshes to start from: a box, a grid, a cylinder, a cone, a
+//! The meshes to start from: a box, a plane, a cylinder, a cone, a
 //! sphere of quads and a torus.
 
 use std::collections::BTreeMap;
@@ -13,8 +13,8 @@ use crate::poly::Poly;
 pub enum Primitive {
     /// A box of quads.
     Box,
-    /// A flat grid of quads.
-    Grid,
+    /// A flat square of quads.
+    Plane,
     /// A cylinder: quads around, a face at each end.
     Cylinder,
     /// A cone: triangles up to its tip, a face below.
@@ -29,7 +29,7 @@ impl Primitive {
     /// All of them.
     pub const ALL: [Primitive; 6] = [
         Primitive::Box,
-        Primitive::Grid,
+        Primitive::Plane,
         Primitive::Cylinder,
         Primitive::Cone,
         Primitive::Sphere,
@@ -40,7 +40,7 @@ impl Primitive {
     pub fn label(self) -> &'static str {
         match self {
             Primitive::Box => "Box",
-            Primitive::Grid => "Grid",
+            Primitive::Plane => "Plane",
             Primitive::Cylinder => "Cylinder",
             Primitive::Cone => "Cone",
             Primitive::Sphere => "Sphere",
@@ -52,7 +52,7 @@ impl Primitive {
     pub fn pieces(self) -> usize {
         match self {
             Primitive::Box => 1,
-            Primitive::Grid => 4,
+            Primitive::Plane => 4,
             Primitive::Cylinder | Primitive::Cone => 8,
             Primitive::Sphere => 2,
             Primitive::Torus => 8,
@@ -66,7 +66,7 @@ impl Primitive {
         let half = size / 2.0;
         let mut made = match self {
             Primitive::Box => cube(pieces.max(1), half),
-            Primitive::Grid => grid(pieces.max(1), half),
+            Primitive::Plane => grid(pieces.max(1), half),
             Primitive::Cylinder => cylinder(pieces.max(3), half, false),
             Primitive::Cone => cylinder(pieces.max(3), half, true),
             Primitive::Sphere => {
@@ -90,7 +90,8 @@ fn grid(n: usize, half: f64) -> Poly {
     let mut made = Poly::default();
     for j in 0..=n {
         for i in 0..=n {
-            let at = |k: usize| -half + 2.0 * half * k as f64 / n as f64;
+            // (Of whole numbers first: the coordinates read back as written.)
+            let at = |k: usize| half * (2.0 * k as f64 - n as f64) / n as f64;
             made.points.push(Point3::new(at(i), at(j), 0.0));
         }
     }
@@ -227,7 +228,7 @@ mod tests {
         for kind in Primitive::ALL {
             let mesh = kind.mesh(2.0, kind.pieces(), Point3::ZERO);
             let open = mesh.edges().values().filter(|s| s.len() != 2).count();
-            if kind == Primitive::Grid {
+            if kind == Primitive::Plane {
                 assert_eq!(open, 16);
                 continue;
             }

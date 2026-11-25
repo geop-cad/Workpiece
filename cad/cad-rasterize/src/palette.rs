@@ -29,6 +29,9 @@ pub const HANDLE_HOVER: Color = [0.127, 0.456, 1.0, 1.0];
 pub const HOVER: Color = [0.159, 0.371, 0.939, 1.0];
 /// Selected model entities (blue, `#2F7DF6`).
 pub const SELECTION: Color = [0.028, 0.205, 0.922, 1.0];
+/// What the step that is edited takes along with what is picked: the
+/// edges of a blend's tangent chains (teal, `#2FB8C8`).
+pub const IMPLIED: Color = [0.028, 0.479, 0.578, 1.0];
 
 /// The x axis (brick red, `#C8504B`).
 pub const X: Color = [0.578, 0.080, 0.070, 1.0];

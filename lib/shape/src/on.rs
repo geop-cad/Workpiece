@@ -122,7 +122,8 @@ impl Corner {
 /// The corner at the middle of the edge called `name` of `topo`, if it
 /// is an edge between two faces of a solid body.
 pub fn corner(topo: &Topo, name: &str) -> Option<Corner> {
-    corners(topo, name).into_iter().next()
+    let (solid, edge) = solid_edge(topo, name)?;
+    corner_on(&solid, edge, 0.5)
 }
 
 /// The corners of the edge called `name` of `topo` where a view along
@@ -132,20 +133,23 @@ pub fn corner(topo: &Topo, name: &str) -> Option<Corner> {
 /// across the view. Nothing if it is no edge between two faces of a
 /// solid body.
 pub fn corners(topo: &Topo, name: &str) -> Vec<Corner> {
-    let found = || {
-        let id = topo.referred(name)?;
-        let body = topo.owner(id)?;
-        let solid = read(topo, body).ok()?;
-        let edge = solid
-            .edges
-            .iter()
-            .position(|e| e.name.as_deref() == Some(name) || e.also.iter().any(|n| n == name))?;
-        Some((solid, edge))
-    };
-    let Some((solid, edge)) = found() else {
+    let Some((solid, edge)) = solid_edge(topo, name) else {
         return Vec::new();
     };
     corners_of(&solid, edge)
+}
+
+/// The solid body of `topo` that has the edge called `name`, read, and
+/// the edge's index in it.
+fn solid_edge(topo: &Topo, name: &str) -> Option<(Solid, usize)> {
+    let id = topo.referred(name)?;
+    let body = topo.owner(id)?;
+    let solid = read(topo, body).ok()?;
+    let edge = solid
+        .edges
+        .iter()
+        .position(|e| e.name.as_deref() == Some(name) || e.also.iter().any(|n| n == name))?;
+    Some((solid, edge))
 }
 
 /// The corners of edge `edge` of `solid`, as [`corners`] has them.

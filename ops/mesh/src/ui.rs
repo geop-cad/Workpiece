@@ -31,7 +31,6 @@ enum Action {
     Connect,
     Bridge,
     Fill,
-    GridFill,
     Delete,
     Dissolve,
     Merge,
@@ -67,7 +66,7 @@ fn action_info(action: Action) -> (&'static str, &'static str, Hotkey, &'static 
             "mesh-extrude",
             "Extrude",
             Hotkey::key('E'),
-            "Push the picked faces out, leaving walls behind them; or give each picked edge a new face. Drag the gizmo or type the distance",
+            "Push the picked faces out, leaving walls behind them; give each picked edge (or line) a new face; give each picked point a new point, joined to it by a line. Drag the gizmo or type the distance",
         ),
         Action::Inset => (
             "mesh-inset",
@@ -104,12 +103,6 @@ fn action_info(action: Action) -> (&'static str, &'static str, Hotkey, &'static 
             "Fill",
             Hotkey::key('F'),
             "A face around the picked points or edges: closes a hole, or joins two edges",
-        ),
-        Action::GridFill => (
-            "mesh-grid-fill",
-            "Grid fill",
-            Hotkey::shift('F'),
-            "Fill the hole the picked edges go around with a grid of quads",
         ),
         Action::Delete => (
             "delete",
@@ -157,7 +150,7 @@ fn action_info(action: Action) -> (&'static str, &'static str, Hotkey, &'static 
             "mesh-crease",
             "Crease",
             Hotkey::key('C'),
-            "Keep the picked edges sharp on the smooth surface; again: smooth",
+            "Keep the picked edges sharp on the smooth surface (picked points of lines: a corner of their curve); again: smooth",
         ),
         Action::Flip => (
             "mesh-flip",
@@ -277,13 +270,7 @@ fn tool_info(tool: Tool) -> (&'static str, &'static str, Hotkey, &'static str) {
             "select",
             "Select",
             Hotkey::named(Key::Escape),
-            "Click to pick (Ctrl adds), double-click an edge for its loop or a face for all that hangs together, drag over nothing to pick what is inside; drag the gizmo, or what is picked itself, to move and turn it; drag an arrow on its far side to stretch it",
-        ),
-        Tool::Scale => (
-            "mesh-scale",
-            "Scale",
-            Hotkey::key('S'),
-            "Stretch what is picked: drag an arrow, or type the factors (0 flattens along that axis)",
+            "Click to pick (Ctrl adds), double-click an edge for its loop or a face for all that hangs together, drag over nothing to pick what is inside; drag the gizmo, or what is picked itself, to move and turn it, its outer ring to scale it; drag an arrow on its far side to stretch it",
         ),
         Tool::Knife => (
             "mesh-knife",
@@ -302,6 +289,12 @@ fn tool_info(tool: Tool) -> (&'static str, &'static str, Hotkey, &'static str) {
             "Draw face",
             Hotkey::key('P'),
             "Click the corners of a new face — on points of the mesh, or beside it. Click the first again, double-click or press Enter to close it",
+        ),
+        Tool::Line => (
+            "mesh-line",
+            "Line",
+            Hotkey::key('G'),
+            "Click point after point: each joined to the one before by a line, the lines a curve of the subdivision (smooth, the limit curve). Double-click to end; one click leaves a point by itself, to extrude (E) into a line",
         ),
     }
 }
@@ -330,7 +323,6 @@ fn perform(args: &MeshArgs, state: &MeshState, action: Action) -> MeshEdit {
         Action::Relax => again(What::Relax),
         Action::Inflate => again(What::Inflate),
         Action::Detach => done(ops::detach(poly, picked)),
-        Action::GridFill => again(What::GridFill),
         Action::Subdivide => done(ops::subdivide(poly, picked)),
         Action::Connect => done(ops::join(poly, picked)),
         Action::Bridge => done(ops::bridge(poly, picked)),
@@ -398,11 +390,19 @@ fn perform(args: &MeshArgs, state: &MeshState, action: Action) -> MeshEdit {
     }
 }
 
-/// The mesh without the points that are of no face: what a face left
-/// half drawn leaves.
-fn without_loose(poly: &Poly) -> Poly {
-    let used: BTreeSet<usize> = poly.faces.iter().flatten().copied().collect();
-    let loose: BTreeSet<usize> = (0..poly.points.len())
+/// The mesh without the corners `drawn` that are of no face or line:
+/// what a face left half drawn leaves.
+fn without_loose(poly: &Poly, drawn: &[usize]) -> Poly {
+    let used: BTreeSet<usize> = poly
+        .faces
+        .iter()
+        .flatten()
+        .copied()
+        .chain(poly.lines.iter().flat_map(|&(a, b)| [a, b]))
+        .collect();
+    let loose: BTreeSet<usize> = drawn
+        .iter()
+        .copied()
         .filter(|v| !used.contains(v))
         .collect();
     poly.without_points(&loose).0
@@ -422,7 +422,7 @@ impl Session {
             let next = state.with_tool(tool);
             // (The corners of a face left half drawn go.)
             if state.tool == Tool::Draw && !state.drawn.is_empty() {
-                let mesh = without_loose(&args.mesh);
+                let mesh = without_loose(&args.mesh, &state.drawn);
                 let mut next = next.with_picked(Vec::new());
                 next.tool = tool;
                 return Edit::both(
@@ -439,31 +439,50 @@ impl Session {
         .active(self.state.tool == tool)
     }
 
-    fn mode(&self, mode: Mode) -> ToolButton<MeshEdit> {
-        let (icon, label, key, hint, like) = match mode {
-            Mode::Vertex => ("mesh-points", "Points", '1', "Pick points", Item::Vertex(0)),
-            Mode::Edge => ("mesh-edges", "Edges", '2', "Pick edges", Item::Edge(0, 0)),
-            Mode::Face => ("mesh-faces", "Faces", '3', "Pick faces", Item::Face(0)),
-        };
+    /// What is picked — points, edges or faces — as one choice of
+    /// three pictures, by the keys 1, 2 and 3 too. Choosing one puts the
+    /// tool in use down.
+    fn modes(&self) -> Choice<MeshEdit> {
+        const MODES: [(Mode, &str, &str, char); 3] = [
+            (Mode::Vertex, "mesh-points", "Points", '1'),
+            (Mode::Edge, "mesh-edges", "Edges", '2'),
+            (Mode::Face, "mesh-faces", "Faces", '3'),
+        ];
         let (args, state) = (self.args.clone(), self.state.clone());
-        ToolButton::new(icon, label, Hotkey::key(key), move || {
-            // What is picked stays picked, as what it is in the new
-            // mode: the points of it, or what lies between them.
-            let points = args.mesh.points_of(&state.picked);
-            let picked = ops::items_on(&args.mesh, &points, like);
-            let mut next = state.with_picked(picked);
-            next.mode = mode;
-            next.hover = None;
-            Edit::state(next)
-        })
-        .with_hint(hint)
-        .active(self.state.mode == mode)
+        let chosen = MODES
+            .iter()
+            .position(|m| m.0 == self.state.mode)
+            .unwrap_or(2);
+        Choice::new(
+            "Pick",
+            MODES.iter().map(|m| m.2.to_owned()).collect(),
+            chosen,
+            move |k| {
+                let mode = MODES[k.min(2)].0;
+                let like = match mode {
+                    Mode::Vertex => Item::Vertex(0),
+                    Mode::Edge => Item::Edge(0, 0),
+                    Mode::Face => Item::Face(0),
+                };
+                // What is picked stays picked, as what it is in the new
+                // mode: the points of it, or what lies between them.
+                let points = args.mesh.points_of(&state.picked);
+                let picked = ops::items_on(&args.mesh, &points, like);
+                let mut next = state.with_tool(Tool::Select).with_picked(picked);
+                next.mode = mode;
+                next.hover = None;
+                Edit::state(next)
+            },
+        )
+        .with_icon(None)
+        .with_icons(MODES.iter().map(|m| Some(m.1)).collect())
+        .with_hotkeys(MODES.iter().map(|m| Some(Hotkey::key(m.3))).collect())
     }
 
     fn primitive(&self, kind: Primitive) -> ToolButton<MeshEdit> {
         let (icon, key) = match kind {
             Primitive::Box => ("mesh-box", '4'),
-            Primitive::Grid => ("grid", '5'),
+            Primitive::Plane => ("mesh-plane", '5'),
             Primitive::Cylinder => ("mesh-cylinder", '6'),
             Primitive::Cone => ("mesh-cone", '7'),
             Primitive::Sphere => ("mesh-sphere", '8'),
@@ -471,17 +490,11 @@ impl Session {
         };
         let (args, state) = (self.args.clone(), self.state.clone());
         ToolButton::new(icon, kind.label(), Hotkey::shift(key), move || {
-            let mut last = Last::new(What::Add(kind), &args.mesh, &[]);
-            // As large as what is there, about.
-            last.amount = if args.mesh.faces.is_empty() {
-                2.0
-            } else {
-                (args.mesh.size() / 2.0 * 100.0).round() / 100.0
-            };
+            let last = Last::new(What::Add(kind), &args.mesh, &[]);
             session::redo(&args, &state.with_tool(Tool::Select), last)
         })
         .with_hint(format!(
-            "Add a {} to the mesh; then type its size and how many pieces it is cut in",
+            "Add a {} to the mesh, 10 mm across; then type its size and how many pieces it is cut in",
             kind.label().to_lowercase()
         ))
     }
@@ -571,20 +584,6 @@ impl Session {
                 }));
                 "Relax"
             }
-            What::GridFill => {
-                let span = if last.count == 0 {
-                    (last.base.edges_of(&last.picked).len() / 4).max(1)
-                } else {
-                    last.count
-                };
-                fields.push(field("Span", span as f64, |l, x| {
-                    l.count = (x.round() as usize).max(1);
-                }));
-                fields.push(field("Turn", last.turn as f64, |l, x| {
-                    l.turn = x.round().max(0.0) as usize;
-                }));
-                "Grid fill"
-            }
             What::Add(kind) => {
                 fields.push(field("Size", last.amount, |l, x| l.amount = x.abs()));
                 fields.push(field("Pieces", last.count as f64, |l, x| {
@@ -629,34 +628,17 @@ impl Session {
     }
 
     /// The ribbon: what is picked, the tools, what is done to the
-    /// mesh, and how it is made a body.
+    /// mesh, the subdivision's own, and how it is made a body.
     pub(crate) fn ribbon(&self) -> Widget<MeshEdit> {
         let group = |label: &str, tools: Vec<ToolButton<MeshEdit>>| -> Widget<MeshEdit> {
             Group::new(label, tools.into_iter().map(Widget::from).collect()).into()
         };
         let mut children: Vec<Widget<MeshEdit>> = vec![self.status().into()];
-        let mut select = vec![
-            self.tool(Tool::Select),
-            self.mode(Mode::Vertex),
-            self.mode(Mode::Edge),
-            self.mode(Mode::Face),
-        ];
-        select.extend(
-            [
-                Action::All,
-                Action::Invert,
-                Action::Linked,
-                Action::Loop,
-                Action::Ring,
-                Action::Grow,
-                Action::Shrink,
-            ]
-            .map(|a| self.action(a)),
-        );
-        children.push(group("Select", select));
+        children.push(Group::new("Select", vec![self.modes().into()]).into());
         let mut add: Vec<ToolButton<MeshEdit>> =
             Primitive::ALL.map(|kind| self.primitive(kind)).to_vec_of();
         add.push(self.tool(Tool::Draw));
+        add.push(self.tool(Tool::Line));
         if self.state.tool == Tool::Draw && self.state.drawn.len() >= 3 {
             add.push(self.action(Action::CloseFace));
         }
@@ -671,7 +653,6 @@ impl Session {
                 Action::Connect,
                 Action::Bridge,
                 Action::Fill,
-                Action::GridFill,
             ]
             .map(|a| self.action(a)),
         );
@@ -688,12 +669,11 @@ impl Session {
             .map(|a| self.action(a))
             .to_vec_of(),
         ));
-        let mut shape = vec![self.tool(Tool::Scale)];
-        shape.extend(
+        children.push(group(
+            "Shape",
             [
                 Action::Relax,
                 Action::Flatten,
-                Action::Crease,
                 Action::Duplicate,
                 Action::Detach,
                 Action::Inflate,
@@ -704,18 +684,34 @@ impl Session {
                 Action::Quads,
                 Action::Poke,
             ]
-            .map(|a| self.action(a)),
-        );
-        children.push(group("Shape", shape));
+            .map(|a| self.action(a))
+            .to_vec_of(),
+        ));
         if let Some(last) = self.last_fields() {
             children.push(last.into());
         }
+        // The subdivision's own: which edges stay sharp, and how fine
+        // its surface is made.
+        let mut subd: Vec<Widget<MeshEdit>> = vec![self.action(Action::Crease).into()];
+        if self.args.smooth {
+            let args = self.args.clone();
+            subd.push(
+                NumericInput::integer("Finer", self.args.finer as i64, move |x: i64| {
+                    Edit::args(MeshArgs {
+                        finer: x.clamp(0, 3) as usize,
+                        ..(*args).clone()
+                    })
+                })
+                .into(),
+            );
+        }
+        children.push(Group::new("SubD", subd).into());
         // What is made of it.
         let mut surface = vec![self.toggle(
             "subd",
             "Smooth",
             Hotkey::key('H'),
-            "The body is the smooth surface the mesh controls; off: its flat faces",
+            "The body is the smooth surface the mesh controls (and its lines' curves the limit curves); off: its flat faces and straight lines",
             self.args.smooth,
             |args| MeshArgs {
                 smooth: !args.smooth,
@@ -758,20 +754,7 @@ impl Session {
         if self.args.mirror.contains(&true) {
             surface.push(self.action(Action::ApplyMirror));
         }
-        let mut surface: Vec<Widget<MeshEdit>> = surface.into_iter().map(Widget::from).collect();
-        if self.args.smooth {
-            let args = self.args.clone();
-            surface.push(
-                NumericInput::integer("Finer", self.args.finer as i64, move |x: i64| {
-                    Edit::args(MeshArgs {
-                        finer: x.clamp(0, 3) as usize,
-                        ..(*args).clone()
-                    })
-                })
-                .into(),
-            );
-        }
-        children.push(Group::new("Surface", surface).into());
+        children.push(group("Surface", surface));
         // How it moves.
         let state = self.state.clone();
         let axes = Choice::new(
@@ -787,29 +770,50 @@ impl Session {
         )
         .with_icons(vec![Some("gizmo-world"), Some("gizmo-normal")]);
         let state = self.state.clone();
-        let snap = NumericInput::new("Step", self.state.snap, move |x: f64| {
-            let mut next = (*state).clone();
-            next.snap = x.max(0.0);
-            Edit::state(next)
-        });
-        let state = self.state.clone();
         let falloff = NumericInput::new("Falloff", self.state.falloff, move |x: f64| {
             let mut next = (*state).clone();
             next.falloff = x.max(0.0);
             Edit::state(next)
         });
-        children.push(Group::new("Move", vec![axes.into(), snap.into(), falloff.into()]).into());
+        children.push(Group::new("Move", vec![axes.into(), falloff.into()]).into());
         workpiece_core::widgets::HBox::new(children).into()
     }
 
-    /// What the context menu offers for what is picked.
+    /// What the context menu offers: the select tool back (Esc), what
+    /// picks more or less (by their keys too), and what is done to what
+    /// is picked.
     pub(crate) fn menu(&self) -> Vec<ToolButton<MeshEdit>> {
-        let actions: &[Action] = match self.state.picked.first() {
+        let mut menu = Vec::new();
+        if self.state.tool != Tool::Select {
+            menu.push(self.tool(Tool::Select));
+        }
+        let picks: &[Action] = match self.state.picked.first() {
             None => &[Action::All],
+            Some(Item::Edge(..)) => &[
+                Action::All,
+                Action::Invert,
+                Action::Loop,
+                Action::Ring,
+                Action::Linked,
+                Action::Grow,
+                Action::Shrink,
+            ],
+            Some(_) => &[
+                Action::All,
+                Action::Invert,
+                Action::Linked,
+                Action::Grow,
+                Action::Shrink,
+            ],
+        };
+        let actions: &[Action] = match self.state.picked.first() {
+            None => &[],
             Some(Item::Vertex(_)) => &[
+                Action::Extrude,
                 Action::Connect,
                 Action::Merge,
                 Action::Fill,
+                Action::Crease,
                 Action::Dissolve,
                 Action::Delete,
                 Action::Flatten,
@@ -817,8 +821,6 @@ impl Session {
             Some(Item::Edge(..)) => &[
                 Action::Extrude,
                 Action::Bevel,
-                Action::Loop,
-                Action::Ring,
                 Action::Bridge,
                 Action::Fill,
                 Action::Crease,
@@ -837,7 +839,8 @@ impl Session {
                 Action::Flip,
             ],
         };
-        actions.iter().map(|&a| self.action(a)).collect()
+        menu.extend(actions.iter().chain(picks).map(|&a| self.action(a)));
+        menu
     }
 }
 
@@ -872,6 +875,12 @@ pub(crate) fn icons(r: &mut workpiece_core::Registry) {
     r.icon("mesh-sphere", include_str!("../icons/mesh-sphere.svg"));
     r.icon("mesh-torus", include_str!("../icons/mesh-torus.svg"));
     r.icon("mesh-draw", include_str!("../icons/mesh-draw.svg"));
+    r.icon("mesh-line", include_str!("../icons/mesh-line.svg"));
+    r.icon("mesh-plane", include_str!("../icons/mesh-plane.svg"));
+    r.icon("snap", include_str!("../icons/snap.svg"));
+    for kind in workpiece_core::handles::SnapKind::ALL {
+        r.icon(kind.icon(), snap_icon(kind));
+    }
     r.icon("mesh-extrude", include_str!("../icons/mesh-extrude.svg"));
     r.icon("mesh-inset", include_str!("../icons/mesh-inset.svg"));
     r.icon("mesh-bevel", include_str!("../icons/mesh-bevel.svg"));
@@ -884,15 +893,10 @@ pub(crate) fn icons(r: &mut workpiece_core::Registry) {
     r.icon("mesh-connect", include_str!("../icons/mesh-connect.svg"));
     r.icon("mesh-bridge", include_str!("../icons/mesh-bridge.svg"));
     r.icon("mesh-fill", include_str!("../icons/mesh-fill.svg"));
-    r.icon(
-        "mesh-grid-fill",
-        include_str!("../icons/mesh-grid-fill.svg"),
-    );
     r.icon("mesh-dissolve", include_str!("../icons/mesh-dissolve.svg"));
     r.icon("mesh-merge", include_str!("../icons/mesh-merge.svg"));
     r.icon("mesh-collapse", include_str!("../icons/mesh-collapse.svg"));
     r.icon("mesh-weld", include_str!("../icons/mesh-weld.svg"));
-    r.icon("mesh-scale", include_str!("../icons/mesh-scale.svg"));
     r.icon("mesh-relax", include_str!("../icons/mesh-relax.svg"));
     r.icon("mesh-flatten", include_str!("../icons/mesh-flatten.svg"));
     r.icon("mesh-crease", include_str!("../icons/mesh-crease.svg"));
@@ -918,4 +922,19 @@ pub(crate) fn icons(r: &mut workpiece_core::Registry) {
         "mesh-apply-mirror",
         include_str!("../icons/mesh-apply-mirror.svg"),
     );
+}
+
+/// The icon of a kind of snap.
+fn snap_icon(kind: workpiece_core::handles::SnapKind) -> &'static str {
+    use workpiece_core::handles::SnapKind;
+    match kind {
+        SnapKind::Point => include_str!("../icons/snap-point.svg"),
+        SnapKind::Middle => include_str!("../icons/snap-middle.svg"),
+        SnapKind::Centre => include_str!("../icons/snap-centre.svg"),
+        SnapKind::Quad => include_str!("../icons/snap-quad.svg"),
+        SnapKind::Crossing => include_str!("../icons/snap-crossing.svg"),
+        SnapKind::Perpendicular => include_str!("../icons/snap-perpendicular.svg"),
+        SnapKind::Edge => include_str!("../icons/snap-edge.svg"),
+        SnapKind::Grid => include_str!("../icons/snap-grid.svg"),
+    }
 }

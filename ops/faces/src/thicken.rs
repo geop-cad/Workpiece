@@ -136,6 +136,7 @@ impl Operation for Thicken {
         let mut found = vec![false; picked.len()];
         let mut whole: Option<Solid> = None;
         let mut used_up = Vec::new();
+        let mut sheets: Vec<(Solid, Vec<usize>, String)> = Vec::new();
         // (Only the bodies that what was picked is of are read.)
         let mut owners: Vec<_> = picked
             .iter()
@@ -191,6 +192,43 @@ impl Operation for Thicken {
                     thick,
                 ));
             }
+            // (Surfaces are thickened together, sewn where they meet:
+            // below, all at once.)
+            if kind == BodyKind::Sheet {
+                sheets.push((it, faces, name));
+                continue;
+            }
+            let made = workpiece_shape::thick::thicken(&it, &faces, distance, both, args.sharp)
+                .with_context(|| format!("thickening {name}"))?;
+            whole = Some(match whole {
+                None => made,
+                Some(sofar) => combine(Op::Union, &sofar, &made)?.solid,
+            });
+        }
+        // The surfaces: one of them as it is; more, sewn into one first,
+        // so that where they meet the thickness runs on without a seam.
+        let sheet = match sheets.len() {
+            0 => None,
+            1 => sheets.pop(),
+            _ => {
+                let pieces: Vec<Solid> = sheets
+                    .iter()
+                    .map(|(it, faces, _)| workpiece_shape::faces_of(it, faces))
+                    .collect();
+                let size = pieces
+                    .iter()
+                    .map(|p| {
+                        let (lo, hi) = p.extent();
+                        (hi - lo).length()
+                    })
+                    .fold(0.0, f64::max);
+                let (sewn, _) = workpiece_boolean::stitched(&pieces, size * 1e-6)
+                    .context("sewing the surfaces to thicken")?;
+                let all = (0..sewn.faces.len()).collect();
+                Some((sewn, all, "the surfaces".to_owned()))
+            }
+        };
+        if let Some((it, faces, name)) = sheet {
             let made = workpiece_shape::thick::thicken(&it, &faces, distance, both, args.sharp)
                 .with_context(|| format!("thickening {name}"))?;
             whole = Some(match whole {

@@ -5,9 +5,9 @@ use workpiece_ops_testing::*;
 use workpiece_shape::Combine;
 
 #[test]
-fn surfaces_are_copied_sewn_and_taken_apart() -> anyhow::Result<()> {
+fn faces_are_copied_by_an_offset_of_nothing() -> anyhow::Result<()> {
     use workpiece_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
-    let act = |b: &mut Standalone, id: &str, way: SurfaceWay, picked: &[&str]| {
+    let act = |b: &mut Standalone, id: &str, way: SurfaceWay, picked: &[&str], by: f64| {
         Surface {
             id: id.into(),
             args: SurfaceArgs {
@@ -16,7 +16,7 @@ fn surfaces_are_copied_sewn_and_taken_apart() -> anyhow::Result<()> {
                     .iter()
                     .map(|p| Source::Topology((*p).to_owned()).into())
                     .collect(),
-                distance: Measure::new(0.5),
+                distance: Measure::new(by),
                 ..SurfaceArgs::default()
             },
         }
@@ -31,8 +31,9 @@ fn surfaces_are_copied_sewn_and_taken_apart() -> anyhow::Result<()> {
     act(
         &mut b,
         "skin",
-        SurfaceWay::Copy,
+        SurfaceWay::Offset,
         &["base/top", "base/front"],
+        0.0,
     )?;
     check(&b);
     assert_eq!(
@@ -41,15 +42,8 @@ fn surfaces_are_copied_sewn_and_taken_apart() -> anyhow::Result<()> {
     );
     let skin = workpiece_boolean::read_sheet(&b.world.topo, body(&b, "skin"))?;
     assert_eq!(skin.edges.len(), 7);
-    // All of the box as a surface, taken apart into six, and sewn again:
-    // closed all around, a solid of the box's volume.
-    act(&mut b, "all", SurfaceWay::Copy, &["base"])?;
-    act(&mut b, "piece", SurfaceWay::Unstitch, &["all"])?;
-    check(&b);
-    let pieces: Vec<String> = (1..=6).map(|k| format!("piece/{k}")).collect();
-    let pieces: Vec<&str> = pieces.iter().map(String::as_str).collect();
-    assert!(pieces.iter().all(|p| faces(&b, p) == Some(1)));
-    act(&mut b, "again", SurfaceWay::Stitch, &pieces)?;
+    // All of the box copied: closed all around, a solid of its volume.
+    act(&mut b, "again", SurfaceWay::Offset, &["base"], 0.0)?;
     check(&b);
     assert_eq!(kind(&b, "again"), Some(BodyKind::Solid));
     let again = workpiece_boolean::read(&b.world.topo, body(&b, "again"))?;
@@ -60,43 +54,43 @@ fn surfaces_are_copied_sewn_and_taken_apart() -> anyhow::Result<()> {
     );
     // A surface half a unit off the solid: six faces as large as its
     // own (they do not run on to meet each other).
-    act(&mut b, "off", SurfaceWay::Offset, &["again"])?;
+    act(&mut b, "off", SurfaceWay::Offset, &["again"], 0.5)?;
     check(&b);
     assert_eq!(faces(&b, "off"), Some(6));
     let off = workpiece_boolean::read_sheet(&b.world.topo, body(&b, "off"))?;
     let area: f64 = (0..6).map(|f| workpiece_boolean::face_area(&off, f)).sum();
     close(area, 64.0, 1e-9);
     // A face deleted from the two-faced surface leaves one.
-    act(&mut b, "less", SurfaceWay::Delete, &["skin/face1"]).or_else(|_| {
-        let topo = &b.world.topo;
-        let first = topo.body_faces(body(&b, "skin")).expect("faces")[0];
-        let name = topo.name_of(first).expect("a name").to_owned();
-        act(&mut b, "less", SurfaceWay::Delete, &[&name])
-    })?;
+    let first = b.world.topo.body_faces(body(&b, "skin")).expect("faces")[0];
+    let name = b.world.topo.name_of(first).expect("a name").to_owned();
+    act(&mut b, "less", SurfaceWay::Delete, &[&name], 0.0)?;
     check(&b);
     assert_eq!(faces(&b, "skin"), Some(1));
     Ok(())
 }
 
 #[test]
-fn flat_holes_of_surfaces_are_filled() -> anyhow::Result<()> {
-    use workpiece_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
-    // A tube of radius 0.5, 2 long, open at both ends: filled, a rod.
+fn flat_holes_are_filled_by_a_boundary_into_a_solid() -> anyhow::Result<()> {
+    use workpiece_ops_surface::{Boundary, BoundaryArgs, BoundarySide};
+    // A tube of radius 0.5, 2 long, open at both ends: each rim (one
+    // round edge) filled flat and sewn to the tube; both, a rod.
     let mut b = Standalone::new();
     sketch(&mut b, "s", xy(), None, &[([0.0, 0.0], 0.5)])?;
     let mut tube = Extrude::of("tube", Some("s".into()), true);
     tube.args.distance = Measure::new(2.0);
     tube.apply(&mut b)?;
-    Surface {
-        id: "fill".into(),
-        args: SurfaceArgs {
-            way: SurfaceWay::Fill,
-            picked: vec![Source::Topology("tube".into()).into()],
-            ..SurfaceArgs::default()
-        },
+    let rims = free_edges(&b, "tube");
+    assert_eq!(rims.len(), 2);
+    for (k, rim) in rims.into_iter().enumerate() {
+        Boundary {
+            id: format!("lid{k}"),
+            args: BoundaryArgs {
+                sides: vec![BoundarySide::free(rim.into())],
+            },
+        }
+        .apply(&mut b)?;
+        check(&b);
     }
-    .apply(&mut b)?;
-    check(&b);
     assert_eq!(
         b.world.topo.body(body(&b, "tube")).map(|b| b.kind),
         Some(BodyKind::Solid)
@@ -107,6 +101,84 @@ fn flat_holes_of_surfaces_are_filled() -> anyhow::Result<()> {
         PI * 0.25 * 2.0,
         1e-9,
     );
+    Ok(())
+}
+
+#[test]
+fn a_face_is_split_by_a_sketch_and_by_curves_on_it() -> anyhow::Result<()> {
+    use workpiece_ops_surface::{
+        CurveProjection, CurveProjectionArgs, SplitBy, Surface, SurfaceArgs, SurfaceWay,
+    };
+    let area = |b: &Standalone, name: &str| -> anyhow::Result<Vec<f64>> {
+        let sheet = workpiece_boolean::read_sheet(&b.world.topo, body(b, name))?;
+        Ok((0..sheet.faces.len())
+            .map(|f| workpiece_boolean::face_area(&sheet, f))
+            .collect())
+    };
+    let split = |b: &mut Standalone, by: SplitBy, sketch: bool, curves: &[&str]| {
+        Surface {
+            id: "cut".into(),
+            args: SurfaceArgs {
+                way: SurfaceWay::Split,
+                split: by,
+                sketch: sketch.then(|| Source::Profile("circle".into()).into()),
+                curves: curves
+                    .iter()
+                    .map(|c| Source::Topology((*c).to_owned()).into())
+                    .collect(),
+                picked: vec![Source::Topology("skin".into()).into()],
+                ..SurfaceArgs::default()
+            },
+        }
+        .apply(b)
+    };
+    // The top of the 4 × 4 × 2 box as a surface, and a circle of
+    // radius 1 sketched below it: thrown up onto it, the top is two
+    // faces, the disc and the rest, as large as it was together.
+    let start = |b: &mut Standalone| -> anyhow::Result<()> {
+        base(b)?;
+        sketch(b, "circle", xy(), None, &[([0.5, 0.0], 1.0)])?;
+        Surface {
+            id: "skin".into(),
+            args: SurfaceArgs {
+                way: SurfaceWay::Offset,
+                picked: vec![Source::Topology("base/top".into()).into()],
+                distance: Measure::new(0.0),
+                ..SurfaceArgs::default()
+            },
+        }
+        .apply(b)
+    };
+    let mut b = Standalone::new();
+    start(&mut b)?;
+    split(&mut b, SplitBy::Sketch, true, &[])?;
+    check(&b);
+    let mut faces = area(&b, "skin")?;
+    faces.sort_by(f64::total_cmp);
+    assert_eq!(faces.len(), 2);
+    close(faces[0], PI, 1e-6);
+    close(faces[0] + faces[1], 16.0, 1e-6);
+    // The same from the circle thrown onto the top first, as a curve.
+    let mut b = Standalone::new();
+    start(&mut b)?;
+    let top = b.world.topo.body_faces(body(&b, "skin")).expect("faces")[0];
+    let top = b.world.topo.name_of(top).expect("a name").to_owned();
+    CurveProjection {
+        id: "ring".into(),
+        args: CurveProjectionArgs {
+            onto: vec![Source::Topology(top).into()],
+            curves: vec![Source::Profile("circle".into()).into()],
+            ..Default::default()
+        },
+    }
+    .apply(&mut b)?;
+    split(&mut b, SplitBy::Curves, false, &["ring"])?;
+    check(&b);
+    let mut faces = area(&b, "skin")?;
+    faces.sort_by(f64::total_cmp);
+    assert_eq!(faces.len(), 2);
+    close(faces[0], PI, 1e-4);
+    close(faces[0] + faces[1], 16.0, 1e-6);
     Ok(())
 }
 
@@ -174,7 +246,7 @@ fn surfaces_run_on_and_go_back_to_what_they_were() -> anyhow::Result<()> {
     // around, it is 6 × 6.
     let mut b = Standalone::new();
     base(&mut b)?;
-    act(&mut b, "skin", SurfaceWay::Copy, "base/top", 0.0)?;
+    act(&mut b, "skin", SurfaceWay::Offset, "base/top", 0.0)?;
     act(&mut b, "wider", SurfaceWay::Extend, "skin", 1.0)?;
     check(&b);
     close(area(&b, "skin")?, 36.0, 1e-6);
@@ -187,9 +259,18 @@ fn surfaces_run_on_and_go_back_to_what_they_were() -> anyhow::Result<()> {
     hole.args.distance = Measure::new(4.0);
     hole.args.combine = Combine::Cut;
     hole.apply(&mut b)?;
-    act(&mut b, "skin", SurfaceWay::Copy, "base/top", 0.0)?;
+    act(&mut b, "skin", SurfaceWay::Offset, "base/top", 0.0)?;
     close(area(&b, "skin")?, 16.0 - PI * 0.25, 1e-9);
-    act(&mut b, "all", SurfaceWay::Untrim, "skin", 0.0)?;
+    Surface {
+        id: "all".into(),
+        args: SurfaceArgs {
+            way: SurfaceWay::Extend,
+            whole: true,
+            picked: vec![Source::Topology("skin".into()).into()],
+            ..SurfaceArgs::default()
+        },
+    }
+    .apply(&mut b)?;
     check(&b);
     close(area(&b, "skin")?, 16.0, 1e-9);
     Ok(())
@@ -245,7 +326,7 @@ fn four_edges_bound_a_surface() -> anyhow::Result<()> {
 }
 
 #[test]
-fn surfaces_are_trimmed_and_split_by_planes() -> anyhow::Result<()> {
+fn surfaces_are_split_by_planes_and_trimmed_by_a_delete() -> anyhow::Result<()> {
     use workpiece_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
     let act = |b: &mut Standalone, id: &str, way: SurfaceWay, picked: &str, plane: bool| {
         Surface {
@@ -254,8 +335,9 @@ fn surfaces_are_trimmed_and_split_by_planes() -> anyhow::Result<()> {
                 way,
                 picked: vec![Source::Topology(picked.to_owned()).into()],
                 distance: Measure::new(0.0),
+                split: workpiece_ops_surface::SplitBy::Plane,
                 plane: plane.then(|| Reference::frame_axis(ORIGIN, Axis::X)),
-                flip: false,
+                ..SurfaceArgs::default()
             },
         }
         .apply(b)
@@ -270,21 +352,22 @@ fn surfaces_are_trimmed_and_split_by_planes() -> anyhow::Result<()> {
     // plane x = 0, half of it is left; split, both halves are.
     let mut b = Standalone::new();
     base(&mut b)?;
-    act(&mut b, "skin", SurfaceWay::Copy, "base/top", false)?;
+    act(&mut b, "skin", SurfaceWay::Offset, "base/top", false)?;
     let whole = area(&b, "skin")?;
     act(&mut b, "cut", SurfaceWay::Split, "skin", true)?;
     check(&b);
     close(area(&b, "skin")? + area(&b, "cut")?, whole, 1e-9);
     let behind = area(&b, "skin")?;
     assert!(behind > 0.0 && behind < whole);
-    // A tube of radius 0.5, 2 long, about z: trimmed to the plane
-    // x = 0, half of its wall is left.
+    // A tube of radius 0.5, 2 long, about z: split by the plane x = 0
+    // and what is in front deleted, half of its wall is left.
     let mut t = Standalone::new();
     sketch(&mut t, "s", xy(), None, &[([0.0, 0.0], 0.5)])?;
     let mut tube = Extrude::of("tube", Some("s".into()), true);
     tube.args.distance = Measure::new(2.0);
     tube.apply(&mut t)?;
-    act(&mut t, "half", SurfaceWay::Trim, "tube", true)?;
+    act(&mut t, "half", SurfaceWay::Split, "tube", true)?;
+    act(&mut t, "gone", SurfaceWay::Delete, "half", false)?;
     check(&t);
     close(area(&t, "tube")?, PI, 1e-6);
     // The trimmed tube moved 5 along x, as a body is: as large, and
@@ -300,14 +383,6 @@ fn surfaces_are_trimmed_and_split_by_planes() -> anyhow::Result<()> {
     close(area(&t, "tube")?, PI, 1e-6);
     let moved = workpiece_boolean::read_sheet(&t.world.topo, body(&t, "tube"))?;
     assert!(moved.extent().0.x > 4.0);
-    act(&mut b, "gone", SurfaceWay::Trim, "cut", true)?;
-    assert!(
-        b.world
-            .topo
-            .resolve::<workpiece_core::world::topo::BodyId>("cut")
-            .is_none(),
-        "all of it was in front"
-    );
     Ok(())
 }
 
@@ -386,13 +461,34 @@ fn curves_in_space_are_bodies_of_their_own() -> anyhow::Result<()> {
     assert!(leaves.normalize().dot(arrives.normalize()) > 1.0 - 1e-9);
     let along = |d: Point3| EndHeld {
         along: Some(d),
-        bend: None,
+        ..EndHeld::default()
     };
     let held = through(&points, false, [along(Point3::Z), along(-Point3::X)])?;
     let (t0, t1) = held.domain();
     let (leaves, arrives) = (held.derivative_at(t0).1, held.derivative_at(t1).1);
     assert!(leaves.normalize().dot(Point3::Z) > 1.0 - 1e-9);
     assert!(arrives.normalize().dot(Point3::X).abs() > 1.0 - 1e-9);
+    // Its start flipped: it leaves the other way along z, through the
+    // same points.
+    let flipped = EndHeld {
+        flip: true,
+        ..along(Point3::Z)
+    };
+    let back = through(&points, false, [flipped, along(-Point3::X)])?;
+    assert!(back.derivative_at(t0).1.normalize().dot(-Point3::Z) > 1.0 - 1e-9);
+    assert!(back.point_at(t1).distance(points[3]) < 1e-9);
+    // Fuller (twice the length): along z all the same, but further out
+    // before it turns to its points.
+    let fuller = EndHeld {
+        length: 2.0,
+        ..along(Point3::Z)
+    };
+    let full = through(&points, false, [fuller, along(-Point3::X)])?;
+    let d = full.derivative_at(t0).1;
+    assert!(d.normalize().dot(Point3::Z) > 1.0 - 1e-9);
+    close(d.length(), 2.0 * leaves.length(), 1e-6);
+    let early = (t1 - t0) * 0.05;
+    assert!(full.point_at(t0 + early).z > held.point_at(t0 + early).z);
     let wire = |b: &Standalone, name: &str| -> Vec<(Point3, Point3)> {
         let topo = &b.world.topo;
         let it = topo.body(body(b, name)).expect("the curve");
@@ -589,12 +685,12 @@ fn curves_in_space_are_bodies_of_their_own() -> anyhow::Result<()> {
 #[test]
 fn a_surface_step_saved_with_its_way_beside_its_arguments_still_reads() -> anyhow::Result<()> {
     use workpiece_ops_surface::{Surface, SurfaceWay};
-    let old = r#"{"id":"s","way":"Stitch","args":{"picked":[]}}"#;
+    let old = r#"{"id":"s","way":"Delete","args":{"picked":[]}}"#;
     let read: Surface = serde_json::from_str(old)?;
-    assert_eq!(read.args.way, SurfaceWay::Stitch);
+    assert_eq!(read.args.way, SurfaceWay::Delete);
     // As it is written now, and read back the same.
     let text = serde_json::to_string(&read)?;
-    assert!(!text.contains(r#""way":"Stitch","args""#), "{text}");
+    assert!(!text.contains(r#""way":"Delete","args""#), "{text}");
     assert_eq!(serde_json::from_str::<Surface>(&text)?, read);
     Ok(())
 }
@@ -973,10 +1069,12 @@ fn a_curve_through_points_is_held_at_its_ends() -> anyhow::Result<()> {
             start: CurveEnd {
                 way: EndWay::Tangent,
                 to: Some(edge[0].clone().into()),
+                ..Default::default()
             },
             end: CurveEnd {
                 way: EndWay::Curvature,
                 to: Some(Source::Topology("drum/top-rim".into()).into()),
+                ..Default::default()
             },
             ..Default::default()
         },
@@ -1003,10 +1101,12 @@ fn a_curve_through_points_is_held_at_its_ends() -> anyhow::Result<()> {
             start: CurveEnd {
                 way: EndWay::Normal,
                 to: Some(Source::Topology("base/top".into()).into()),
+                ..Default::default()
             },
             end: CurveEnd {
                 way: EndWay::InFace,
                 to: Some(Source::Topology("base/top".into()).into()),
+                ..Default::default()
             },
             ..Default::default()
         },
@@ -1084,7 +1184,8 @@ fn a_five_sided_hole_is_filled_running_on_from_its_walls() -> anyhow::Result<()>
     Surface {
         id: "cup".into(),
         args: SurfaceArgs {
-            way: SurfaceWay::Copy,
+            way: SurfaceWay::Offset,
+            distance: Measure::new(0.0),
             picked: kept.into_iter().map(Into::into).collect(),
             ..Default::default()
         },
@@ -1092,28 +1193,35 @@ fn a_five_sided_hole_is_filled_running_on_from_its_walls() -> anyhow::Result<()>
     .apply(&mut b)?;
     let rim = free_edges(&b, "cup");
     assert_eq!(rim.len(), 5);
-    // Filled, tangent to the walls all around: a dome.
+    // Filled, tangent to the walls all around: a dome, sewn to the cup
+    // into a solid.
     Boundary {
         id: "lid".into(),
         args: BoundaryArgs {
             sides: rim
                 .iter()
                 .map(|edge| BoundarySide {
-                    edge: edge.clone().into(),
                     way: Continuity::Tangent,
-                    face: None,
+                    ..BoundarySide::free(edge.clone().into())
                 })
                 .collect(),
         },
     }
     .apply(&mut b)?;
     check(&b);
-    let lid = workpiece_boolean::read_sheet(&b.world.topo, body(&b, "lid"))?;
-    let cup = workpiece_boolean::read_sheet(&b.world.topo, body(&b, "cup"))?;
+    assert_eq!(
+        b.world.topo.body(body(&b, "cup")).map(|b| b.kind),
+        Some(BodyKind::Solid)
+    );
+    let cup = workpiece_boolean::read(&b.world.topo, body(&b, "cup"))?;
+    let lid = cup.clone();
+    let at = (lid.faces.iter())
+        .position(|f| f.name.as_deref() == Some("lid/face"))
+        .expect("the lid's face");
     // Along the rim the lid leaves as the walls do: its normal along
     // theirs within 1.5° over the middle of each side, and it rises
     // above the rim.
-    let face = &lid.faces[0];
+    let face = &lid.faces[at];
     let mut worst = 0.0_f64;
     for step in &face.loops[0] {
         let workpiece_boolean::model::Walk::Edge { edge, .. } = step.walk else {
@@ -1138,29 +1246,11 @@ fn a_five_sided_hole_is_filled_running_on_from_its_walls() -> anyhow::Result<()>
     assert!(worst < 1.5, "{worst}°");
     let top = face.surface.point_at(0.5, 0.5);
     assert!(top.z > 3.3, "{top}");
-    // And sewn to the cup: a solid.
-    Surface {
-        id: "closed".into(),
-        args: SurfaceArgs {
-            way: SurfaceWay::Stitch,
-            picked: vec![
-                Source::Topology("cup".into()).into(),
-                Source::Topology("lid".into()).into(),
-            ],
-            ..Default::default()
-        },
-    }
-    .apply(&mut b)?;
-    check(&b);
-    assert_eq!(
-        b.world.topo.body(body(&b, "closed")).map(|b| b.kind),
-        Some(BodyKind::Solid)
-    );
     Ok(())
 }
 
 #[test]
-fn six_sheets_turned_any_way_are_stitched_into_an_outward_solid() -> anyhow::Result<()> {
+fn six_sheets_turned_any_way_are_copied_into_an_outward_solid() -> anyhow::Result<()> {
     use workpiece_ops_surface::{Surface, SurfaceArgs, SurfaceWay};
     // The box's six faces, each a surface of its own, three of them
     // turned to face in.
@@ -1180,7 +1270,8 @@ fn six_sheets_turned_any_way_are_stitched_into_an_outward_solid() -> anyhow::Res
     Surface {
         id: "sewn".into(),
         args: SurfaceArgs {
-            way: SurfaceWay::Stitch,
+            way: SurfaceWay::Offset,
+            distance: Measure::new(0.0),
             picked: names,
             ..Default::default()
         },
@@ -1205,7 +1296,8 @@ fn a_fillet_rounds_an_edge_of_a_surface() -> anyhow::Result<()> {
     Surface {
         id: "skin".into(),
         args: SurfaceArgs {
-            way: SurfaceWay::Copy,
+            way: SurfaceWay::Offset,
+            distance: Measure::new(0.0),
             picked: vec![
                 Source::Topology("base/top".into()).into(),
                 Source::Topology("base/front".into()).into(),
@@ -1324,5 +1416,89 @@ fn a_loft_follows_its_guides() -> anyhow::Result<()> {
     }
     // Bulging out between the squares: more than the 16 of a prism.
     assert!(workpiece_boolean::measure(&vase).volume > 18.0);
+    Ok(())
+}
+
+#[test]
+fn edges_and_curves_in_space_are_extruded_and_revolved() -> anyhow::Result<()> {
+    use workpiece_ops_surface::{Helix, HelixArgs};
+    use workpiece_ops_sweep::Revolve;
+    let sheet_area = |b: &Standalone, name: &str| -> anyhow::Result<f64> {
+        let sheet = workpiece_boolean::read_sheet(&b.world.topo, body(b, name))?;
+        Ok((0..sheet.faces.len())
+            .map(|f| workpiece_boolean::face_area(&sheet, f))
+            .sum())
+    };
+    let mut b = Standalone::new();
+    base(&mut b)?;
+    // The box's top front edge, 4 long: on its own it lies in no plane,
+    // so it is extruded along a direction picked — y, by 3: 4 × 3.
+    let front = edges_where(&b, "base", |p, q| {
+        (p.y + 2.0).abs() < 1e-9 && (q.y + 2.0).abs() < 1e-9 && p.z > 0.9 && q.z > 0.9
+    });
+    assert_eq!(front.len(), 1);
+    let mut wall = Extrude::of("wall", None, true);
+    wall.args.curves = vec![front[0].clone().into()];
+    wall.args.distance = Measure::new(3.0);
+    let refused = wall.clone().apply(&mut b).expect_err("no direction");
+    assert!(format!("{refused:#}").contains("direction"), "{refused:#}");
+    wall.args.direction = Some(Reference::frame_axis(ORIGIN, Axis::Y));
+    anyhow::Context::context(wall.apply(&mut b), "the wall")?;
+    check(&b);
+    close(sheet_area(&b, "wall")?, 12.0, 1e-9);
+    // As a solid an open edge is refused.
+    let mut solid = Extrude::of("solid", None, false);
+    solid.args.curves = vec![front[0].clone().into()];
+    solid.args.direction = Some(Reference::frame_axis(ORIGIN, Axis::Y));
+    let refused = solid.apply(&mut b).expect_err("an open edge");
+    assert!(format!("{refused:#}").contains("surface"), "{refused:#}");
+    // An upright edge of the box (2 high, √8 from z) turned all the way
+    // about z: a cylinder's side.
+    let upright = edges_where(&b, "base", |p, q| {
+        (p.x + 2.0).abs() < 1e-9
+            && (q.x + 2.0).abs() < 1e-9
+            && (p.y + 2.0).abs() < 1e-9
+            && (q.y + 2.0).abs() < 1e-9
+    });
+    assert_eq!(upright.len(), 1);
+    let mut drum = Revolve::of("drum", None, true);
+    drum.args.curves = vec![upright[0].clone().into()];
+    drum.args.axis = Some(Reference::frame_axis(ORIGIN, Axis::Z));
+    anyhow::Context::context(drum.apply(&mut b), "the drum")?;
+    check(&b);
+    close(
+        sheet_area(&b, "drum")?,
+        2.0 * PI * 8.0_f64.sqrt() * 2.0,
+        1e-6,
+    );
+    // A helix in space, extruded along z and turned a quarter about x.
+    Helix {
+        id: "coil".into(),
+        args: HelixArgs {
+            axis: Some(Reference::frame_axis(ORIGIN, Axis::Z)),
+            radius: Measure::new(1.0),
+            pitch: Measure::new(1.0),
+            turns: Measure::new(2.0),
+            ..HelixArgs::default()
+        },
+    }
+    .apply(&mut b)?;
+    let coil = || -> Vec<Reference<workpiece_core::Anything>> {
+        vec![Source::Topology("coil".into()).into()]
+    };
+    let mut ribbon = Extrude::of("ribbon", None, true);
+    ribbon.args.curves = coil();
+    ribbon.args.direction = Some(Reference::frame_axis(ORIGIN, Axis::Z));
+    ribbon.args.distance = Measure::new(0.25);
+    anyhow::Context::context(ribbon.apply(&mut b), "the ribbon")?;
+    check(&b);
+    assert!(sheet_area(&b, "ribbon")? > 0.25 * 2.0 * PI * 2.0 * 0.99);
+    let mut turned = Revolve::of("turned", None, true);
+    turned.args.curves = coil();
+    turned.args.axis = Some(Reference::frame_axis(ORIGIN, Axis::X));
+    turned.args.angle = Measure::new(90.0);
+    anyhow::Context::context(turned.apply(&mut b), "turned")?;
+    check(&b);
+    assert!(sheet_area(&b, "turned")? > 0.0);
     Ok(())
 }

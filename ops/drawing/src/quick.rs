@@ -454,6 +454,7 @@ impl ThreeViews {
                     cut.as_ref(),
                     reach,
                 );
+                lines.retain(|(a, b, _)| !said.leaves_out(*a, *b));
                 lines.extend(said.roots);
                 lines.extend(said.ends);
                 for (at, radius, behind) in said.rounds {

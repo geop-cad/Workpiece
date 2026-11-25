@@ -2005,8 +2005,9 @@ fn callout_as_written(note: &Annotation, sheet: &Sheet, count: Option<u32>) -> A
     let Some(first) = lines.first_mut() else {
         return said;
     };
-    if sheet.thru && !outside && !first.contains(&Callout::Depth) {
-        first.push(Callout::Text(" THRU".into()));
+    let thru = Callout::Text(" THRU".into());
+    if sheet.thru && !outside && !first.contains(&Callout::Depth) && !first.contains(&thru) {
+        first.push(thru);
     }
     let n = count.map_or(had.unwrap_or(1), |n| n as usize);
     if n > 1 {

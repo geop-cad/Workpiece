@@ -476,6 +476,7 @@
           },
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "sketch1"
@@ -658,6 +659,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "bore"
@@ -1081,6 +1084,8 @@
           "areas": [],
           "caps": false,
           "combine": "Cut",
+          "curves": [],
+          "direction": null,
           "distance": 10.0,
           "extent": "ThroughBoth",
           "flip": false,
@@ -1280,6 +1285,8 @@
           "areas": [],
           "caps": false,
           "combine": "Cut",
+          "curves": [],
+          "direction": null,
           "distance": 10.0,
           "extent": "ThroughAll",
           "flip": false,

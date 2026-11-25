@@ -315,6 +315,7 @@
           },
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "hub_profile"
@@ -642,6 +643,7 @@
           },
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "tyre_profile"
@@ -668,7 +670,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 6.0
+          "size": 6.0,
+          "tangent": true
         },
         "id": "tyre_round"
       }

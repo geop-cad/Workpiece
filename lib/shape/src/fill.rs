@@ -144,24 +144,31 @@ fn least_squares(unknowns: usize, rows: &[(Vec<(usize, f64)>, f64)]) -> anyhow::
     Ok(x)
 }
 
-/// The surface over the hole `sides` go around (they meet end to end,
-/// in any order and either way along), as a sheet of one face named
-/// `{id}/face`. See the module's documentation.
-pub fn filled_over(sides: &[Side<'_>], id: &str) -> anyhow::Result<Solid> {
+/// The order `sides` are walked in around their hole, each from where
+/// the one before ends (and whether it is walked against its curve);
+/// and how large the hole is.
+fn walked(sides: &[Side<'_>]) -> anyhow::Result<(Vec<(usize, bool)>, f64)> {
     let n = sides.len();
-    ensure!(n >= 2, "a hole has two sides or more");
+    ensure!(n >= 1, "a hole has a side");
     let end = |k: usize, last: bool| {
         let (a, b) = sides[k].range;
         sides[k].curve.point_at(if last { b } else { a })
     };
-    let size = (0..n)
+    // (How far its ends are apart; of a hole of one side, its places.)
+    let mut size = (0..n)
         .flat_map(|k| [end(k, false), end(k, true)])
         .flat_map(|p| (0..n).map(move |k| (p, k)))
         .map(|(p, k)| p.distance(end(k, false)))
         .fold(0.0, f64::max);
+    if n == 1 {
+        let (a, b) = sides[0].range;
+        for i in 0..=16 {
+            let p = sides[0].curve.point_at(a + (b - a) * f64::from(i) / 16.0);
+            size = size.max(p.distance(end(0, false)));
+        }
+    }
     ensure!(size > 0.0, "the sides have some length");
     let near = size * 1e-6;
-    // Around: each from where the one before ends.
     let mut around: Vec<(usize, bool)> = vec![(0, false)];
     let mut at = end(0, true);
     let mut left: Vec<usize> = (1..n).collect();
@@ -179,6 +186,124 @@ pub fn filled_over(sides: &[Side<'_>], id: &str) -> anyhow::Result<Solid> {
         at.distance(end(0, false)) <= near,
         "the sides do not close around one hole"
     );
+    Ok((around, size))
+}
+
+/// The flat face over the hole `sides` go around, if they all lie in
+/// one plane (a hole of one side too: a closed curve), as a sheet of one
+/// face named `{id}/face`; none if they do not.
+pub fn flat_over(sides: &[Side<'_>], id: &str) -> anyhow::Result<Option<Solid>> {
+    let (around, size) = walked(sides)?;
+    let within = size * 1e-7;
+    // Places along the hole, as it is walked.
+    let mut places: Vec<Point3> = Vec::new();
+    for &(k, flipped) in &around {
+        let (a, b) = sides[k].range;
+        for i in 0..16 {
+            let f = f64::from(i) / 16.0;
+            let f = if flipped { 1.0 - f } else { f };
+            places.push(sides[k].curve.point_at(a + (b - a) * f));
+        }
+    }
+    let origin = places[0];
+    let normal: Point3 = (0..places.len())
+        .map(|k| (places[k] - origin).cross(places[(k + 1) % places.len()] - origin))
+        .sum();
+    let Some(normal) = normal.try_normalize() else {
+        return Ok(None);
+    };
+    if places
+        .iter()
+        .any(|p| (*p - origin).dot(normal).abs() > within)
+    {
+        return Ok(None);
+    }
+    // (Its normal is the way the hole is walked round: the face is on
+    // the left of its loop.)
+    let x = normal.any_orthonormal_vector();
+    let y = normal.cross(x);
+    let flat = |p: Point3| Point2::new((p - origin).dot(x), (p - origin).dot(y));
+    let (mut low, mut high) = (Point2::INFINITY, Point2::NEG_INFINITY);
+    for side in sides {
+        for p in side.curve.control_points() {
+            (low, high) = (low.min(flat(*p)), high.max(flat(*p)));
+        }
+    }
+    let pad = (high - low).length() * 0.1 + within;
+    let (low, high) = (low - Point2::splat(pad), high + Point2::splat(pad));
+    let place = |p: Point2| origin + x * p.x + y * p.y;
+    let surface = NurbsSurface::new(
+        1,
+        1,
+        vec![low.x, low.x, high.x, high.x],
+        vec![low.y, low.y, high.y, high.y],
+        2,
+        2,
+        vec![
+            place(low),
+            place(Point2::new(low.x, high.y)),
+            place(Point2::new(high.x, low.y)),
+            place(high),
+        ],
+        None,
+    )?;
+    let n = around.len();
+    let tolerance = within.max(1e-9);
+    let mut out = Solid::default();
+    for &(k, flipped) in &around {
+        let (a, b) = sides[k].range;
+        out.vertices.push(Vertex {
+            point: sides[k].curve.point_at(if flipped { b } else { a }),
+            tolerance: tolerance * 2.0,
+            name: None,
+        });
+    }
+    let mut walk = Vec::new();
+    for (s, &(k, flipped)) in around.iter().enumerate() {
+        let side = &sides[k];
+        let (from, to) = (s, (s + 1) % n);
+        let curve = &side.curve;
+        let pcurve = Curve2::new(
+            curve.degree(),
+            curve.knots().to_vec(),
+            curve.control_points().iter().map(|p| flat(*p)).collect(),
+            Some(curve.weights().to_vec()),
+        )?;
+        out.edges.push(Edge {
+            curve: curve.clone(),
+            range: side.range,
+            ends: if flipped { [to, from] } else { [from, to] },
+            tolerance,
+            name: side.name.clone(),
+            also: Vec::new(),
+        });
+        walk.push(Use {
+            walk: Walk::Edge {
+                edge: s,
+                reversed: flipped,
+            },
+            pcurve: Arc::new(pcurve),
+        });
+    }
+    out.faces.push(Face {
+        surface: Arc::new(surface),
+        outward: true,
+        loops: vec![walk],
+        tolerance,
+        name: Some(format!("{id}/face")),
+        also: Vec::new(),
+        smooth: Vec::new(),
+    });
+    Ok(Some(out))
+}
+
+/// The surface over the hole `sides` go around (they meet end to end,
+/// in any order and either way along), as a sheet of one face named
+/// `{id}/face`. See the module's documentation.
+pub fn filled_over(sides: &[Side<'_>], id: &str) -> anyhow::Result<Solid> {
+    let n = sides.len();
+    ensure!(n >= 2, "a hole has two sides or more");
+    let (around, size) = walked(sides)?;
     // Where along side `s` (in walking order) its parameter `f` (0 to 1
     // as it is walked) is, and the curve's own parameter there.
     let param = |s: usize, f: f64| {

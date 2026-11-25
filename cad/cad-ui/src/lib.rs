@@ -16,6 +16,7 @@ mod message;
 pub mod model;
 pub mod picking;
 pub mod preview;
+pub mod snap;
 pub mod view;
 
 pub use message::{CameraMove, Message, Panel, Pointer, Tab};

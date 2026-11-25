@@ -112,8 +112,17 @@ fn raised(
 
 /// The picked faces pushed out by `distance` along the way they face
 /// together, walls left behind them; or the picked edges, each with a
-/// new face beside it.
+/// new face beside it (a line: a face along it); or the picked points,
+/// each with a new point joined to it by a line — on along the line it
+/// ends, or out along the way the mesh faces there.
 pub fn extrude(poly: &Poly, picked: &[Item], distance: f64) -> Done {
+    if !picked.is_empty() && picked.iter().all(|i| matches!(i, Item::Vertex(_))) {
+        return extrude_points(poly, &poly.points_of(picked), distance);
+    }
+    let lines = poly.lines_of(picked);
+    if !lines.is_empty() {
+        return extrude_lines(poly, &lines, distance);
+    }
     let faces = poly.faces_of(picked);
     if !faces.is_empty() {
         let along: Point3 = faces.iter().map(|&f| poly.area_normal(f)).sum();
@@ -157,6 +166,68 @@ pub fn extrude(poly: &Poly, picked: &[Item], distance: f64) -> Done {
             double[&a].max(double[&b]),
         ));
     }
+    Ok((made, now))
+}
+
+/// Each of `points` with a new point `distance` from it, joined to it
+/// by a line: on along the one line it ends, else out along the way
+/// the mesh faces there (up, for a point of nothing). The new points are
+/// what is picked after.
+fn extrude_points(poly: &Poly, points: &BTreeSet<usize>, distance: f64) -> Done {
+    let normals = poly.point_normals();
+    let beside = poly.beside();
+    let mut made = poly.clone();
+    let mut now = Vec::new();
+    for &v in points {
+        let p = poly.points[v];
+        let on_line: Vec<usize> = beside[v]
+            .iter()
+            .copied()
+            .filter(|&n| poly.lines.contains(&edge(v, n)))
+            .collect();
+        let way = match on_line[..] {
+            [from] if beside[v].len() == 1 => (p - poly.points[from]).normalize_or_zero(),
+            _ => normals[v],
+        };
+        let way = if way == Point3::ZERO { Point3::Z } else { way };
+        made.points.push(p + way * distance);
+        let new = made.points.len() - 1;
+        made.lines.insert(edge(v, new));
+        now.push(Item::Vertex(new));
+    }
+    Ok((made, now))
+}
+
+/// Each of `lines` with a face along it, `distance` wide: across the
+/// line, square to it and to the way up (or along x, for a line that
+/// stands up). The far edges are what is picked after.
+fn extrude_lines(poly: &Poly, lines: &BTreeSet<Edge>, distance: f64) -> Done {
+    let mut away: BTreeMap<usize, Point3> = BTreeMap::new();
+    for &(a, b) in lines {
+        let along = (poly.points[b] - poly.points[a]).normalize_or_zero();
+        let mut out = Point3::Z.cross(along);
+        if out.length() < 1e-9 {
+            out = Point3::X;
+        }
+        *away.entry(a).or_default() += out.normalize_or_zero();
+        *away.entry(b).or_default() += out.normalize_or_zero();
+    }
+    let mut made = poly.clone();
+    let mut double = BTreeMap::new();
+    for (&v, out) in &away {
+        made.points
+            .push(poly.points[v] + out.normalize_or_zero() * distance);
+        double.insert(v, made.points.len() - 1);
+    }
+    let mut now = Vec::new();
+    for &(a, b) in lines {
+        made.add_face(vec![a, b, double[&b], double[&a]]);
+        now.push(Item::Edge(
+            double[&a].min(double[&b]),
+            double[&a].max(double[&b]),
+        ));
+    }
+    made.tidy();
     Ok((made, now))
 }
 
@@ -757,6 +828,41 @@ fn unbent(poly: &Poly, among: &BTreeSet<usize>) -> (Poly, Vec<Option<usize>>) {
 /// faces on both sides of an edge, around a point, or picked beside
 /// each other.
 pub fn dissolve(poly: &Poly, picked: &[Item]) -> Done {
+    if !poly.lines_of(picked).is_empty() {
+        return delete(poly, picked);
+    }
+    // A point in the middle of a line: the two lines at it made one.
+    let beside = poly.beside();
+    let on_lines: Vec<usize> = picked
+        .iter()
+        .filter_map(|i| match *i {
+            Item::Vertex(v) if v < poly.points.len() => Some(v),
+            _ => None,
+        })
+        .filter(|&v| {
+            beside[v].len() == 2 && beside[v].iter().all(|&n| poly.lines.contains(&edge(v, n)))
+        })
+        .collect();
+    if !on_lines.is_empty() {
+        let mut made = poly.clone();
+        for &v in &on_lines {
+            let ends: Vec<usize> = made
+                .lines
+                .iter()
+                .filter(|e| e.0 == v || e.1 == v)
+                .map(|&(a, b)| if a == v { b } else { a })
+                .collect();
+            if let [a, b] = ends[..] {
+                made.lines.remove(&edge(v, a));
+                made.lines.remove(&edge(v, b));
+                if a != b {
+                    made.lines.insert(edge(a, b));
+                }
+            }
+        }
+        let gone = on_lines.into_iter().collect();
+        return Ok((made.without_points(&gone).0, Vec::new()));
+    }
     let faces = poly.faces_of(picked);
     if !faces.is_empty() {
         let (made, new) = merged(poly, &groups(poly, &faces));
@@ -853,6 +959,25 @@ pub fn delete(poly: &Poly, picked: &[Item]) -> Done {
     if picked.is_empty() {
         return no("Pick what to delete");
     }
+    let lines = poly.lines_of(picked);
+    if !lines.is_empty() {
+        // Lines go with the points only they held.
+        let mut made = poly.clone();
+        made.lines.retain(|e| !lines.contains(e));
+        let used: BTreeSet<usize> = made
+            .faces
+            .iter()
+            .flatten()
+            .copied()
+            .chain(made.lines.iter().flat_map(|&(a, b)| [a, b]))
+            .collect();
+        let gone = lines
+            .iter()
+            .flat_map(|&(a, b)| [a, b])
+            .filter(|v| !used.contains(v))
+            .collect();
+        return Ok((made.without_points(&gone).0, Vec::new()));
+    }
     let mut faces = poly.faces_of(picked);
     let edges = poly.edges_of(picked);
     let sides = poly.edges();
@@ -927,6 +1052,12 @@ fn welded_by(poly: &Poly, to: &BTreeMap<usize, usize>, kept: &[Point3Key]) -> (P
         .map(|&(a, b)| edge(now(a), now(b)))
         .collect();
     made.creases.retain(|&(a, b)| a != b);
+    made.lines = poly
+        .lines
+        .iter()
+        .map(|&(a, b)| edge(now(a), now(b)))
+        .collect();
+    made.corners = poly.corners.iter().map(|&v| now(v)).collect();
     made.tidy();
     let gone: BTreeSet<usize> = to
         .iter()
@@ -1132,63 +1263,6 @@ pub fn fill(poly: &Poly, picked: &[Item]) -> Done {
         return no("There is nothing picked a face could be made of");
     }
     Ok((made, now.into_iter().map(Item::Face).collect()))
-}
-
-/// The hole a closed run of picked edges goes around filled with a
-/// grid of quads, `span` of them along the side the run starts with
-/// (turned on by `turn` edges).
-#[allow(clippy::needless_range_loop)]
-pub fn grid_fill(poly: &Poly, picked: &[Item], span: usize, turn: usize) -> Done {
-    let runs = Poly::runs(&poly.edges_of(picked));
-    let [(run, true)] = &runs[..] else {
-        return no("Pick the edges around one hole to fill with a grid");
-    };
-    let n = run.len();
-    if n < 4 || n % 2 == 1 {
-        return no("A grid fills a hole with an even number of edges around it");
-    }
-    let span = span.clamp(1, n / 2 - 1);
-    let other = n / 2 - span;
-    let at = |k: usize| run[(k + turn) % n];
-    let p = |k: usize| poly.points[at(k)];
-    let mut made = poly.clone();
-    // The points of the grid: those around it are the run's.
-    let mut grid = vec![vec![usize::MAX; span + 1]; other + 1];
-    for i in 0..=span {
-        grid[0][i] = at(i);
-        grid[other][i] = at(2 * span + other - i);
-    }
-    for j in 0..=other {
-        grid[j][span] = at(span + j);
-        grid[j][0] = at((n - j) % n);
-    }
-    for j in 1..other {
-        for i in 1..span {
-            let (u, v) = (i as f64 / span as f64, j as f64 / other as f64);
-            let (below, above) = (p(i), p(2 * span + other - i));
-            let (left, right) = (p((n - j) % n), p(span + j));
-            let corners = p(0) * (1.0 - u) * (1.0 - v)
-                + p(span) * u * (1.0 - v)
-                + p(span + other) * u * v
-                + p(2 * span + other) * (1.0 - u) * v;
-            let point = below * (1.0 - v) + above * v + left * (1.0 - u) + right * u - corners;
-            made.points.push(point);
-            grid[j][i] = made.points.len() - 1;
-        }
-    }
-    let mut now = Vec::new();
-    for j in 0..other {
-        for i in 0..span {
-            let ring = vec![
-                grid[j][i],
-                grid[j][i + 1],
-                grid[j + 1][i + 1],
-                grid[j + 1][i],
-            ];
-            now.push(Item::Face(made.add_face(ring)));
-        }
-    }
-    Ok((made, now))
 }
 
 /// The picked faces there twice: the copies are what is picked after,
@@ -1432,6 +1506,24 @@ pub fn flatten(poly: &Poly, picked: &[Item]) -> Done {
 /// The picked edges creased — kept sharp when the mesh is subdivided
 /// — or, if all of them are, smooth again.
 pub fn crease(poly: &Poly, picked: &[Item]) -> Done {
+    // Points of lines: corners of the curve through them.
+    let ends: BTreeSet<usize> = poly.lines.iter().flat_map(|&(a, b)| [a, b]).collect();
+    let corners: BTreeSet<usize> = picked
+        .iter()
+        .filter_map(|i| match *i {
+            Item::Vertex(v) if ends.contains(&v) => Some(v),
+            _ => None,
+        })
+        .collect();
+    if !corners.is_empty() {
+        let mut made = poly.clone();
+        if corners.iter().all(|v| poly.corners.contains(v)) {
+            made.corners.retain(|v| !corners.contains(v));
+        } else {
+            made.corners.extend(corners);
+        }
+        return Ok((made, picked.to_vec()));
+    }
     let mut edges = poly.edges_of(picked);
     for f in poly.faces_of(picked) {
         let ring = &poly.faces[f];
@@ -1440,7 +1532,7 @@ pub fn crease(poly: &Poly, picked: &[Item]) -> Done {
         }
     }
     if edges.is_empty() {
-        return no("Pick the edges to crease");
+        return no("Pick the edges to crease, or the points of lines to make corners of");
     }
     let mut made = poly.clone();
     if edges.iter().all(|e| poly.creases.contains(e)) {
@@ -1528,6 +1620,14 @@ pub fn mirrored(poly: &Poly, axes: [bool; 3], near: f64) -> Poly {
             .map(|&(a, b)| edge(image[a], image[b]))
             .collect();
         made.creases.extend(creases);
+        let lines: Vec<Edge> = made
+            .lines
+            .iter()
+            .map(|&(a, b)| edge(image[a], image[b]))
+            .collect();
+        made.lines.extend(lines);
+        let corners: Vec<usize> = made.corners.iter().map(|&v| image[v]).collect();
+        made.corners.extend(corners);
     }
     made.tidy();
     made
@@ -1555,8 +1655,8 @@ pub fn items_on(poly: &Poly, points: &BTreeSet<usize>, like: Item) -> Vec<Item> 
     match like {
         Item::Vertex(_) => points.iter().map(|&v| Item::Vertex(v)).collect(),
         Item::Edge(..) => poly
-            .edges()
-            .keys()
+            .all_edges()
+            .iter()
             .filter(|(a, b)| points.contains(a) && points.contains(b))
             .map(|&(a, b)| Item::Edge(a, b))
             .collect(),

@@ -53,7 +53,7 @@ t = housing.sketch(topo(front), id="tap_place", show_in="left")
 dot = t.dot(0, 44, "tap")
 t.point_on(dot, "v")
 t.diameter_about(dot, "u", 88)            # on the Ø88 pitch circle
-housing.hole(t, 5, depth=10, kind="Tapped", size="M5", id="tap")
+housing.hole(t, 5, depth=10, thread_depth=7.5, kind="Tapped", size="M5", id="tap")  # drilled 10, threaded 1.5 × d
 hrep = housing.build(os.path.join(HERE, "housing.wpc"))
 housing.feature_pattern([hrep.faces(where=lambda f: f["name"].startswith("tap/") and not f["flat"])[0]], 4,
                         about=axis("Y"), id="taps")

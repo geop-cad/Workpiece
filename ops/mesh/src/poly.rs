@@ -1,6 +1,7 @@
-//! The polygon mesh: points, and faces that are rings of them. Edges
-//! are what two points beside each other in a face make; they have no
-//! record of their own, but those that are creased are kept.
+//! The polygon mesh: points, faces that are rings of them, and lines —
+//! free edges, of no face. The edges of faces are what two points
+//! beside each other in a face make; they have no record of their own,
+//! but those that are creased are kept.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -36,6 +37,16 @@ pub struct Poly {
     /// The edges that stay sharp when the mesh is subdivided.
     #[serde(default)]
     pub creases: BTreeSet<Edge>,
+    /// The free edges: lines between two points that are the edge of
+    /// no face. Those that run on from each other make a curve: the
+    /// limit curve of their subdivision.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub lines: BTreeSet<Edge>,
+    /// The points where the curve of the lines through them has a
+    /// corner (a crease of a point): it runs into them and out again
+    /// sharp.
+    #[serde(default, skip_serializing_if = "BTreeSet::is_empty")]
+    pub corners: BTreeSet<usize>,
 }
 
 /// Where an edge is walked: by face `face`, from its corner `corner`
@@ -83,6 +94,10 @@ impl Poly {
                 at[a].insert(b);
                 at[b].insert(a);
             }
+        }
+        for &(a, b) in &self.lines {
+            at[a].insert(b);
+            at[b].insert(a);
         }
         at
     }
@@ -141,17 +156,19 @@ impl Poly {
         if size > 0.0 { size } else { 1.0 }
     }
 
-    /// The mean length of the edges; a tenth of the size for none.
+    /// The mean length of the edges (and lines); a tenth of the size
+    /// for none.
     pub fn mean_edge(&self) -> f64 {
         let edges = self.edges();
-        if edges.is_empty() {
+        let all: Vec<Edge> = edges.keys().chain(&self.lines).copied().collect();
+        if all.is_empty() {
             return self.size() / 10.0;
         }
-        let long: f64 = edges
-            .keys()
+        let long: f64 = all
+            .iter()
             .map(|&(a, b)| self.points[a].distance(self.points[b]))
             .sum();
-        long / edges.len() as f64
+        long / all.len() as f64
     }
 
     /// The points `items` touch.
@@ -204,10 +221,32 @@ impl Poly {
         match *item {
             Item::Vertex(v) => v < self.points.len(),
             Item::Face(f) => f < self.faces.len(),
-            Item::Edge(a, b) => self.faces.iter().any(|ring| {
-                (0..ring.len()).any(|k| edge(ring[k], ring[(k + 1) % ring.len()]) == edge(a, b))
-            }),
+            Item::Edge(a, b) => {
+                self.lines.contains(&edge(a, b))
+                    || self.faces.iter().any(|ring| {
+                        (0..ring.len())
+                            .any(|k| edge(ring[k], ring[(k + 1) % ring.len()]) == edge(a, b))
+                    })
+            }
         }
+    }
+
+    /// The lines among `items`.
+    pub fn lines_of(&self, items: &[Item]) -> BTreeSet<Edge> {
+        items
+            .iter()
+            .filter_map(|i| match *i {
+                Item::Edge(a, b) if self.lines.contains(&edge(a, b)) => Some(edge(a, b)),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// All edges: of faces, and the lines.
+    pub fn all_edges(&self) -> BTreeSet<Edge> {
+        let mut all: BTreeSet<Edge> = self.edges().into_keys().collect();
+        all.extend(&self.lines);
+        all
     }
 
     /// The middle of `item`.
@@ -242,10 +281,18 @@ impl Poly {
             .iter()
             .filter_map(|&(a, b)| Some(edge(now[a]?, now[b]?)))
             .collect();
+        let lines = self
+            .lines
+            .iter()
+            .filter_map(|&(a, b)| Some(edge(now[a]?, now[b]?)))
+            .collect();
+        let corners = self.corners.iter().filter_map(|&v| now[v]).collect();
         let mut made = Poly {
             points,
             faces,
             creases,
+            lines,
+            corners,
         };
         made.tidy();
         (made, now)
@@ -264,6 +311,10 @@ impl Poly {
                 }
             }
         }
+        for &(a, b) in &self.lines {
+            left[a] = true;
+            left[b] = true;
+        }
         let mut kept = self.clone();
         kept.faces = self
             .faces
@@ -280,7 +331,8 @@ impl Poly {
 
     /// Puts the mesh in order: faces lose points that are there twice
     /// running, faces of fewer than three points go, and so do creases
-    /// along no edge.
+    /// along no edge; a line that is the edge of a face now is a line
+    /// no more.
     pub fn tidy(&mut self) {
         for ring in &mut self.faces {
             ring.dedup();
@@ -304,6 +356,10 @@ impl Poly {
         self.faces.retain(|ring| ring.len() >= 3);
         let have = self.edges();
         self.creases.retain(|e| have.contains_key(e));
+        let points = self.points.len();
+        self.lines
+            .retain(|e| e.0 != e.1 && e.1 < points && !have.contains_key(e));
+        self.corners.retain(|&v| v < points);
     }
 
     /// Adds the face around `ring`, turned to walk each edge it shares

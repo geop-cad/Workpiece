@@ -2487,7 +2487,10 @@ fn what_is_drawn_elsewhere_snaps_as_a_sketch_does() {
         pixel: 0.1,
         ..CanvasView::default()
     };
-    let snap = |at: Point2, level: Option<Point2>| snappable.snap(at, &view, level);
+    let snap = |at: Point2, level: Option<Point2>| {
+        let s = snappable.snap(at, &view, level, &[]);
+        (s.at, s.on)
+    };
     // An end of a line; where the two cross; the other line's end.
     assert_eq!(snap(p(0.3, 0.2), None), (p(0.0, 0.0), true));
     assert_eq!(snap(p(5.3, 0.3), None), (p(5.0, 0.0), true));
@@ -2500,6 +2503,22 @@ fn what_is_drawn_elsewhere_snaps_as_a_sketch_does() {
     let (level, hit) = snap(p(30.0, 10.4), Some(p(12.0, 10.0)));
     assert!(!hit);
     assert_eq!(level, p(30.0, 10.0));
+    // A point hovered is remembered: off everything, the next snaps
+    // level with it (straight above the line's end, a V guide from it).
+    let hovered = snappable.snap(p(10.2, 0.1), &view, None, &[]);
+    assert_eq!((hovered.point, hovered.badge), (Some(p(10.0, 0.0)), "◎"));
+    let mut remembered = Vec::new();
+    hovered.remember(&mut remembered);
+    let above = snappable.snap(p(10.3, 7.0), &view, None, &remembered);
+    assert_eq!(above.at, p(10.0, 7.0));
+    assert_eq!(above.guides, [(p(10.0, 0.0), false)]);
+    // On the circle and level with the hovered point as well: where
+    // the level crosses the circle, near the pointer.
+    let crossed = snappable.snap(p(21.98, 0.32), &view, None, &[p(5.0, 1.0)]);
+    assert!(crossed.on && crossed.badge == "on");
+    assert!((crossed.at.y - 1.0).abs() < 1e-9);
+    assert!((crossed.at.distance(p(20.0, 0.0)) - 2.0).abs() < 1e-9);
+    assert_eq!(crossed.guides, [(p(5.0, 1.0), true)]);
 }
 
 #[test]

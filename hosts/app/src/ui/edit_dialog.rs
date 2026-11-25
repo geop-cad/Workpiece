@@ -67,7 +67,7 @@ pub fn show(
         egui::ScrollArea::vertical()
             .max_height(room)
             .auto_shrink([false, true])
-            .show(ui, |ui| fields.widget(ui, &dialog.fields, &mut Vec::new()));
+            .show(ui, |ui| fields.widget(ui, dialog.fields(), &mut Vec::new()));
         if let Some(error) = &dialog.error {
             ui.add_space(4.0);
             ui.colored_label(color::ERROR, error);
@@ -110,7 +110,7 @@ pub fn inspector(
     out: &mut Vec<Message>,
     choose_file: &mut Option<Vec<usize>>,
 ) {
-    let Some(inspector) = &dialog.inspector else {
+    let Some(inspector) = dialog.inspector() else {
         return;
     };
     window(ctx, area, |ui| {
@@ -1155,7 +1155,7 @@ pub fn show_groups(
             };
             ui.horizontal_top(|ui| {
                 ui.set_min_height(RIBBON_HEIGHT);
-                for (i, group) in dialog.fields.children().iter().enumerate() {
+                for (i, group) in dialog.fields().children().iter().enumerate() {
                     if i > 0 {
                         ui.separator();
                     }
@@ -1363,6 +1363,63 @@ impl Fields<'_> {
     /// A field of a ribbon group, in one compact row.
     fn ribbon_field(&mut self, ui: &mut egui::Ui, field: &Widget<Message>, path: &mut Vec<usize>) {
         match field {
+            // A few options with pictures: those, side by side, the
+            // chosen one lit (radio buttons of icons).
+            Widget::Choice(choice)
+                if choice.pictured()
+                    && choice.shown == workpiece_core::widgets::Shown::Auto
+                    && choice.options.len() <= PICTURED =>
+            {
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 2.0;
+                    for (i, option) in choice.options.iter().enumerate() {
+                        let chosen = i == choice.selected;
+                        let enabled = choice.enabled.get(i).copied().unwrap_or(false);
+                        let sense = if enabled {
+                            egui::Sense::click()
+                        } else {
+                            egui::Sense::hover()
+                        };
+                        let (rect, response) =
+                            ui.allocate_exact_size(egui::vec2(RIBBON_TOOL, RIBBON_TOOL), sense);
+                        let fill = if chosen {
+                            color::ACCENT.gamma_multiply(0.18)
+                        } else if response.hovered() && enabled {
+                            color::HOVER
+                        } else {
+                            egui::Color32::TRANSPARENT
+                        };
+                        ui.painter().rect_filled(rect, 6.0, fill);
+                        if chosen {
+                            ui.painter().rect_stroke(
+                                rect,
+                                6.0,
+                                egui::Stroke::new(1.0, color::ACCENT),
+                                egui::StrokeKind::Inside,
+                            );
+                        }
+                        let tint = if !enabled {
+                            color::TEXT_WEAK.gamma_multiply(0.45)
+                        } else if chosen {
+                            color::ACCENT
+                        } else {
+                            color::TEXT
+                        };
+                        if let Some(Some(icon)) = choice.icons.get(i) {
+                            let at =
+                                egui::Rect::from_center_size(rect.center(), egui::vec2(20.0, 20.0));
+                            icons::widget(icons::named(icon), 20.0, tint).paint_at(ui, at);
+                        }
+                        let key = choice.hotkeys.get(i).copied().flatten();
+                        let hint = format!("{}: {option}", choice.label);
+                        let response = response.on_hover_text(tip(option, key, &hint));
+                        if response.clicked() && !chosen {
+                            self.out.extend(choice.set(i));
+                            self.out.push(Message::EndEdit);
+                        }
+                    }
+                });
+            }
             Widget::Choice(choice) => {
                 ui.horizontal(|ui| {
                     caption(ui, &choice.label, choice.icon);

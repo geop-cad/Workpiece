@@ -18,14 +18,14 @@ The images are in [`docs/images/`](docs/images/). They show a flange built by `a
 Grouped as the tabs of the app are (see [`Ribbon.md`](https://github.com/geop-cad/Workpiece/blob/main/Ribbon.md) for the full list, including what is not done yet).
 
 **Modelling** (Modeling and Surfacing tabs)
-- Extrude, revolve, sweep and loft (with twist and scale, coils), thicken, stitch surfaces into solids.
+- Extrude, revolve, sweep and loft (with twist and scale, coils), thicken, close surfaces into solids.
 - Fillet (constant or variable radius) and chamfer on edges of any NURBS shape, shell, draft, rib, emboss and engrave.
 - Holes to the sizes of the standards (clearance, counterbore, countersink, tapped) and threads, cosmetic or modelled.
 - Booleans (join, cut, intersect) on tolerant B-reps; a boolean that cannot be done exactly is refused with a reason.
 - Split, delete body, transform, linear, circular, path, sketch and feature patterns.
 - Direct edits: move, offset, delete and replace faces.
 - Datums: planes, axes and frames in several constructions; curves (projected, intersection, helix, 3D spline).
-- Surfaces: boundary, ruled, offset, fill hole, extend, trim, untrim, surface fillet.
+- Surfaces: boundary (fills holes too), ruled, offset (and copy), extend (and untrim), split by a sketch, curves or a plane, surface fillet.
 - Polygon meshes and subdivision surfaces edited in the scene.
 - Inspection: measure, mass properties, section analysis, interference and clearance, zebra and curvature display, draft analysis.
 - Parameters and formulas, variants (a table of parameter values), materials with density, colour and a path-traced render step.

@@ -249,6 +249,10 @@ pub enum Message {
     /// Whether the model shows cut at the plane of a sketch that is
     /// drawn on a plane (a setting).
     SetSketchSection(bool),
+    /// What a point moved or placed in the scene snaps to (a setting).
+    SetSnaps(workpiece_core::handles::SnapKinds),
+    /// Whether snapping is held off for now (while a key is held).
+    SuspendSnaps(bool),
     /// Close the edit dialog, undoing every change since it opened.
     CancelEdit,
     /// Expand or collapse the tree node of the placed part at this step

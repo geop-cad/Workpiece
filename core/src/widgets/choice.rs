@@ -29,6 +29,8 @@ pub struct Choice<M> {
     /// a few side by side; in a drop-down list they stand before the
     /// labels.
     pub icons: Vec<Option<&'static str>>,
+    /// The keys that choose each option, where one does.
+    pub hotkeys: Vec<Option<crate::hotkey::Hotkey>>,
     /// Which options can be chosen now; the others show greyed out.
     pub enabled: Vec<bool>,
     /// Why each option that cannot be chosen cannot (empty for the ones
@@ -55,6 +57,7 @@ impl<M: 'static> Choice<M> {
             icon: super::label_icon(&label),
             label,
             icons: vec![None; options.len()],
+            hotkeys: vec![None; options.len()],
             enabled: vec![true; options.len()],
             reasons: vec![String::new(); options.len()],
             options,
@@ -77,6 +80,15 @@ impl<M: 'static> Choice<M> {
     pub fn with_icons(mut self, icons: Vec<Option<&'static str>>) -> Self {
         self.icons = icons;
         self.icons.resize(self.options.len(), None);
+        self
+    }
+
+    /// The same choice, option `i` chosen by the key `hotkeys[i]` too
+    /// (where there is one).
+    #[must_use]
+    pub fn with_hotkeys(mut self, hotkeys: Vec<Option<crate::hotkey::Hotkey>>) -> Self {
+        self.hotkeys = hotkeys;
+        self.hotkeys.resize(self.options.len(), None);
         self
     }
 
@@ -139,6 +151,7 @@ impl<M: 'static> Choice<M> {
             icon: self.icon,
             options: self.options,
             icons: self.icons,
+            hotkeys: self.hotkeys,
             enabled: self.enabled,
             reasons: self.reasons,
             selected: self.selected,

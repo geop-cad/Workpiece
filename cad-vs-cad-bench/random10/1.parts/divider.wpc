@@ -357,6 +357,8 @@
           "areas": [],
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
+          "direction": null,
           "distance": 88.0,
           "extent": "Symmetric",
           "flip": false,

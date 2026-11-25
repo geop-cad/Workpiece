@@ -277,6 +277,8 @@
           "areas": [],
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
+          "direction": null,
           "distance": 50.0,
           "extent": "Distance",
           "flip": false,
@@ -442,6 +444,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "P"
@@ -619,6 +623,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "A"
@@ -796,6 +802,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "B"
@@ -1071,6 +1079,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": 9.0,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "M6"
@@ -1097,6 +1107,7 @@
           "flip": false,
           "mitered": false,
           "second": 1.0,
+          "tangent": true,
           "two": false
         },
         "id": "top_chamfer"

@@ -191,6 +191,9 @@ impl Operation for Thread {
                 left: args.left,
                 internal: hole,
                 designation: designation(major, pitch),
+                // (A hole's thread starts at its mouth; a rod's runs
+                // from wherever the face does.)
+                ends: [!hole, true],
             };
             // What it is, on a leader (ISO 6410-2): `M16`, `M16×1.5`,
             // `-LH` after a left-handed one — to a rod's outline where

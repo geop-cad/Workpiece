@@ -541,6 +541,8 @@
           "areas": [],
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
+          "direction": null,
           "distance": 80.0,
           "extent": "Symmetric",
           "flip": false,
@@ -736,6 +738,8 @@
           "areas": [],
           "caps": false,
           "combine": "Join",
+          "curves": [],
+          "direction": null,
           "distance": 10.0,
           "extent": "ToFace",
           "flip": true,
@@ -795,6 +799,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "bore"
@@ -1415,6 +1421,8 @@
           "areas": [],
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
+          "direction": null,
           "distance": 15.0,
           "extent": "Distance",
           "flip": false,
@@ -1434,6 +1442,8 @@
           "areas": [],
           "caps": false,
           "combine": "Intersect",
+          "curves": [],
+          "direction": null,
           "distance": 80.0,
           "extent": "ThroughBoth",
           "flip": false,
@@ -1913,6 +1923,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "cs"

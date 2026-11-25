@@ -752,6 +752,12 @@ pub fn through_sections(
 pub struct Held<'a> {
     /// The way, and the bend, at a place of the section.
     pub at: &'a dyn Fn(Point3) -> (Point3, Option<Point3>),
+    /// Whether it leaves the other way: out of the loft, not into it
+    /// (its bend as given all the same).
+    pub flip: bool,
+    /// How long the way it leaves is, as a share of its natural length
+    /// (1): longer, the loft keeps to it further.
+    pub length: f64,
 }
 
 /// What shapes a loft besides its sections: how it is held at its
@@ -851,11 +857,12 @@ fn shaped(
                 // (Into the loft: on from the first, on into the last.)
                 let way = way.normalize_or_zero();
                 let way = if way.dot(onward) < 0.0 { -way } else { way };
-                let d = way * whole;
+                let way = if held.flip { -way } else { way };
+                let d = way * (whole * held.length);
                 first.push([d.x * c[3], d.y * c[3], d.z * c[3], 0.0]);
                 if let Some(bend) = bend {
                     bends = true;
-                    let k = bend * whole * whole;
+                    let k = bend * (whole * whole * held.length * held.length);
                     second.push([k.x * c[3], k.y * c[3], k.z * c[3], 0.0]);
                 } else {
                     second.push([0.0; 4]);

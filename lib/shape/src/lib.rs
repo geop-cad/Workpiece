@@ -25,6 +25,7 @@ pub mod interpolate;
 pub mod known;
 mod local;
 pub mod on;
+pub mod outline;
 pub mod paths;
 pub mod roll;
 pub mod split;
@@ -42,7 +43,7 @@ pub use blend::{
 };
 pub use bodies::Combine;
 pub use split::{halves, halves_by, section};
-pub use surface::{between, blended_sheet, faces_of, filled, rounded, ruled, trimmed, whole};
+pub use surface::{between, blended_sheet, faces_of, revolved, rounded, ruled, trimmed, whole};
 pub use thick::{
     drafted, faces_moved, faces_offset, faces_placed, faces_to_plane, thicken, thickened,
 };

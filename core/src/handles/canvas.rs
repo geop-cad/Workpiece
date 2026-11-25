@@ -214,6 +214,7 @@ pub type CanvasEnter<M> = Rc<dyn Fn(&str) -> Result<M, String>>;
 /// A text field at a point of the canvas, with the keyboard: a
 /// dimension's value is typed where the dimension is. Enter (or a click
 /// elsewhere) enters the text, Escape cancels.
+#[derive(Clone)]
 pub struct CanvasInput<M> {
     /// What the field is for: another key is another field, which starts
     /// from its own text.
@@ -266,6 +267,7 @@ impl<M: 'static> CanvasInput<M> {
 
 /// A plane that takes every pointer event on it and draws what its
 /// operation says.
+#[derive(Clone)]
 pub struct Canvas<M> {
     /// The plane.
     pub plane: DatumPlane,

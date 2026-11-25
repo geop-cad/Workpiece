@@ -74,6 +74,25 @@ pub struct Section {
     #[serde(default)]
     #[arg(hidden)]
     pub face: Option<Reference<FaceId>>,
+    /// Whether a loft leaves it the other way: out of the loft, back
+    /// over the face (bending as the face does all the same).
+    #[serde(default)]
+    #[arg(hidden)]
+    pub flip: bool,
+    /// How full a loft leaves it: the length of the way it leaves, as a
+    /// share of its natural one (1).
+    #[serde(default = "natural")]
+    #[arg(hidden)]
+    pub magnitude: f64,
+    /// Running on from a face: the way it leaves within the face's
+    /// tangent plane, in degrees from square across the section.
+    #[serde(default)]
+    #[arg(hidden)]
+    pub angle: f64,
+}
+
+fn natural() -> f64 {
+    1.0
 }
 
 impl Section {
@@ -83,6 +102,19 @@ impl Section {
             of: Reference::new(source.into()),
             end: SectionEnd::Free,
             face: None,
+            flip: false,
+            magnitude: 1.0,
+            angle: 0.0,
+        }
+    }
+
+    /// How a loft is held at it, the way and bend at a place given by
+    /// `at`.
+    fn held<'a>(&self, at: &'a dyn Fn(Point3) -> (Point3, Option<Point3>)) -> Held<'a> {
+        Held {
+            at,
+            flip: self.flip,
+            length: self.magnitude,
         }
     }
 }
@@ -501,6 +533,7 @@ fn held_at<'a>(
             let (solid, f) = face_of(world, &name)?;
             let surface = solid.faces[f].surface.clone();
             let bends = section.end == SectionEnd::Curvature;
+            let angle = section.angle.to_radians();
             Some(Box::new(move |p: Point3| {
                 // The way along the section here, and the face's normal.
                 let along = curves
@@ -518,7 +551,10 @@ fn held_at<'a>(
                 let (uv, _) = nearest_uv(&surface, p);
                 let (_, du, dv) = surface.derivatives_at(uv.x, uv.y);
                 let n = du.cross(dv).normalize_or_zero();
-                let way = n.cross(along).normalize_or_zero();
+                // (Square across the section in the face, turned within
+                // it as asked.)
+                let square = n.cross(along).normalize_or_zero();
+                let way = square * angle.cos() + n.cross(square) * angle.sin();
                 let bend = bends.then(|| n * bend_along(&surface, uv, way));
                 (way, bend)
             }))
@@ -682,8 +718,8 @@ impl SweptLoft {
             let end = held_at(world, &args.sections[last], &sections[last], normals[last])?;
             let how = Shaping {
                 ends: [
-                    start.as_deref().map(|at| Held { at }),
-                    end.as_deref().map(|at| Held { at }),
+                    start.as_deref().map(|at| args.sections[0].held(at)),
+                    end.as_deref().map(|at| args.sections[last].held(at)),
                 ],
                 guides,
             };
@@ -825,8 +861,8 @@ impl Operation for SweptLoft {
                 let end = held_at(world, &args.sections[last], &runs[last].0, runs[last].1)?;
                 let how = Shaping {
                     ends: [
-                        start.as_deref().map(|at| Held { at }),
-                        end.as_deref().map(|at| Held { at }),
+                        start.as_deref().map(|at| args.sections[0].held(at)),
+                        end.as_deref().map(|at| args.sections[last].held(at)),
                     ],
                     guides,
                 };
@@ -862,6 +898,26 @@ impl Operation for SweptLoft {
         let targets = bodies::targets(topo, &self.id, &args.target)?;
         bodies::settle_into(topo, &mut out, &self.id, tool, args.combine, &targets)?;
         Ok(out.made)
+    }
+
+    fn visualize_edit(
+        &self,
+        context: &workpiece_core::EditContext<'_>,
+        (): &(),
+    ) -> workpiece_core::EditVisualization<workpiece_core::Edit<SweptLoftArgs, ()>> {
+        let args = &self.args;
+        let fields = workpiece_core::Arguments::fields(args, context);
+        let mut handles = std::collections::BTreeMap::new();
+        let n = args.sections.len();
+        if n >= 2 && args.path().is_none() && args.coil.is_none() {
+            for (k, other) in [(0, n - 1), (n - 1, 0)] {
+                if let Some(handle) = leaving_handle(context.world, args, k, other) {
+                    handles.insert(format!("section{k}"), handle);
+                }
+            }
+        }
+        workpiece_core::EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles)
+            .map(workpiece_core::Edit::args)
     }
 
     fn summary(&self) -> String {
@@ -979,9 +1035,153 @@ fn sections_field(args: &SweptLoftArgs, _: &EditContext<'_>) -> Vec<Widget<Swept
                 );
                 out.push(face.into());
             }
+            if section.end != SectionEnd::Free {
+                out.push(leaving_row(args, k));
+            }
         }
     }
     out
+}
+
+/// The curves of section `k`, and the middle of them.
+fn section_middle(
+    world: &workpiece_core::World,
+    args: &SweptLoftArgs,
+    k: usize,
+) -> Option<(Vec<Curve3>, Point3)> {
+    let curves = match section_curves(world, &args.sections[k].of.source, args.surface).ok()? {
+        Curves::Open(curves, _) => curves,
+        Curves::Closed(loops) => loops.into_iter().next()?.0,
+    };
+    let points: Vec<Point3> = curves
+        .iter()
+        .flat_map(|c| {
+            let (a, b) = c.domain();
+            (0..8).map(move |i| c.point_at(a + (b - a) * f64::from(i) / 8.0))
+        })
+        .collect();
+    let middle = points.iter().sum::<Point3>() / points.len().max(1) as f64;
+    Some((curves, middle))
+}
+
+/// The handle of how a loft leaves (or arrives at) section `k` running
+/// on from a face: a knob at the tip of the way it leaves, at a place of
+/// the section, moved in the face's tangent plane — turning it within
+/// the face, and pulling it out or in (through to the other side of the
+/// section, it leaves the other way). `other` is the section at the
+/// loft's other end: the way into the loft.
+fn leaving_handle(
+    world: &workpiece_core::World,
+    args: &SweptLoftArgs,
+    k: usize,
+    other: usize,
+) -> Option<workpiece_core::handles::Handle<SweptLoftArgs>> {
+    let section = &args.sections[k];
+    if !matches!(section.end, SectionEnd::Tangent | SectionEnd::Curvature) {
+        return None;
+    }
+    let (curves, middle) = section_middle(world, args, k)?;
+    let (_, there) = section_middle(world, args, other)?;
+    let name = match &section.face {
+        Some(face) => face.name().to_owned(),
+        None => section.of.name().to_owned(),
+    };
+    let (solid, f) = face_of(world, &name).ok()?;
+    let surface = &solid.faces[f].surface;
+    // The place of the section nearest its middle, and the way along it.
+    let (at, along) = curves
+        .iter()
+        .flat_map(|c| {
+            let (a, b) = c.domain();
+            (0..=32).map(move |i| c.derivative_at(a + (b - a) * f64::from(i) / 32.0))
+        })
+        .min_by(|x, y| x.0.distance(middle).total_cmp(&y.0.distance(middle)))?;
+    let (uv, _) = nearest_uv(surface, at);
+    let (_, du, dv) = surface.derivatives_at(uv.x, uv.y);
+    let normal = du.cross(dv).try_normalize()?;
+    let onward = if k == 0 {
+        there - middle
+    } else {
+        middle - there
+    };
+    let square = normal.cross(along).try_normalize()?;
+    let square = if square.dot(onward) < 0.0 {
+        -square
+    } else {
+        square
+    };
+    let a = section.angle.to_radians();
+    let way = square * a.cos() + normal.cross(square) * a.sin();
+    let way = if way.dot(onward) < 0.0 { -way } else { way };
+    let way = if section.flip { -way } else { way };
+    let reach = middle.distance(there).max(1e-9) / 4.0;
+    let tip = at + way * (section.magnitude * reach);
+    let was = args.clone();
+    let handle = workpiece_core::handles::PlanarHandle::new(tip, normal, move |p| {
+        let v = p - at;
+        let v = v - normal * v.dot(normal);
+        let mut new = was.clone();
+        let section = &mut new.sections[k];
+        section.magnitude = (v.length() / reach).max(1e-3);
+        let angle = normal
+            .cross(square)
+            .dot(v)
+            .atan2(square.dot(v))
+            .to_degrees();
+        // (Beyond square across the section it leaves the other way,
+        // turned back.)
+        section.flip = angle.abs() > 90.0;
+        section.angle = if section.flip {
+            angle - 180.0_f64.copysign(angle)
+        } else {
+            angle
+        };
+        new
+    })?
+    .from(at);
+    Some(handle.into())
+}
+
+/// How a loft leaves section `k`: as full as, and (from a face) turned
+/// by, numbers, and the button that flips it.
+fn leaving_row(args: &SweptLoftArgs, k: usize) -> Widget<SweptLoftArgs> {
+    use workpiece_core::widgets::{HBox, NumericInput, ToolButton};
+    let section = &args.sections[k];
+    let set = |put: fn(&mut Section, f64)| {
+        let now = args.clone();
+        move |x: f64| {
+            let mut new = now.clone();
+            put(&mut new.sections[k], x);
+            new
+        }
+    };
+    let mut row: Vec<Widget<SweptLoftArgs>> = vec![
+        NumericInput::new(
+            "Tangent length ×",
+            section.magnitude,
+            set(|s, x| s.magnitude = x),
+        )
+        .into(),
+    ];
+    if matches!(section.end, SectionEnd::Tangent | SectionEnd::Curvature) {
+        row.push(NumericInput::new("Angle °", section.angle, set(|s, x| s.angle = x)).into());
+    }
+    let flipped = args.clone();
+    row.push(
+        ToolButton::new(
+            "flip",
+            "Flip",
+            workpiece_core::Hotkey::key(if k == 0 { 'X' } else { 'Z' }),
+            move || {
+                let mut new = flipped.clone();
+                new.sections[k].flip = !new.sections[k].flip;
+                new
+            },
+        )
+        .with_hint("Leave the other way: out of the loft")
+        .into(),
+    );
+    HBox::new(row).into()
 }
 
 /// The box of the curves it goes along, and what each does.

@@ -272,7 +272,8 @@ pub fn handles<M: 'static>(
             );
             continue;
         }
-        for piece in handle.pieces(scale) {
+        let facing = pose.inverse().transform_vector(up.cross(right)) * -1.0;
+        for piece in handle.pieces(scale, facing.normalize_or_zero()) {
             let pick = scene.pick_id(Some(Pick::Handle {
                 name: name.clone(),
                 part: piece.part,

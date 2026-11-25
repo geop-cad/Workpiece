@@ -218,7 +218,8 @@ pub fn fine_names(size: Option<&str>) -> Vec<String> {
 /// that is cut with a tap (ISO 2306): the diameter less the pitch, to
 /// the drill there is.
 pub fn tap_drill(diameter: f64, pitch: f64) -> f64 {
-    const ROUNDED: [(f64, f64, f64); 5] = [
+    const ROUNDED: [(f64, f64, f64); 6] = [
+        (8.0, 1.25, 6.8),
         (4.5, 0.75, 3.7),
         (10.0, 1.25, 8.8),
         (12.0, 1.75, 10.2),
@@ -235,6 +236,21 @@ pub fn tap_drill(diameter: f64, pitch: f64) -> f64 {
 /// (ISO 68-1), flank to flank over the root's rounding.
 pub fn thread_depth(pitch: f64) -> f64 {
     0.6134 * pitch
+}
+
+/// How deep a blind tapped hole's full thread goes, from its mouth, by
+/// the workshop's rule for a thread of `diameter`: 1.5 × the diameter
+/// — enough engagement for a steel screw in steel or cast iron (1 × d
+/// in steel, 2 × d in aluminium are the ends of the usual range).
+pub fn tap_depth(diameter: f64) -> f64 {
+    (diameter * 1.5 * 10.0).round() / 10.0
+}
+
+/// How deep the bore of a blind tapped hole is drilled for a thread
+/// `thread` deep of `diameter`: half the diameter deeper, for the
+/// tap's lead (its chamfered first threads) and the chips below it.
+pub fn tap_drill_depth(diameter: f64, thread: f64) -> f64 {
+    thread + (diameter * 0.5 * 10.0).round() / 10.0
 }
 
 /// How much deeper than a head is high its counterbore is (DIN 974),

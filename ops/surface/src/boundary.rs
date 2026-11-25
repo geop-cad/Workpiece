@@ -5,13 +5,19 @@
 use std::sync::Arc;
 
 use anyhow::{Context, ensure};
+use std::collections::BTreeMap;
 use workpiece_boolean::model::Walk;
 use workpiece_boolean::{Solid, read, read_sheet};
 use workpiece_core::math::Point3;
-use workpiece_core::widgets::{Choice, Label, Mood, ReferenceInput, ReferenceList};
-use workpiece_core::world::topo::{BodyKind, Curve3, EdgeId, FaceId, Topo};
+
+use workpiece_core::handles::PlanarHandle;
+use workpiece_core::widgets::{
+    Choice, HBox, Label, Mood, NumericInput, ReferenceInput, ReferenceList, ToolButton, VBox,
+};
+use workpiece_core::world::topo::{BodyId, BodyKind, Curve3, EdgeId, FaceId, Topo};
 use workpiece_core::{
-    Anything, Builder, EditContext, Operation, Reference, ReferenceKind, Source, Widget,
+    Anything, Builder, Edit, EditContext, EditVisualization, Hotkey, Operation, Reference,
+    ReferenceKind, Source, Widget,
 };
 use workpiece_shape::fill::{Across, Side, filled_over};
 
@@ -64,6 +70,40 @@ pub struct BoundarySide {
     #[serde(default)]
     #[arg(hidden)]
     pub face: Option<Reference<FaceId>>,
+    /// Whether it leaves the other way: back over the face beside it
+    /// (G2: bending as the face does, the other way).
+    #[serde(default)]
+    #[arg(hidden)]
+    pub flip: bool,
+    /// How full it leaves the side: the length of the way it leaves, as
+    /// a share of its natural one (1).
+    #[serde(default = "one")]
+    #[arg(hidden)]
+    pub magnitude: f64,
+    /// The way it leaves within the tangent plane of the face beside it,
+    /// in degrees from square across the side (towards the way the side
+    /// runs): 0 leaves square to it.
+    #[serde(default)]
+    #[arg(hidden)]
+    pub angle: f64,
+}
+
+fn one() -> f64 {
+    1.0
+}
+
+impl BoundarySide {
+    /// A side along `edge`, free.
+    pub fn free(edge: Reference<Anything>) -> Self {
+        Self {
+            edge,
+            way: Continuity::Free,
+            face: None,
+            flip: false,
+            magnitude: 1.0,
+            angle: 0.0,
+        }
+    }
 }
 
 /// What a boundary surface goes around.
@@ -83,9 +123,12 @@ pub struct BoundaryArgs {
     pub sides: Vec<BoundarySide>,
 }
 
-/// Adds a surface over the hole its sides go around, as a surface body
-/// named after the operation's id: its face `{id}/face`, its edges
-/// `{id}/e0`, … as the sides are given.
+/// Adds a surface over the hole its sides go around (flat where they
+/// all lie in a plane and are free), its face `{id}/face` and its edges
+/// `{id}/e0`, … as the sides are given: sewn to the surfaces whose free
+/// edges it runs along — one surface with them, under the first one's
+/// name, or a solid where that closes it all around — or else a surface
+/// body named after the operation's id.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Boundary {
     /// The operation's id; also the body's name.
@@ -145,7 +188,7 @@ fn curve_of(topo: &Topo, source: &Source) -> anyhow::Result<(Arc<Curve3>, (f64, 
 
 /// How the surface leaves the side along edge `name`, from face `face`
 /// of `solid` (whose loops walk it): at the edge's parameter `t`.
-fn across_from(solid: &Solid, face: usize, edge: usize, t: f64) -> Across {
+fn across_from(solid: &Solid, face: usize, edge: usize, t: f64, side: &BoundarySide) -> Across {
     let it = &solid.faces[face];
     let walked = it
         .loops
@@ -169,8 +212,10 @@ fn across_from(solid: &Solid, face: usize, edge: usize, t: f64) -> Across {
     let normal = du.cross(dv).normalize_or_zero();
     let along = if reversed { -tangent } else { tangent }.normalize_or_zero();
     // The face is on the left of its loops, its normal up: away from it
-    // is to the right.
-    let away = along.cross(normal).normalize_or_zero();
+    // is to the right; turned as the side says, within the face's
+    // tangent plane.
+    let square = along.cross(normal).normalize_or_zero();
+    let away = turned_in(square, normal, side.angle);
     // How it bends that way: a little step into the face, and another.
     let (a, b, c) = (du.dot(du), du.dot(dv), dv.dot(dv));
     let det = a * c - b * b;
@@ -187,11 +232,71 @@ fn across_from(solid: &Solid, face: usize, edge: usize, t: f64) -> Across {
         surface.point_at(q.x.clamp(u0, u1), q.y.clamp(v0, v1))
     };
     let second = (at(0.0) - at(1.0) * 2.0 + at(2.0)) / (e * e);
+    // (As full as asked: the way it leaves that much longer, its bend
+    // as much again; flipped, the other way.)
+    let m = side.magnitude;
+    let sign = if side.flip { -1.0 } else { 1.0 };
     Across {
-        away,
+        away: away * (m * sign),
         normal,
-        bend: second.dot(normal),
+        bend: second.dot(normal) * m * m,
     }
+}
+
+/// `square` (a direction in the plane of `normal`) turned `degrees`
+/// about `normal`.
+fn turned_in(square: Point3, normal: Point3, degrees: f64) -> Point3 {
+    let a = degrees.to_radians();
+    square * a.cos() + normal.cross(square) * a.sin()
+}
+
+/// The face a side runs on from — read with its body — and which edge
+/// of that the side is; none for a free side.
+type Beside = Option<(Solid, usize, usize)>;
+
+/// What `side` runs on from, in `topo`.
+fn beside(topo: &Topo, side: &BoundarySide) -> anyhow::Result<Beside> {
+    if side.way == Continuity::Free {
+        return Ok(None);
+    }
+    let name = side.edge.name();
+    let solid = match &side.face {
+        Some(face) => body_with(topo, face.name())?,
+        None => body_with(topo, name)
+            .with_context(|| format!("{name:?} is of no face to run on from: pick one"))?,
+    };
+    let edge = solid
+        .edges
+        .iter()
+        .position(|e| called(e, name))
+        .with_context(|| format!("the face is not beside {name:?}"))?;
+    let walks = |f: &workpiece_boolean::model::Face| {
+        f.loops
+            .iter()
+            .flatten()
+            .any(|u| matches!(u.walk, Walk::Edge { edge: e, .. } if e == edge))
+    };
+    let face = match &side.face {
+        Some(face) => solid
+            .faces
+            .iter()
+            .position(|f| {
+                f.name.as_deref() == Some(face.name()) || f.also.iter().any(|n| n == face.name())
+            })
+            .filter(|&f| walks(&solid.faces[f]))
+            .with_context(|| format!("{:?} is not beside {name:?}", face.name()))?,
+        None => {
+            let faces: Vec<usize> = (0..solid.faces.len())
+                .filter(|&f| walks(&solid.faces[f]))
+                .collect();
+            ensure!(
+                faces.len() == 1,
+                "{name:?} is between two faces: pick the one to run on from"
+            );
+            faces[0]
+        }
+    };
+    Ok(Some((solid, face, edge)))
 }
 
 impl Operation for Boundary {
@@ -218,77 +323,35 @@ impl Operation for Boundary {
         let topo = &builder.tracked().topo;
         let sides = &self.args.sides;
         ensure!(
-            sides.len() >= 2,
-            "pick the edges around the hole: two or more, meeting end to end"
+            !sides.is_empty(),
+            "pick the edges around the hole, meeting end to end"
         );
         // Each side's curve, and the face beside it with which of its
         // edges the side is, where it runs on from one.
         // (Of each: its curve, the part of it, and the face beside it
         // — read with its body — and which edge of that the side is.)
-        type Beside = Option<(Solid, usize, usize)>;
         let mut held: Vec<(Arc<Curve3>, (f64, f64), Beside)> = Vec::new();
         for side in sides {
             let (curve, range) = curve_of(topo, &side.edge.source)?;
-            let beside = if side.way == Continuity::Free {
-                None
-            } else {
-                let name = side.edge.name();
-                let solid = match &side.face {
-                    Some(face) => body_with(topo, face.name())?,
-                    None => body_with(topo, name).with_context(|| {
-                        format!("{name:?} is of no face to run on from: pick one")
-                    })?,
-                };
-                let edge = solid
-                    .edges
-                    .iter()
-                    .position(|e| called(e, name))
-                    .with_context(|| format!("the face is not beside {name:?}"))?;
-                let walks = |f: &workpiece_boolean::model::Face| {
-                    f.loops
-                        .iter()
-                        .flatten()
-                        .any(|u| matches!(u.walk, Walk::Edge { edge: e, .. } if e == edge))
-                };
-                let face = match &side.face {
-                    Some(face) => solid
-                        .faces
-                        .iter()
-                        .position(|f| {
-                            f.name.as_deref() == Some(face.name())
-                                || f.also.iter().any(|n| n == face.name())
-                        })
-                        .filter(|&f| walks(&solid.faces[f]))
-                        .with_context(|| format!("{:?} is not beside {name:?}", face.name()))?,
-                    None => {
-                        let faces: Vec<usize> = (0..solid.faces.len())
-                            .filter(|&f| walks(&solid.faces[f]))
-                            .collect();
-                        ensure!(
-                            faces.len() == 1,
-                            "{name:?} is between two faces: pick the one to run on from"
-                        );
-                        faces[0]
-                    }
-                };
-                Some((solid, face, edge))
-            };
-            held.push((curve, range, beside));
+            held.push((curve, range, beside(topo, side)?));
         }
         let fns: Vec<Box<dyn Fn(f64) -> Across + '_>> = held
             .iter()
-            .map(|(_, _, beside)| -> Box<dyn Fn(f64) -> Across + '_> {
-                match beside {
-                    Some((solid, face, edge)) => {
-                        Box::new(move |t| across_from(solid, *face, *edge, t))
+            .zip(sides)
+            .map(
+                |((_, _, beside), side)| -> Box<dyn Fn(f64) -> Across + '_> {
+                    match beside {
+                        Some((solid, face, edge)) => {
+                            Box::new(move |t| across_from(solid, *face, *edge, t, side))
+                        }
+                        None => Box::new(|_| Across {
+                            away: Point3::ZERO,
+                            normal: Point3::ZERO,
+                            bend: 0.0,
+                        }),
                     }
-                    None => Box::new(|_| Across {
-                        away: Point3::ZERO,
-                        normal: Point3::ZERO,
-                        bend: 0.0,
-                    }),
-                }
-            })
+                },
+            )
             .collect();
         let made: Vec<Side<'_>> = held
             .iter()
@@ -303,19 +366,92 @@ impl Operation for Boundary {
                 name: Some(format!("{}/e{k}", self.id)),
             })
             .collect();
-        // Four sides, all free: the patch blended from them (Coons),
-        // which runs along them exactly.
-        let sheet = if made.len() == 4 && made.iter().all(|s| s.across.is_none()) {
+        let free = made.iter().all(|s| s.across.is_none());
+        // All free and in one plane: a flat face. Four sides, all free:
+        // the patch blended from them (Coons), which runs along them
+        // exactly.
+        let flat = if free {
+            workpiece_shape::fill::flat_over(&made, &self.id)?
+        } else {
+            None
+        };
+        let sheet = if let Some(flat) = flat {
+            flat
+        } else if made.len() == 4 && free {
             let four: [_; 4] = std::array::from_fn(|k| (made[k].curve.clone(), made[k].range));
             let mut sheet = workpiece_shape::between(&four, &self.id)?;
             sheet.faces[0].name = Some(format!("{}/face", self.id));
             sheet
         } else {
+            ensure!(
+                made.len() >= 2,
+                "a hole of one side is filled only where it is flat"
+            );
             filled_over(&made, &self.id)?
         };
+        // Sewn to the surfaces whose free edges it runs along: one
+        // surface with them (named as the first of them), a solid if
+        // that closes it all around.
+        let mut around: Vec<BodyId> = Vec::new();
+        for side in sides {
+            let Source::Topology(name) = &side.edge.source else {
+                continue;
+            };
+            let body = topo.referred(name).and_then(|id| topo.owner(id));
+            if let Some(body) = body
+                && topo.body(body).is_some_and(|b| b.kind == BodyKind::Sheet)
+                && !around.contains(&body)
+            {
+                around.push(body);
+            }
+        }
         let mut out = workpiece_shape::bodies::Out::default();
-        out.write_sheet(&sheet, &self.id);
+        if around.is_empty() {
+            out.write_sheet(&sheet, &self.id);
+            return Ok(out.made);
+        }
+        let mut parts = Vec::new();
+        for &body in &around {
+            parts.push(read_sheet(topo, body)?);
+        }
+        parts.push(sheet);
+        let size = parts
+            .iter()
+            .map(|p| {
+                let (lo, hi) = p.extent();
+                (hi - lo).length()
+            })
+            .fold(0.0, f64::max);
+        let (sewn, closed) = workpiece_boolean::stitched(&parts, size * 1e-6)
+            .context("sewing the surface to those around it")?;
+        let name = topo
+            .name_of(around[0])
+            .context("a surface without a name")?
+            .to_owned();
+        for &body in &around {
+            out.remove(topo, body);
+        }
+        if closed {
+            out.write(&sewn, &name);
+        } else {
+            out.write_sheet(&sewn, &name);
+        }
         Ok(out.made)
+    }
+
+    fn visualize_edit(
+        &self,
+        context: &EditContext<'_>,
+        (): &(),
+    ) -> EditVisualization<Edit<BoundaryArgs, ()>> {
+        let fields = workpiece_core::Arguments::fields(&self.args, context);
+        let mut handles = BTreeMap::new();
+        for k in 0..self.args.sides.len() {
+            if let Some(handle) = leaving_handle(&context.world.topo, &self.args, k) {
+                handles.insert(format!("side{k}"), handle);
+            }
+        }
+        EditVisualization::new(VBox::new(fields), handles).map(Edit::args)
     }
 
     fn summary(&self) -> String {
@@ -348,11 +484,7 @@ fn sides_field(args: &BoundaryArgs, _: &EditContext<'_>) -> Vec<Widget<BoundaryA
                     .iter()
                     .find(|s| s.edge.source == source)
                     .cloned()
-                    .unwrap_or(BoundarySide {
-                        edge: source.into(),
-                        way: Continuity::Free,
-                        face: None,
-                    })
+                    .unwrap_or_else(|| BoundarySide::free(source.into()))
             })
             .collect();
         new
@@ -409,7 +541,98 @@ fn sides_field(args: &BoundaryArgs, _: &EditContext<'_>) -> Vec<Widget<BoundaryA
                 new
             });
             out.push(face.into());
+            out.push(leaving_row(args, k));
         }
     }
     out
+}
+
+/// How side `k` leaves: as full as, and turned by, numbers (and its
+/// handle in the view), and the button that flips it.
+fn leaving_row(args: &BoundaryArgs, k: usize) -> Widget<BoundaryArgs> {
+    let side = &args.sides[k];
+    let set = |put: fn(&mut BoundarySide, f64)| {
+        let now = args.clone();
+        move |x: f64| {
+            let mut new = now.clone();
+            put(&mut new.sides[k], x);
+            new
+        }
+    };
+    let flipped = {
+        let now = args.clone();
+        move || {
+            let mut new = now.clone();
+            new.sides[k].flip = !new.sides[k].flip;
+            new
+        }
+    };
+    HBox::new(vec![
+        NumericInput::new(
+            "Tangent length ×",
+            side.magnitude,
+            set(|s, x| s.magnitude = x),
+        )
+        .into(),
+        NumericInput::new("Angle °", side.angle, set(|s, x| s.angle = x)).into(),
+        ToolButton::new("flip", "Flip", Hotkey::key('X'), flipped)
+            .with_hint("Leave the other way: back over the face beside it")
+            .into(),
+    ])
+    .into()
+}
+
+/// The handle of how side `k` leaves, at the middle of its curve: a knob
+/// at the tip of the way it leaves, moved in the tangent plane of the
+/// face beside it — turning it, and pulling it out or in.
+fn leaving_handle(
+    topo: &Topo,
+    args: &BoundaryArgs,
+    k: usize,
+) -> Option<workpiece_core::handles::Handle<BoundaryArgs>> {
+    let side = &args.sides[k];
+    let (solid, face, edge) = beside(topo, side).ok()??;
+    let (curve, (t0, t1)) = curve_of(topo, &side.edge.source).ok()?;
+    let t = (t0 + t1) / 2.0;
+    let at = curve.point_at(t);
+    // (As the side is now, and as it would be square and unflipped: what
+    // its angle is from.)
+    let now = across_from(&solid, face, edge, t, side);
+    let square = BoundarySide {
+        flip: false,
+        magnitude: 1.0,
+        angle: 0.0,
+        ..side.clone()
+    };
+    let square = across_from(&solid, face, edge, t, &square).away;
+    let reach = length_of(&curve, (t0, t1)) / 4.0;
+    let tip = at + now.away * reach;
+    let normal = now.normal;
+    let was = args.clone();
+    let handle = PlanarHandle::new(tip, normal, move |p| {
+        let v = p - at;
+        let v = v - normal * v.dot(normal);
+        let mut new = was.clone();
+        let side = &mut new.sides[k];
+        side.magnitude = (v.length() / reach).max(1e-3);
+        side.angle = normal
+            .cross(square)
+            .dot(v)
+            .atan2(square.dot(v))
+            .to_degrees();
+        side.flip = false;
+        new
+    })?
+    .from(at);
+    Some(handle.into())
+}
+
+/// How long `curve` is over `range`, about.
+fn length_of(curve: &Curve3, (t0, t1): (f64, f64)) -> f64 {
+    (0..32)
+        .map(|k| {
+            let at = |i: i32| curve.point_at(t0 + (t1 - t0) * f64::from(i) / 32.0);
+            at(k).distance(at(k + 1))
+        })
+        .sum()
 }

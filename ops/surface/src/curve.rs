@@ -31,7 +31,7 @@ fn nothing() -> Measure {
 
 /// How a curve through points is held at one of its ends: the way it
 /// leaves (or arrives) and how it bends there, where they are given.
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct EndHeld {
     /// The direction it runs along there (either way along it; it is
     /// taken the way the points go).
@@ -39,6 +39,33 @@ pub struct EndHeld {
     /// How it bends there: the curvature vector (towards the centre of
     /// the circle it bends along, as long as one over its radius).
     pub bend: Option<Point3>,
+    /// Whether it runs the other way along the direction: against the
+    /// way the points go (its bend stays as given).
+    pub flip: bool,
+    /// How long the way it leaves is, as a share of its natural length
+    /// (1): longer, the curve keeps to the direction further.
+    pub length: f64,
+}
+
+impl Default for EndHeld {
+    fn default() -> Self {
+        Self {
+            along: None,
+            bend: None,
+            flip: false,
+            length: 1.0,
+        }
+    }
+}
+
+impl EndHeld {
+    /// The way it leaves, as `through` takes it: along the direction the
+    /// way `forward` (the points) goes, flipped as said; unit long.
+    pub fn way(&self, forward: Point3) -> Option<Point3> {
+        let d = self.along?.try_normalize()?;
+        let d = if d.dot(forward) < 0.0 { -d } else { d };
+        Some(if self.flip { -d } else { d })
+    }
 }
 
 /// A smooth curve through `points`, in order. Open, it is one cubic
@@ -103,15 +130,15 @@ fn through_open(points: &[Point3], ends: [EndHeld; 2]) -> anyhow::Result<Curve3>
     // (Its parameter about how far along it is: a direction given is
     // as long as one, a bend given is the curvature vector itself.)
     let row = |p: Point3, w: f64| vec![[p.x, p.y, p.z, w]];
+    // (As long as asked: the direction that much longer, the bend as
+    // much again, its curvature as it was.)
     let held = |end: &EndHeld, forward: Point3| -> Held {
-        let along = end
-            .along
-            .and_then(Point3::try_normalize)
-            .map(|d| if d.dot(forward) < 0.0 { -d } else { d });
+        let along = end.way(forward);
         let bend = end.bend.zip(along).map(|(k, d)| k - d * k.dot(d));
+        let m = end.length;
         Held {
-            first: along.map(|d| row(d, 0.0)),
-            second: bend.map(|k| row(k, 0.0)),
+            first: along.map(|d| row(d * m, 0.0)),
+            second: bend.map(|k| row(k * (m * m), 0.0)),
         }
     };
     let start = held(&ends[0], points[1] - points[0]);
@@ -195,13 +222,7 @@ impl EndWay {
 /// How a curve through points runs at one of its ends, and what it is
 /// held to there.
 #[derive(
-    Debug,
-    Clone,
-    PartialEq,
-    Default,
-    serde::Serialize,
-    serde::Deserialize,
-    workpiece_core::Arguments,
+    Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, workpiece_core::Arguments,
 )]
 pub struct CurveEnd {
     /// How it runs.
@@ -213,6 +234,38 @@ pub struct CurveEnd {
     #[serde(default)]
     #[arg(hidden)]
     pub to: Option<Reference<Anything>>,
+    /// Whether it runs the other way along what it is held to: against
+    /// the way the points go (bending as it is held to, all the same).
+    #[serde(default)]
+    #[arg(hidden)]
+    pub flip: bool,
+    /// How full the end is: the length of the way it leaves, as a share
+    /// of its natural one (1). Longer, the curve keeps to the direction
+    /// further before it turns to its points.
+    #[serde(default = "one")]
+    #[arg(hidden)]
+    pub magnitude: f64,
+    /// Lying in a face: the way within it, in degrees from the way the
+    /// points lean along it (turning about the face's normal).
+    #[serde(default)]
+    #[arg(hidden)]
+    pub angle: f64,
+}
+
+fn one() -> f64 {
+    1.0
+}
+
+impl Default for CurveEnd {
+    fn default() -> Self {
+        Self {
+            way: EndWay::Free,
+            to: None,
+            flip: false,
+            magnitude: 1.0,
+            angle: 0.0,
+        }
+    }
 }
 
 /// The direction the curve `curve` runs along at its parameter `t`, and
@@ -265,6 +318,7 @@ impl CurveEnd {
         if self.way == EndWay::Free {
             return Ok(EndHeld::default());
         }
+        let (flip, length) = (self.flip, self.magnitude);
         let to = self.to.as_ref().context("pick what the end is held to")?;
         let source = &to.source;
         let edge = match source {
@@ -298,6 +352,8 @@ impl CurveEnd {
                 EndHeld {
                     along: Some(along),
                     bend: (self.way == EndWay::Curvature).then_some(bend),
+                    flip,
+                    length,
                 }
             }
             EndWay::InFace | EndWay::Normal => {
@@ -313,13 +369,18 @@ impl CurveEnd {
                     normal
                 } else {
                     let lying = free - normal * free.dot(normal);
-                    lying
+                    let lying = lying
                         .try_normalize()
-                        .context("the points run square to the face: the curve cannot lie in it")?
+                        .context("the points run square to the face: the curve cannot lie in it")?;
+                    // (Turned within the face as asked.)
+                    let a = self.angle.to_radians();
+                    lying * a.cos() + normal.cross(lying) * a.sin()
                 };
                 EndHeld {
                     along: Some(along),
                     bend: None,
+                    flip,
+                    length,
                 }
             }
         })
@@ -436,8 +497,135 @@ fn end_widgets(
             new
         });
         out.push(input.into());
+        // How full it is, which way within a face, and the flip.
+        let put = |put: fn(&mut CurveEnd, f64)| {
+            let now = args.clone();
+            move |x: f64| {
+                let mut new = now.clone();
+                put(of(&mut new), x);
+                new
+            }
+        };
+        let mut row: Vec<Widget<CurveThroughArgs>> = vec![
+            workpiece_core::widgets::NumericInput::new(
+                "Tangent length ×",
+                now.magnitude,
+                put(|e, x| e.magnitude = x),
+            )
+            .into(),
+        ];
+        if now.way == EndWay::InFace {
+            row.push(
+                workpiece_core::widgets::NumericInput::new(
+                    "Angle °",
+                    now.angle,
+                    put(|e, x| e.angle = x),
+                )
+                .into(),
+            );
+        }
+        let flipped = args.clone();
+        row.push(
+            workpiece_core::widgets::ToolButton::new(
+                "flip",
+                "Flip",
+                workpiece_core::Hotkey::key(if label == "Start" { 'X' } else { 'Z' }),
+                move || {
+                    let mut new = flipped.clone();
+                    let end = of(&mut new);
+                    end.flip = !end.flip;
+                    new
+                },
+            )
+            .with_hint("Run the other way along what it is held to")
+            .into(),
+        );
+        out.push(workpiece_core::widgets::HBox::new(row).into());
     }
     out
+}
+
+/// Which end of a curve through points's arguments.
+type EndOf = fn(&mut CurveThroughArgs) -> &mut CurveEnd;
+
+/// The handle of how the curve runs at its end (`last`: its end, else
+/// its start), held as `of` says: an arrow along the way it leaves, its
+/// tip as far out as the end is full — dragged through the end, it runs
+/// the other way; lying in a face, a knob moved in the face's tangent
+/// plane, turning it within the face as well.
+fn end_handle(
+    args: &CurveThroughArgs,
+    world: &workpiece_core::World,
+    points: &[Point3],
+    last: bool,
+    of: EndOf,
+) -> Option<workpiece_core::handles::Handle<CurveThroughArgs>> {
+    let end = of(&mut args.clone()).clone();
+    let n = points.len();
+    if end.way == EndWay::Free || n < 2 || args.closed {
+        return None;
+    }
+    let (at, forward) = if last {
+        (points[n - 1], points[n - 1] - points[n - 2])
+    } else {
+        (points[0], points[1] - points[0])
+    };
+    let held = end.held(world, at, forward).ok()?;
+    let way = held.way(forward)?;
+    let reach = forward.length() / 3.0;
+    if end.way != EndWay::InFace {
+        let now = args.clone();
+        let drag = move |x: f64| {
+            let mut new = now.clone();
+            let end = of(&mut new);
+            if x < 0.0 {
+                end.flip = !end.flip;
+            }
+            end.magnitude = (x.abs() / reach).max(1e-3);
+            new
+        };
+        return LinearHandle::new(at, way, end.magnitude * reach, drag).map(Into::into);
+    }
+    // Lying in a face: its way from the way the points lean (turned by
+    // nothing, not flipped).
+    let plain = CurveEnd {
+        angle: 0.0,
+        flip: false,
+        ..end.clone()
+    };
+    let lean = plain.held(world, at, forward).ok()?.way(forward)?;
+    // (The face's normal, as the end is turned about it: what an end
+    // held square to the face runs along.)
+    let square = CurveEnd {
+        way: EndWay::Normal,
+        ..plain.clone()
+    };
+    let normal = square
+        .held(world, at, forward)
+        .ok()?
+        .along?
+        .try_normalize()?;
+    let now = args.clone();
+    let tip = at + way * (end.magnitude * reach);
+    let handle = workpiece_core::handles::PlanarHandle::new(tip, normal, move |p| {
+        let v = p - at;
+        let v = v - normal * v.dot(normal);
+        let mut new = now.clone();
+        let end = of(&mut new);
+        end.magnitude = (v.length() / reach).max(1e-3);
+        let angle = normal.cross(lean).dot(v).atan2(lean.dot(v)).to_degrees();
+        // (Beyond square to the points it is the other way along, turned
+        // back.)
+        end.flip = angle.abs() > 90.0;
+        end.angle = if end.flip {
+            angle - 180.0_f64.copysign(angle)
+        } else {
+            angle
+        };
+        new
+    })?
+    .from(at);
+    Some(handle.into())
 }
 
 fn start_fields(args: &CurveThroughArgs, _: &EditContext<'_>) -> Vec<Widget<CurveThroughArgs>> {
@@ -461,8 +649,13 @@ pub struct CurveThrough {
 impl CurveThroughArgs {
     /// The points the curve goes through, in `world`.
     fn places(&self, builder: &dyn Builder) -> anyhow::Result<Vec<Point3>> {
-        let world = builder.tracked();
         let offset = (*builder).measure(&self.offset, "the distance off the faces")?;
+        self.places_in(builder.tracked(), offset)
+    }
+
+    /// The points the curve goes through, in `world`, `offset` off the
+    /// faces they are on.
+    fn places_in(&self, world: &workpiece_core::World, offset: f64) -> anyhow::Result<Vec<Point3>> {
         let mut points = Vec::new();
         for (k, source) in self.points.iter().enumerate() {
             points.push(match self.spots.get(k).copied().flatten() {
@@ -519,6 +712,32 @@ impl Operation for CurveThrough {
         let points = self.args.places(builder)?;
         let curve = self.args.curve(builder.tracked(), &points)?;
         Ok(wire(&self.id, whole(curve)))
+    }
+
+    fn visualize_edit(
+        &self,
+        context: &EditContext<'_>,
+        (): &(),
+    ) -> EditVisualization<Edit<CurveThroughArgs, ()>> {
+        let args = &self.args;
+        let fields = workpiece_core::Arguments::fields(args, context);
+        let mut handles = BTreeMap::new();
+        let offset = args
+            .offset
+            .resolve(context.parameters)
+            .unwrap_or(args.offset.value);
+        if let Ok(points) = args.places_in(context.world, offset) {
+            let ends: [(&str, bool, EndOf); 2] = [
+                ("start", false, |a| &mut a.start),
+                ("end", true, |a| &mut a.end),
+            ];
+            for (name, last, of) in ends {
+                if let Some(handle) = end_handle(args, context.world, &points, last, of) {
+                    handles.insert(name.to_owned(), handle);
+                }
+            }
+        }
+        EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles).map(Edit::args)
     }
 
     fn summary(&self) -> String {

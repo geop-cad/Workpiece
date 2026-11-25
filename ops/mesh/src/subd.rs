@@ -328,7 +328,7 @@ mod tests {
 
     #[test]
     fn the_patches_of_a_flat_grid_are_flat_and_end_at_its_rim() {
-        let grid = Primitive::Grid.mesh(4.0, 4, Point3::ZERO);
+        let grid = Primitive::Plane.mesh(4.0, 4, Point3::ZERO);
         let patches = patches(&grid);
         // The corners of the grid are no corners of the surface: its
         // rim is the smooth curve the rim's points control.

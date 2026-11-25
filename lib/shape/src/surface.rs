@@ -1,4 +1,4 @@
-//! Surfaces as sheets: faces copied off a body, holes filled, edges
+//! Surfaces as sheets: faces copied off a body, edges
 //! ruled, faces made whole, bounded, trimmed and rounded.
 
 use anyhow::{Context, ensure};
@@ -52,125 +52,6 @@ pub fn faces_of(solid: &Solid, faces: &[usize]) -> Solid {
         });
     }
     out
-}
-
-/// `sheet` with its flat holes filled: every ring of free edges that
-/// lies in a plane gets a flat face. Returns how many were filled.
-pub fn filled(sheet: &Solid) -> anyhow::Result<(Solid, usize)> {
-    use workpiece_core::math::{Point2, Point3};
-    use workpiece_core::world::topo::{Curve2, NurbsSurface};
-    let mut walked = vec![0; sheet.edges.len()];
-    for step in sheet.faces.iter().flat_map(|f| f.loops.iter().flatten()) {
-        if let Walk::Edge { edge, .. } = step.walk {
-            walked[edge] += 1;
-        }
-    }
-    let mut free: Vec<usize> = (0..sheet.edges.len()).filter(|e| walked[*e] == 1).collect();
-    let (lo, hi) = sheet.extent();
-    let within = (hi - lo).length() * 1e-7;
-    let mut out = sheet.clone();
-    let mut made = 0;
-    while let Some(first) = free.pop() {
-        // Around from edge to edge, back to where it started.
-        let mut ring = vec![(first, false)];
-        let (start, mut at) = (sheet.edges[first].ends[0], sheet.edges[first].ends[1]);
-        while at != start {
-            let next = free.iter().position(|e| sheet.edges[*e].ends.contains(&at));
-            let Some(next) = next else {
-                break;
-            };
-            let edge = free.swap_remove(next);
-            let reversed = sheet.edges[edge].ends[0] != at;
-            at = sheet.edges[edge].ends[usize::from(!reversed)];
-            ring.push((edge, reversed));
-        }
-        if at != start {
-            continue;
-        }
-        // Its plane, if it lies in one.
-        let mut places: Vec<Point3> = Vec::new();
-        for &(e, reversed) in &ring {
-            let edge = &sheet.edges[e];
-            let mut along: Vec<Point3> = (0..16)
-                .map(|k| {
-                    edge.point(edge.range.0 + (edge.range.1 - edge.range.0) * f64::from(k) / 16.0)
-                })
-                .collect();
-            if reversed {
-                along.push(edge.point(edge.range.1));
-                along.reverse();
-                along.pop();
-            }
-            places.extend(along);
-        }
-        let origin = places[0];
-        let normal: Point3 = (0..places.len())
-            .map(|k| (places[k] - origin).cross(places[(k + 1) % places.len()] - origin))
-            .sum();
-        let Some(normal) = normal.try_normalize() else {
-            continue;
-        };
-        if places
-            .iter()
-            .any(|p| (*p - origin).dot(normal).abs() > within)
-        {
-            continue;
-        }
-        // (Its normal is the way the ring turns: the ring runs with the
-        // face on its left.)
-        let x = normal.any_orthonormal_vector();
-        let y = normal.cross(x);
-        let flat = |p: Point3| Point2::new((p - origin).dot(x), (p - origin).dot(y));
-        let (mut low, mut high) = (Point2::INFINITY, Point2::NEG_INFINITY);
-        for edge in ring.iter().map(|r| &sheet.edges[r.0]) {
-            for p in edge.curve.control_points() {
-                (low, high) = (low.min(flat(*p)), high.max(flat(*p)));
-            }
-        }
-        let pad = (high - low).length() * 0.1 + within;
-        let (low, high) = (low - Point2::splat(pad), high + Point2::splat(pad));
-        let place = |p: Point2| origin + x * p.x + y * p.y;
-        let surface = NurbsSurface::new(
-            1,
-            1,
-            vec![low.x, low.x, high.x, high.x],
-            vec![low.y, low.y, high.y, high.y],
-            2,
-            2,
-            vec![
-                place(low),
-                place(Point2::new(low.x, high.y)),
-                place(Point2::new(high.x, low.y)),
-                place(high),
-            ],
-            None,
-        )?;
-        let mut steps = Vec::new();
-        for &(e, reversed) in &ring {
-            let curve = &sheet.edges[e].curve;
-            let pcurve = Curve2::new(
-                curve.degree(),
-                curve.knots().to_vec(),
-                curve.control_points().iter().map(|p| flat(*p)).collect(),
-                Some(curve.weights().to_vec()),
-            )?;
-            steps.push(Use {
-                walk: Walk::Edge { edge: e, reversed },
-                pcurve: std::sync::Arc::new(pcurve),
-            });
-        }
-        out.faces.push(Face {
-            surface: std::sync::Arc::new(surface),
-            outward: true,
-            loops: vec![steps],
-            tolerance: within.max(1e-9),
-            name: None,
-            also: Vec::new(),
-            smooth: Vec::new(),
-        });
-        made += 1;
-    }
-    Ok((out, made))
 }
 
 /// The surface the piece of `curve` over `range` sweeps moved by `by`
@@ -279,6 +160,186 @@ pub fn ruled(
         step(last, false, line((t1, 0.0), (t1, 1.0), (0.0, 1.0))?),
         step(beyond, true, line((t0, 1.0), (t1, 1.0), range)?),
         step(first, true, line((t0, 0.0), (t0, 1.0), (0.0, 1.0))?),
+    ];
+    out.faces.push(Face {
+        surface: Arc::new(surface),
+        outward: true,
+        loops: vec![walk],
+        tolerance,
+        name: Some(format!("{id}/face")),
+        also: Vec::new(),
+        smooth: Vec::new(),
+    });
+    Ok(out)
+}
+
+/// The surface the piece of `curve` over `range` sweeps turned about the
+/// axis through `origin` along `axis`, from the angle `start` (where the
+/// curve is turned to first) on through `angle` (2π: all the way
+/// around), right-handed about the axis: one face, u along the curve,
+/// v around. An end of the curve on the axis is a pole of it.
+pub fn revolved(
+    curve: &workpiece_core::world::topo::Curve3,
+    range: (f64, f64),
+    origin: workpiece_core::math::Point3,
+    axis: workpiece_core::math::Point3,
+    (start, angle): (f64, f64),
+    id: &str,
+) -> anyhow::Result<Solid> {
+    use std::sync::Arc;
+    use workpiece_boolean::model::{Edge, Vertex};
+    use workpiece_core::math::{Point2, Point3};
+    use workpiece_core::world::topo::{Curve2, Curve3, NurbsSurface};
+    let tau = std::f64::consts::TAU;
+    ensure!(
+        angle > 1e-9 && angle.is_finite(),
+        "there is no angle to revolve through"
+    );
+    let axis = axis.try_normalize().context("an axis has a direction")?;
+    let angle = angle.min(tau);
+    let full = angle >= tau - 1e-9;
+    let foot = |p: Point3| origin + axis * (p - origin).dot(axis);
+    let turned = |p: Point3, a: f64| {
+        let f = foot(p);
+        let x = p - f;
+        f + x * a.cos() + axis.cross(x) * a.sin()
+    };
+    let piece = curve.trimmed(range.0, range.1)?;
+    let near = Curve3::new(
+        piece.degree(),
+        piece.knots().to_vec(),
+        piece
+            .control_points()
+            .iter()
+            .map(|p| turned(*p, start))
+            .collect(),
+        Some(piece.weights().to_vec()),
+    )?;
+    let (circle, knots) = crate::arcs::arc_form(angle);
+    let (mut points, mut weights) = (Vec::new(), Vec::new());
+    for (&p, &w) in near.control_points().iter().zip(near.weights()) {
+        let f = foot(p);
+        let (x, y) = (p - f, axis.cross(p - f));
+        for (c, cw) in &circle {
+            points.push(f + x * c.x + y * c.y);
+            weights.push(w * cw);
+        }
+    }
+    let surface = NurbsSurface::new(
+        near.degree(),
+        2,
+        near.knots().to_vec(),
+        knots,
+        near.control_points().len(),
+        circle.len(),
+        points,
+        Some(weights),
+    )?;
+    let (t0, t1) = range;
+    let (a, b) = (near.point_at(t0), near.point_at(t1));
+    let size = near
+        .control_points()
+        .iter()
+        .map(|p| p.distance(foot(*p)))
+        .fold(a.distance(b), f64::max);
+    ensure!(size > 0.0, "the curve lies on the axis");
+    let tolerance = size * 1e-9;
+    let closed = a.distance(b) <= tolerance;
+    let pole = |p: Point3| p.distance(foot(p)) <= tolerance * 16.0;
+    let mut out = Solid::default();
+    let vertex = |out: &mut Solid, point| {
+        out.vertices.push(Vertex {
+            point,
+            tolerance: tolerance * 4.0,
+            name: None,
+        });
+        out.vertices.len() - 1
+    };
+    // Each end where it starts and where it is turned to.
+    let ends = |out: &mut Solid, p: Point3| {
+        let first = vertex(out, p);
+        let last = if full || pole(p) {
+            first
+        } else {
+            vertex(out, turned(p, angle))
+        };
+        (first, last)
+    };
+    let (a0, a1) = ends(&mut out, a);
+    let (b0, b1) = if closed { (a0, a1) } else { ends(&mut out, b) };
+    let edge = |out: &mut Solid, curve: Curve3, range, ends, name: &str| {
+        out.edges.push(Edge {
+            curve: Arc::new(curve),
+            range,
+            ends,
+            tolerance,
+            name: Some(format!("{id}/{name}")),
+            also: Vec::new(),
+        });
+        out.edges.len() - 1
+    };
+    let far = Curve3::new(
+        near.degree(),
+        near.knots().to_vec(),
+        near.control_points()
+            .iter()
+            .map(|p| turned(*p, angle))
+            .collect(),
+        Some(near.weights().to_vec()),
+    )?;
+    let along = edge(&mut out, near, range, [a0, b0], "start");
+    let beyond = if full {
+        along
+    } else {
+        edge(&mut out, far, range, [a1, b1], "end")
+    };
+    // The rings the ends sweep (none for an end on the axis).
+    let ring = |out: &mut Solid, p: Point3, ends: [usize; 2], name: &str| {
+        let f = foot(p);
+        let curve = crate::arcs::ellipse(f, p - f, axis.cross(p - f), angle);
+        edge(out, curve, (0.0, 1.0), ends, name)
+    };
+    let ring_a = (!pole(a)).then(|| ring(&mut out, a, [a0, a1], "ring/start"));
+    let ring_b = if closed {
+        ring_a
+    } else {
+        (!pole(b)).then(|| ring(&mut out, b, [b0, b1], "ring/end"))
+    };
+    let line =
+        |from: (f64, f64), to: (f64, f64), range: (f64, f64)| -> anyhow::Result<Arc<Curve2>> {
+            Ok(Arc::new(Curve2::new(
+                1,
+                vec![range.0, range.0, range.1, range.1],
+                vec![Point2::new(from.0, from.1), Point2::new(to.0, to.1)],
+                None,
+            )?))
+        };
+    let step = |edge, reversed, pcurve| Use {
+        walk: Walk::Edge { edge, reversed },
+        pcurve,
+    };
+    // (An edge's (u, v) curve runs as the edge does, whichever way it is
+    // walked; a pole's, as it is walked.)
+    let side = |ring: Option<usize>, at: usize, t: f64, up: bool| -> anyhow::Result<Use> {
+        Ok(match ring {
+            Some(ring) => step(ring, !up, line((t, 0.0), (t, 1.0), (0.0, 1.0))?),
+            None => {
+                let (from, to) = if up { (0.0, 1.0) } else { (1.0, 0.0) };
+                Use {
+                    walk: Walk::Pole {
+                        vertex: at,
+                        range: (0.0, 1.0),
+                    },
+                    pcurve: line((t, from), (t, to), (0.0, 1.0))?,
+                }
+            }
+        })
+    };
+    let walk = vec![
+        step(along, false, line((t0, 0.0), (t1, 0.0), range)?),
+        side(ring_b, b0, t1, true)?,
+        step(beyond, true, line((t0, 1.0), (t1, 1.0), range)?),
+        side(ring_a, a0, t0, false)?,
     ];
     out.faces.push(Face {
         surface: Arc::new(surface),
@@ -509,7 +570,7 @@ pub fn trimmed(
 /// it is one: told by its name, which says so (`thick/s0/f3/near`, the
 /// sheet's fourth face itself) and stays with it through what is done
 /// to the solid — cut, rounded, made one with another in its plane.
-fn tag_of(face: &Face) -> Option<usize> {
+pub(crate) fn tag_of(face: &Face) -> Option<usize> {
     let names = face.name.iter().chain(&face.also);
     let mut places = names.filter_map(|name| {
         let whole = name.split('#').next()?;

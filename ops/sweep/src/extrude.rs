@@ -8,9 +8,10 @@ use workpiece_core::handles::LinearHandle;
 use workpiece_core::math::{Point2, Point3};
 use workpiece_core::widgets::{HBox, Label, Mood, NumericInput, ReferenceInput, VBox};
 use workpiece_core::world::AreaPick;
-use workpiece_core::world::topo::FaceId;
+use workpiece_core::world::topo::{Curve3, FaceId};
 use workpiece_core::{
-    Builder, Edit, EditContext, EditVisualization, Measure, Operation, Reference, Source, Widget,
+    Anything, Builder, Edit, EditContext, EditVisualization, Measure, Operation, Reference, Source,
+    Widget,
 };
 
 use workpiece_shape::bodies::{self, Combine};
@@ -73,13 +74,26 @@ impl Extent {
 )]
 pub struct ExtrudeArgs {
     /// The sketch.
-    #[arg(with = "sketch_fields")]
+    #[arg(with = "sketch_fields", when = "self.curves.is_empty()")]
     pub sketch: Option<workpiece_core::Reference<workpiece_core::Sketched>>,
     /// The areas of it to extrude, each by a point inside it or by its
     /// boundary; none for the whole sketch (areas inside others are
     /// holes).
     #[serde(default)]
     pub areas: Vec<AreaPick>,
+    /// Instead of a sketch, curves of the model: edges of bodies and
+    /// surfaces, curve bodies (all their edges) — in space, any shape.
+    /// A surface of them is their curves swept; a solid only of curves
+    /// that close around an area in one plane.
+    #[serde(default)]
+    #[arg(with = "curves_field", when = "self.sketch.is_none()")]
+    pub curves: Vec<Reference<Anything>>,
+    /// The way curves are swept: along an axis, a straight edge, or a
+    /// plane's or flat face's normal; none for the normal of the plane
+    /// the curves lie in.
+    #[serde(default)]
+    #[arg(with = "direction_field", when = "!self.curves.is_empty()")]
+    pub direction: Option<Reference<Anything>>,
     /// Where it ends.
     #[serde(default)]
     #[arg(among = "Extent::ALL[..if self.surface { 2 } else { Extent::ALL.len() }]")]
@@ -118,7 +132,7 @@ pub struct ExtrudeArgs {
         label = "Ends",
         options = "Open|Closed",
         icons = "ends-open|ends-closed",
-        when = "self.surface"
+        when = "self.surface && self.curves.is_empty()"
     )]
     pub caps: bool,
 }
@@ -128,6 +142,8 @@ impl Default for ExtrudeArgs {
         Self {
             sketch: None,
             areas: Vec::new(),
+            curves: Vec::new(),
+            direction: None,
             extent: Extent::Distance,
             distance: Measure::new(10.0),
             flip: false,
@@ -189,15 +205,46 @@ impl Operation for Extrude {
         // (Nothing is changed here: the bodies it makes are written by
         // the builder.)
         let mut out = workpiece_shape::bodies::Out::default();
-        let args = &self.args;
-        let distance = (*builder).measure(&args.distance, "the distance")?;
+        let distance = (*builder).measure(&self.args.distance, "the distance")?;
         let world = builder.tracked();
-        let sketch = args.sketch.as_ref().context("pick a sketch")?.name();
-        let profile = world
-            .profiles
-            .get(sketch)
-            .with_context(|| format!("there is no sketch {sketch:?}"))?
-            .clone();
+        // Of curves: a surface, their curves swept; or a solid of those
+        // that close around an area in a plane, as of a sketch.
+        let curves: Vec<&str> = self.args.curves.iter().map(|c| c.name()).collect();
+        let mut args = self.args.clone();
+        let profile = if curves.is_empty() {
+            let sketch = args
+                .sketch
+                .as_ref()
+                .context("pick a sketch or curves")?
+                .name();
+            world
+                .profiles
+                .get(sketch)
+                .with_context(|| format!("there is no sketch {sketch:?}"))?
+                .clone()
+        } else {
+            anyhow::ensure!(
+                args.sketch.is_none(),
+                "extrude a sketch or curves, not both"
+            );
+            if args.surface {
+                anyhow::ensure!(!args.caps, "a surface of curves has no ends to close");
+                return self.of_curves(builder, &curves, distance);
+            }
+            let profile = workpiece_shape::outline::solid_profile(&world.topo, &curves)?;
+            if let Some(way) = &args.direction {
+                let way = workpiece_shape::outline::direction_of(world, way)?.normalize_or_zero();
+                let along = way.dot(Frame::of(&profile).normal());
+                anyhow::ensure!(
+                    along.abs() > 1.0 - 1e-6,
+                    "a solid of curves goes square to their plane: leave the direction out, or pick one square to it"
+                );
+                // (The profile's normal is the way the curves turn.)
+                args.flip ^= along < 0.0;
+            }
+            profile
+        };
+        let args = &args;
         // What is swept: the outline of the areas, or, for a surface of
         // a sketch without areas, every curve.
         let regions = sweep::regions(&profile, &args.areas)?;
@@ -386,6 +433,43 @@ impl Operation for Extrude {
         // The fields the arguments give; the handles are its own.
         let fields = workpiece_core::Arguments::fields(args, context);
         let mut handles = BTreeMap::new();
+        // Of curves: an arrow from their middle along the way they go.
+        let names: Vec<&str> = args.curves.iter().map(|c| c.name()).collect();
+        let pieces = (!names.is_empty())
+            .then(|| workpiece_shape::outline::curve_pieces(&world.topo, &names).ok())
+            .flatten();
+        if let Some(pieces) = pieces {
+            let value = args
+                .distance
+                .resolve(context.parameters)
+                .unwrap_or(args.distance.value);
+            let mut unflipped = args.clone();
+            unflipped.flip = false;
+            if let Ok((way, _)) = curves_way(world, &unflipped, &pieces, value.abs().max(1e-9)) {
+                let from = middle_of(&pieces);
+                let arrow = match args.extent {
+                    Extent::Distance => {
+                        let sign = if args.flip { -1.0 } else { 1.0 };
+                        let drag = ui::set(args, |a, x: f64| {
+                            if x < 0.0 {
+                                a.flip = !a.flip;
+                            }
+                            a.distance = Measure::new(x.abs());
+                        });
+                        LinearHandle::new(from, way * sign, value, drag)
+                    }
+                    Extent::Symmetric => {
+                        let drag =
+                            ui::set(args, |a, x: f64| a.distance = Measure::new(2.0 * x.abs()));
+                        LinearHandle::new(from, way, value / 2.0, drag)
+                    }
+                    _ => None,
+                };
+                if let Some(arrow) = arrow {
+                    handles.insert("distance".to_owned(), arrow.into());
+                }
+            }
+        }
         if let Some(profile) = ui::profile(world, &args.sketch) {
             let picker = ui::area_picker(
                 profile,
@@ -431,7 +515,12 @@ impl Operation for Extrude {
     fn summary(&self) -> String {
         let op = self;
         let a = &op.args;
-        let of = a.sketch.as_ref().map_or("(no sketch)", |s| s.name());
+        let curves = format!("{} curves", a.curves.len());
+        let of = match &a.sketch {
+            Some(s) => s.name(),
+            None if !a.curves.is_empty() => &curves,
+            None => "(no sketch)",
+        };
         let how = match a.extent {
             crate::Extent::Distance => format!("{}", a.distance),
             crate::Extent::Symmetric => format!("{} both ways", a.distance),
@@ -457,6 +546,113 @@ fn world_face(
     let name = face.source.name();
     topo.resolve::<FaceId>(name)
         .with_context(|| format!("there is no face {name:?}"))
+}
+
+impl Extrude {
+    /// A surface of the curves `curves`: each swept along the direction,
+    /// the distance; sewn where they meet.
+    fn of_curves(
+        &self,
+        builder: &dyn Builder,
+        curves: &[&str],
+        distance: f64,
+    ) -> anyhow::Result<workpiece_core::Made<'_>> {
+        let args = &self.args;
+        let world = builder.tracked();
+        let pieces = workpiece_shape::outline::curve_pieces(&world.topo, curves)?;
+        let (direction, range) = curves_way(world, args, &pieces, distance)?;
+        let sheet = workpiece_shape::outline::swept_curves(&pieces, &self.id, |curve, t, name| {
+            let start = direction * range.0;
+            let moved = Curve3::new(
+                curve.degree(),
+                curve.knots().to_vec(),
+                curve.control_points().iter().map(|p| *p + start).collect(),
+                Some(curve.weights().to_vec()),
+            )?;
+            workpiece_shape::ruled(&moved, t, direction * (range.1 - range.0), name)
+        })?;
+        let mut out = workpiece_shape::bodies::Out::default();
+        {
+            use workpiece_core::world::{Annotation, Measured};
+            let from = middle_of(&pieces);
+            let measured = Measured::Length {
+                from: from + direction * range.0,
+                to: from + direction * range.1,
+                along: None,
+            };
+            let held = Annotation::held(measured, distance, &args.distance, 0.0);
+            out.made
+                .annotations
+                .push((format!("{}/distance", self.id), held));
+        }
+        out.write_sheet(&sheet, &self.id);
+        Ok(out.made)
+    }
+}
+
+/// The way curves are extruded (a unit direction, flipped as asked) and
+/// from where to where along it.
+fn curves_way(
+    world: &workpiece_core::World,
+    args: &ExtrudeArgs,
+    pieces: &[(Curve3, f64, f64)],
+    distance: f64,
+) -> anyhow::Result<(Point3, (f64, f64))> {
+    let way = match &args.direction {
+        Some(way) => workpiece_shape::outline::direction_of(world, way)?,
+        None => {
+            workpiece_shape::outline::plane_of(pieces)
+                .context("the curves lie in no plane: pick the direction to extrude them along")?
+                .1
+        }
+    };
+    let way = way.try_normalize().context("the direction has no length")?;
+    let way = if args.flip { -way } else { way };
+    anyhow::ensure!(
+        distance.is_finite() && distance > 0.0,
+        "distance {distance} is not positive"
+    );
+    let range = match args.extent {
+        Extent::Distance => (0.0, distance),
+        Extent::Symmetric => (-distance / 2.0, distance / 2.0),
+        _ => anyhow::bail!("curves are extruded by a distance, or symmetric"),
+    };
+    Ok((way, range))
+}
+
+/// The middle of the pieces of curve: where their handle stands.
+fn middle_of(pieces: &[(Curve3, f64, f64)]) -> Point3 {
+    let points: Vec<Point3> = pieces
+        .iter()
+        .flat_map(|(c, t0, t1)| c.polyline(*t0, *t1))
+        .collect();
+    points.iter().copied().sum::<Point3>() / points.len().max(1) as f64
+}
+
+/// The box of the curves to extrude instead of a sketch.
+fn curves_field(args: &ExtrudeArgs, _: &EditContext<'_>) -> Vec<Widget<ExtrudeArgs>> {
+    let set = ui::set(args, |a, picked: Vec<Source>| {
+        a.curves = Reference::each(picked);
+    });
+    vec![ui::curves_list(&args.curves, set).into()]
+}
+
+/// The field that picks the way curves are extruded.
+fn direction_field(args: &ExtrudeArgs, _: &EditContext<'_>) -> Vec<Widget<ExtrudeArgs>> {
+    let (set, clear) = (args.clone(), args.clone());
+    vec![ui::direction_input(
+        &args.direction,
+        move |way| {
+            let mut new = set.clone();
+            new.direction = Some(way.into());
+            new
+        },
+        move || {
+            let mut new = clear.clone();
+            new.direction = None;
+            new
+        },
+    )]
 }
 
 /// The field that picks the sketch (what was picked of another sketch

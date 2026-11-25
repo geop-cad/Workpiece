@@ -19,6 +19,7 @@ mod gizmo;
 mod linear;
 mod planar;
 pub mod shape;
+pub mod snap;
 pub mod space;
 
 use std::rc::Rc;
@@ -31,6 +32,7 @@ pub use canvas::{
 pub use gizmo::{Gizmo, GizmoPart};
 pub use linear::LinearHandle;
 pub use planar::PlanarHandle;
+pub use snap::{Snap, SnapKind, SnapKinds, SnapTargets};
 pub use space::{Space, SpaceDraw, SpaceEvent, SpaceHandler, SpaceShape, SpaceView};
 
 use crate::widgets::MapFn;

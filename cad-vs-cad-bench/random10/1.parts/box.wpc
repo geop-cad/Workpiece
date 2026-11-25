@@ -277,6 +277,8 @@
           "areas": [],
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
+          "direction": null,
           "distance": 92.0,
           "extent": "Distance",
           "flip": true,
@@ -311,7 +313,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 32.0
+          "size": 32.0,
+          "tangent": true
         },
         "id": "corners"
       }
@@ -349,7 +352,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 6.0
+          "size": 6.0,
+          "tangent": true
         },
         "id": "bottom"
       }
@@ -400,7 +404,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 3.0
+          "size": 3.0,
+          "tangent": true
         },
         "id": "rim"
       }
@@ -772,6 +777,8 @@
           "areas": [],
           "caps": false,
           "combine": "Cut",
+          "curves": [],
+          "direction": null,
           "distance": 10.0,
           "extent": "ThroughBoth",
           "flip": false,
@@ -1285,6 +1292,8 @@
           "areas": [],
           "caps": false,
           "combine": "Cut",
+          "curves": [],
+          "direction": null,
           "distance": 10.0,
           "extent": "ThroughAll",
           "flip": false,

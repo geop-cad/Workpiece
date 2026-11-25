@@ -398,6 +398,7 @@
           },
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "screw_profile"

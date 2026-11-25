@@ -578,30 +578,103 @@ impl Snappable {
     }
 
     /// `at` snapped, seen as `view` has it (how large a pixel is, which
-    /// way is right), level with `level_with` where it nearly is: where
-    /// it lands, and whether that is on something drawn.
+    /// way is right), as the sketcher snaps the next point of a chain:
+    /// level with `level_with` (the corner before) where it nearly is,
+    /// and with the points `remembered` (hovered before, latest first:
+    /// [`Snapped::remember`] keeps them) — also where it is on a line,
+    /// where the level crosses it.
     pub fn snap(
         &self,
         at: Point2,
         view: &CanvasView,
         level_with: Option<Point2>,
-    ) -> (Point2, bool) {
-        let snapped = snap(&self.0, at, view, level_with, &SketchState::default());
-        (snapped.at, snapped.to.is_some())
+        remembered: &[Point2],
+    ) -> Snapped {
+        // (The points hovered before, as points of their own where they
+        // are none of the lines' ends.)
+        let mut args = self.0.clone();
+        let mut state = SketchState::default();
+        for p in remembered {
+            let had = args
+                .points
+                .iter()
+                .find(|(_, q)| q.at.distance(*p) <= 1e-9)
+                .map(|(id, _)| *id);
+            state
+                .remembered
+                .push(had.unwrap_or_else(|| args.add_point(*p)));
+        }
+        let snapped = snap(&args, at, view, level_with, &state);
+        let horizontal = SketchAxis::nearest(view.right);
+        let guides = [snapped.aligned, snapped.aligned_too]
+            .into_iter()
+            .flatten()
+            .map(|(id, axis)| (args.at(id), axis == horizontal))
+            .collect();
+        Snapped {
+            at: snapped.at,
+            point: match snapped.to {
+                Some(Item::Point(id)) => Some(args.at(id)),
+                _ => None,
+            },
+            badge: match snapped.to {
+                Some(Item::Entity(_)) if snapped.middle => "M",
+                Some(Item::Entity(_)) if snapped.also.is_some() => "×",
+                Some(Item::Point(_)) => "◎",
+                Some(Item::Entity(_)) => "on",
+                _ => "",
+            },
+            on: snapped.to.is_some(),
+            along: level_with
+                .zip(snapped.along)
+                .map(|(from, axis)| (from, axis == horizontal)),
+            guides,
+        }
     }
 }
 
-/// How far apart the lines of the grid are at this zoom: 1, 2 or 5 of a
-/// power of ten, the least that leaves them some pixels apart.
+/// Where [`Snappable::snap`] put a point, and what it is held by.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Snapped {
+    /// Where it lands.
+    pub at: Point2,
+    /// Whether that is on something drawn.
+    pub on: bool,
+    /// The point it is on, if it snapped to one: what is remembered.
+    pub point: Option<Point2>,
+    /// What it is on, as the sketcher's badge says it: `◎` a point, `×`
+    /// a crossing, `M` a middle, `on` a line or circle; empty, nothing.
+    pub badge: &'static str,
+    /// The corner before it is level with, and whether horizontally.
+    pub along: Option<(Point2, bool)>,
+    /// The points hovered before it is level with, and whether
+    /// horizontally: a guide is drawn from each.
+    pub guides: Vec<(Point2, bool)>,
+}
+
+impl Snapped {
+    /// `remembered` (latest first, two at most) with the point it
+    /// snapped to, if any: what the next snap is level with.
+    pub fn remember(&self, remembered: &mut Vec<Point2>) {
+        if let Some(p) = self.point {
+            remembered.retain(|q| q.distance(p) > 1e-9);
+            remembered.insert(0, p);
+            remembered.truncate(2);
+        }
+    }
+
+    /// How it shows, as the sketcher shows where its pointer snaps:
+    /// the dot, the badge of what it is on, a dashed guide from each
+    /// point it is level with and from the corner before, with H or V.
+    pub fn cues(&self, view: &CanvasView) -> Vec<workpiece_core::handles::CanvasShape> {
+        crate::draw::snap_cues(view, self)
+    }
+}
+
+/// How far apart the lines of the grid are at this zoom: the scene's
+/// grid ([`workpiece_core::handles::snap::grid_step`]).
 pub(crate) fn grid_step(view: &CanvasView) -> f64 {
-    const APART_PX: f64 = 14.0;
-    let least = APART_PX * view.pixel;
-    let ten = 10f64.powf(least.log10().floor());
-    [1.0, 2.0, 5.0, 10.0]
-        .into_iter()
-        .map(|k| k * ten)
-        .find(|step| *step >= least)
-        .unwrap_or(10.0 * ten)
+    workpiece_core::handles::snap::grid_step(view.pixel)
 }
 
 /// [`snap`] for the next point of the line tool's chain: level with the

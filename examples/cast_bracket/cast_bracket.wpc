@@ -380,6 +380,8 @@
           "areas": [],
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
+          "direction": null,
           "distance": 100.0,
           "extent": "Symmetric",
           "flip": false,
@@ -1053,6 +1055,8 @@
           "areas": [],
           "caps": false,
           "combine": "Cut",
+          "curves": [],
+          "direction": null,
           "distance": 10.0,
           "extent": "ThroughAll",
           "flip": false,
@@ -1259,6 +1263,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "bore"
@@ -1282,7 +1288,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 6.0
+          "size": 6.0,
+          "tangent": true
         },
         "id": "corner"
       }
@@ -1332,7 +1339,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 3.0
+          "size": 3.0,
+          "tangent": true
         },
         "id": "rib_roots"
       }
@@ -1358,7 +1366,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 2.0
+          "size": 2.0,
+          "tangent": false
         },
         "id": "rib_crests"
       }
@@ -1378,7 +1387,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 10.0
+          "size": 10.0,
+          "tangent": true
         },
         "id": "base_corners"
       }

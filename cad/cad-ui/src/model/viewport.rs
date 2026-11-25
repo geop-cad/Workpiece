@@ -97,6 +97,23 @@ pub struct Viewport {
     pub pressed: Option<(Candidate, PointerAt)>,
     /// The placed part the pointer is moving.
     pub moving: Option<Moving>,
+    /// The gizmo being dragged: where it was and where the pointer was
+    /// when the drag started, and how much it has scaled since.
+    pub gizmo_drag: Option<GizmoDrag>,
+    /// What the point moved or placed snapped to last, while it shows.
+    pub snapped: Option<workpiece_core::handles::Snap>,
+}
+
+/// A drag of a gizmo, from where it started: moves and turns are worked
+/// out from there (snapped where the pointer is), not step by step.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GizmoDrag {
+    /// The gizmo's pose when the drag started.
+    pub pose: workpiece_core::Pose,
+    /// Where the pointer was.
+    pub at: PointerAt,
+    /// How much it has scaled all at once since (its outer ring).
+    pub factor: f64,
 }
 
 impl Viewport {

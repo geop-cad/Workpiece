@@ -3993,6 +3993,7 @@ dependencies = [
  "workpiece-boolean",
  "workpiece-core",
  "workpiece-ops-testing",
+ "workpiece-shape",
 ]
 
 [[package]]
@@ -4188,6 +4189,7 @@ dependencies = [
  "workpiece-ops-sketch",
  "workpiece-ops-standard",
  "workpiece-ops-step",
+ "workpiece-ops-surface",
  "workpiece-ops-sweep",
  "workpiece-part",
  "workpiece-rasterize",

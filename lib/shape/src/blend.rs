@@ -670,8 +670,10 @@ fn called(solid: &Solid, edge: usize) -> String {
 /// [`crate::surface::blended_sheet`]).
 /// With `corners`, a corner where every edge is blended is closed (by a
 /// ball between rounds, a flat between chamfers); without, the blends
-/// run on until they cut each other off. What was blended: each body
-/// as it was, and its edges blended (see [`blended`]).
+/// run on until they cut each other off. With `tangent`, each edge
+/// comes with the edges that run on smoothly from it (see
+/// [`chained`]). What was blended: each body as it was, and its edges
+/// blended (see [`blended`]).
 pub fn blend(
     topo: &Topo,
     out: &mut crate::bodies::Out<'_>,
@@ -679,9 +681,15 @@ pub fn blend(
     picked: &[String],
     shape: &Shape,
     corners: bool,
+    tangent: bool,
 ) -> anyhow::Result<Vec<(Solid, Vec<usize>)>> {
     let mut was = Vec::new();
     for (body, name, solid, edges) in blended(topo, picked)? {
+        let edges = if tangent {
+            with_chains(&solid, &edges)
+        } else {
+            edges
+        };
         let sheet = topo
             .body(body)
             .is_some_and(|b| b.kind == workpiece_core::world::topo::BodyKind::Sheet);
@@ -698,6 +706,37 @@ pub fn blend(
         was.push((solid, edges));
     }
     Ok(was)
+}
+
+/// `edges` of `solid`, and the edges to blend that run on smoothly
+/// from them: their tangent chains ([`chain`]), of edges that are
+/// sharp (where the chain runs on into an edge between faces that meet
+/// smoothly, that edge is not blended).
+fn with_chains(solid: &Solid, edges: &[usize]) -> Vec<usize> {
+    chain(solid, edges)
+        .into_iter()
+        .filter(|&e| edges.contains(&e) || sharp(solid, e))
+        .collect()
+}
+
+/// The edges a blend of what is `picked` of the bodies of `topo` takes
+/// along when it follows the edges' tangent chains (`tangent` of
+/// [`blend`]): those that run on smoothly from the edges picked (or
+/// from the edges of a face or body picked) and are not among them,
+/// by name. Nothing where what is picked cannot be blended.
+pub fn chained(topo: &Topo, picked: &[String]) -> Vec<String> {
+    let Ok(found) = blended(topo, picked) else {
+        return Vec::new();
+    };
+    found
+        .iter()
+        .flat_map(|(_, _, solid, edges)| {
+            with_chains(solid, edges)
+                .into_iter()
+                .filter(|e| !edges.contains(e))
+                .filter_map(|e| solid.edges[e].name.clone())
+        })
+        .collect()
 }
 
 /// A body to blend: it, its name, it read, and its edges blended.

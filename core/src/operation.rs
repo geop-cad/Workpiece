@@ -164,6 +164,11 @@ pub struct EditVisualization<M> {
     /// stands where it is clicked): the step is done with that, and the
     /// next of its kind starts — as a sketch's dimension tool goes on.
     pub place: Option<Placer<M>>,
+    /// What the step is of beyond what is picked in its dialog, by
+    /// name in the world it is applied to: the edges a blend takes
+    /// along with those picked (their tangent chain). Outlined with
+    /// what is picked while the step is edited, in another colour.
+    pub implied: Vec<String>,
 }
 
 /// What a click on nothing does, by the ray of the pointer (see
@@ -181,7 +186,16 @@ impl<M: 'static> EditVisualization<M> {
             menu: Vec::new(),
             handles,
             place: None,
+            implied: Vec::new(),
         }
+    }
+
+    /// The same visualization, saying that the step is of `implied`
+    /// too (see [`Self::implied`]).
+    #[must_use]
+    pub fn implying(mut self, implied: Vec<String>) -> Self {
+        self.implied = implied;
+        self
     }
 
     /// The same visualization, of a step that a click on nothing in
@@ -231,6 +245,7 @@ impl<M: 'static> EditVisualization<M> {
                 let f = f.clone();
                 Rc::new(move |ray: &crate::ray::Ray| place(ray).map(|m| f(m))) as Placer<N>
             }),
+            implied: self.implied,
         }
     }
 }

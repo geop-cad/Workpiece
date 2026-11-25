@@ -5,7 +5,8 @@
 //! faces — picked, moved with a gizmo, extruded, inset, bevelled, cut,
 //! bridged, filled, dissolved — and makes a body of it: of flat faces,
 //! or (smooth) of the subdivision surface the mesh controls, as NURBS
-//! faces that every other step can work on.
+//! faces that every other step can work on. Its lines (free edges)
+//! make curves the same way: the limit curve of their subdivision.
 //!
 //! * [`poly`]: the mesh.
 //! * [`prims`]: the meshes to start from.
@@ -17,6 +18,7 @@
 
 pub mod body;
 mod draw;
+pub mod lines;
 pub mod ops;
 pub mod poly;
 pub mod prims;
@@ -27,7 +29,7 @@ mod ui;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use workpiece_core::handles::{Gizmo, Handle, LinearHandle, Space};
+use workpiece_core::handles::{Gizmo, Handle, LinearHandle, SnapKind, SnapTargets, Space};
 use workpiece_core::math::Point3;
 use workpiece_core::{Axis, Builder, EditContext, EditVisualization, Operation, Source, Widget};
 
@@ -36,6 +38,11 @@ pub use prims::Primitive;
 pub use session::{MeshState, Mode, Tool};
 
 use session::{Last, MeshEdit, What};
+
+/// The name of the wire body of a mesh step's curves (its lines).
+pub fn curves_name(id: &str) -> String {
+    format!("{id}/curves")
+}
 
 /// The gizmo's size, in pixels.
 const GIZMO_SIZE: f64 = 90.0;
@@ -121,7 +128,7 @@ impl Mesh {
         Self {
             id: id.into(),
             args: MeshArgs {
-                mesh: Primitive::Grid.mesh(size, 3, Point3::ZERO),
+                mesh: Primitive::Plane.mesh(size, 3, Point3::ZERO),
                 smooth,
                 finer: 0,
                 mirror: [false; 3],
@@ -154,7 +161,14 @@ impl Operation for Mesh {
     fn make(&self, _: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let mut out = workpiece_boolean::io::Out::default();
         let whole = self.args.whole();
-        // (A mesh of no faces yet makes nothing.)
+        // The curves of its lines: a wire body.
+        if !whole.lines.is_empty() {
+            let curves = lines::curves(&whole, self.args.smooth)?;
+            out.made
+                .bodies
+                .push((curves_name(&self.id), Box::new(lines::Wire(curves))));
+        }
+        // (A mesh of no faces yet makes no other body.)
         if whole.faces.is_empty() {
             return Ok(out.made);
         }
@@ -176,8 +190,14 @@ impl Operation for Mesh {
 
     fn summary(&self) -> String {
         let faces = self.args.mesh.faces.len();
+        let curves = lines::runs(&self.args.mesh).len();
+        let curves = match curves {
+            0 => String::new(),
+            1 => ", 1 curve".to_owned(),
+            n => format!(", {n} curves"),
+        };
         format!(
-            "{faces} face{}, {}",
+            "{faces} face{}{curves}, {}",
             if faces == 1 { "" } else { "s" },
             if self.args.smooth { "smooth" } else { "flat" }
         )
@@ -209,24 +229,23 @@ impl Operation for Mesh {
             let draw = move |view: &_| draw::shapes(&a, &s, view);
             let (a, s) = (args.clone(), state.clone());
             Space::new(anchor, draw, move |event| session::handle(&a, &s, event))
+                .with_targets(snap_targets(&args.mesh, &state))
+                .placing(matches!(state.tool, Tool::Draw | Tool::Line))
         };
         handles.insert("mesh".to_owned(), space.into());
         if let Some(pivot) = session::pivot(&args, &state) {
-            // The gizmo moves and turns what is picked; an arrow along
-            // each axis stretches it. With the gizmo, the arrows stand
-            // on the other side of the middle, out of its way.
-            let (moves, stretches) = match state.tool {
-                Tool::Select => (true, Some(-1.0)),
-                Tool::Scale => (false, Some(1.0)),
-                _ => (false, None),
-            };
-            if moves {
+            // The gizmo moves and turns what is picked, and scales it
+            // all at once by its outer ring; an arrow along each axis
+            // stretches it, on the other side of the middle, out of the
+            // gizmo's way.
+            if state.tool == Tool::Select {
+                let side = -1.0;
                 let (a, s) = (args.clone(), state.clone());
+                let (a2, s2) = (args.clone(), state.clone());
                 let gizmo =
-                    Gizmo::new(pivot, GIZMO_SIZE, move |to| session::drag_gizmo(&a, &s, to));
+                    Gizmo::new(pivot, GIZMO_SIZE, move |to| session::drag_gizmo(&a, &s, to))
+                        .with_scale(move |by| session::scale_all(&a2, &s2, by));
                 handles.insert("gizmo".to_owned(), gizmo.into());
-            }
-            if let Some(side) = stretches {
                 // As long as what is picked reaches, times how far it
                 // is stretched.
                 let scaling = state
@@ -261,10 +280,7 @@ impl Operation for Mesh {
                             });
                             last.by[k] = value / reach;
                             let mut state = (*s).clone();
-                            state.gizmo = Some(session::Grip {
-                                raw: pivot,
-                                shown: pivot,
-                            });
+                            state.gizmo = Some(pivot);
                             session::redo(&a, &state, last)
                         },
                     );
@@ -281,6 +297,40 @@ impl Operation for Mesh {
     }
 }
 
+/// What of `poly` a point moved or placed in `state` snaps to: its
+/// points, the middles of its edges and lines, the middles of its
+/// faces, and its edges and lines — but for what moves (what is
+/// picked and what is held, while what is picked is moved).
+fn snap_targets(poly: &Poly, state: &MeshState) -> SnapTargets {
+    let mut moving = std::collections::BTreeSet::new();
+    if state.tool == Tool::Select {
+        moving = poly.points_of(&state.picked);
+        if let Some((item, _)) = state.grab {
+            moving.extend(poly.points_of(&[item]));
+        }
+    }
+    let mut targets = SnapTargets::default();
+    for (v, &p) in poly.points.iter().enumerate() {
+        if !moving.contains(&v) {
+            targets.points.push((p, SnapKind::Point));
+        }
+    }
+    for (a, b) in poly.all_edges() {
+        if moving.contains(&a) || moving.contains(&b) {
+            continue;
+        }
+        let (pa, pb) = (poly.points[a], poly.points[b]);
+        targets.points.push(((pa + pb) / 2.0, SnapKind::Middle));
+        targets.segments.push([pa, pb]);
+    }
+    for (f, ring) in poly.faces.iter().enumerate() {
+        if !ring.iter().any(|v| moving.contains(v)) {
+            targets.points.push((poly.center(f), SnapKind::Centre));
+        }
+    }
+    targets
+}
+
 /// Tells `r` of this crate's operation: its kind, the tools that add
 /// it, and its icons.
 pub fn register(r: &mut workpiece_core::Registry) {
@@ -294,7 +344,7 @@ pub fn register(r: &mut workpiece_core::Registry) {
         key: 'U',
         hint: "A subdivision surface: a mesh of a few faces, edited by its points, edges and faces, that controls a smooth surface — made a NURBS body every other tool works on",
         small: true,
-        make: |cx| Mesh::starting((cx.fresh_id)("subd"), 20.0, true).into(),
+        make: |cx| Mesh::starting((cx.fresh_id)("subd"), session::ADD_SIZE, true).into(),
     });
     r.tool(Tool {
         tab: "Surfacing",
@@ -304,7 +354,7 @@ pub fn register(r: &mut workpiece_core::Registry) {
         key: 'V',
         hint: "A subdivision surface: a patch of a few faces, edited by its points, edges and faces, that controls a smooth surface — a surface body (not a solid, even closed) every other tool works on",
         small: true,
-        make: |cx| Mesh::patch((cx.fresh_id)("subd"), 20.0, true).into(),
+        make: |cx| Mesh::patch((cx.fresh_id)("subd"), session::ADD_SIZE, true).into(),
     });
     r.tool(Tool {
         tab: "Surfacing",
@@ -314,7 +364,7 @@ pub fn register(r: &mut workpiece_core::Registry) {
         key: 'M',
         hint: "A polygon mesh, edited by its points, edges and faces: a surface body of flat faces",
         small: true,
-        make: |cx| Mesh::patch((cx.fresh_id)("mesh"), 20.0, false).into(),
+        make: |cx| Mesh::patch((cx.fresh_id)("mesh"), session::ADD_SIZE, false).into(),
     });
     ui::icons(r);
 }

@@ -14,11 +14,16 @@ pub enum GizmoPart {
     Translate(Axis),
     /// The ring that rotates about an axis.
     Rotate(Axis),
+    /// The outer ring, facing the eye, that scales all dimensions at
+    /// once: by how much farther from the centre the pointer is than
+    /// where it took hold.
+    Scale,
 }
 
 /// A translate/rotate gizmo at a pose: a center knob, an arrow `size`
 /// pixels long along each local axis and a ring around each (see
-/// [`shape`](super::shape)), the same size on screen however far away.
+/// [`shape`](super::shape)), the same size on screen however far away;
+/// with a scale, an outer ring facing the eye that scales all at once.
 pub struct Gizmo<M> {
     /// Where the gizmo sits and how it is turned.
     pub pose: Pose,
@@ -26,6 +31,9 @@ pub struct Gizmo<M> {
     pub size: f64,
     /// The message for a dragged pose.
     pub on_drag: WidgetHandler<Pose, M>,
+    /// The message for a drag of the outer ring: the factor it scales
+    /// by since the drag before. None: the gizmo does not scale.
+    pub on_scale: Option<WidgetHandler<f64, M>>,
 }
 
 impl<M: 'static> Gizmo<M> {
@@ -35,7 +43,16 @@ impl<M: 'static> Gizmo<M> {
             pose,
             size,
             on_drag: Box::new(on_drag),
+            on_scale: None,
         }
+    }
+
+    /// The same gizmo, scaling all at once by its outer ring: a drag of
+    /// it by a factor produces `on_scale(factor)`.
+    #[must_use]
+    pub fn with_scale(mut self, on_scale: impl Fn(f64) -> M + 'static) -> Self {
+        self.on_scale = Some(Box::new(on_scale));
+        self
     }
 
     /// The gizmo's centre.
@@ -50,32 +67,60 @@ impl<M: 'static> Gizmo<M> {
 
     /// Moves or turns the pose by the pointer's motion on the grabbed part:
     /// in the plane facing the pointer for the center knob, along the axis
-    /// line for an arrow, about the axis in the ring's plane for a ring. No message when the view is edge-on to the motion, or
-    /// when the result would not be finite.
+    /// line for an arrow, about the axis in the ring's plane for a ring;
+    /// scales by the outer ring. No message when the view is edge-on to
+    /// the motion, or when the result would not be finite.
     pub fn drag(&self, part: GizmoPart, from: &Ray, to: &Ray) -> Option<M> {
-        let o = self.origin();
-        let pose = match part {
+        if part == GizmoPart::Scale {
+            let by = Self::factor(self.origin(), from, to)?;
+            return self.on_scale.as_ref().map(|on| on(by));
+        }
+        let pose = Self::moved(self.pose, part, from, to)?;
+        Some((self.on_drag)(pose))
+    }
+
+    /// `pose` moved or turned by the pointer's motion from `from` to `to`
+    /// on `part` of a gizmo there (none for the outer ring, which
+    /// scales).
+    pub fn moved(pose: Pose, part: GizmoPart, from: &Ray, to: &Ray) -> Option<Pose> {
+        let o = pose.translation();
+        let moved = match part {
             GizmoPart::Free => {
                 // In the plane through the origin facing the pointer.
                 let n = from.direction();
                 let on_plane = |ray: &Ray| ray.intersect_plane(o, n).map(|t| ray.at(t));
-                Pose::from_translation(on_plane(to)? - on_plane(from)?) * self.pose
+                Pose::from_translation(on_plane(to)? - on_plane(from)?) * pose
             }
             GizmoPart::Translate(axis) => {
-                let a = self.axis(axis);
+                let a = pose.axis(axis);
                 let along = |ray: &Ray| ray.closest_on_line(o, a);
-                Pose::from_translation(a * (along(to)? - along(from)?)) * self.pose
+                Pose::from_translation(a * (along(to)? - along(from)?)) * pose
             }
             GizmoPart::Rotate(axis) => {
-                let a = self.axis(axis);
+                let a = pose.axis(axis);
                 let arm = |ray: &Ray| ray.intersect_plane(o, a).map(|t| ray.at(t) - o);
                 let (v0, v1) = (arm(from)?, arm(to)?);
                 let angle = a.dot(v0.cross(v1)).atan2(v0.dot(v1));
                 let turn = DQuat::from_axis_angle(a, angle);
-                Pose::from_rotation_translation(turn * self.pose.rotation(), o)
+                Pose::from_rotation_translation(turn * pose.rotation(), o)
             }
+            GizmoPart::Scale => return None,
         };
-        pose.is_finite().then(|| (self.on_drag)(pose))
+        moved.is_finite().then_some(moved)
+    }
+
+    /// The factor a drag of the outer ring of a gizmo at `origin` from
+    /// `from` to `to` scales by: how much farther from the centre the
+    /// pointer is, in the plane through it facing the pointer.
+    pub fn factor(origin: Point3, from: &Ray, to: &Ray) -> Option<f64> {
+        let n = from.direction();
+        let reach = |ray: &Ray| {
+            ray.intersect_plane(origin, n)
+                .map(|t| ray.at(t).distance(origin))
+        };
+        let (was, now) = (reach(from)?, reach(to)?);
+        let by = now / was;
+        (was > 0.0 && by.is_finite() && by > 0.0).then_some(by)
     }
 
     pub(crate) fn map_rc<N: 'static>(self, f: &MapFn<M, N>) -> Gizmo<N> {
@@ -83,6 +128,7 @@ impl<M: 'static> Gizmo<M> {
             pose: self.pose,
             size: self.size,
             on_drag: map_handler(self.on_drag, f),
+            on_scale: self.on_scale.map(|on| map_handler(on, f)),
         }
     }
 }
@@ -131,6 +177,10 @@ mod tests {
             free.translation()
                 .abs_diff_eq(Point3::new(1.0, 2.0, 1.0), 1e-12)
         );
+
+        // The outer ring scales by how much farther out the pointer is.
+        let by = Gizmo::<Pose>::factor(Point3::Z, &down(1.0, 0.0), &down(1.5, 0.0));
+        assert!(by.is_some_and(|by| (by - 1.5).abs() < 1e-12));
         Ok(())
     }
 }

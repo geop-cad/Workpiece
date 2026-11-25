@@ -670,6 +670,7 @@
           },
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "profile"
@@ -1073,6 +1074,8 @@
           "areas": [],
           "caps": false,
           "combine": "Cut",
+          "curves": [],
+          "direction": null,
           "distance": 10.0,
           "extent": "ThroughBoth",
           "flip": false,

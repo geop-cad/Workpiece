@@ -423,7 +423,10 @@ impl App {
                 let parts = files::load(&path, &self.model.workspace)?;
                 self.model.update(Message::Load { parts, open: None })?;
                 let view = View::new(&self.model);
-                let input = view.edit_dialog.as_ref().and_then(|d| d.fields.at(&field));
+                let input = view
+                    .edit_dialog
+                    .as_ref()
+                    .and_then(|d| d.fields().at(&field));
                 if let Some(Widget::FileInput(input)) = input {
                     self.model.update(input.set(path))?;
                 }

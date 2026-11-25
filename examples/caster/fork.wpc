@@ -277,6 +277,8 @@
           "areas": [],
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
+          "direction": null,
           "distance": 70.0,
           "extent": "Distance",
           "flip": false,
@@ -305,7 +307,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 10.0
+          "size": 10.0,
+          "tangent": true
         },
         "id": "crown"
       }
@@ -485,6 +488,8 @@
           "areas": [],
           "caps": false,
           "combine": "Cut",
+          "curves": [],
+          "direction": null,
           "distance": 10.0,
           "extent": "ThroughBoth",
           "flip": false,
@@ -650,6 +655,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "king"

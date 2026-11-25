@@ -29,6 +29,9 @@ pub struct Piece {
 /// and its faces are turned to face one way.
 fn sound(poly: &Poly) -> Poly {
     let mut made = poly.clone();
+    // (The lines make curves of their own.)
+    made.lines.clear();
+    made.corners.clear();
     made.tidy();
     let floor = made.size() * 1e-9;
     let thin: std::collections::BTreeSet<usize> = (0..made.faces.len())

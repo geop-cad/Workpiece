@@ -614,6 +614,7 @@
           },
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "housing_profile"
@@ -796,6 +797,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": 7.5,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "tap"

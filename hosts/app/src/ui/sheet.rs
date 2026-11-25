@@ -131,6 +131,10 @@ pub struct SheetPanel {
     cell: Option<usize>,
     /// What is under the pointer, and which of it is current.
     hovering: Hovering,
+    /// The points of the views the pointer snapped to last, latest
+    /// first, while a cutting line is drawn or a corner of one dragged:
+    /// what the next point snaps level with, as in the sketcher.
+    remembered: Vec<Point2>,
 }
 
 impl Default for SheetPanel {
@@ -147,6 +151,7 @@ impl Default for SheetPanel {
             export: None,
             cell: None,
             hovering: Hovering::default(),
+            remembered: Vec::new(),
         }
     }
 }
@@ -347,7 +352,8 @@ fn snap(
     reach: f64,
     only: Option<&str>,
     last: Option<Point2>,
-) -> (Point2, bool) {
+    remembered: &[Point2],
+) -> workpiece_ops_sketch::tools::Snapped {
     let views = || {
         laid.views
             .iter()
@@ -367,13 +373,23 @@ fn snap(
         .flat_map(|v| v.snaps.iter().copied())
         .filter(|s| s.distance(p) <= reach * 3.0)
         .collect();
-    let view = workpiece_core::handles::CanvasView {
+    workpiece_ops_sketch::tools::Snappable::new(&lines, &rounds, &points).snap(
+        p,
+        &snap_view(reach),
+        last,
+        remembered,
+    )
+}
+
+/// The sheet as the sketcher's snapping sees it: `reach` is how near it
+/// snaps, in millimetres of the sheet.
+fn snap_view(reach: f64) -> CanvasView {
+    CanvasView {
         pixel: reach / SNAP_PX,
         right: Point2::X,
         up: Point2::Y,
         middle: Point2::ZERO,
-    };
-    workpiece_ops_sketch::tools::Snappable::new(&lines, &rounds, &points).snap(p, &view, last)
+    }
 }
 
 /// The text of the note `index` (one of the sheet's own, with `own`)
@@ -958,9 +974,11 @@ impl SheetPanel {
                 .min_by(|a, b| a.0.total_cmp(&b.0))
                 .map(|(_, v)| v)
         };
-        let mark = |at: Point2| {
-            painter.circle_stroke(to_screen(at), 5.0, egui::Stroke::new(1.5, color::ACCENT));
-        };
+        // (Points are remembered only while a cutting line is drawn,
+        // or a corner of one or a detail's middle dragged.)
+        if self.drag.is_none() && !matches!(self.tool, Tool::Section(..)) {
+            self.remembered.clear();
+        }
         match self.tool.clone() {
             Tool::Select => {
                 if response.clicked() {
@@ -994,21 +1012,32 @@ impl SheetPanel {
                         None => self.selected = None,
                     }
                 }
-                self.select(&response, shown, pointer, reach, current.as_ref(), out);
+                self.select(
+                    &response,
+                    shown,
+                    pointer,
+                    reach,
+                    current.as_ref(),
+                    (&painter, &to_screen),
+                    out,
+                );
             }
             Tool::Section(view, mut points) => {
                 let only = view.as_deref();
-                let snapped = pointer.map(|p| snap(laid, p, reach, only, points.last().copied()));
+                // Snapped as the sketcher snaps: also level with the
+                // points hovered before, remembered as it goes.
+                let last = points.last().copied();
+                let snapped = pointer.map(|p| snap(laid, p, reach, only, last, &self.remembered));
                 // The line so far, and on to the pointer.
                 let ink = egui::Stroke::new(1.5, color::ACCENT);
                 let mut shown_points: Vec<egui::Pos2> =
                     points.iter().map(|p| to_screen(*p)).collect();
-                if let Some((at, on_model)) = snapped {
-                    shown_points.push(to_screen(at));
-                    if on_model {
-                        mark(at);
-                    }
+                if let Some(snapped) = &snapped {
+                    shown_points.push(to_screen(snapped.at));
+                    snapped.remember(&mut self.remembered);
+                    hand_shapes(&painter, &snapped.cues(&snap_view(reach)), &to_screen);
                 }
+                let snapped = snapped.map(|s| (s.at, s.on));
                 if shown_points.len() >= 2 {
                     painter.add(egui::Shape::dashed_line(&shown_points, ink, 8.0, 3.0));
                 }
@@ -1073,7 +1102,7 @@ impl SheetPanel {
                     && let Some(SheetPick::View { view }) = &current
                     && let Some(view) = laid_view(laid, view).filter(|v| !v.detail)
                 {
-                    let (at, _) = snap(laid, p, reach, Some(&view.id), None);
+                    let at = snap(laid, p, reach, Some(&view.id), None, &[]).at;
                     let mut new = shown.sheet.clone();
                     let scale = enlarged(
                         new.view(&view.id)
@@ -1305,7 +1334,8 @@ impl SheetPanel {
         let reach = f64::from(7.0 / zoom);
         let add = ui.input(|i| i.modifiers.ctrl || i.modifiers.shift);
         let mut send = |kind: CanvasEventKind, p: Point2| {
-            let (at, on_model) = snap(&shown.laid, p, reach, None, None);
+            let snapped = snap(&shown.laid, p, reach, None, None, &[]);
+            let (at, on_model) = (snapped.at, snapped.on);
             if on_model && kind == CanvasEventKind::Hover {
                 painter.circle_stroke(to_screen(at), 5.0, egui::Stroke::new(1.0, PREVIEW));
             }
@@ -1406,6 +1436,7 @@ impl SheetPanel {
 
     /// Selecting, dragging and deleting.
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn select(
         &mut self,
         response: &egui::Response,
@@ -1413,9 +1444,20 @@ impl SheetPanel {
         pointer: Option<Point2>,
         reach: f64,
         current: Option<&SheetPick>,
+        (painter, to_screen): (&egui::Painter, &dyn Fn(Point2) -> egui::Pos2),
         out: &mut Vec<Message>,
     ) {
         let laid = &shown.laid;
+        // (A corner of a cutting line, a detail's middle: dragged, they
+        // snap as the sketcher's points do, level with points hovered
+        // on the way, and show it so.)
+        let mut remembered = std::mem::take(&mut self.remembered);
+        let mut snapped_at = |p: Point2, only: &str, other: Option<Point2>| {
+            let snapped = snap(laid, p, reach, Some(only), other, &remembered);
+            snapped.remember(&mut remembered);
+            hand_shapes(painter, &snapped.cues(&snap_view(reach)), to_screen);
+            snapped.at
+        };
         if response.drag_started_by(egui::PointerButton::Primary)
             && let Some(p) = pointer
         {
@@ -1508,7 +1550,7 @@ impl SheetPanel {
                     if let Some(words) = new.words.get_mut(*index)
                         && let Some(view) = words.view.as_deref().and_then(|v| laid_view(laid, v))
                     {
-                        let (at, _) = snap(laid, p, reach, Some(&view.id), None);
+                        let at = snap(laid, p, reach, Some(&view.id), None, &[]).at;
                         if let Some(to) = words.to.get_mut(*k) {
                             *to = workpiece_ops_drawing::sheet::Target::View(
                                 own_of(view, at).to_array(),
@@ -1588,7 +1630,7 @@ impl SheetPanel {
                             k => path.get(k - 1),
                         }
                         .copied();
-                        let (at, _) = snap(laid, p, reach, Some(&parent.id), other);
+                        let at = snapped_at(p, &parent.id, other);
                         if let Some(corner) = path.get_mut(*index) {
                             *corner = at;
                         }
@@ -1610,7 +1652,7 @@ impl SheetPanel {
                             .find(|v| v.id == *view)
                             .map(|v| &mut v.kind)
                     {
-                        let (at, _) = snap(laid, p, reach, Some(&parent.id), None);
+                        let at = snapped_at(p, &parent.id, None);
                         *centre = own_of(parent, at).to_array();
                     }
                 }
@@ -1667,6 +1709,7 @@ impl SheetPanel {
                 out.push(set(shown, new, true));
             }
         }
+        self.remembered = remembered;
     }
 
     /// The dialog of the drawing, where every step's dialog is: what
@@ -2538,14 +2581,19 @@ fn paint(
         egui::Color32::from_black_alpha(40),
     );
     painter.rect_filled(paper, 0.0, egui::Color32::WHITE);
+    // (The filled triangles as they are, not feathered: the feathering
+    // of a sliver juts out of it in spikes.)
+    let mut filled = egui::Mesh::default();
     for fill in &laid.fills {
         let [r, g, b] = fill.colour;
-        painter.add(egui::Shape::convex_polygon(
-            fill.corners.map(to_screen).to_vec(),
-            egui::Color32::from_rgb(r, g, b),
-            egui::Stroke::NONE,
-        ));
+        let colour = egui::Color32::from_rgb(r, g, b);
+        let at = filled.vertices.len() as u32;
+        for corner in fill.corners {
+            filled.colored_vertex(to_screen(corner), colour);
+        }
+        filled.add_triangle(at, at + 1, at + 2);
     }
+    painter.add(filled);
     let ink = egui::Color32::from_rgb(12, 14, 18);
     // Lines that run on from one another are drawn as one: a curve of
     // many short pieces is one stroke of the pen.
@@ -2560,9 +2608,20 @@ fn paint(
             && next.preview == laid.strokes[k - 1].preview
             && next.a.distance(last) < 1e-9
         {
-            points.push(to_screen(next.b));
+            // (Not a point a hair from the one before — a piece of a
+            // hatch line cut by many triangles: its way is lost in
+            // rounding, and the path's corner there would be drawn as
+            // a spike across the sheet.)
+            let to = to_screen(next.b);
+            if points.last().is_none_or(|p| p.distance(to) > 0.05) {
+                points.push(to);
+            }
             last = next.b;
             k += 1;
+        }
+        // (Nor a line a hair long by itself: drawn, it is a dot.)
+        if points.len() == 2 && points[0].distance(points[1]) <= 0.05 {
+            continue;
         }
         let ink = if laid.strokes[k - 1].preview {
             PREVIEW

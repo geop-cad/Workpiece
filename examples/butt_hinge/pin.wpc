@@ -119,6 +119,8 @@
           "areas": [],
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
+          "direction": null,
           "distance": 60.0,
           "extent": "Distance",
           "flip": false,

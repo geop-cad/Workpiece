@@ -130,9 +130,24 @@ pub fn shapes(args: &MeshArgs, state: &MeshState, view: &SpaceView) -> Vec<Space
         };
         shapes.push(line(pa, pb, tone, width, opacity));
     }
+    // The lines: the control polygons of curves.
+    for &(a, b) in &poly.lines {
+        used[a] = true;
+        used[b] = true;
+        let hovered = state.hover == Some(Item::Edge(a, b));
+        let (tone, width) = if picked_edges.contains(&(a, b)) {
+            (Tone::Selected, 3.2)
+        } else if hovered {
+            (Tone::Hover, 3.0)
+        } else {
+            (Tone::Constrained, 1.6)
+        };
+        shapes.push(line(poly.points[a], poly.points[b], tone, width, 1.0));
+    }
     // The points: all of them where points are picked or cut at, else
     // those that are picked.
-    let all_points = state.mode == Mode::Vertex || matches!(state.tool, Tool::Knife | Tool::Draw);
+    let all_points =
+        state.mode == Mode::Vertex || matches!(state.tool, Tool::Knife | Tool::Draw | Tool::Line);
     let picked_points: BTreeSet<usize> = state
         .picked
         .iter()
@@ -149,12 +164,27 @@ pub fn shapes(args: &MeshArgs, state: &MeshState, view: &SpaceView) -> Vec<Space
             shapes.push(dot(p, Tone::Selected, 9.0, 1.0));
         } else if state.hover == Some(Item::Vertex(v)) {
             shapes.push(dot(p, Tone::Hover, 9.0, 1.0));
+        } else if poly.corners.contains(&v) {
+            shapes.push(dot(p, Tone::Projected, 7.0, opacity));
         } else if all_points || loose {
             shapes.push(dot(p, Tone::Constrained, 5.0, opacity));
         }
     }
     match state.tool {
-        Tool::Select | Tool::Scale => {
+        Tool::Line => {
+            let from = state
+                .drawn
+                .last()
+                .and_then(|&v| poly.points.get(v).copied());
+            let cursor = state.cursor.and_then(|c| c.at(poly));
+            if let (Some(from), Some(to)) = (from, cursor) {
+                shapes.push(dashed(from, to, Tone::Preview));
+            }
+            if let Some(at) = cursor {
+                shapes.push(dot(at, Tone::Preview, 9.0, 1.0));
+            }
+        }
+        Tool::Select => {
             if let Some(band) = &state.band {
                 for k in 0..4 {
                     shapes.push(dashed(

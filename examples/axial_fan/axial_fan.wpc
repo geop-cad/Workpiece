@@ -314,6 +314,7 @@
           },
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "hub_profile"
@@ -337,7 +338,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 5.0
+          "size": 5.0,
+          "tangent": true
         },
         "id": "hub_round"
       }
@@ -1089,15 +1091,21 @@
           "scale": 1.0,
           "sections": [
             {
+              "angle": 0.0,
               "end": "Free",
               "face": null,
+              "flip": false,
+              "magnitude": 1.0,
               "of": {
                 "Profile": "root"
               }
             },
             {
+              "angle": 0.0,
               "end": "Free",
               "face": null,
+              "flip": false,
+              "magnitude": 1.0,
               "of": {
                 "Profile": "tip"
               }

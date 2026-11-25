@@ -417,6 +417,7 @@
           },
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "hub_profile"
@@ -752,6 +753,8 @@
           "areas": [],
           "caps": false,
           "combine": "Join",
+          "curves": [],
+          "direction": null,
           "distance": 14.0,
           "extent": "Distance",
           "flip": false,
@@ -786,7 +789,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 12.0
+          "size": 12.0,
+          "tangent": true
         },
         "id": "corners"
       }
@@ -803,7 +807,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 5.0
+          "size": 5.0,
+          "tangent": true
         },
         "id": "root"
       }
@@ -820,6 +825,7 @@
           "flip": false,
           "mitered": false,
           "second": 1.0,
+          "tangent": true,
           "two": false
         },
         "id": "seat_chamfer"
@@ -1008,6 +1014,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "bolt"

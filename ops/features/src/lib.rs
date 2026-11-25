@@ -5,7 +5,9 @@ mod hole;
 pub mod norm;
 mod thread;
 
-pub use hole::{Clearance, Deburr, Hole, HoleArgs, HoleKind, HolePlace, HoleShape, drill};
+pub use hole::{
+    Clearance, Deburr, Hole, HoleArgs, HoleKind, HolePlace, HoleShape, ThreadEnd, drill,
+};
 pub use thread::{Thread, ThreadArgs};
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
@@ -82,4 +84,6 @@ const OPTION_ICONS: &[(&str, &str)] = icons!(
     "hole-tapped",
     "thread-cosmetic",
     "thread-modelled",
+    "thread-through",
+    "thread-to-depth",
 );

@@ -46,13 +46,15 @@ e.point_on(bd, "v")
 e.distance_v(e.origin, bd, 18)
 p.hole(e, 8, depth=45, kind="Countersink", head=14, head_angle=90, point=180, id="B")
 
-# The valve's four tapped M6 holes, 12 deep: one hole step at four dots placed symmetrically.
+# The valve's four tapped M6 holes, drilled 12 deep and threaded 9 (1.5 × d, the rule; the
+# aluminium would take 2 × d, more than the drill's depth leaves): one hole step at four dots
+# placed symmetrically.
 v = p.sketch(topo("block/end"), id="valve_holes", show_in="top")
 d1, d2, d3, d4 = v.dot(16, 30, "v1"), v.dot(-16, 30, "v2"), v.dot(-16, -30, "v3"), v.dot(16, -30, "v4")
 v.symmetric(d1, d2, "v"); v.symmetric(d2, d3, "u"); v.symmetric(d3, d4, "v")
 v.distance_u(v.origin, d1, 16)
 v.distance_v(v.origin, d1, 30)
-p.hole(v, 6, depth=12, kind="Tapped", size="M6", id="M6")
+p.hole(v, 6, depth=12, thread_depth=9, kind="Tapped", size="M6", id="M6")
 
 # The top's outer edges chamfered.
 rep = p.build(OUT)

@@ -4,7 +4,7 @@
 use anyhow::{Context, ensure};
 use workpiece_boolean::{Solid, read};
 use workpiece_core::math::{Point2, Point3};
-use workpiece_core::widgets::ReferenceInput;
+use workpiece_core::widgets::{NumericInput, ReferenceInput};
 use workpiece_core::world::topo::{Curve2, Topo};
 use workpiece_core::world::{
     DatumAxis, DatumPlane, Profile, ProfileEdge, ProfileRegion, ProfileVertex,
@@ -178,6 +178,37 @@ impl workpiece_core::Choices for Deburr {
     }
 }
 
+/// Where a tapped hole's thread ends.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
+pub enum ThreadEnd {
+    /// At a depth from the mouth, short of where the bore ends.
+    #[default]
+    Depth,
+    /// Through all: the bore's whole length, of a bore that goes
+    /// through.
+    Through,
+}
+
+impl workpiece_core::Choices for ThreadEnd {
+    const ALL: &'static [Self] = &[ThreadEnd::Depth, ThreadEnd::Through];
+
+    fn label(self) -> &'static str {
+        match self {
+            ThreadEnd::Depth => "To a depth",
+            ThreadEnd::Through => "Through all",
+        }
+    }
+
+    fn icon(self) -> Option<&'static str> {
+        Some(match self {
+            ThreadEnd::Depth => "thread-to-depth",
+            ThreadEnd::Through => "thread-through",
+        })
+    }
+}
+
 /// Where the holes are — on a face, placed one of four ways — what they
 /// are like, and how deep they go: the dialog's three parts, top to
 /// bottom.
@@ -269,16 +300,11 @@ pub struct HoleArgs {
     #[arg(label = "In", empty = "All bodies", group = "Where")]
     pub target: Option<workpiece_core::Reference<workpiece_core::world::topo::BodyId>>,
     /// What the mouth is like.
-    #[arg(choice, label = "", group = "What")]
+    #[arg(with = "kind_field", group = "What")]
     pub kind: HoleKind,
     /// The screw it is for, by its thread's size: its sizes are what
     /// the standards say. None for sizes of its own.
-    #[arg(
-        label = "Size",
-        one_of = "crate::norm::size_names()",
-        empty = "Custom",
-        group = "What"
-    )]
+    #[arg(with = "size_field", group = "What")]
     pub size: Option<String>,
     /// How easily the screw goes through (ISO 273).
     #[arg(
@@ -416,8 +442,13 @@ pub struct HoleArgs {
     /// or datum plane.
     #[arg(label = "", among = "Extent::ONE_WAY", group = "How deep")]
     pub extent: Extent,
-    /// How deep the bore is, to where its full width ends.
-    #[arg(when = "self.extent == Extent::Distance", group = "How deep")]
+    /// How deep the bore is, to where its full width ends: of a
+    /// tapped hole, the tap drill's bore, deeper than the thread.
+    #[arg(
+        label_by = "if self.kind == HoleKind::Tapped { \"Drill depth\" } else { \"Depth\" }",
+        when = "self.extent == Extent::Distance",
+        group = "How deep"
+    )]
     pub depth: Measure,
     /// Whether it is drilled the other way: out of the face's front.
     #[arg(flip, row, group = "How deep")]
@@ -445,6 +476,25 @@ pub struct HoleArgs {
         group = "How deep"
     )]
     pub point: Measure,
+    /// Where a tapped hole's thread ends: at a depth, or through all
+    /// (of a bore that goes through). A modelled thread is cut along
+    /// the whole bore.
+    #[arg(
+        choice,
+        label = "Thread ends",
+        when = "self.kind == HoleKind::Tapped && !self.modelled",
+        group = "How deep"
+    )]
+    pub thread_end: ThreadEnd,
+    /// How deep a tapped hole's full thread goes, from the mouth; none
+    /// for the workshop's rule, 1.5 × its diameter
+    /// ([`norm::tap_depth`]).
+    #[arg(
+        with = "thread_depth_field",
+        when = "self.kind == HoleKind::Tapped && !self.modelled && self.thread_end == ThreadEnd::Depth",
+        group = "How deep"
+    )]
+    pub thread_depth: Option<Measure>,
 }
 
 impl Default for HoleArgs {
@@ -487,8 +537,116 @@ impl Default for HoleArgs {
             up_to: None,
             offset: Measure::new(0.0),
             point: Measure::new(118.0),
+            thread_end: ThreadEnd::Depth,
+            thread_depth: None,
         }
     }
+}
+
+/// The options of a field called `label`, as the dialog shows it.
+fn options(
+    label: &'static str,
+    empty: Option<&'static str>,
+) -> workpiece_core::arguments::FieldOptions {
+    workpiece_core::arguments::FieldOptions {
+        label,
+        required: false,
+        empty,
+        options: None,
+        flip: false,
+        icon: None,
+        icons: None,
+    }
+}
+
+/// The diameter of the thread of a tapped hole as `args` say it.
+fn thread_diameter(args: &HoleArgs) -> f64 {
+    args.size
+        .as_deref()
+        .and_then(norm::sized)
+        .map_or(args.diameter.value, |s| s.diameter)
+}
+
+/// How deep the full thread of a tapped hole as `args` say it goes:
+/// as entered, else by the workshop's rule.
+fn thread_depth_of(args: &HoleArgs) -> f64 {
+    args.thread_depth
+        .as_ref()
+        .map_or_else(|| norm::tap_depth(thread_diameter(args)), |m| m.value)
+}
+
+/// How deep the bore of a blind tapped hole as `args` say it is drilled
+/// by the workshop's rule.
+fn drill_depth_by_rule(args: &HoleArgs) -> f64 {
+    norm::tap_drill_depth(thread_diameter(args), thread_depth_of(args))
+}
+
+/// `new` as changed from `old` in the dialog, its bore's depth going
+/// with the thread's size by the rule while it has not been entered:
+/// while it is what the rule (or, of a hole that was not tapped, the
+/// plain default) made it.
+fn following(old: &HoleArgs, mut new: HoleArgs) -> HoleArgs {
+    if new.kind == HoleKind::Tapped && old.depth.formula.is_none() {
+        let was = if old.kind == HoleKind::Tapped {
+            drill_depth_by_rule(old)
+        } else {
+            HoleArgs::default().depth.value
+        };
+        if (old.depth.value - was).abs() < 1e-9 {
+            new.depth = Measure::new(drill_depth_by_rule(&new));
+        }
+    }
+    new
+}
+
+/// The field of what the mouth is like: a hole made tapped is drilled
+/// as deep as its tap's rule says.
+fn kind_field(args: &HoleArgs, context: &EditContext<'_>) -> Vec<Widget<HoleArgs>> {
+    let old = args.clone();
+    vec![workpiece_core::arguments::Field::widget(
+        &args.kind,
+        &options("", None),
+        context,
+        move |kind| {
+            let mut new = old.clone();
+            new.kind = kind;
+            following(&old, new)
+        },
+    )]
+}
+
+/// The field of the screw's size: a tapped hole's depths go with it.
+fn size_field(args: &HoleArgs, context: &EditContext<'_>) -> Vec<Widget<HoleArgs>> {
+    let old = args.clone();
+    vec![workpiece_core::arguments::one_of(
+        &args.size,
+        norm::size_names(),
+        &options("Size", Some("Custom")),
+        context,
+        move |size| {
+            let mut new = old.clone();
+            new.size = size;
+            following(&old, new)
+        },
+    )]
+}
+
+/// The field of how deep a tapped hole's thread goes: by the rule
+/// (1.5 × d) until a depth is entered, the bore's depth going with it.
+fn thread_depth_field(args: &HoleArgs, context: &EditContext<'_>) -> Vec<Widget<HoleArgs>> {
+    let shown = args
+        .thread_depth
+        .clone()
+        .unwrap_or_else(|| Measure::new(thread_depth_of(args)));
+    let old = args.clone();
+    vec![
+        NumericInput::measure("Thread depth", &shown, context.parameters, move |x| {
+            let mut new = old.clone();
+            new.thread_depth = Some(x);
+            following(&old, new)
+        })
+        .into(),
+    ]
 }
 
 /// The field of the face the holes are drilled into: picked, the hole
@@ -1213,6 +1371,23 @@ impl Operation for Hole {
             "only a hole that goes through has an end to chamfer where it comes out"
         );
         let tapped = args.kind == HoleKind::Tapped;
+        // A cosmetic thread's end: to a depth from the mouth (by the
+        // rule, 1.5 × d, unless one is entered), or through all.
+        let thread_through = tapped && !args.modelled && args.thread_end == ThreadEnd::Through;
+        ensure!(
+            !thread_through || through,
+            "a thread through all needs a bore that goes through: give the thread a depth, or drill through"
+        );
+        let thread_depth = match &args.thread_depth {
+            Some(m) => measure(m, "the thread's depth")?,
+            None => norm::tap_depth(diameter),
+        };
+        if tapped && !args.modelled && !thread_through {
+            ensure!(
+                thread_depth > 0.0 && thread_depth.is_finite(),
+                "a thread has some depth"
+            );
+        }
         let world = builder.tracked();
         // Where the holes go, and which way is out of what they are
         // drilled into.
@@ -1359,10 +1534,34 @@ impl Operation for Hole {
                         .with_context(|| format!("threading {name}"))?;
                 }
             }
-            // A cosmetic thread: said of the bore's wall, as long as
-            // the bore is.
+            // A cosmetic thread: said of the bore's wall, to its depth
+            // or through all of it.
             if tapped && !args.modelled {
-                let length = came_out.filter(|_| through).unwrap_or(depth) - top;
+                // (Its roots run on up a chamfer at the mouth, to where
+                // the chamfer is as wide as they are.)
+                let top = match side.checked_sub(1).map(|k| outline[k]) {
+                    Some((wide, at))
+                        if wide > diameter / 2.0 && outline[side].0 < diameter / 2.0 =>
+                    {
+                        let (r, below) = outline[side];
+                        at + (below - at) * (wide - diameter / 2.0) / (wide - r)
+                    }
+                    _ => top,
+                };
+                let whole = came_out.filter(|_| through).unwrap_or(depth);
+                let length = if thread_through {
+                    whole - top
+                } else {
+                    ensure!(
+                        thread_depth <= whole + 1e-9,
+                        "the thread ({thread_depth} deep) goes deeper than the bore's full width ({whole}): drill deeper, or tap less deep"
+                    );
+                    ensure!(
+                        thread_depth > top + 1e-9,
+                        "the thread ({thread_depth} deep) ends in the hole's mouth ({top})"
+                    );
+                    thread_depth - top
+                };
                 let said = workpiece_core::world::Thread {
                     face: wall,
                     origin: *place + direction * top,
@@ -1374,6 +1573,9 @@ impl Operation for Hole {
                     left: false,
                     internal: true,
                     designation: crate::thread::designation(diameter, pitch),
+                    // (It starts at the mouth; through all, it runs out
+                    // with the bore.)
+                    ends: [false, !thread_through],
                 };
                 threads.push((format!("{id}/thread"), said));
             }
@@ -1412,11 +1614,33 @@ impl Operation for Hole {
                     vec![text("("), Callout::Number(x), text(")")]
                 }
             };
-            if !through {
+            // The bore's depth, or that it goes through.
+            let bore_depth = |line: &mut Vec<Callout>| {
+                if through {
+                    line.push(text(" THRU"));
+                } else {
+                    line.extend([text(" "), Callout::Depth]);
+                    line.extend(said(depth, args.extent == Extent::Distance));
+                }
+            };
+            let cosmetic = tapped && !args.modelled;
+            if (cosmetic && thread_through) || (tapped && args.modelled && through) {
+                // A thread through all says so (the bore with it).
+                first.push(text(" THRU"));
+            } else if cosmetic {
+                // The thread's depth, then the tap drill's bore under
+                // it: `M8 ↧12`, `Ø6.8 ↧16`.
+                first.extend([text(" "), Callout::Depth, Callout::Number(thread_depth)]);
+            } else if !through {
                 first.extend([text(" "), Callout::Depth]);
                 first.extend(said(depth, args.extent == Extent::Distance));
             }
             let mut lines = vec![first];
+            if cosmetic && !thread_through {
+                let mut line = vec![text("Ø"), Callout::Number(bore)];
+                bore_depth(&mut line);
+                lines.push(line);
+            }
             match args.kind {
                 HoleKind::Counterbore => {
                     let mut line = vec![
@@ -1564,6 +1788,24 @@ impl Operation for Hole {
                     handles.insert("depth".to_owned(), arrow.into());
                 }
             }
+            // A cosmetic thread's depth: an arrow down its root, beside
+            // the bore's.
+            if args.kind == HoleKind::Tapped
+                && !args.modelled
+                && args.thread_end == ThreadEnd::Depth
+            {
+                let down = normal * if args.flip { 1.0 } else { -1.0 };
+                let beside = at + plane.x_dir() * (thread_diameter(args) / 2.0);
+                let drag = workpiece_shape::ui::set(args, |a, x: f64| {
+                    let old = a.clone();
+                    let mut new = a.clone();
+                    new.thread_depth = Some(round(x.abs().max(0.01)));
+                    *a = following(&old, new);
+                });
+                if let Some(arrow) = LinearHandle::new(beside, down, thread_depth_of(args), drag) {
+                    handles.insert("thread depth".to_owned(), arrow.into());
+                }
+            }
         }
         workpiece_core::EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles)
             .map(workpiece_core::Edit::args)
@@ -1603,13 +1845,26 @@ impl Operation for Hole {
             Deburr::Exit => ", chamfered where it comes out",
             Deburr::Both => ", chamfered at both ends",
         };
+        // A cosmetic thread's own depth, before the bore's.
+        let size = match (a.kind, a.thread_end) {
+            (HoleKind::Tapped, ThreadEnd::Depth) if !a.modelled => {
+                let deep = a
+                    .thread_depth
+                    .as_ref()
+                    .map_or_else(|| format!("{}", thread_depth_of(a)), |m| format!("{m}"));
+                format!("{size}, thread {deep} deep, bore")
+            }
+            _ => size,
+        };
         match a.extent {
             Extent::ThroughAll | Extent::ThroughBoth | Extent::Symmetric => {
                 format!("{size}, through{placed}{deburred}")
             }
             Extent::ToNext => format!("{size}, through the first wall{placed}{deburred}"),
             Extent::ToFace => format!("{size}, up to a face{placed}{deburred}"),
-            Extent::Distance => format!("{size}, {} deep{placed}{deburred}", a.depth),
+            Extent::Distance => {
+                format!("{size}, {} deep{placed}{deburred}", a.depth).replace(", bore, ", ", bore ")
+            }
         }
     }
 }

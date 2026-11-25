@@ -29,18 +29,22 @@ pub struct Threads {
     /// three quarters of each are drawn: middle and radius, each with
     /// whether the model hides it.
     pub rounds: Vec<(Point2, f64, bool)>,
+    /// Where threaded holes are seen end on: the middle, and between
+    /// what radii a circle of the model is the chamfer at the mouth —
+    /// not drawn.
+    pub chamfers: Vec<(Point2, f64, f64)>,
 }
 
-/// Whether the cut `cut` takes away the point `p`: it is to the left
-/// of the cutting line, by more than `near`.
-fn taken(cut: &Cutting, p: Point3, near: f64) -> bool {
+/// How far the cut `cut` takes away beyond the point `p`: how far it is
+/// to the left of the cutting line (less than nothing: to the right,
+/// kept).
+fn left_of(cut: &Cutting, p: Point3) -> f64 {
     let d = p - cut.origin;
     let p = Point2::new(d.dot(cut.x), d.dot(cut.y));
     let pieces = cut.path.len() - 1;
     // The piece of the line it is beside (the first and the last run
     // on).
-    let beside = cut
-        .path
+    cut.path
         .windows(2)
         .enumerate()
         .map(|(k, w)| {
@@ -53,8 +57,8 @@ fn taken(cut: &Cutting, p: Point3, near: f64) -> bool {
             let off = (w[0] + along * s).distance(p);
             (off, along.normalize_or_zero().perp_dot(p - w[0]))
         })
-        .min_by(|a, b| a.0.total_cmp(&b.0));
-    beside.is_some_and(|(_, left)| left > near)
+        .min_by(|a, b| a.0.total_cmp(&b.0))
+        .map_or(f64::NEG_INFINITY, |(_, left)| left)
 }
 
 /// What is seen of `threads` looking against `towards`: `flat` puts a
@@ -71,7 +75,8 @@ pub(crate) fn see(
 ) -> Threads {
     let mut seen = Threads::default();
     let nudge = reach * 4e-3;
-    let gone = |p: Point3| cut.is_some_and(|cut| taken(cut, p, reach * 1e-7));
+    let near = reach * 1e-7;
+    let gone = |p: Point3| cut.is_some_and(|cut| left_of(cut, p) > near);
     for thread in threads.values() {
         let (from, to) = (thread.origin, thread.origin + thread.axis * thread.length);
         let facing = thread.axis.dot(towards);
@@ -93,19 +98,50 @@ pub(crate) fn see(
                 };
                 behind(near + aside + towards * nudge)
             };
-            seen.rounds
-                .push((flat(thread.origin), thread.roots() / 2.0, hidden));
+            let at = flat(thread.origin);
+            seen.rounds.push((at, thread.roots() / 2.0, hidden));
+            // (The chamfer at a hole's mouth is not drawn seen end on:
+            // its circle would stand where the thread's roots are.)
+            if thread.internal {
+                seen.chamfers
+                    .push((at, thread.crests() / 2.0, thread.major / 2.0 * 1.35));
+            }
         } else if facing.abs() < 1e-9 {
+            let aside = thread.axis.cross(towards).normalize_or_zero();
+            let middle = (from + to) / 2.0;
+            // Cut open beyond its axis (a cutting line drawn a little
+            // off a hole's middle): seen where the cut meets it, the
+            // roots as far apart as the cut finds them.
+            let off = cut.map_or(f64::NEG_INFINITY, |cut| left_of(cut, middle));
+            if off > near {
+                let root = thread.roots() / 2.0;
+                if off >= root.min(thread.crests() / 2.0) {
+                    continue;
+                }
+                let half = (root * root - off * off).sqrt();
+                for side in [1.0, -1.0] {
+                    let roots = aside * (side * half);
+                    seen.roots
+                        .push((flat(from + roots), flat(to + roots), false));
+                }
+                for (k, end) in [from, to].into_iter().enumerate() {
+                    if thread.ends[k] {
+                        let across = aside * half;
+                        seen.ends
+                            .push((flat(end + across), flat(end - across), false));
+                    }
+                }
+                continue;
+            }
             // From the side: a line along the roots at either side.
             // Each is in view where the outline of the face beside it
             // is: looked for a little off the face, outside a rod and
             // inside a hole.
-            let aside = thread.axis.cross(towards).normalize_or_zero();
             let mut hides = [false; 2];
             let mut drawn = false;
             for (k, side) in [1.0, -1.0].into_iter().enumerate() {
                 let off = if thread.internal { -nudge } else { nudge };
-                let outline = (from + to) / 2.0 + aside * (side * (thread.crests() / 2.0 + off));
+                let outline = middle + aside * (side * (thread.crests() / 2.0 + off));
                 if gone(outline) {
                     continue;
                 }
@@ -116,11 +152,15 @@ pub(crate) fn see(
                     .push((flat(from + roots), flat(to + roots), hides[k]));
             }
             if drawn {
+                // Where the full thread ends: a wide line across, out
+                // to the roots — not where it runs on out of the part.
                 let across = aside * (thread.roots() / 2.0);
                 let hidden = hides[0] && hides[1];
-                for end in [from, to] {
-                    seen.ends
-                        .push((flat(end + across), flat(end - across), hidden));
+                for (k, end) in [from, to].into_iter().enumerate() {
+                    if thread.ends[k] {
+                        seen.ends
+                            .push((flat(end + across), flat(end - across), hidden));
+                    }
                 }
             }
         }
@@ -128,6 +168,21 @@ pub(crate) fn see(
         // being drawn that the standard knows.)
     }
     seen
+}
+
+impl Threads {
+    /// Whether the line from `a` to `b` of the model's own is the
+    /// circle of a chamfer at a threaded hole's mouth, seen end on: left
+    /// out (ISO 6410-1).
+    pub fn leaves_out(&self, a: Point2, b: Point2) -> bool {
+        self.chamfers.iter().any(|(at, crest, out)| {
+            let tight = (out - crest) * 1e-3;
+            [a, b].iter().all(|p| {
+                let r = p.distance(*at);
+                r > crest + tight && r <= *out
+            })
+        })
+    }
 }
 
 /// Draws `threads`: `sheet` puts a point of the view onto the sheet,
@@ -163,7 +218,7 @@ pub(crate) fn draw(
         let Some(pen) = pen(*hidden, Pen::Narrow) else {
             continue;
         };
-        let steps = ((sweep * radius * scale / 1.5).ceil() as usize).clamp(12, 180);
+        let steps = ((sweep * radius * scale / 0.25).ceil() as usize).clamp(36, 360);
         let on =
             |k: usize| *at + Point2::from_angle(start + sweep * k as f64 / steps as f64) * *radius;
         for k in 0..steps {

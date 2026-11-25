@@ -184,6 +184,18 @@ fn settings_from(text: Option<&str>, key: &str) -> workpiece_ui::model::Settings
     {
         settings.sketch_section = on;
     }
+    if let Some(snaps) = json.as_ref().and_then(|j| j.get("snaps")) {
+        use workpiece_core::handles::SnapKind;
+        let on = |v: Option<&serde_json::Value>, or: bool| {
+            v.and_then(serde_json::Value::as_bool).unwrap_or(or)
+        };
+        let mut kinds = settings.snaps;
+        kinds.on = on(snaps.get("on"), kinds.on);
+        for kind in SnapKind::ALL {
+            kinds = kinds.with(kind, on(snaps.get(kind.label()), kinds.has(kind)));
+        }
+        settings.snaps = kinds;
+    }
     if let Some(recent) = json
         .as_ref()
         .and_then(|j| j.get("recent"))
@@ -218,6 +230,11 @@ fn settings_into(
         .filter(serde_json::Value::is_object)
         .unwrap_or_else(|| serde_json::json!({}));
     json["sketch_section"] = settings.sketch_section.into();
+    let mut snaps = serde_json::json!({ "on": settings.snaps.on });
+    for kind in workpiece_core::handles::SnapKind::ALL {
+        snaps[kind.label()] = settings.snaps.has(kind).into();
+    }
+    json["snaps"] = snaps;
     if !json.get("recent").is_some_and(serde_json::Value::is_object) {
         json["recent"] = serde_json::json!({});
     }
@@ -349,7 +366,12 @@ mod tests {
         here.remember("y.wpc");
         here.remember("x.wpc");
         assert_eq!(here.recent, ["x.wpc", "y.wpc"]);
+        // (What snaps is kept too, kind by kind.)
+        here.snaps = here
+            .snaps
+            .with(workpiece_core::handles::SnapKind::Grid, false);
         let text = settings_into(None, "/a", &here)?;
+        assert_eq!(settings_from(Some(&text), "/a").snaps, here.snaps);
         // Another workspace has its own; the first keeps its.
         let mut there = settings_from(Some(&text), "/b");
         assert!(there.recent.is_empty());

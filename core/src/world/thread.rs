@@ -32,6 +32,10 @@ pub struct Thread {
     pub internal: bool,
     /// What it is called on a drawing: `M6`, `M8×1`.
     pub designation: String,
+    /// Whether a drawing marks where it ends with a wide line across
+    /// (ISO 6410-1): at its start, at its end. Not where it runs on out
+    /// of the part — through a hole, at a hole's mouth.
+    pub ends: [bool; 2],
 }
 
 impl Thread {

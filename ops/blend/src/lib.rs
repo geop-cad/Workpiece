@@ -103,4 +103,6 @@ const OPTION_ICONS: &[(&str, &str)] = icons!(
     "section-circular",
     "section-conic",
     "section-curvature",
+    "tangent-chain",
+    "tangent-picked",
 );

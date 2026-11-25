@@ -735,28 +735,11 @@ fn preview(pen: &mut Pen<'_>, args: &SketchArgs, state: &SketchState) {
         }
         _ => {}
     }
-    let size = if cursor.to.is_some() {
-        POINT + 4.0
-    } else {
-        POINT
-    };
-    pen.out.push(CanvasShape::Dot { at: to, tone, size });
-    // The constraint a click here would make with what it snaps to.
-    // Level with a point hovered before: a guide from it.
-    for (id, axis) in [cursor.aligned, cursor.aligned_too].into_iter().flatten() {
-        let from = args.at(id);
-        pen.line(vec![from, to], tone, THIN, true);
-        let text = if axis == state.horizontal() { "H" } else { "V" };
-        pen.out.push(CanvasShape::Text {
-            at: (from + to) / 2.0 + pen.view.up * pen.px(BADGE_LIFT),
-            along: pen.view.right,
-            text: text.to_owned(),
-            upper: String::new(),
-            lower: String::new(),
-            tone,
-            badge: true,
-        });
-    }
+    let guides: Vec<(Point2, bool)> = [cursor.aligned, cursor.aligned_too]
+        .into_iter()
+        .flatten()
+        .map(|(id, axis)| (args.at(id), axis == state.horizontal()))
+        .collect();
     let text = match cursor.to {
         _ if cursor.tangent => "T",
         Some(Item::Entity(_)) if cursor.middle => "M",
@@ -765,7 +748,43 @@ fn preview(pen: &mut Pen<'_>, args: &SketchArgs, state: &SketchState) {
         Some(Item::Entity(_)) => "on",
         _ => "",
     };
-    if !text.is_empty() && tools::attaches(state.tool, state.clicks.len()) {
+    let text = if tools::attaches(state.tool, state.clicks.len()) {
+        text
+    } else {
+        ""
+    };
+    marks(pen, to, cursor.to.is_some(), &guides, text, tone);
+}
+
+/// Where the pointer snaps, as the sketcher shows it: the dot (larger
+/// on something), a dashed guide from each point hovered before that it
+/// is level with (`guides`, each with whether horizontally) with H or
+/// V, and the badge `text` of what it is on.
+fn marks(
+    pen: &mut Pen<'_>,
+    to: Point2,
+    on: bool,
+    guides: &[(Point2, bool)],
+    text: &str,
+    tone: Tone,
+) {
+    let size = if on { POINT + 4.0 } else { POINT };
+    pen.out.push(CanvasShape::Dot { at: to, tone, size });
+    // Level with a point hovered before: a guide from it.
+    for (from, horizontal) in guides {
+        pen.line(vec![*from, to], tone, THIN, true);
+        let text = if *horizontal { "H" } else { "V" };
+        pen.out.push(CanvasShape::Text {
+            at: (*from + to) / 2.0 + pen.view.up * pen.px(BADGE_LIFT),
+            along: pen.view.right,
+            text: text.to_owned(),
+            upper: String::new(),
+            lower: String::new(),
+            tone,
+            badge: true,
+        });
+    }
+    if !text.is_empty() {
         let lift = (pen.view.up - pen.view.right) * pen.px(BADGE_LIFT);
         pen.out.push(CanvasShape::Text {
             at: to + lift,
@@ -777,4 +796,36 @@ fn preview(pen: &mut Pen<'_>, args: &SketchArgs, state: &SketchState) {
             badge: true,
         });
     }
+}
+
+/// How `snapped` shows, drawn elsewhere (a drawing sheet's cutting
+/// line) as the sketcher shows its pointer: [`marks`], and H or V over
+/// the piece from the corner before where it is level with that.
+pub(crate) fn snap_cues(view: &CanvasView, snapped: &crate::tools::Snapped) -> Vec<CanvasShape> {
+    let mut pen = Pen {
+        out: Vec::new(),
+        view,
+    };
+    let tone = Tone::Preview;
+    let to = snapped.at;
+    if let Some((from, horizontal)) = snapped.along {
+        pen.out.push(CanvasShape::Text {
+            at: (from + to) / 2.0 + view.up * pen.px(BADGE_LIFT),
+            along: view.right,
+            text: if horizontal { "H" } else { "V" }.to_owned(),
+            upper: String::new(),
+            lower: String::new(),
+            tone,
+            badge: true,
+        });
+    }
+    marks(
+        &mut pen,
+        to,
+        snapped.on,
+        &snapped.guides,
+        snapped.badge,
+        tone,
+    );
+    pen.out
 }

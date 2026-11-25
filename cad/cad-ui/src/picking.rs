@@ -466,7 +466,7 @@ pub fn handles<M: 'static>(
     };
     for (name, handle) in handles {
         let scale = pixel(pose.transform_point(handle.anchor()));
-        for piece in handle.pieces(scale) {
+        for piece in handle.pieces(scale, -ray.direction()) {
             let candidate = || Candidate::Handle {
                 name: name.clone(),
                 part: piece.part,

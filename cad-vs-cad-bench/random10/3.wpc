@@ -1106,8 +1106,11 @@
           "scale": 1.0,
           "sections": [
             {
+              "angle": 0.0,
               "end": "Free",
               "face": null,
+              "flip": false,
+              "magnitude": 1.0,
               "of": {
                 "Profile": "section"
               }
@@ -1325,6 +1328,8 @@
           "areas": [],
           "caps": false,
           "combine": "Join",
+          "curves": [],
+          "direction": null,
           "distance": 30.0,
           "extent": "Distance",
           "flip": false,
@@ -1382,6 +1387,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "tube_hole"
@@ -1506,6 +1513,8 @@
           "areas": [],
           "caps": false,
           "combine": "Join",
+          "curves": [],
+          "direction": null,
           "distance": 40.0,
           "extent": "Distance",
           "flip": false,
@@ -2012,6 +2021,7 @@
           },
           "caps": false,
           "combine": "Join",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "boss"
@@ -2142,6 +2152,8 @@
           "areas": [],
           "caps": false,
           "combine": "Cut",
+          "curves": [],
+          "direction": null,
           "distance": 10.0,
           "extent": "ThroughAll",
           "flip": false,
@@ -2431,6 +2443,8 @@
           "areas": [],
           "caps": false,
           "combine": "Cut",
+          "curves": [],
+          "direction": null,
           "distance": 10.0,
           "extent": "ThroughBoth",
           "flip": false,
@@ -2620,6 +2634,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "bolt_hole"
@@ -3026,6 +3042,8 @@
           "areas": [],
           "caps": false,
           "combine": "Cut",
+          "curves": [],
+          "direction": null,
           "distance": 4.0,
           "extent": "Distance",
           "flip": false,

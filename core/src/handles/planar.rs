@@ -10,6 +10,9 @@ pub struct PlanarHandle<M> {
     pub at: Point3,
     /// The unit normal of the plane it moves in.
     pub normal: Point3,
+    /// The point it is pulled out from, if it is the tip of a direction
+    /// (and a length) in its plane: a line is drawn from there to it.
+    pub from: Option<Point3>,
     /// The message for the knob dragged to a point.
     pub on_drag: WidgetHandler<Point3, M>,
 }
@@ -25,8 +28,16 @@ impl<M: 'static> PlanarHandle<M> {
         Some(Self {
             at,
             normal: normal.try_normalize()?,
+            from: None,
             on_drag: Box::new(on_drag),
         })
+    }
+
+    /// The knob as the tip of a direction in its plane pulled out from
+    /// `from`: a line is drawn from there to it.
+    pub fn from(mut self, from: Point3) -> Self {
+        self.from = Some(from);
+        self
     }
 
     /// Moves the knob by the pointer's motion over the plane. No message
@@ -43,6 +54,7 @@ impl<M: 'static> PlanarHandle<M> {
         PlanarHandle {
             at: self.at,
             normal: self.normal,
+            from: self.from,
             on_drag: map_handler(self.on_drag, f),
         }
     }

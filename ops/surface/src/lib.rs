@@ -10,7 +10,7 @@ pub use curve::{
     CurveThrough, CurveThroughArgs, EndHeld, EndWay, Helix, HelixArgs, crossing, through,
     write_wire,
 };
-pub use surface::{Surface, SurfaceArgs, SurfaceWay};
+pub use surface::{SplitBy, Surface, SurfaceArgs, SurfaceWay};
 
 /// Tells `r` of this crate's operations: their kinds, the tools that
 /// add them, and their icons.
@@ -18,43 +18,21 @@ pub fn register(r: &mut workpiece_core::Registry) {
     use workpiece_core::Tool;
     r.kind_by::<Surface>(workpiece_core::IconOf::By(|op| {
         match op.downcast_ref::<Surface>().map(|s| s.args.way) {
-            Some(SurfaceWay::Copy) | None => "copyfaces",
-            Some(SurfaceWay::Stitch) => "stitch",
-            Some(SurfaceWay::Unstitch) => "unstitch",
+            Some(SurfaceWay::Offset) | None => "offsetsurface",
             Some(SurfaceWay::Delete) => "deletesurface",
-            Some(SurfaceWay::Offset) => "offsetsurface",
-            Some(SurfaceWay::Fill) => "fill",
-            Some(SurfaceWay::Trim) => "trimsurface",
             Some(SurfaceWay::Split) => "splitsurface",
-            Some(SurfaceWay::Untrim) => "untrim",
             Some(SurfaceWay::Extend) => "extendsurface",
         }
     }));
     // Each way of Surface its tool: what it does, where it stands.
-    let ways: [(Make, &str, &str, &str, char, &str); 10] = [
-        (
-            |cx| made(cx, "copyfaces", SurfaceWay::Copy),
-            "Surfaces",
-            "Copy faces",
-            "copyfaces",
-            'C',
-            "Copy faces of a body (or all of it) into a surface of their own",
-        ),
+    let ways: [(Make, &str, &str, &str, char, &str); 4] = [
         (
             |cx| made(cx, "offsetsurface", SurfaceWay::Offset),
             "Surfaces",
             "Offset",
             "offsetsurface",
             'O',
-            "A surface a distance off faces of a body, or off a whole surface: along the faces' normals, or flipped against them",
-        ),
-        (
-            |cx| made(cx, "fill", SurfaceWay::Fill),
-            "Surfaces",
-            "Fill",
-            "fill",
-            'L',
-            "Fill the flat holes of a surface with faces; closed all around by that, it becomes a solid",
+            "A surface a distance off faces of a body, or off a whole surface: along the faces' normals, or flipped against them; by no distance, a copy of the faces",
         ),
         (
             |cx| made(cx, "extendsurface", SurfaceWay::Extend),
@@ -62,15 +40,7 @@ pub fn register(r: &mut workpiece_core::Registry) {
             "Extend",
             "extendsurface",
             'e',
-            "Run a surface on past its free edges, by a distance, as its faces go",
-        ),
-        (
-            |cx| made(cx, "trimsurface", SurfaceWay::Trim),
-            "Edit",
-            "Trim",
-            "trimsurface",
-            't',
-            "Cut a surface back to a plane: what is in front of the plane goes",
+            "Run a surface on past its free edges, by a distance, as its faces go; or back to its faces' whole surfaces, what they were before anything was cut from them",
         ),
         (
             |cx| made(cx, "splitsurface", SurfaceWay::Split),
@@ -78,15 +48,7 @@ pub fn register(r: &mut workpiece_core::Registry) {
             "Split",
             "splitsurface",
             'p',
-            "Cut a surface in two by a plane",
-        ),
-        (
-            |cx| made(cx, "untrim", SurfaceWay::Untrim),
-            "Edit",
-            "Untrim",
-            "untrim",
-            'u',
-            "Every face of a surface back to all of its own surface: what it was before anything was cut from it",
+            "Split faces along a sketch thrown onto them or along curves on them; or cut a surface in two by a plane",
         ),
         (
             |cx| made(cx, "deletesurface", SurfaceWay::Delete),
@@ -95,22 +57,6 @@ pub fn register(r: &mut workpiece_core::Registry) {
             "deletesurface",
             'D',
             "Delete faces or whole surfaces; faces of a solid — a hole, a pocket, a boss — are taken off and the faces around closed over where they were",
-        ),
-        (
-            |cx| made(cx, "stitch", SurfaceWay::Stitch),
-            "Surfaces",
-            "Stitch",
-            "stitch",
-            'S',
-            "Sew surfaces into one where their edges lie on each other, all turned one way; closed all around, they become a solid, facing out",
-        ),
-        (
-            |cx| made(cx, "unstitch", SurfaceWay::Unstitch),
-            "Surfaces",
-            "Unstitch",
-            "unstitch",
-            'U',
-            "Take a surface apart: every face a surface of its own",
         ),
     ];
     for (make, group, label, icon, key, hint) in ways {
@@ -132,7 +78,7 @@ pub fn register(r: &mut workpiece_core::Registry) {
         label: "Boundary",
         icon: "boundary",
         key: 'B',
-        hint: "A surface over a hole of any number of sides: pick the edges around it, each free or running on smoothly (G1, G2) from the face beside it",
+        hint: "A surface over a hole of any number of sides — flat where they lie in a plane: pick the edges around it, each free or running on smoothly (G1, G2) from the face beside it; it is sewn to the surfaces around, a solid where that closes them",
         small: false,
         make: |cx| Boundary { id: (cx.fresh_id)("boundary"), args: Default::default() }.into(),
     });
@@ -167,17 +113,12 @@ pub fn register(r: &mut workpiece_core::Registry) {
         include_str!("../icons/curve-projection.svg"),
     );
     r.icon("boundary", include_str!("../icons/boundary.svg"));
-    r.icon("copyfaces", include_str!("../icons/copyfaces.svg"));
     r.icon("curve", include_str!("../icons/curve.svg"));
     r.icon("deletesurface", include_str!("../icons/deletesurface.svg"));
     r.icon("extendsurface", include_str!("../icons/extendsurface.svg"));
-    r.icon("fill", include_str!("../icons/fill.svg"));
     r.icon("offsetsurface", include_str!("../icons/offsetsurface.svg"));
     r.icon("splitsurface", include_str!("../icons/splitsurface.svg"));
-    r.icon("stitch", include_str!("../icons/stitch.svg"));
-    r.icon("trim", include_str!("../icons/trim.svg"));
-    r.icon("trimsurface", include_str!("../icons/trimsurface.svg"));
-    r.icon("unstitch", include_str!("../icons/unstitch.svg"));
+    r.icon("split-plane", include_str!("../icons/split-plane.svg"));
     r.icon("untrim", include_str!("../icons/untrim.svg"));
     // How a curve, a section or a side runs on at an end (the sweep's
     // sections take them too).

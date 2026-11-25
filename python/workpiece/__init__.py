@@ -60,6 +60,16 @@ def _curve(c) -> dict:
     return c if isinstance(c, dict) else profile(c)
 
 
+def _curves(c):
+    """Curves of the model given where a sketch could be: a reference (`topo(edge)`,
+    `topo(curve_body)`) or a list of them, as a list; None for a sketch."""
+    if isinstance(c, dict) and "Profile" not in c:
+        return [c]
+    if isinstance(c, (list, tuple)) and c and all(isinstance(x, dict) for x in c):
+        return list(c)
+    return None
+
+
 def _area(a):
     """An area of a sketch as a step takes it: a (u, v) point inside it becomes
     {"inside": [u, v]}; anchors (a list of {"entity", "left", "at"}) stay as they are."""
@@ -183,6 +193,15 @@ def material(folder: str, name: str, density: float, colour=(180, 180, 186)) -> 
 SIDES = ("Front", "Back", "Left", "Right", "Top", "Bottom", "Isometric", "IsometricFrontLeft",
          "IsometricBackRight", "IsometricBackLeft", "Dimetric", "IsometricBelowFrontRight",
          "IsometricBelowFrontLeft", "IsometricBelowBackRight", "IsometricBelowBackLeft")
+
+
+def tap_depths(size: str) -> tuple[float, float]:
+    """A blind tapped hole's depths by the workshop's rule, as the Hole step takes them when none
+    are given: the thread 1.5 × d deep, the tap drill's bore 0.5 × d deeper (for the tap's lead
+    and the chips). `tap_depths("M8")` is (12.0, 16.0)."""
+    d = float(size.lstrip("M").split("x")[0].split("×")[0])
+    thread = round(d * 1.5, 1)
+    return thread, round(thread + round(d * 0.5, 1), 1)
 
 
 def camera_view(eye, up=(0, 0, 1)) -> dict:
@@ -656,16 +675,29 @@ class Part:
 
     # the common features
     def extrude(self, sketch, distance: float = 10.0, combine: str = "Join", symmetric: bool = False,
-                through: bool = False, flip: bool = False, id: str | None = None, **more) -> str:
+                through: bool = False, flip: bool = False, direction=None, id: str | None = None, **more) -> str:
         """Extrude a sketch along its plane's normal (flip: the other way). combine: "NewBody",
         "Join", "Cut", "Intersect". symmetric: `distance` in all, half each way. through:
         through everything that way; with symmetric as well, through everything both ways.
         areas: which closed areas of the sketch, each by a (u, v) point inside it
         (`areas=[(10, 5), (40, 5)]`); left out, the whole sketch (areas inside others are holes).
-        The same `areas` goes for revolve and the other steps that take a sketch's areas."""
+        The same `areas` goes for revolve and the other steps that take a sketch's areas.
+        Instead of a sketch, curves of the model: `topo(edge)`, `topo(curve_body)`, or a list
+        of them (edges of bodies and surfaces, CurveThrough/Helix/... bodies; in space, any
+        shape), swept along `direction` (`axis("Z")`, `topo(straight_edge)`, `datum(plane)`,
+        `topo(flat_face)`: a plane's normal; left out, the normal of the plane the curves lie
+        in). Curves make a surface (`surface=True`), or a solid where they close around an
+        area in one plane."""
         extent = ("ThroughBoth" if symmetric else "ThroughAll") if through else "Symmetric" if symmetric else "Distance"
-        return self.op("Extrude", id, sketch=profile(sketch), distance=float(distance), combine=combine,
-                       extent=extent, flip=flip, **more)
+        curves = _curves(sketch)
+        if curves is None and direction is not None:
+            raise ValueError("direction= is for curves: a sketch goes along its plane's normal")
+        if curves is not None:
+            more["curves"] = curves
+            if direction is not None:
+                more["direction"] = direction
+        return self.op("Extrude", id, sketch=None if curves is not None else profile(sketch),
+                       distance=float(distance), combine=combine, extent=extent, flip=flip, **more)
 
     def cut(self, sketch, distance: float = 10.0, through: bool = False, flip: bool = False,
             symmetric: bool = False, **more) -> str:
@@ -678,7 +710,16 @@ class Part:
         """Revolve a sketch about an axis. `about`: the name of a rotation axis drawn in the sketch
         (`Sketch.rotation_axis`); "u" or "v", the sketch plane's own axes (drawn into the sketch as
         a rotation axis along that one); or a reference to any line — `axis("Z")`, `datum(axis_id)`,
-        `topo(straight_edge)`. Left out: the sketch's one rotation axis if it has one, else "u"."""
+        `topo(straight_edge)`. Left out: the sketch's one rotation axis if it has one, else "u".
+        Instead of a sketch, curves of the model (`topo(edge)`, `topo(curve_body)`, or a list of
+        them; in space, any shape) turned about `about` (a reference): a surface
+        (`surface=True`), or a solid where they close around an area in one plane."""
+        curves = _curves(sketch)
+        if curves is not None:
+            if not isinstance(about, dict):
+                raise ValueError("revolving curves: about= is a reference (axis(\"Z\"), datum(id), topo(edge))")
+            return self.op("Revolve", id, sketch=None, curves=curves, axis=about, angle=float(angle),
+                           combine=combine, **more)
         if isinstance(sketch, Sketch):
             drawn = list(sketch._rotation_axes)
             if about is None:
@@ -702,7 +743,8 @@ class Part:
 
     def hole(self, sketch=None, diameter: float = 6.0, depth: float | None = None, kind: str = "Simple",
              id: str | None = None, up_to=None, head_up_to=None, next: bool = False, on=None, at=None,
-             off=None, around=None, radius: float | None = None, angle: float = 0.0, **more) -> str:
+             off=None, around=None, radius: float | None = None, angle: float = 0.0,
+             thread_depth: float | None = None, thread_through: bool = False, **more) -> str:
         """Holes, drilled into the body. Where — one of four placements:
         `sketch` (its dots, `sketch.dot(...)`: a hole at each, on the sketch's plane or on `on`);
         `on=topo(face), at=(x, y)` (a point of the face's plane, in its own x and y from its origin);
@@ -714,7 +756,10 @@ class Part:
         to that face's or plane's plane, and `offset=` further in (negative: short of it). kind:
         "Simple", "Counterbore" (head=diameter, head_depth=... or `head_up_to=topo(face)` /
         `datum(plane_id)` for its floor, `head_offset=`), "Countersink" (head=diameter,
-        head_angle=...), "Tapped". `hexagon` only sizes a standard counterbore for a hexagon head;
+        head_angle=...), "Tapped" (`size="M8"`: `depth` is the tap drill's bore; the thread goes
+        `thread_depth` deep — default 1.5 × d, the workshop's rule — or `thread_through=True` the
+        whole of a bore that goes through; `tap_depths("M8")` gives the rule's thread and drill
+        depths, (12.0, 16.0)). `hexagon` only sizes a standard counterbore for a hexagon head;
         a hexagonal pocket is a cut of `sketch.polygon(...)`. The drawing's callout gives a depth
         that comes of a face in brackets, as a reference."""
         args = dict(diameter=float(diameter), kind=kind, **more)
@@ -742,6 +787,15 @@ class Part:
             args.update(extent="Distance", depth=float(depth))
         if head_up_to is not None:
             args.update(head_extent="ToFace", head_up_to=head_up_to)
+        if kind == "Tapped":
+            if thread_through:
+                if thread_depth is not None:
+                    raise ValueError("a thread through all has no thread_depth")
+                args.update(thread_end="Through")
+            elif thread_depth is not None:
+                args.update(thread_depth=float(thread_depth))
+        elif thread_depth is not None or thread_through:
+            raise ValueError("thread_depth and thread_through are of a tapped hole (kind=\"Tapped\")")
         return self.op("Hole", id, **args)
 
     @staticmethod
@@ -812,25 +866,45 @@ class Part:
 
     def loft(self, sections, guides=(), start: str = "Free", end: str = "Free", start_face=None,
              end_face=None, surface: bool = False, combine: str = "Join", id: str | None = None,
+             start_flip: bool = False, end_flip: bool = False, start_magnitude: float = 1.0,
+             end_magnitude: float = 1.0, start_angle: float = 0.0, end_angle: float = 0.0,
              **more) -> str:
         """Loft through `sections` in order: sketches, faces (`topo(face)`: its outline) or, for
         `surface=True`, edges and curves left open. `guides`: curves (sketches or curve bodies)
         the loft runs along, each touching every section. How it leaves the first section and
         arrives at the last: "Free", "Normal" (square to the section's plane), "Tangent" (G1)
-        or "Curvature" (G2) to a face — `start_face=topo(face)` (none: the section's own face)."""
+        or "Curvature" (G2) to a face — `start_face=topo(face)` (none: the section's own face).
+        Held ends: `start_flip=True` leaves the other way (out of the loft); `start_magnitude`
+        the tangent length as a share of its natural one (1: as today; 2: fuller); a tangent or
+        curvature end turned within the face by `start_angle` degrees from square across the
+        section. The same for `end_…`."""
         secs = [_section(s) for s in sections]
-        for k, way, face in ((0, start, start_face), (-1, end, end_face)):
+        for k, way, face, flip, magnitude, angle in (
+                (0, start, start_face, start_flip, start_magnitude, start_angle),
+                (-1, end, end_face, end_flip, end_magnitude, end_angle)):
             secs[k]["end"] = way
             if face is not None:
                 secs[k]["face"] = face
+            secs[k]["flip"] = bool(flip)
+            secs[k]["magnitude"] = float(magnitude)
+            secs[k]["angle"] = float(angle)
         return self.op("SweptLoft", id, sections=secs, rails=[{"of": _curve(g), "role": "Guide"} for g in guides],
                        surface=surface, combine=combine, **more)
 
-    def fillet(self, edges, radius: float, id: str | None = None, **more) -> str:
-        return self.op("Fillet", id, edges=[topo(e) for e in edges], size=float(radius), **more)
+    def fillet(self, edges, radius: float, id: str | None = None, tangent: bool = True,
+               **more) -> str:
+        """Rounds `edges` (edge, face or body names). With `tangent` (the default) each edge
+        comes with the edges that run on smoothly from it — its tangent chain, followed through
+        every corner where it goes on without a bend — worked out as the part is built;
+        tangent=False rounds only the edges named."""
+        return self.op("Fillet", id, edges=[topo(e) for e in edges], tangent=bool(tangent),
+                       size=float(radius), **more)
 
-    def chamfer(self, edges, distance: float, id: str | None = None, **more) -> str:
-        return self.op("Chamfer", id, edges=[topo(e) for e in edges], distance=float(distance), **more)
+    def chamfer(self, edges, distance: float, id: str | None = None, tangent: bool = True,
+                **more) -> str:
+        """Cuts `edges` off flat; `tangent` as in `fillet`."""
+        return self.op("Chamfer", id, edges=[topo(e) for e in edges], tangent=bool(tangent),
+                       distance=float(distance), **more)
 
     def shell(self, open_faces, thickness: float, id: str | None = None, **more) -> str:
         return self.op("Shell", id, faces=[topo(f) for f in open_faces], thickness=float(thickness), **more)

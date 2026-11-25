@@ -20,6 +20,7 @@ serde.workspace = true
 [dev-dependencies]
 serde_json.workspace = true
 workpiece-ops-testing.workspace = true
+workpiece-shape.workspace = true
 
 [lints]
 workspace = true

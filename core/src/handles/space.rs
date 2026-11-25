@@ -82,6 +82,13 @@ pub struct SpaceEvent {
     pub add: bool,
     /// How the scene is seen.
     pub view: SpaceView,
+    /// What the pointer snaps to, where it snaps to something (the
+    /// scene's and the space's own [`Space::targets`]): none while
+    /// snapping is off.
+    pub snap: Option<super::snap::Snap>,
+    /// The spacing of the grid at this zoom, while it is snapped to:
+    /// a point placed free of anything lands on it.
+    pub grid: Option<f64>,
 }
 
 /// Something a space draws. Widths and sizes are in pixels.
@@ -138,6 +145,13 @@ pub struct Space<M> {
     pub draw: SpaceDraw,
     /// The message for an event, if it changes anything.
     pub on_event: SpaceHandler<M>,
+    /// What it offers to be snapped to of its own: of what it edits,
+    /// what is not being moved.
+    pub targets: Rc<super::snap::SnapTargets>,
+    /// Whether the pointer places points with it as it is: the point
+    /// under the pointer snaps (and shows where) while it hovers too,
+    /// not only while something is dragged.
+    pub placing: bool,
 }
 
 impl<M: 'static> Space<M> {
@@ -151,7 +165,24 @@ impl<M: 'static> Space<M> {
             anchor,
             draw: Rc::new(draw),
             on_event: Rc::new(on_event),
+            targets: Rc::default(),
+            placing: false,
         }
+    }
+
+    /// The same space, placing points with the pointer as it is (see
+    /// [`Self::placing`]) if `placing`.
+    #[must_use]
+    pub fn placing(mut self, placing: bool) -> Self {
+        self.placing = placing;
+        self
+    }
+
+    /// The same space, offering `targets` to be snapped to.
+    #[must_use]
+    pub fn with_targets(mut self, targets: super::snap::SnapTargets) -> Self {
+        self.targets = Rc::new(targets);
+        self
     }
 
     /// The message for `event`.
@@ -170,6 +201,8 @@ impl<M: 'static> Space<M> {
             anchor: self.anchor,
             draw: self.draw,
             on_event: Rc::new(move |e| on_event(e).map(|m| f(m))),
+            targets: self.targets,
+            placing: self.placing,
         }
     }
 }

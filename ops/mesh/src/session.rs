@@ -4,6 +4,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
+use workpiece_core::handles::snap::grid_in_plane;
 use workpiece_core::handles::{CanvasEventKind, SpaceEvent, SpaceView};
 use workpiece_core::math::Point3;
 use workpiece_core::{Edit, Pose, Ray};
@@ -42,27 +43,18 @@ impl Mode {
 /// What the pointer does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Hash)]
 pub enum Tool {
-    /// Picks, and moves and turns what is picked by its gizmo.
+    /// Picks, and moves, turns and scales what is picked by its gizmo.
     #[default]
     Select,
-    /// Picks, and stretches what is picked along the axes.
-    Scale,
     /// Cuts faces from point to point clicked on their edges.
     Knife,
     /// Cuts a loop of edges around the mesh, across the edge clicked.
     LoopCut,
     /// Draws a face, corner by corner.
     Draw,
-}
-
-/// Where the gizmo is: where the pointer has dragged it to, and where
-/// it shows (the same, but for moves that go in steps).
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Grip {
-    /// Where it was dragged to.
-    pub raw: Pose,
-    /// Where it shows, and what has moved with it.
-    pub shown: Pose,
+    /// Draws lines, point by point: a curve of the subdivision; one
+    /// click, a point by itself.
+    Line,
 }
 
 /// What was done last, with the numbers it was done with: they can
@@ -110,8 +102,6 @@ pub enum What {
     Relax,
     /// [`ops::inflate`].
     Inflate,
-    /// [`ops::grid_fill`].
-    GridFill,
     /// A mesh to start from, added.
     Add(Primitive),
     /// What is picked moved.
@@ -134,8 +124,7 @@ impl Last {
             What::Weld => (base.size() * 1e-4, 0),
             What::Relax => (0.5, 1),
             What::Inflate => (edge * 0.1, 0),
-            What::GridFill => (0.0, 0),
-            What::Add(kind) => (0.0, kind.pieces()),
+            What::Add(kind) => (ADD_SIZE, kind.pieces()),
             What::Move | What::Scale => (0.0, 0),
         };
         Self {
@@ -174,14 +163,6 @@ impl Last {
                 }
                 Ok((made, picked.to_vec()))
             }
-            What::GridFill => {
-                let span = if self.count == 0 {
-                    (base.edges_of(picked).len() / 4).max(1)
-                } else {
-                    self.count
-                };
-                ops::grid_fill(base, picked, span, self.turn)
-            }
             What::Add(kind) => {
                 let mut made = base.clone();
                 let new = kind.mesh(self.amount, self.count, self.by);
@@ -210,6 +191,10 @@ impl Last {
         }
     }
 }
+
+/// How large what is added is, in millimetres: a box's edge, a plane's
+/// side, the diameter of a cylinder, a cone, a sphere, a torus.
+pub const ADD_SIZE: f64 = 10.0;
 
 /// A point the pointer is at, for a tool that cuts or draws.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -258,12 +243,10 @@ pub struct MeshState {
     pub hover: Option<Item>,
     /// Where the gizmo is, once it was dragged; else it is in the
     /// middle of what is picked.
-    pub gizmo: Option<Grip>,
+    pub gizmo: Option<Pose>,
     /// Whether the gizmo stands along the normal of what is picked
     /// (else along the world's axes).
     pub along_normal: bool,
-    /// The step moves go in; none for zero.
-    pub snap: f64,
     /// How far around what is picked the mesh moves with it, less
     /// the farther; none for zero.
     pub falloff: f64,
@@ -277,7 +260,8 @@ pub struct MeshState {
     pub knife: Option<usize>,
     /// Where the pointer is, for the knife and the pen.
     pub cursor: Option<Cursor>,
-    /// The corners of the face being drawn.
+    /// The corners of the face being drawn; the points of the lines
+    /// being drawn.
     pub drawn: Vec<usize>,
     /// The way the eye looked when the pen was last moved: a face
     /// drawn beside no other is turned to face it.
@@ -365,8 +349,8 @@ pub fn moved(
 
 /// The middle of what is picked and how the gizmo stands there.
 pub fn pivot(args: &MeshArgs, state: &MeshState) -> Option<Pose> {
-    if let Some(grip) = state.gizmo {
-        return Some(grip.shown);
+    if let Some(pose) = state.gizmo {
+        return Some(pose);
     }
     let poly = &args.mesh;
     let points = poly.points_of(&state.picked);
@@ -441,7 +425,7 @@ pub fn pick(poly: &Poly, ray: &Ray, mode: Mode) -> Option<(Item, Point3)> {
         }
         Mode::Edge => {
             let mut best: Option<(f64, Edge, Point3)> = None;
-            for &(a, b) in poly.edges().keys() {
+            for &(a, b) in &poly.all_edges() {
                 let (pa, pb) = (poly.points[a], poly.points[b]);
                 let Some(t) = ray.hit_segment(pa, pb) else {
                     continue;
@@ -493,23 +477,45 @@ fn knife_at(poly: &Poly, ray: &Ray) -> Option<Cursor> {
 
 /// The plane a face is drawn in: through `through`, facing along the
 /// axis of the world the eye looks along most.
-fn drawing_plane(view: &SpaceView, through: Point3, ray: &Ray) -> Option<Point3> {
+fn drawing_plane(
+    view: &SpaceView,
+    through: Point3,
+    ray: &Ray,
+    grid: Option<f64>,
+) -> Option<Point3> {
     let forward = view.forward().to_array();
     let axis = (0..3).max_by(|&a, &b| forward[a].abs().total_cmp(&forward[b].abs()))?;
     let mut normal = Point3::ZERO;
     normal[axis] = 1.0;
     let t = ray.intersect_plane(through, normal)?;
-    Some(ray.at(t))
+    let at = ray.at(t);
+    Some(grid.map_or(at, |step| grid_in_plane(at, normal, step)))
 }
 
 /// What the pointer's `event` does to the mesh being edited.
 pub fn handle(args: &MeshArgs, state: &MeshState, event: SpaceEvent) -> Option<MeshEdit> {
     match state.tool {
-        Tool::Select | Tool::Scale => select(args, state, event),
+        Tool::Select => select(args, state, event),
         Tool::Knife => knife(args, state, event),
         Tool::LoopCut => loop_cut(args, state, event),
         Tool::Draw => draw(args, state, event),
+        Tool::Line => lines(args, state, event),
     }
+}
+
+/// Where a point the pointer places lands: what it snaps to, else where
+/// its ray meets the plane through `through` with unit `normal` — on
+/// the grid, while there is one.
+pub fn placed(event: &SpaceEvent, through: Point3, normal: Point3) -> Option<Point3> {
+    if let Some(snap) = event.snap {
+        return Some(snap.at);
+    }
+    let t = event.ray.intersect_plane(through, normal)?;
+    let at = event.ray.at(t);
+    Some(match event.grid {
+        Some(step) => grid_in_plane(at, normal, step),
+        None => at,
+    })
 }
 
 /// A new state, if it is another than `state`.
@@ -584,10 +590,10 @@ fn select(args: &MeshArgs, state: &MeshState, event: SpaceEvent) -> Option<MeshE
         }
         CanvasEventKind::Drag => {
             if let Some((item, at)) = state.grab {
-                // What was grabbed moves in the plane facing the eye,
-                // with all that is picked if it is of that.
-                let t = ray.intersect_plane(at, -view.forward())?;
-                let to = ray.at(t);
+                // What was grabbed moves in the plane facing the eye
+                // (onto what it snaps to), with all that is picked if
+                // it is of that.
+                let to = placed(&event, at, -view.forward())?;
                 if !state.picked.contains(&item) {
                     next = next.with_picked(vec![item]);
                 }
@@ -712,7 +718,6 @@ pub fn drag_gizmo(args: &MeshArgs, state: &MeshState, to: Pose) -> MeshEdit {
     let Some(shown) = pivot(args, state) else {
         return Edit::state(state.clone());
     };
-    let raw_was = state.gizmo.map_or(shown, |g| g.raw);
     let turned = to.rotation().angle_between(shown.rotation()) > 1e-9;
     if turned {
         // Turned about where it is.
@@ -725,7 +730,7 @@ pub fn drag_gizmo(args: &MeshArgs, state: &MeshState, to: Pose) -> MeshEdit {
             &|p| by.transform_point(p),
         );
         let mut next = state.clone();
-        next.gizmo = Some(Grip { raw: to, shown: to });
+        next.gizmo = Some(to);
         next.last = None;
         next.note = None;
         return Edit::both(
@@ -736,23 +741,34 @@ pub fn drag_gizmo(args: &MeshArgs, state: &MeshState, to: Pose) -> MeshEdit {
             next,
         );
     }
-    // Moved: in steps, if moves go in steps — the gizmo and the mesh
-    // follow the pointer by whole steps.
-    let raw = raw_was.translation() + (to.translation() - shown.translation());
-    let mut step = raw - shown.translation();
-    if state.snap > 0.0 {
-        step = (step / state.snap).round() * state.snap;
-    }
-    let now = shown.with_translation(shown.translation() + step);
+    let step = to.translation() - shown.translation();
     let mut next = state.clone();
-    next.gizmo = Some(Grip {
-        raw: shown.with_translation(raw),
-        shown: now,
-    });
+    next.gizmo = Some(to);
     if step == Point3::ZERO {
         return Edit::state(next);
     }
     translate(args, &next, step)
+}
+
+/// What is picked scaled by `by` more in all directions about the
+/// gizmo: by its outer ring. How far it is scaled in all goes on (and
+/// can be typed), from the mesh as it was.
+pub fn scale_all(args: &MeshArgs, state: &MeshState, by: f64) -> MeshEdit {
+    let Some(pivot) = pivot(args, state) else {
+        return Edit::state(state.clone());
+    };
+    let mut last = match &state.last {
+        Some(last) if last.what == What::Scale && last.picked == state.picked => last.clone(),
+        _ => {
+            let mut last = Last::new(What::Scale, &args.mesh, &state.picked);
+            last.frame = pivot;
+            last
+        }
+    };
+    last.by *= by;
+    let mut next = state.clone();
+    next.gizmo = Some(pivot);
+    redo(args, &next, last)
 }
 
 fn knife(args: &MeshArgs, state: &MeshState, event: SpaceEvent) -> Option<MeshEdit> {
@@ -872,8 +888,11 @@ fn draw(args: &MeshArgs, state: &MeshState, event: SpaceEvent) -> Option<MeshEdi
                 return Some(Cursor::Vertex(v));
             }
         }
+        if let Some(snap) = event.snap {
+            return Some(Cursor::Free(snap.at));
+        }
         let through = state.drawn.last().map_or(Point3::ZERO, |&v| poly.points[v]);
-        drawing_plane(view, through, ray).map(Cursor::Free)
+        drawing_plane(view, through, ray, event.grid).map(Cursor::Free)
     };
     let mut next = state.clone();
     next.forward = view.forward();
@@ -912,6 +931,77 @@ fn draw(args: &MeshArgs, state: &MeshState, event: SpaceEvent) -> Option<MeshEdi
             ))
         }
         CanvasEventKind::DoubleClick => Some(close_drawn(args, &next)),
+        _ => None,
+    }
+}
+
+/// The line tool: each click a point, joined by a line to the one
+/// before; on a point of the mesh, that point. A double-click ends the
+/// run (one click alone leaves a point by itself).
+fn lines(args: &MeshArgs, state: &MeshState, event: SpaceEvent) -> Option<MeshEdit> {
+    let poly = &args.mesh;
+    let (ray, view) = (&event.ray, &event.view);
+    let at = || -> Option<Cursor> {
+        if event.snap.is_none()
+            && let Some((Item::Vertex(v), _)) = pick(poly, ray, Mode::Vertex)
+        {
+            return Some(Cursor::Vertex(v));
+        }
+        // (Onto a point of the mesh it snapped to: that point.)
+        if let Some(snap) = event.snap
+            && let Some(v) = poly
+                .points
+                .iter()
+                .position(|p| p.distance(snap.at) <= poly.size() * 1e-9)
+        {
+            return Some(Cursor::Vertex(v));
+        }
+        if let Some(snap) = event.snap {
+            return Some(Cursor::Free(snap.at));
+        }
+        let through = state.drawn.last().map_or(Point3::ZERO, |&v| poly.points[v]);
+        drawing_plane(view, through, ray, event.grid).map(Cursor::Free)
+    };
+    let mut next = state.clone();
+    match event.kind {
+        CanvasEventKind::Hover => {
+            next.cursor = at();
+            changed(state, next)
+        }
+        CanvasEventKind::Click => {
+            let cursor = at()?;
+            let mut mesh = poly.clone();
+            let v = match cursor {
+                Cursor::Vertex(v) => v,
+                Cursor::Free(p) => {
+                    mesh.points.push(p);
+                    mesh.points.len() - 1
+                }
+                Cursor::OnEdge(..) => return None,
+            };
+            if let Some(&last) = state.drawn.last() {
+                if last == v {
+                    return None;
+                }
+                mesh.lines.insert(edge(last, v));
+                mesh.tidy();
+            }
+            next.drawn.push(v);
+            next = next.with_picked(vec![Item::Vertex(v)]);
+            next.tool = Tool::Line;
+            Some(Edit::both(
+                MeshArgs {
+                    mesh,
+                    ..args.clone()
+                },
+                next,
+            ))
+        }
+        CanvasEventKind::DoubleClick => {
+            next.drawn.clear();
+            next.cursor = None;
+            changed(state, next)
+        }
         _ => None,
     }
 }

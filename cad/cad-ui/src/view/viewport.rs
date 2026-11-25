@@ -101,6 +101,7 @@ pub fn describe_candidate(candidate: &Candidate) -> String {
             Some(GizmoPart::Free) => format!("{name}: move freely"),
             Some(GizmoPart::Translate(a)) => format!("{name}: move along {}", a.name()),
             Some(GizmoPart::Rotate(a)) => format!("{name}: turn about {}", a.name()),
+            Some(GizmoPart::Scale) => format!("{name}: scale all at once"),
             None => name.clone(),
         },
     }

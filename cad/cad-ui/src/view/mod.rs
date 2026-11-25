@@ -131,18 +131,11 @@ impl SheetShown {
             )
         })?;
         let hand = model.session().and_then(|session| {
-            let canvas = session
-                .visualization
-                .handles
-                .into_values()
-                .find_map(|h| match h {
-                    workpiece_core::handles::Handle::Canvas(canvas) => Some(canvas),
-                    _ => None,
-                })?;
+            let (_, canvas) = session.canvas()?;
             Some(Hand {
-                draw: canvas.draw,
-                on_event: canvas.on_event,
-                input: canvas.input,
+                draw: canvas.draw.clone(),
+                on_event: canvas.on_event.clone(),
+                input: canvas.input.clone(),
             })
         });
         let movable = sheet
@@ -198,6 +191,11 @@ pub enum Press {
     /// A tool or a check mark of the edit dialog's panel at the side (its
     /// inspector), by its widget path.
     InspectorTool(Vec<usize>),
+    /// An option of a choice of the edit dialog: the choice's widget
+    /// path, and the option.
+    DialogChoice(Vec<usize>, usize),
+    /// A tool of the edit dialog's context menu, by its place in it.
+    MenuTool(usize),
 }
 
 impl View {
@@ -236,7 +234,7 @@ impl View {
             ribbon_shows = dialog.placement == Placement::Popup;
             // (What is selected first: its properties win over the
             // ribbon's tools of the same keys.)
-            if let Some(inspector) = &dialog.inspector {
+            if let Some(inspector) = dialog.inspector() {
                 let mut found = Vec::new();
                 tools(inspector, &mut Vec::new(), &mut found);
                 keys.extend(found.into_iter().map(|(key, press)| match press {
@@ -245,7 +243,14 @@ impl View {
                 }));
             }
             let mut path = Vec::new();
-            tools(&dialog.fields, &mut path, &mut keys);
+            tools(dialog.fields(), &mut path, &mut keys);
+            // (Then what the context menu offers now, by its keys: what
+            // picks more or less, which needs no button of its own.)
+            for (k, tool) in dialog.menu().iter().enumerate() {
+                if tool.enabled() {
+                    keys.push((tool.hotkey, Press::MenuTool(k)));
+                }
+            }
             for button in [&dialog.finish, &dialog.cancel, &dialog.toggle_preview] {
                 keys.extend(
                     button
@@ -300,13 +305,20 @@ impl View {
     pub fn press(&self, press: &Press) -> Option<Message> {
         match press {
             Press::Message(message) => Some((**message).clone()),
-            Press::DialogTool(path) => match self.edit_dialog.as_ref()?.fields.at(path)? {
+            Press::DialogTool(path) => match self.edit_dialog.as_ref()?.fields().at(path)? {
                 Widget::ToolButton(tool) => tool.click(),
                 Widget::Button(button) => Some(button.click()),
                 _ => None,
             },
+            Press::MenuTool(k) => self.edit_dialog.as_ref()?.menu().get(*k)?.click(),
+            Press::DialogChoice(path, option) => {
+                match self.edit_dialog.as_ref()?.fields().at(path)? {
+                    Widget::Choice(choice) => choice.set(*option),
+                    _ => None,
+                }
+            }
             Press::InspectorTool(path) => {
-                match self.edit_dialog.as_ref()?.inspector.as_ref()?.at(path)? {
+                match self.edit_dialog.as_ref()?.inspector()?.at(path)? {
                     Widget::ToolButton(tool) => tool.click(),
                     Widget::Check(check) => check.toggle(),
                     _ => None,
@@ -328,6 +340,13 @@ fn tools(widget: &Widget<Message>, path: &mut Vec<usize>, keys: &mut Vec<(Hotkey
         }
         Widget::Check(check) if check.disabled.is_none() => {
             keys.extend(check.hotkey.map(|k| (k, Press::DialogTool(path.clone()))));
+        }
+        Widget::Choice(choice) => {
+            for (option, key) in choice.hotkeys.iter().enumerate() {
+                if let Some(key) = key {
+                    keys.push((*key, Press::DialogChoice(path.clone(), option)));
+                }
+            }
         }
         _ => {}
     }

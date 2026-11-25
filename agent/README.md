@@ -37,21 +37,25 @@ u,v = x,y on XY; y,z on YZ; z,x on ZX; coordinates are only a starting guess)
   `diameter`, `angle(a,b,deg)`, `diameter_about(point,axis,val)`; `reference=True` is a driven `(60)`
 - target 0 degrees of freedom: `report.sketch(id)["degrees_of_freedom"]`
 
-**Features**: `p.extrude(s, d, combine="NewBody|Join|Cut|Intersect", symmetric=, through=, flip=, id=)`,
+**Features**: `p.extrude(s, d, combine="NewBody|Join|Cut|Intersect", symmetric=, through=, flip=, id=)` (instead of a sketch, curves: `p.extrude([topo(edge), topo(curve)], d, direction=axis("Z")|topo(edge)|datum(plane)|topo(flat_face), surface=True)` — any edges or curve bodies, in space too; no `direction`: the normal of the plane they lie in; a solid only of curves closed in a plane; `p.revolve([topo(edge)], about=axis("Z"), angle=, surface=True)` likewise),
 `p.cut(s, d | through=True)`, `p.revolve(s, about=None|"u"|"v"|axis_name|axis("Z")|topo(edge), angle=)` (no `about`: the sketch's one rotation axis, else u; "u"/"v" draw a rotation axis along the plane's axis into the sketch; a sketch's rotation axis `ax` is the datum axis `datum(f"{s.id}/{ax}")`), `p.hole(s_with_dots, dia, depth=,
-kind="Counterbore"..)` (or placed on a face: `p.hole(None, dia, on=topo(face), at=(x, y) | off=[(ref, d), (ref, d)] | around=axis("Z"), radius=, angle=)`), `p.fillet(edges, r)`, `p.chamfer(edges, d)`, `p.shell(open_faces, t)`,
+kind="Counterbore"..)` (or placed on a face: `p.hole(None, dia, on=topo(face), at=(x, y) | off=[(ref, d), (ref, d)] | around=axis("Z"), radius=, angle=)`), `p.fillet(edges, r, tangent=True)`, `p.chamfer(edges, d, tangent=True)` (with `tangent`, the default, each edge comes with the edges that run on smoothly from it — a rounded outline's lines and arcs, both halves of a rim — worked out at build time; `tangent=False` blends only the edges named), `p.shell(open_faces, t)`,
 `p.feature_pattern([face], count, about=axis("Z") | along=axis("X"), spacing= | points=sketch | fill=topo(face), grid=)`, `p.feature_mirror([face], "Y")`,
 `p.pattern(body, ...)`, `p.mirror(body, "Y", join=)`, `p.plane("Z", 20)`, `p.dimension(ref_a, ref_b, show_in=, reference=, kind=)`,
 `p.on_sheet(step_or_dim, show_in=, at=, on_drawing=)`, any other step `p.op("Kind", id, **args)` (`workpiece kinds`).
 `p.sweep(section, path, twist=, scale=)` (section a sketch or `topo(face)`; path a sketch or a curve body `topo(name)`),
-`p.loft([s1, s2, ...], guides=[curve, ...], start="Free|Normal|Tangent|Curvature", end=, start_face=topo(f), end_face=, surface=)`
-(raw: `sections=[{"of": ref, "end": "Free", "face": ref}]`, `rails=[{"of": ref, "role": "Path"|"Guide"}]`, `coil=axis(..)` for a spring).
-Surfacing (`p.op("Surface", way=..., picked=[...])`, ways Copy Stitch Unstitch Delete Offset(`flip=`) Fill Trim Split Untrim Extend;
-Delete takes a surface's faces, whole surfaces, or a solid's faces (closed over); Stitch turns all one way, a closed one a solid facing out);
-`p.op("Boundary", sides=[{"edge": topo(e), "way": "Free|Tangent|Curvature", "face": topo(f)}])` fills a hole of any number of sides;
-Fillet/Chamfer take a surface's inner edges too; `p.op("Mesh", ..., surface=True)` keeps a SubD a surface.
+`p.loft([s1, s2, ...], guides=[curve, ...], start="Free|Normal|Tangent|Curvature", end=, start_face=topo(f), end_face=, surface=, start_flip=, start_magnitude=1, start_angle=0, end_…)`
+(raw: `sections=[{"of": ref, "end": "Free", "face": ref, "flip": False, "magnitude": 1.0, "angle": 0.0}]`, `rails=[{"of": ref, "role": "Path"|"Guide"}]`, `coil=axis(..)` for a spring).
+Surfacing (`p.op("Surface", way=..., picked=[...])`, ways Offset(`distance=`, `flip=`; `distance=0` copies the faces — closed all around, a solid)
+Extend(`distance=`, or `whole=True`: back to the faces' whole surfaces, an untrim) Split Delete;
+Split `split="Sketch"` (`sketch=profile(s), areas=`) | `"Curves"` (`curves=[topo(curve_or_edge)]`) cuts the picked faces in place, as Emboss takes its outlines,
+or `split="Plane", plane=` cuts whole surfaces in two (a trim is a split and a Delete); Delete takes a surface's faces, whole surfaces, or a solid's faces (closed over));
+`p.op("Boundary", sides=[{"edge": topo(e), "way": "Free|Tangent|Curvature", "face": topo(f), "flip": False, "magnitude": 1.0, "angle": 0.0}])` fills a hole of any number of sides (a held side: `flip` leaves back over the face, `magnitude` the tangent length as a share of the natural 1, `angle` degrees turned within the face's tangent plane from square across the side; one closed edge too;
+flat where all free and in a plane), sewn to the surfaces whose free edges it runs along — a solid where that closes them;
+Fillet/Chamfer take a surface's inner edges too; `p.op("Mesh", ..., surface=True)` keeps a SubD a surface. A Mesh's `mesh` may hold `lines` (free edges, `[[a, b], ...]`) and `corners` (points where their curve is sharp): each run of lines is a curve, the wire body `{id}/curves` with edges `{id}/curves/e0` … to sweep along or loft through.
 Curves in space (wire bodies to sweep along), one kind each: `p.op("CurveThrough", points=[topo(v), ...], closed=,
-start={"way": "Free|Tangent|Curvature|InFace|Normal", "to": topo(edge)|axis(..)|topo(face)|datum(plane)}, end=)`,
+start={"way": "Free|Tangent|Curvature|InFace|Normal", "to": topo(edge)|axis(..)|topo(face)|datum(plane), "flip": False, "magnitude": 1.0, "angle": 0.0}, end=)`
+(`flip` runs the other way along what it is held to, `magnitude` the tangent length as a share of the natural 1 — fuller ends keep the direction longer; `angle`, InFace only, degrees within the face from the way the points lean),
 `p.op("Helix", axis=axis("Z"), radius=, pitch=, turns=, grow=, start=deg, left=)`, `p.op("CurveIntersection", first=topo(f), second=topo(g))`,
 `p.op("CurveProjection", onto=[topo(face)], curves=[profile(s) | topo(edge_or_curve)], along=axis(..) | None for a sketch's normal)`.
 Emboss/engrave onto faces: `p.op("Emboss", faces=[topo(f)], sketch=profile(s), areas=[(u, v)], height=, engrave=,
@@ -108,7 +112,8 @@ Builds are quick (a second or two): build after every step or two. `workpiece re
    `from`, `to`, `middle`, `length`, `straight`, or a face's `middle`, `normal`, `area`, `flat`,
    `surface` ("plane", "cylinder", "cone", "other": a revolved or bent plane is flat too);
    `near=(x, y, z)` sorts by distance and keeps `count` (1 if not said). A round rim is often two
-   arcs: select by `where`, not by `near`, to get all of it.
+   arcs: select by `where`, not by `near`, to get all of it (a fillet or chamfer with
+   `tangent=True`, the default, takes the other arc along by itself).
 3. `p.build(path, render=True)` also writes `path.views/{iso,front,top,right}.png` for a part
    without a drawing (`pictures=True` forces them; a part with a drawing gets its sheets
    instead: see "Checking against the original"): look at them and compare with the drawing.
@@ -232,7 +237,8 @@ More for matching the original:
 - **Steps say their own sizes.** A Fillet puts its radius on the sheet (`R8`, once), a
   Chamfer its distance(s), a Draft its angle, a Hole one callout (ISO 129-1) on one leader to
   a rim the view draws (the bore's, else a counterbore's) — `Ø6 ↧10` (depth only if blind; a
-  tapped hole its thread `M6`), `4× ` before it for several holes (its places times what
+  tapped hole its thread and the thread's depth over its tap drill's bore, `M6 ↧9` / `Ø5 ↧12`,
+  or `M6 THRU`), `4× ` before it for several holes (its places times what
   feature patterns and mirror images of the hole made after it repeat it), a counterbore
   `⌴Ø11 ↧6` or countersink `⌵Ø12 × 90°` under it; it is called `<hole id>/callout` and placed
   by one `at` (`p.on_sheet("bore", at=(30, 20))`). `p.on_sheet("bore/callout", count=6)` says
@@ -608,6 +614,13 @@ text) — it will be fixed.
   face's own rim, whichever way from the sketch that is. `extent="ToNext"` ends a cut where it
   first comes out (through all of the first wall, also where the profile crosses a gap).
 - **A blind hole ends in a 118° drill point**; `point=180` makes its floor flat.
+- **Tapped holes** (`kind="Tapped", size="M8"`, `fine="1"` for M8×1): `depth` is the tap drill's
+  bore; the thread goes `thread_depth` deep (default 1.5 × d, the workshop's rule — 1 × d is
+  enough in steel, 2 × d wanted in aluminium), or `thread_through=True` through all of a bore
+  that goes through (no `depth`). By the rule the bore is half d deeper than the thread:
+  `tap_depths("M8")` is `(12.0, 16.0)`, so `p.hole(s, 8, depth=16, kind="Tapped", size="M8")`.
+  A thread deeper than its bore, or through all of a blind bore, is an error. The drawing shows
+  the thread as ISO 6410-1 has it, and the callout says `M8 ↧12` over `Ø6,8 ↧16`, or `M8 THRU`.
 - **Holes** go at the *dots* of a sketch: `d = s.dot(u, v)`, dimension it, `p.hole(s, 6)`
   (`place="Sketch"`; a dot per hole). Or on a face without a sketch: `p.hole(None, 6,
   on=topo(face), off=[(topo(side), 10), (topo(edge), 15)])` (a distance from each of two

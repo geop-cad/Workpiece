@@ -37,6 +37,8 @@ workpiece-rasterize.workspace = true
 # Previews of parts are PNG pictures.
 png = "0.18.1"
 
+[dev-dependencies]
+workpiece-ops-surface.workspace = true
 
 [lints]
 workspace = true

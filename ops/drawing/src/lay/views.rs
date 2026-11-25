@@ -1361,11 +1361,24 @@ fn see(
                     && ((k + 1 == pieces && !cut.bounded) || s <= w[0].distance(w[1]) + near)
             })
         };
+        // Whether a triangle with the normals `n` lies across the cut,
+        // as a face in it does — not along it, as the triangles of a
+        // face that only touches the cut do (a cone's, along a line of
+        // it): those are as good as flat, and as a piece of their own,
+        // too thin to hatch, they would be filled black, and a filled
+        // triangle with no area is drawn as wild spikes.
+        let across = |n: &[Point3; 3]| {
+            let n = (n[0] + n[1] + n[2]).normalize_or_zero();
+            let n = Point2::new(n.dot(cut.x), n.dot(cut.y)).normalize_or_zero();
+            cut.path
+                .windows(2)
+                .any(|w| (w[1] - w[0]).normalize_or_zero().perp_dot(n).abs() > 0.5)
+        };
         seen.cut = shape_of
             .triangles
             .iter()
             .zip(&shape_of.owners)
-            .filter(|((p, _), _)| p.iter().all(|p| on(*p)))
+            .filter(|((p, n), _)| p.iter().all(|p| on(*p)) && across(n))
             .map(|((p, _), owner)| (p.map(flat), *owner))
             .collect();
     }
@@ -1432,6 +1445,8 @@ fn see(
             hidden(&grid[at.0 * SQUARES + at.1], p, towards, reach * 2e-3)
         };
         seen.threads = super::threads::see(said, towards, &flat, &behind, cut, reach);
+        let threads = &seen.threads;
+        seen.lines.retain(|(a, b, ..)| !threads.leaves_out(*a, *b));
     }
     seen
 }
@@ -2139,6 +2154,11 @@ fn hatching(triangles: &[[Point2; 3]], (angle, gap): (f64, f64)) -> (f64, f64) {
 /// not hatched (ISO 128-50: narrow areas).
 const SOLID: f64 = 1.0;
 
+/// The area of the sheet, in square millimetres, below which a piece
+/// of a cut is a crumb left by rounding — where the cut grazes a
+/// cone's point — and not drawn.
+const CRUMB: f64 = 0.01;
+
 /// The outline of `triangles` — the sides only one of them has — and
 /// their area.
 fn outline_of(triangles: &[[Point2; 3]]) -> (Vec<(Point2, Point2)>, f64) {
@@ -2361,6 +2381,10 @@ pub(crate) fn draw(laid: &mut Laid, sheet: &Sheet, placed: &Placed<'_>, all: &[P
         // Each piece of the cut as thin as it is: a narrow one closer,
         // one too narrow to hatch filled black (ISO 128-50).
         for piece in pieces_of(&triangles) {
+            // (Not a crumb of the cut, a hair across: nothing to see.)
+            if outline_of(&piece).1 < CRUMB {
+                continue;
+            }
             let (_, gap) = hatching(&piece, own);
             if thickness(&piece) < SOLID && half.is_none() {
                 for corners in piece {

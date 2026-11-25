@@ -389,3 +389,54 @@ fn blends_have_an_arrow_for_their_size_at_their_first_edge() -> anyhow::Result<(
     );
     Ok(())
 }
+
+#[test]
+fn blends_follow_the_tangent_chain_of_the_edges_picked() -> anyhow::Result<()> {
+    // The box with its upright edge at x = y = 2 rounded: round the top
+    // the edge along x = 2 runs on into the arc, and that into the edge
+    // along y = 2.
+    let rounded = || -> anyhow::Result<Standalone> {
+        let mut b = Standalone::new();
+        base(&mut b)?;
+        let upright = edges_where(&b, "base", |a, b| a.x.min(b.x) > 1.9 && a.y.min(b.y) > 1.9);
+        assert_eq!(upright.len(), 1);
+        fillet(&mut b, upright, |a| a.size = Measure::new(1.0))?;
+        Ok(b)
+    };
+    let top = |b: &Standalone| {
+        edges_where(b, "base", |a, b| {
+            a.x.min(b.x) > 1.9 && a.z.min(b.z) > 0.9 && (a.y - b.y).abs() > 1.0
+        })
+    };
+    let b = rounded()?;
+    let picked = top(&b);
+    assert_eq!(picked.len(), 1);
+    let names: Vec<String> = picked.iter().map(|s| s.name().to_owned()).collect();
+    assert_eq!(
+        workpiece_shape::blend::chained(&b.world.topo, &names).len(),
+        2
+    );
+    let faces = |b: &Standalone| -> anyhow::Result<usize> {
+        Ok(workpiece_boolean::read(&b.world.topo, body(b, "base"))?
+            .faces
+            .len())
+    };
+    let before = (volume(&b.world.topo, body(&b, "base")), faces(&b)?);
+    // Without: the edge picked alone.
+    let mut only = rounded()?;
+    fillet(&mut only, picked.clone(), |a| {
+        a.size = Measure::new(0.25);
+        a.tangent = false;
+    })?;
+    check(&only);
+    // With (the default): the three of them, one round on along all.
+    let mut chain = rounded()?;
+    fillet(&mut chain, picked, |a| a.size = Measure::new(0.25))?;
+    check(&chain);
+    assert_eq!(faces(&chain)?, before.1 + 3);
+    let corner = 0.25 * 0.25 * (1.0 - PI / 4.0);
+    let took = |b: &Standalone| before.0 - volume(&b.world.topo, body(b, "base"));
+    close(took(&only), corner * 3.0, 4e-3);
+    assert!(took(&chain) > corner * 7.0, "{}", took(&chain));
+    Ok(())
+}

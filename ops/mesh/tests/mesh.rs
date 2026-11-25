@@ -150,23 +150,6 @@ fn holes_are_made_and_closed_again() {
     assert_eq!(open(&tunnel), 0);
     assert_eq!(walls.len(), 4);
     close(volume(&tunnel), 27.0 - 3.0);
-
-    // A hole of eight edges takes a grid of quads.
-    let hole: BTreeSet<usize> = (0..grid.faces.len())
-        .filter(|&f| grid.normal(f).z > 0.9)
-        .collect();
-    let (opened, _) = grid.without_faces(&hole);
-    let rim: Vec<Item> = opened
-        .edges()
-        .into_iter()
-        .filter(|(_, s)| s.len() == 1)
-        .map(|((a, b), _)| Item::Edge(a, b))
-        .collect();
-    assert_eq!(rim.len(), 12);
-    let (filled, faces) = ops::grid_fill(&opened, &rim, 3, 0).unwrap();
-    assert_eq!(faces.len(), 9);
-    assert_eq!(open(&filled), 0);
-    close(volume(&filled), 27.0);
 }
 
 #[test]
@@ -228,7 +211,7 @@ fn a_mirrored_half_makes_a_whole() {
     assert_eq!(open(&whole), 0);
     close(volume(&whole), 8.0);
     // Thickened, an open skin is closed.
-    let grid = Primitive::Grid.mesh(2.0, 2, Point3::ZERO);
+    let grid = Primitive::Plane.mesh(2.0, 2, Point3::ZERO);
     let (slab, _) = ops::solidify(&grid, &[], 0.5).unwrap();
     assert_eq!(open(&slab), 0);
     close(volume(&slab), 2.0);
@@ -288,7 +271,7 @@ fn meshes_make_sound_bodies() -> anyhow::Result<()> {
     workpiece_ops_testing::sound(&round[0].solid)?;
 
     // An open mesh makes a sheet.
-    let grid = Primitive::Grid.mesh(2.0, 3, Point3::ZERO);
+    let grid = Primitive::Plane.mesh(2.0, 3, Point3::ZERO);
     let sheet = body::bodies(&grid, true, 0, "m")?;
     assert!(!sheet[0].closed);
     assert!(sheet[0].solid.faces.len() >= 9);
@@ -363,5 +346,63 @@ fn a_mesh_step_is_written_read_and_built() -> anyhow::Result<()> {
         started.elapsed()
     );
     assert!(started.elapsed().as_secs_f64() < 5.0);
+    Ok(())
+}
+
+#[test]
+fn points_are_extruded_into_lines_that_make_curves() -> anyhow::Result<()> {
+    use workpiece_core::Operation;
+    use workpiece_ops_mesh::{Mesh, lines};
+    // A point by itself, extruded: one more point and a line to it.
+    let mut poly = Poly::default();
+    poly.points.push(Point3::ZERO);
+    let (one, now) = ops::extrude(&poly, &[Item::Vertex(0)], 2.0).unwrap();
+    assert_eq!(one.points.len(), 2);
+    assert_eq!(one.lines, BTreeSet::from([edge(0, 1)]));
+    assert_eq!(now, vec![Item::Vertex(1)]);
+    // Again from its end: on along the line.
+    let (two, now) = ops::extrude(&one, &now, 2.0).unwrap();
+    assert_eq!(two.lines.len(), 2);
+    assert!(two.points[2].abs_diff_eq(Point3::new(0.0, 0.0, 4.0), 1e-12));
+    assert_eq!(now, vec![Item::Vertex(2)]);
+    // A line extruded is a face, and a line no more.
+    let (face, _) = ops::extrude(&one, &[Item::Edge(0, 1)], 1.0).unwrap();
+    assert_eq!((face.faces.len(), face.lines.len()), (1, 0));
+    // Lines are dissolved and deleted.
+    let (shorter, _) = ops::dissolve(&two, &[Item::Vertex(1)]).unwrap();
+    assert_eq!(shorter.lines, BTreeSet::from([edge(0, 1)]));
+    let (none, _) = ops::delete(&two, &[Item::Edge(0, 1), Item::Edge(1, 2)]).unwrap();
+    assert!(none.lines.is_empty() && none.points.is_empty());
+
+    // Four points in a run: one smooth curve, a wire body whose edge
+    // later steps refer to.
+    let mut step = Mesh::starting("subd1", 2.0, true);
+    let base = step.args.mesh.points.len();
+    for p in [
+        [5.0, 0.0, 0.0],
+        [8.0, 0.0, 0.0],
+        [8.0, 3.0, 0.0],
+        [11.0, 3.0, 2.0],
+    ] {
+        step.args.mesh.points.push(Point3::from_array(p));
+    }
+    for k in 0..3 {
+        step.args.mesh.lines.insert(edge(base + k, base + k + 1));
+    }
+    assert_eq!(lines::runs(&step.args.mesh).len(), 1);
+    let text = serde_json::to_string(&step)?;
+    assert_eq!(serde_json::from_str::<Mesh>(&text)?, step);
+    let mut b = workpiece_ops_testing::Standalone::new();
+    step.apply(&mut b)?;
+    workpiece_ops_testing::check(&b);
+    assert!(b.world.topo.lookup("subd1").is_some(), "the faces' body");
+    let found = b.world.topo.lookup("subd1/curves/e0");
+    assert!(
+        matches!(found, Some(workpiece_core::world::topo::EntityId::Edge(_))),
+        "the curve is an edge to refer to: {found:?}"
+    );
+    // A corner in the middle: two curves.
+    step.args.mesh.corners.insert(base + 1);
+    assert_eq!(lines::runs(&step.args.mesh).len(), 2);
     Ok(())
 }

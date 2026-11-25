@@ -276,6 +276,8 @@
           "areas": [],
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
+          "direction": null,
           "distance": 20.0,
           "extent": "Distance",
           "flip": true,
@@ -547,6 +549,8 @@
           "areas": [],
           "caps": false,
           "combine": "Join",
+          "curves": [],
+          "direction": null,
           "distance": 25.0,
           "extent": "Symmetric",
           "flip": false,
@@ -575,7 +579,8 @@
           "mitered": false,
           "rho": 0.5,
           "section": "Circular",
-          "size": 8.0
+          "size": 8.0,
+          "tangent": true
         },
         "id": "corners"
       }
@@ -847,6 +852,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "cbore"
@@ -1080,6 +1087,8 @@
           },
           "slotted": false,
           "target": null,
+          "thread_depth": null,
+          "thread_end": "Depth",
           "up_to": null
         },
         "id": "thru10"

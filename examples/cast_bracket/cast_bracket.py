@@ -90,7 +90,9 @@ joints = rep.edges(where=lambda e: e["name"].startswith("bracket/edge[") and "ri
 p.fillet(joints, 3, id="rib_roots")
 rep = p.build(OUT)
 crests = rep.edges(where=lambda e: e["name"].startswith(("rib/", "rib_mirror/")) and "/along/" in e["name"])
-p.fillet(crests, 2, id="rib_crests")
+# (Only the crests: their tangent chain runs on into the edges where the ribs' sides meet the
+# bracket, which the R3 roots have rounded already.)
+p.fillet(crests, 2, id="rib_crests", tangent=False)
 rep = p.build(OUT)
 ends = rep.edges(where=lambda e: e["straight"] and abs(e["middle"][0] - 35) < 1e-6 and abs(abs(e["middle"][1]) - 50) < 1e-6)
 p.fillet(ends, 10, id="base_corners")

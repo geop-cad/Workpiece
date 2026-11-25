@@ -148,3 +148,45 @@ pub fn sketch_fields<A: 'static>(
         workpiece_core::widgets::Label::new("Areas", said, workpiece_core::widgets::Mood::Plain);
     vec![sketch_field(sketch, with), label.into()]
 }
+
+/// The box of curves of the model a step takes: edges of bodies and
+/// surfaces, curve bodies.
+pub fn curves_list<A: 'static>(
+    curves: &[Reference<workpiece_core::Anything>],
+    with: impl Fn(Vec<workpiece_core::Source>) -> A + 'static,
+) -> workpiece_core::widgets::ReferenceList<A> {
+    workpiece_core::widgets::ReferenceList::new(
+        "Curves",
+        vec![
+            workpiece_core::ReferenceKind::Edge,
+            workpiece_core::ReferenceKind::Body,
+        ],
+        Reference::sources(curves),
+        with,
+    )
+}
+
+/// The field that picks a direction: an axis, a straight edge, a plane or
+/// a flat face (its normal); none for what the step takes by itself.
+pub fn direction_input<A: 'static>(
+    direction: &Option<Reference<workpiece_core::Anything>>,
+    with: impl Fn(workpiece_core::Source) -> A + 'static,
+    clear: impl Fn() -> A + 'static,
+) -> Widget<A> {
+    use workpiece_core::ReferenceKind;
+    let kinds = [
+        ReferenceKind::Axis,
+        ReferenceKind::Edge,
+        ReferenceKind::Plane,
+        ReferenceKind::Face,
+    ];
+    ReferenceInput::of_kind(
+        "Direction",
+        ReferenceKind::Axis,
+        direction.as_ref().map(|d| d.source.clone()),
+        with,
+    )
+    .taking(&kinds)
+    .optional("Square to the curves' plane", clear)
+    .into()
+}

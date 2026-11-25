@@ -100,6 +100,9 @@ pub struct ViewportPanel {
     entry: Option<(String, String, Option<String>)>,
     /// What the right or middle button, while it is down, is doing.
     held: Option<Hold>,
+    /// Whether Alt was held, as the model was last told: snapping is
+    /// held off while it is.
+    alt: bool,
 }
 
 /// What a right or middle button held down over the viewport is doing.
@@ -137,6 +140,7 @@ impl ViewportPanel {
             size: [0.0, 0.0],
             entry: None,
             held: None,
+            alt: false,
         }
     }
 
@@ -287,6 +291,12 @@ impl ViewportPanel {
                 self.hovered = None;
             }
             _ => {}
+        }
+        // Alt held: what is moved or placed goes free of snapping.
+        let alt = ui.input(|i| i.modifiers.alt);
+        if alt != self.alt {
+            self.alt = alt;
+            out.push(Message::SuspendSnaps(alt));
         }
         if response.hovered() && ui.input(|i| i.pointer.primary_pressed()) {
             out.push(Message::Pointer(Pointer::Press));

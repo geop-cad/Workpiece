@@ -21,10 +21,12 @@ use std::collections::{BTreeMap, BTreeSet};
 use anyhow::Context;
 use glam::{Vec2, Vec3};
 use workpiece_core::ReferenceKind;
-use workpiece_core::handles::{CanvasEvent, CanvasEventKind, Handle};
+use workpiece_core::handles::{
+    CanvasEvent, CanvasEventKind, Gizmo, GizmoPart, Handle, Snap, SnapKind, SnapKinds, SnapTargets,
+};
 use workpiece_core::math::Point3;
 use workpiece_core::world::{DatumPlane, ORIGIN, Visibility};
-use workpiece_core::{Ray, Source, Widget, World};
+use workpiece_core::{Pose, Ray, Source, Widget, World};
 use workpiece_part::{AnyEditState, Part, Workspace};
 use workpiece_rasterize::{Scene, handles};
 
@@ -66,6 +68,8 @@ pub struct Settings {
     /// recent first (paths as the workspace has them), at most
     /// [`RECENT`].
     pub recent: Vec<String>,
+    /// What a point moved or placed in the scene snaps to.
+    pub snaps: workpiece_core::handles::SnapKinds,
 }
 
 /// How many part files [`Settings::recent`] remembers.
@@ -76,6 +80,7 @@ impl Default for Settings {
         Self {
             sketch_section: true,
             recent: Vec::new(),
+            snaps: workpiece_core::handles::SnapKinds::default(),
         }
     }
 }
@@ -143,6 +148,8 @@ pub struct Model {
     /// (nor what follows it rebuilt) until the dialog closes. For large
     /// assemblies.
     pub preview_disabled: bool,
+    /// Whether snapping is held off for now (while a key is held).
+    pub snaps_held: bool,
     /// The size datums are drawn at, if not as large as the model makes
     /// them (see [`World::datum_size`]).
     pub datum_size: Option<f64>,
@@ -690,6 +697,11 @@ impl Model {
             Message::ReplaceOperation { part, op } => {
                 self.edit_untouched = false;
                 let key = (part.clone(), op.id().to_owned());
+                // The reference fields of the dialog before the change.
+                let before = (self.editing.last() == Some(&key.1))
+                    .then(|| self.session())
+                    .flatten()
+                    .map(|s| edit::reference_fields(&s.visualization.dialog));
                 self.change(Some(key), |ws| {
                     let slot = ws
                         .part_mut(&part)?
@@ -698,6 +710,17 @@ impl Model {
                     *slot = op;
                     Ok(())
                 })?;
+                // A mode chosen that brings up a new picker: picking goes
+                // to it at once, so the next click in the view fills it.
+                if let Some(before) = before
+                    && let Some(session) = self.session()
+                {
+                    let after = edit::reference_fields(&session.visualization.dialog);
+                    if let Some(field) = edit::brought_reference(&before, &after) {
+                        self.picking = Some(field);
+                        self.viewport.candidates.clear();
+                    }
+                }
                 // Without the preview, the shown world does not change.
                 !self.preview_disabled || self.editing.is_empty()
             }
@@ -816,6 +839,14 @@ impl Model {
             }
             Message::SetSketchSection(on) => {
                 self.settings.sketch_section = on;
+                false
+            }
+            Message::SetSnaps(snaps) => {
+                self.settings.snaps = snaps;
+                false
+            }
+            Message::SuspendSnaps(held) => {
+                self.snaps_held = held;
                 false
             }
             Message::SetPreview(on) => {
@@ -1045,7 +1076,7 @@ impl Model {
     }
 
     /// The edited step's dialog and handles.
-    pub(crate) fn session(&self) -> Option<Session> {
+    pub(crate) fn session(&self) -> Option<std::rc::Rc<Session>> {
         edit::session(self)
     }
 
@@ -1211,6 +1242,7 @@ impl Model {
                 self.viewport.camera.target.as_dvec3(),
             );
         }
+        self.draw_snap(&mut scene);
         self.outline_picked(&mut scene);
         self.outline_hovered(&mut scene);
         if let Some(pose) = self.offered_connector() {
@@ -1218,6 +1250,53 @@ impl Model {
         }
         self.draw_joints(&mut scene);
         scene
+    }
+
+    /// Where the point moved or placed snapped to, as the sketcher shows
+    /// it: a dot, and the badge of what it is on beside it; and, while
+    /// the gizmo's outer ring is dragged, how much it scales by.
+    fn draw_snap(&self, scene: &mut Scene) {
+        use workpiece_rasterize::palette::PREVIEW;
+        // (Only while a step is edited in the scene.)
+        if !self.session().is_some_and(|s| s.space().is_some()) {
+            return;
+        }
+        let pose = self.viewport.shown.pose;
+        let right = self.viewport.camera.right();
+        let up = self.viewport.camera.up();
+        let label = |at: Point3, text: String| {
+            let px = self.pixel(at) as f32;
+            workpiece_rasterize::Label {
+                position: at.as_vec3() + (up - right) * px * 14.0,
+                along: right,
+                text,
+                upper: String::new(),
+                lower: String::new(),
+                color: PREVIEW,
+                badge: true,
+            }
+        };
+        if let Some(snap) = self.viewport.snapped {
+            let at = pose.transform_point(snap.at);
+            scene.front.vertices.push(workpiece_rasterize::Vertex {
+                position: at.as_vec3(),
+                size: 10.0,
+                color: PREVIEW,
+                pick: None,
+            });
+            scene.labels.push(label(at, snap.kind.badge().to_owned()));
+        }
+        let scaling = matches!(
+            self.viewport.dragging,
+            Some(Candidate::Handle {
+                part: Some(GizmoPart::Scale),
+                ..
+            })
+        );
+        if let (true, Some(drag)) = (scaling, self.viewport.gizmo_drag) {
+            let at = pose.transform_point(drag.pose.translation());
+            scene.labels.push(label(at, format!("×{:.3}", drag.factor)));
+        }
     }
 
     /// The joints the joint field being picked takes, each with its
@@ -1352,16 +1431,9 @@ impl Model {
     pub fn entry(&self) -> Option<crate::view::Entry> {
         let session = self.session()?;
         let pose = self.viewport.shown.pose;
-        let canvas = session
-            .visualization
-            .handles
-            .into_values()
-            .find_map(|h| match h {
-                Handle::Canvas(canvas) => Some(canvas),
-                _ => None,
-            })?;
+        let (_, canvas) = session.canvas()?;
         let position = pose.transform_point(canvas.place(canvas.input.as_ref()?.at));
-        let input = canvas.input?;
+        let input = canvas.input.clone()?;
         Some(crate::view::Entry {
             key: input.key,
             position: position.as_vec3(),
@@ -1893,11 +1965,24 @@ impl Model {
                 up: local.transform_vector(camera.up().as_dvec3()),
                 pixel: self.pixel(pose.transform_point(space.anchor)),
             };
+            // What the pointer snaps to: while something is dragged,
+            // or always for a space that places points.
+            let wants = space.placing || kind == CanvasEventKind::Drag;
+            let snap = if wants {
+                self.snap_at(&space.targets, &ray, None)
+            } else {
+                None
+            };
+            let grid = (wants && self.snap_kinds().takes(SnapKind::Grid))
+                .then(|| workpiece_core::handles::snap::grid_step(view.pixel));
+            self.viewport.snapped = snap;
             let message = space.event(workpiece_core::handles::SpaceEvent {
                 kind,
                 ray,
                 add,
                 view,
+                snap,
+                grid,
             });
             if let Some(message) = message {
                 self.update(message)?;
@@ -2188,9 +2273,26 @@ impl Model {
 
     /// Outlines what the box of references being picked holds, from the
     /// world before the step: the edges a fillet is of are gone from
-    /// the world that shows.
+    /// the world that shows. And, all the while the step is edited,
+    /// what it takes along with what is picked (a blend's tangent
+    /// chains), in a colour of its own.
     fn outline_picked(&self, scene: &mut Scene) {
-        let (Some(session), Some(field)) = (self.session(), &self.picking) else {
+        let Some(session) = self.session() else {
+            return;
+        };
+        let world = &self.viewport.shown.before;
+        // (Worked out once for the session: it is kept while the world
+        // before the step is the same.)
+        let implied = session.implied.get_or_init(|| {
+            session
+                .visualization
+                .implied
+                .iter()
+                .flat_map(|name| outline_of(world, name))
+                .collect()
+        });
+        self.draw_outline(scene, implied, workpiece_rasterize::palette::IMPLIED);
+        let Some(field) = &self.picking else {
             return;
         };
         let Some(Widget::ReferenceList(list)) =
@@ -2198,7 +2300,6 @@ impl Model {
         else {
             return;
         };
-        let world = &self.viewport.shown.before;
         let lines: Vec<Vec<Point3>> = list
             .values
             .iter()
@@ -2340,6 +2441,19 @@ impl Model {
                 // there starts again at the first candidate.
                 match self.viewport.pressed.take() {
                     Some((pick @ Candidate::Handle { .. }, at)) => {
+                        if let Candidate::Handle { name, .. } = &pick {
+                            let pose = self.session().and_then(|session| {
+                                match session.visualization.handles.get(name) {
+                                    Some(Handle::Gizmo(g)) => Some(g.pose),
+                                    _ => None,
+                                }
+                            });
+                            self.viewport.gizmo_drag = pose.map(|pose| viewport::GizmoDrag {
+                                pose,
+                                at,
+                                factor: 1.0,
+                            });
+                        }
                         self.viewport.dragging = Some(pick);
                         // Drag from where the button went down.
                         if let Some(now) = self.viewport.pointer {
@@ -2365,6 +2479,8 @@ impl Model {
                 self.history.seal();
             }
             Pointer::DragEnd => {
+                self.viewport.gizmo_drag = None;
+                self.viewport.snapped = None;
                 if self.viewport.dragging.take().is_some() {
                     if let Some(at) = self.viewport.pointer {
                         self.canvas_event(CanvasEventKind::Release, at, false)?;
@@ -2672,6 +2788,9 @@ impl Model {
                     let message = list.pick_at(source, at.map(|p| p.at));
                     self.viewport.candidates.clear();
                     self.update(message)?;
+                    // (Whatever the reference brought, the box goes on
+                    // picking.)
+                    self.picking = Some(field);
                     self.history.seal();
                     return Ok(());
                 }
@@ -2805,13 +2924,116 @@ impl Model {
             (Some(Handle::Linear(h)), None) => h.drag(&from, &to),
             (Some(Handle::Angular(h)), None) => h.drag(&from, &to),
             (Some(Handle::Planar(h)), _) => h.drag(&from, &to),
-            (Some(Handle::Gizmo(g)), Some(part)) => g.drag(part, &from, &to),
+            (Some(Handle::Gizmo(g)), Some(GizmoPart::Scale)) => {
+                let by = Gizmo::<Message>::factor(g.origin(), &from, &to);
+                if let (Some(drag), Some(by)) = (&mut self.viewport.gizmo_drag, by) {
+                    drag.factor *= by;
+                }
+                g.drag(GizmoPart::Scale, &from, &to)
+            }
+            (Some(Handle::Gizmo(g)), Some(part)) => match self.viewport.gizmo_drag {
+                // From where the drag started, onto what it snaps to.
+                Some(start) => {
+                    let begun = self.ray(start.at).and_then(|r| place(&r));
+                    begun
+                        .and_then(|begun| Gizmo::<Message>::moved(start.pose, part, &begun, &to))
+                        .map(|pose| {
+                            let space = session.space().map(|(_, s)| s.targets.clone());
+                            let pose = match space {
+                                Some(targets) => {
+                                    self.snap_gizmo(&targets, start.pose, part, pose, &to)
+                                }
+                                None => pose,
+                            };
+                            (g.on_drag)(pose)
+                        })
+                }
+                None => g.drag(part, &from, &to),
+            },
             _ => None,
         };
         match message {
             Some(message) => self.update(message),
             None => Ok(()),
         }
+    }
+}
+
+impl Model {
+    /// What snaps now: the settings', but nothing while snapping is held
+    /// off.
+    pub(crate) fn snap_kinds(&self) -> SnapKinds {
+        let mut kinds = self.settings.snaps;
+        kinds.on &= !self.snaps_held;
+        kinds
+    }
+
+    /// What `ray` (in the focused part's coordinates) snaps to: of the
+    /// world the edited step is applied to, and `own` (the step's own);
+    /// `from` is where a drag started (for a perpendicular).
+    fn snap_at(&self, own: &SnapTargets, ray: &Ray, from: Option<Point3>) -> Option<Snap> {
+        let kinds = self.snap_kinds();
+        if !kinds.on {
+            return None;
+        }
+        let shown = &self.viewport.shown;
+        let scene = crate::snap::scene(&shown.before, &shown.visibility);
+        let pose = shown.pose;
+        let pixel = |p: Point3| self.pixel(pose.transform_point(p));
+        crate::snap::find(&[&scene, own], ray, &pixel, &kinds, from)
+    }
+
+    /// `pose`, where a drag of `part` of a gizmo that stood at `start`
+    /// took it with the pointer's ray `ray`, snapped: the centre knob
+    /// onto what the pointer snaps to, else onto the grid in the plane
+    /// facing the eye; along an arrow, onto what the pointer snaps to
+    /// as seen along the axis (where that is nearest it), else so far
+    /// that it lands on the grid. What it snapped to shows.
+    fn snap_gizmo(
+        &mut self,
+        own: &SnapTargets,
+        start: Pose,
+        part: GizmoPart,
+        pose: Pose,
+        ray: &Ray,
+    ) -> Pose {
+        let kinds = self.snap_kinds();
+        let from = start.translation();
+        let snap = self.snap_at(own, ray, Some(from));
+        let at = pose.translation();
+        let step = workpiece_core::handles::snap::grid_step(
+            self.pixel(self.viewport.shown.pose.transform_point(at)),
+        );
+        let grid = kinds.takes(SnapKind::Grid);
+        let (to, kind) = match part {
+            GizmoPart::Free => match snap {
+                Some(snap) => (snap.at, Some(snap.kind)),
+                None if grid => (
+                    workpiece_core::handles::snap::grid_in_plane(at, ray.direction(), step),
+                    Some(SnapKind::Grid),
+                ),
+                None => (at, None),
+            },
+            GizmoPart::Translate(axis) => {
+                let a = start.axis(axis);
+                match snap {
+                    Some(snap) => (from + a * (snap.at - from).dot(a), Some(snap.kind)),
+                    None if grid => {
+                        let travel = workpiece_core::handles::snap::grid_along(
+                            from,
+                            a,
+                            (at - from).dot(a),
+                            step,
+                        );
+                        (from + a * travel, Some(SnapKind::Grid))
+                    }
+                    None => (at, None),
+                }
+            }
+            GizmoPart::Rotate(_) | GizmoPart::Scale => (at, None),
+        };
+        self.viewport.snapped = kind.map(|kind| Snap { at: to, kind });
+        pose.with_translation(to)
     }
 }
 

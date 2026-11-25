@@ -75,6 +75,7 @@ fn holes_are_drilled_at_the_points_of_a_sketch() -> anyhow::Result<()> {
         drilled(&|a| {
             a.kind = HoleKind::Tapped;
             a.pitch = Measure::new(0.1);
+            a.thread_depth = Some(Measure::new(0.5));
         })?,
         2.0 * PI * 0.2 * 0.2 * 0.6,
         0.01,
@@ -484,30 +485,34 @@ fn holes_take_their_sizes_from_the_standards_and_are_chamfered() -> anyhow::Resu
         drilled(&|a| a.kind = HoleKind::Counterbore)?.0,
         disk(6.6, 10.0) + disk(11.0, 6.4) - disk(6.6, 6.4),
     );
-    // Tapped: drilled 5 across, the thread said of its wall.
+    // Tapped: drilled 5 across, the thread said of its wall — 1.5 × d
+    // deep by the workshop's rule, short of the bore's 10.
     let (taken, b) = drilled(&|a| a.kind = HoleKind::Tapped)?;
     about(taken, disk(5.0, 10.0));
     let said = &b.world.threads["hole/thread"];
     assert_eq!((said.designation.as_str(), said.internal), ("M6", true));
     close(said.major, 6.0, 1e-9);
     close(said.minor, 5.0, 1e-9);
-    close(said.length, 10.0, 1e-9);
+    close(said.length, 9.0, 1e-9);
+    assert_eq!(said.ends, [false, true]);
     let wall = b
         .world
         .topo
         .resolve::<workpiece_core::world::topo::FaceId>(&said.face);
     assert!(wall.is_some(), "{}", said.face);
-    // A fine pitch: M6×0.75, drilled 5.25 across. Through, the thread
+    // A fine pitch: M6×0.75, drilled 5.25 across. Through all, the thread
     // is as long as the block is thick.
     let (taken, b) = drilled(&|a| {
         a.kind = HoleKind::Tapped;
         a.fine = Some("0.75".into());
         a.extent = Extent::ThroughAll;
+        a.thread_end = workpiece_ops_features::ThreadEnd::Through;
     })?;
     about(taken, disk(5.25, 20.0));
     let said = &b.world.threads["hole/thread"];
     assert_eq!(said.designation, "M6×0.75");
     close(said.length, 20.0, 1e-6);
+    assert_eq!(said.ends, [false, false]);
     // Modelled, the thread is cut: more is taken than the drill takes.
     let (taken, b) = drilled(&|a| {
         a.kind = HoleKind::Tapped;

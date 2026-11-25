@@ -40,6 +40,24 @@ fn first_corner(
         .next()
 }
 
+/// The serde default of the `tangent` arguments: on.
+fn yes() -> bool {
+    true
+}
+
+/// The edges a blend of `edges` takes along, with `tangent`, in the
+/// world of `context`: shown with those picked while it is edited.
+fn implied(
+    context: &workpiece_core::EditContext<'_>,
+    edges: &[workpiece_core::Reference<EdgesOf>],
+    tangent: bool,
+) -> Vec<String> {
+    if !tangent || edges.is_empty() {
+        return Vec::new();
+    }
+    blend::chained(&context.world.topo, &names(edges))
+}
+
 /// A size as typed after a drag: to a thousandth, and more than nothing.
 fn dragged(x: f64) -> Measure {
     Measure::new(((x * 1000.0).round() / 1000.0).max(0.001))
@@ -71,6 +89,18 @@ pub struct FilletArgs {
     /// The edges rounded; a face or a body stands for all its edges.
     #[arg(required)]
     pub edges: Vec<workpiece_core::Reference<workpiece_core::EdgesOf>>,
+    /// Whether the edges that run on smoothly from those picked (their
+    /// tangent chain, through every corner where the edge goes on
+    /// without a bend) are rounded with them: worked out from the model
+    /// as it is built, so the chain follows the model when it changes.
+    #[serde(default = "yes")]
+    #[arg(
+        label = "Tangent edges",
+        options = "Excluded|Included",
+        icons = "tangent-picked|tangent-chain",
+        icon = "tangent-chain"
+    )]
+    pub tangent: bool,
     /// What the size is the size of.
     #[arg(choice, label = "Measured by")]
     pub by: By,
@@ -97,6 +127,7 @@ impl Default for FilletArgs {
     fn default() -> Self {
         Self {
             edges: Vec::new(),
+            tangent: true,
             by: By::Radius,
             size: Measure::new(1.0),
             section: Section::Circular,
@@ -160,6 +191,7 @@ impl Operation for Fillet {
             &names(&args.edges),
             &shape,
             !args.mitered,
+            args.tangent,
         )?;
         // Its size is a size of the model, whichever edges it rounds
         // (picked, or of a face or a body picked): said at the first
@@ -243,6 +275,7 @@ impl Operation for Fillet {
             }
         }
         workpiece_core::EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles)
+            .implying(implied(context, &args.edges, args.tangent))
             .map(workpiece_core::Edit::args)
     }
 
@@ -270,6 +303,18 @@ pub struct ChamferArgs {
     /// The edges cut off; a face or a body stands for all its edges.
     #[arg(required)]
     pub edges: Vec<workpiece_core::Reference<workpiece_core::EdgesOf>>,
+    /// Whether the edges that run on smoothly from those picked (their
+    /// tangent chain, through every corner where the edge goes on
+    /// without a bend) are cut off with them: worked out from the model
+    /// as it is built, so the chain follows the model when it changes.
+    #[serde(default = "yes")]
+    #[arg(
+        label = "Tangent edges",
+        options = "Excluded|Included",
+        icons = "tangent-picked|tangent-chain",
+        icon = "tangent-chain"
+    )]
+    pub tangent: bool,
     /// Whether it starts at another distance across the second face.
     #[arg(
         label = "Distances",
@@ -299,6 +344,7 @@ impl Default for ChamferArgs {
     fn default() -> Self {
         Self {
             edges: Vec::new(),
+            tangent: true,
             distance: Measure::new(1.0),
             two: false,
             second: Measure::new(1.0),
@@ -379,6 +425,7 @@ impl Operation for Chamfer {
             &names(&args.edges),
             &shape,
             !args.mitered,
+            args.tangent,
         )?;
         // How far it starts from the edge is a size of the model: said
         // at the first edge that is one edge between two faces, across
@@ -434,6 +481,7 @@ impl Operation for Chamfer {
             }
         }
         workpiece_core::EditVisualization::new(workpiece_core::widgets::VBox::new(fields), handles)
+            .implying(implied(context, &args.edges, args.tangent))
             .map(workpiece_core::Edit::args)
     }
 

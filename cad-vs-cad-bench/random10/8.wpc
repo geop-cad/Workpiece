@@ -398,6 +398,8 @@
           "areas": [],
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
+          "direction": null,
           "distance": 252.0,
           "extent": "Symmetric",
           "flip": false,
@@ -1586,8 +1588,11 @@
           "scale": 1.0,
           "sections": [
             {
+              "angle": 0.0,
               "end": "Free",
               "face": null,
+              "flip": false,
+              "magnitude": 1.0,
               "of": {
                 "Profile": "section"
               }
@@ -1746,6 +1751,8 @@
           "areas": [],
           "caps": false,
           "combine": "Intersect",
+          "curves": [],
+          "direction": null,
           "distance": 50.0,
           "extent": "ThroughBoth",
           "flip": false,
@@ -1986,6 +1993,7 @@
           },
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "sketch3"

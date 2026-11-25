@@ -492,6 +492,7 @@
           },
           "caps": false,
           "combine": "NewBody",
+          "curves": [],
           "flip": false,
           "sketch": {
             "Profile": "shaft_profile"
@@ -518,6 +519,7 @@
           "flip": false,
           "mitered": false,
           "second": 1.0,
+          "tangent": true,
           "two": false
         },
         "id": "ends"
