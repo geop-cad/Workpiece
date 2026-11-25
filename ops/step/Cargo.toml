@@ -1,0 +1,25 @@
+[package]
+name = "shapecraft-ops-step"
+description = "Importing STEP files: a fast Part 21 reader and the bodies in it as NURBS B-reps."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_ops_step"
+
+[dependencies]
+shapecraft-core.workspace = true
+shapecraft-boolean.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+miniz_oxide = "0.8.9"
+
+[dev-dependencies]
+shapecraft-ops-basic-shapes.workspace = true
+
+[lints]
+workspace = true

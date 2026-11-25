@@ -1,0 +1,1310 @@
+{
+  "program": [
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "28": {
+              "dimension": null,
+              "kind": {
+                "Parallel": [
+                  27,
+                  4
+                ]
+              }
+            },
+            "29": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 7,
+                  "axis": "V",
+                  "b": 8
+                }
+              }
+            },
+            "30": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 8,
+                  "axis": "U",
+                  "b": 9
+                }
+              }
+            },
+            "31": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 9,
+                  "axis": "V",
+                  "b": 10
+                }
+              }
+            },
+            "32": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 10,
+                  "axis": "U",
+                  "b": 11
+                }
+              }
+            },
+            "33": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 11,
+                  "axis": "V",
+                  "b": 12
+                }
+              }
+            },
+            "34": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 12,
+                  "axis": "U",
+                  "b": 13
+                }
+              }
+            },
+            "35": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 13,
+                  "axis": "V",
+                  "b": 14
+                }
+              }
+            },
+            "36": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 14,
+                  "axis": "U",
+                  "b": 15
+                }
+              }
+            },
+            "37": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 15,
+                  "axis": "V",
+                  "b": 16
+                }
+              }
+            },
+            "38": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 16,
+                  "axis": "U",
+                  "b": 7
+                }
+              }
+            },
+            "39": {
+              "dimension": null,
+              "kind": {
+                "PointOn": {
+                  "entity": 6,
+                  "point": 7
+                }
+              }
+            },
+            "40": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 7,
+                  "axis": "U",
+                  "b": 12
+                }
+              }
+            },
+            "41": {
+              "dimension": {
+                "diameter": true,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  0.0,
+                  50.0
+                ],
+                "tolerance": "General",
+                "value": 100.0
+              },
+              "kind": {
+                "PointLine": {
+                  "line": 27,
+                  "point": 8
+                }
+              }
+            },
+            "42": {
+              "dimension": {
+                "diameter": true,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  12.0,
+                  40.0
+                ],
+                "tolerance": "General",
+                "value": 80.0
+              },
+              "kind": {
+                "PointLine": {
+                  "line": 27,
+                  "point": 10
+                }
+              }
+            },
+            "43": {
+              "dimension": {
+                "diameter": true,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  0.0,
+                  23.5
+                ],
+                "tolerance": "General",
+                "value": 47.0
+              },
+              "kind": {
+                "PointLine": {
+                  "line": 27,
+                  "point": 7
+                }
+              }
+            },
+            "44": {
+              "dimension": {
+                "diameter": true,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  46.0,
+                  18.0
+                ],
+                "tolerance": "General",
+                "value": 36.0
+              },
+              "kind": {
+                "PointLine": {
+                  "line": 27,
+                  "point": 14
+                }
+              }
+            },
+            "45": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  6.0,
+                  50.0
+                ],
+                "tolerance": "General",
+                "value": 12.0
+              },
+              "kind": {
+                "DistanceAlong": {
+                  "a": 8,
+                  "axis": "U",
+                  "b": 9
+                }
+              }
+            },
+            "46": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  30.0,
+                  23.5
+                ],
+                "tolerance": "General",
+                "value": 60.0
+              },
+              "kind": {
+                "DistanceAlong": {
+                  "a": 7,
+                  "axis": "U",
+                  "b": 12
+                }
+              }
+            },
+            "47": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  7.0,
+                  23.5
+                ],
+                "tolerance": "General",
+                "value": 14.0
+              },
+              "kind": {
+                "DistanceAlong": {
+                  "a": 16,
+                  "axis": "U",
+                  "b": 7
+                }
+              }
+            },
+            "48": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  53.0,
+                  23.5
+                ],
+                "tolerance": "General",
+                "value": 14.0
+              },
+              "kind": {
+                "DistanceAlong": {
+                  "a": 13,
+                  "axis": "U",
+                  "b": 12
+                }
+              }
+            }
+          },
+          "entities": {
+            "17": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  15,
+                  16
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "18": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  16,
+                  7
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "19": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  7,
+                  8
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "20": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  8,
+                  9
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "21": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  9,
+                  10
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "22": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  10,
+                  11
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "23": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  11,
+                  12
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "24": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  12,
+                  13
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "25": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  13,
+                  14
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "26": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  14,
+                  15
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "27": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Axis": {
+                  "direction": [
+                    1.0,
+                    0.0
+                  ],
+                  "through": 1
+                }
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            }
+          },
+          "next": 48,
+          "plane": {
+            "FrameAxis": {
+              "axis": "X",
+              "frame": "origin"
+            }
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "10": {
+              "at": [
+                12.0,
+                40.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "11": {
+              "at": [
+                60.0,
+                40.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "12": {
+              "at": [
+                60.0,
+                23.5
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "13": {
+              "at": [
+                46.0,
+                23.5
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "14": {
+              "at": [
+                46.0,
+                18.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "15": {
+              "at": [
+                14.0,
+                18.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "16": {
+              "at": [
+                14.0,
+                23.5
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "7": {
+              "at": [
+                0.0,
+                23.5
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "8": {
+              "at": [
+                0.0,
+                50.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "9": {
+              "at": [
+                12.0,
+                50.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            }
+          }
+        },
+        "id": "housing_profile"
+      }
+    },
+    {
+      "Revolve": {
+        "args": {
+          "angle": 360.0,
+          "areas": [],
+          "axis": "Drawn",
+          "caps": false,
+          "combine": "NewBody",
+          "flip": false,
+          "sketch": {
+            "Profile": "housing_profile"
+          },
+          "surface": false,
+          "symmetric": false,
+          "target": null
+        },
+        "id": "housing"
+      }
+    },
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "10": {
+              "dimension": {
+                "diameter": true,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  0.0,
+                  44.0
+                ],
+                "tolerance": "General",
+                "value": 88.0
+              },
+              "kind": {
+                "PointLine": {
+                  "line": 4,
+                  "point": 7
+                }
+              }
+            },
+            "9": {
+              "dimension": null,
+              "kind": {
+                "PointOn": {
+                  "entity": 6,
+                  "point": 7
+                }
+              }
+            }
+          },
+          "entities": {
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "8": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 7
+              },
+              "tolerance": 1e-7
+            }
+          },
+          "next": 10,
+          "plane": {
+            "Topology": "housing/side/e19"
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "7": {
+              "at": [
+                0.0,
+                44.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            }
+          }
+        },
+        "id": "tap_place"
+      }
+    },
+    {
+      "Hole": {
+        "args": {
+          "angle": 0.0,
+          "axis": null,
+          "chamfer": 0.5,
+          "chamfer_angle": 90.0,
+          "class": null,
+          "clearance": "Medium",
+          "deburr": "None",
+          "depth": 10.0,
+          "diameter": 5.0,
+          "extent": "Distance",
+          "face": null,
+          "fine": null,
+          "first": null,
+          "first_offset": 10.0,
+          "flip": false,
+          "head": 11.0,
+          "head_angle": 90.0,
+          "head_depth": 6.4,
+          "head_extent": "Distance",
+          "head_offset": 0.0,
+          "head_up_to": null,
+          "hexagon": false,
+          "kind": "Tapped",
+          "modelled": false,
+          "offset": 0.0,
+          "pitch": 1.0,
+          "place": "Sketch",
+          "point": 118.0,
+          "radius": 10.0,
+          "second": null,
+          "second_offset": 10.0,
+          "size": "M5",
+          "sketch": {
+            "Profile": "tap_place"
+          },
+          "slotted": false,
+          "target": null,
+          "up_to": null
+        },
+        "id": "tap"
+      }
+    },
+    {
+      "FeaturePattern": {
+        "args": {
+          "along": "Circle",
+          "angle": 360.0,
+          "axis": {
+            "FrameAxis": {
+              "axis": "Y",
+              "frame": "origin"
+            }
+          },
+          "count": 4,
+          "features": [
+            {
+              "Topology": "tap/side/e1"
+            }
+          ],
+          "sketch": null,
+          "spacing": 10.0,
+          "upright": false
+        },
+        "id": "taps"
+      }
+    },
+    {
+      "Section": {
+        "args": {
+          "along": "Plane",
+          "flip": false,
+          "offset": 0.0,
+          "plane": {
+            "FrameAxis": {
+              "axis": "X",
+              "frame": "origin"
+            }
+          },
+          "sketch": null
+        },
+        "id": "HA"
+      }
+    },
+    {
+      "Drawing": {
+        "args": {
+          "block": [
+            {
+              "at": [
+                0.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Projection"
+              },
+              "height": 2.5,
+              "label": "Projection",
+              "size": [
+                26.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                26.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Scale"
+              },
+              "height": 3.5,
+              "label": "Scale",
+              "size": [
+                22.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                36.0
+              ],
+              "content": {
+                "Text": "ISO 2768-mK"
+              },
+              "height": 3.5,
+              "label": "General tolerances",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Material"
+              },
+              "height": 3.5,
+              "label": "Material",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Mass"
+              },
+              "height": 3.5,
+              "label": "Mass",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Responsible dept.",
+              "size": [
+                48.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Technical reference",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Document type"
+              },
+              "height": 3.5,
+              "label": "Document type",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Status"
+              },
+              "height": 2.5,
+              "label": "Document status",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 3.5,
+              "label": "Legal owner",
+              "size": [
+                48.0,
+                27.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                13.5
+              ],
+              "content": {
+                "Property": "Author"
+              },
+              "height": 3.5,
+              "label": "Created by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Approved by"
+              },
+              "height": 3.5,
+              "label": "Approved by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Title"
+              },
+              "height": 5.0,
+              "label": "Title",
+              "size": [
+                52.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Part number"
+              },
+              "height": 3.5,
+              "label": "Identification number",
+              "size": [
+                28.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Revision"
+              },
+              "height": 3.5,
+              "label": "Rev.",
+              "size": [
+                13.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                113.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Date"
+              },
+              "height": 3.5,
+              "label": "Date of issue",
+              "size": [
+                27.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                140.0,
+                0.0
+              ],
+              "content": {
+                "Text": "en"
+              },
+              "height": 3.5,
+              "label": "Lang.",
+              "size": [
+                12.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Format"
+              },
+              "height": 3.5,
+              "label": "Size",
+              "size": [
+                14.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                166.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Sheet"
+              },
+              "height": 3.5,
+              "label": "Sheet",
+              "size": [
+                14.0,
+                9.0
+              ]
+            }
+          ],
+          "centres": "All",
+          "drafting": {
+            "letter": 3.5,
+            "past": 3.0,
+            "small": 12.0,
+            "wide": null
+          },
+          "format": "A3",
+          "lines": [
+            {
+              "of": {
+                "Pitch": "taps"
+              },
+              "view": null
+            },
+            {
+              "of": {
+                "Datum": "origin/y"
+              },
+              "view": "secA"
+            }
+          ],
+          "name": "drawing",
+          "notes": [
+            {
+              "at": [
+                -40.00000000000003,
+                -0.003212957240009473
+              ],
+              "note": "housing_profile/d41",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -47.00000000000003,
+                -0.003212957240009473
+              ],
+              "note": "housing_profile/d42",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -54.00000000000003,
+                -0.003212957240009473
+              ],
+              "note": "housing_profile/d43",
+              "view": "secA"
+            },
+            {
+              "at": [
+                40.00000000000003,
+                -0.003212957240009473
+              ],
+              "note": "housing_profile/d44",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -24.0,
+                59.99678704276002
+              ],
+              "note": "housing_profile/d45",
+              "view": "secA"
+            },
+            {
+              "at": [
+                0.0,
+                66.99678704276002
+              ],
+              "note": "housing_profile/d46",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -23.0,
+                73.99678704276002
+              ],
+              "note": "housing_profile/d47",
+              "view": "secA"
+            },
+            {
+              "at": [
+                23.0,
+                59.99678704276002
+              ],
+              "note": "housing_profile/d48",
+              "view": "secA"
+            },
+            {
+              "at": [
+                33.65605363209691,
+                77.65284067485692
+              ],
+              "note": "tap/callout",
+              "view": "left"
+            },
+            {
+              "at": [
+                59.99839876520906,
+                -0.003212957240009473
+              ],
+              "note": "tap_place/d10",
+              "view": "left"
+            }
+          ],
+          "numbers": {
+            "bare": false,
+            "decimals": null,
+            "point": false
+          },
+          "own": [],
+          "parts_columns": [],
+          "projection": "ThirdAngle",
+          "scale": [
+            1,
+            1
+          ],
+          "spacing": {
+            "gap": 1.0,
+            "pitch": 8.0
+          },
+          "tangent_edges": "Thin",
+          "template": "ISO A3",
+          "upright": false,
+          "views": [
+            {
+              "at": [
+                85.0,
+                165.0
+              ],
+              "id": "left",
+              "kind": {
+                "Base": {
+                  "side": "Left"
+                }
+              },
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                205.0,
+                165.0
+              ],
+              "caption_at": [
+                0.0,
+                -66.0
+              ],
+              "id": "secA",
+              "kind": {
+                "Section": {
+                  "letter": "A",
+                  "of": "left",
+                  "section": "HA",
+                  "turn": 0.0
+                }
+              },
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                330.0,
+                205.0
+              ],
+              "id": "iso",
+              "kind": {
+                "Base": {
+                  "side": "IsometricFrontLeft"
+                }
+              },
+              "style": "HiddenRemoved"
+            }
+          ]
+        },
+        "id": "drawing"
+      }
+    }
+  ],
+  "material": "Cast iron",
+  "properties": {
+    "Title": "HOUSING"
+  }
+}

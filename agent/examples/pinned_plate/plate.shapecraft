@@ -1,0 +1,510 @@
+{
+  "program": [
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "15": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 7,
+                  "axis": "U",
+                  "b": 8
+                }
+              }
+            },
+            "16": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 9,
+                  "axis": "U",
+                  "b": 10
+                }
+              }
+            },
+            "17": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 8,
+                  "axis": "V",
+                  "b": 9
+                }
+              }
+            },
+            "18": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 10,
+                  "axis": "V",
+                  "b": 7
+                }
+              }
+            },
+            "19": {
+              "dimension": null,
+              "kind": {
+                "Symmetric": {
+                  "a": 7,
+                  "b": 8,
+                  "line": 6
+                }
+              }
+            },
+            "20": {
+              "dimension": null,
+              "kind": {
+                "Symmetric": {
+                  "a": 8,
+                  "b": 9,
+                  "line": 4
+                }
+              }
+            },
+            "21": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  0.0,
+                  -20.0
+                ],
+                "tolerance": "General",
+                "value": 60.0
+              },
+              "kind": {
+                "DistanceAlong": {
+                  "a": 7,
+                  "axis": "U",
+                  "b": 8
+                }
+              }
+            },
+            "22": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  30.0,
+                  0.0
+                ],
+                "tolerance": "General",
+                "value": 40.0
+              },
+              "kind": {
+                "DistanceAlong": {
+                  "a": 8,
+                  "axis": "V",
+                  "b": 9
+                }
+              }
+            }
+          },
+          "entities": {
+            "11": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  7,
+                  8
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "12": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  8,
+                  9
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "13": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  9,
+                  10
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "14": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  10,
+                  7
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            }
+          },
+          "next": 22,
+          "plane": {
+            "FrameAxis": {
+              "axis": "Z",
+              "frame": "origin"
+            }
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "10": {
+              "at": [
+                -30.0,
+                20.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "7": {
+              "at": [
+                -30.0,
+                -20.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "8": {
+              "at": [
+                30.0,
+                -20.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "9": {
+              "at": [
+                30.0,
+                20.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            }
+          }
+        },
+        "id": "sketch1"
+      }
+    },
+    {
+      "Extrude": {
+        "args": {
+          "areas": [],
+          "caps": false,
+          "combine": "NewBody",
+          "distance": 10.0,
+          "extent": "Distance",
+          "flip": false,
+          "sketch": {
+            "Profile": "sketch1"
+          },
+          "surface": false,
+          "target": null,
+          "up_to": null
+        },
+        "id": "plate"
+      }
+    },
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "11": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 7,
+                  "axis": "U",
+                  "b": 1
+                }
+              }
+            },
+            "12": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 1,
+                  "axis": "U",
+                  "b": 8
+                }
+              }
+            },
+            "13": {
+              "dimension": null,
+              "kind": {
+                "Symmetric": {
+                  "a": 7,
+                  "b": 8,
+                  "line": 6
+                }
+              }
+            },
+            "14": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  0.0,
+                  0.0
+                ],
+                "tolerance": "General",
+                "value": 40.0
+              },
+              "kind": {
+                "Distance": [
+                  7,
+                  8
+                ]
+              }
+            }
+          },
+          "entities": {
+            "10": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 8
+              },
+              "tolerance": 1e-7
+            },
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "9": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 7
+              },
+              "tolerance": 1e-7
+            }
+          },
+          "next": 14,
+          "plane": {
+            "FrameAxis": {
+              "axis": "Z",
+              "frame": "origin"
+            }
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "7": {
+              "at": [
+                -20.0,
+                0.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "8": {
+              "at": [
+                20.0,
+                0.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            }
+          }
+        },
+        "id": "sketch2"
+      }
+    },
+    {
+      "Hole": {
+        "args": {
+          "angle": 0.0,
+          "axis": null,
+          "chamfer": 0.5,
+          "chamfer_angle": 90.0,
+          "class": null,
+          "clearance": "Medium",
+          "deburr": "None",
+          "depth": 10.0,
+          "diameter": 10.0,
+          "extent": "ThroughAll",
+          "face": null,
+          "fine": null,
+          "first": null,
+          "first_offset": 10.0,
+          "flip": false,
+          "head": 11.0,
+          "head_angle": 90.0,
+          "head_depth": 6.4,
+          "head_extent": "Distance",
+          "head_offset": 0.0,
+          "head_up_to": null,
+          "hexagon": false,
+          "kind": "Simple",
+          "modelled": false,
+          "offset": 0.0,
+          "pitch": 1.0,
+          "place": "Sketch",
+          "point": 118.0,
+          "radius": 10.0,
+          "second": null,
+          "second_offset": 10.0,
+          "size": null,
+          "sketch": {
+            "Profile": "sketch2"
+          },
+          "slotted": false,
+          "target": null,
+          "up_to": null
+        },
+        "id": "holes"
+      }
+    }
+  ],
+  "material": "Aluminium"
+}

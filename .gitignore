@@ -1,0 +1,20 @@
+/target
+playground
+
+# Python
+__pycache__/
+*.pyc
+
+# What the authoring layer and the command line write next to a script
+*.shapecraft.views/
+*.parts/
+
+# Editors and the OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+/agent/examples/out/
+/docs/book/book/
+/market_analysis/
+/examples/TOOL_FAULTS.md

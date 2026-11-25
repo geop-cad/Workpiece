@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "shapecraft-cad"
+dynamic = ["version"]
+description = "ShapeCraft: a parametric CAD kernel and desktop app, with a Python layer for writing parts as scripts."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT OR Apache-2.0"
+license-files = ["LICENSE-MIT", "LICENSE-APACHE"]
+keywords = ["cad", "brep", "nurbs", "parametric", "step"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Manufacturing",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = []
+
+[project.optional-dependencies]
+# Cropping and tiling pictures (`shapecraft.crop`, `shapecraft.tile`). Reading PDF sheets also
+# needs poppler's pdftoppm on the PATH, which pip cannot bring.
+images = ["Pillow"]
+
+[project.urls]
+Homepage = "https://github.com/geop-cad/ShapeCraft"
+Source = "https://github.com/geop-cad/ShapeCraft"
+
+[project.scripts]
+shapecraft = "shapecraft.cli:main"
+shapecraft-app = "shapecraft.__main__:main"
+shapecraft-tools = "shapecraft.tools:main"
+
+[tool.setuptools]
+packages = ["shapecraft"]
+include-package-data = false
+
+[tool.setuptools.package-data]
+shapecraft = ["README.md", "bin/*"]

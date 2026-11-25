@@ -1,0 +1,99 @@
+{
+  "program": [
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": "Fixed",
+            "distance": null,
+            "flip": false
+          },
+          "part": "body.shapecraft",
+          "variant": null
+        },
+        "id": "body"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Slider"
+            },
+            "distance": null,
+            "flip": true,
+            "onto": {
+              "instance": [
+                "body"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "body/side/e16"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "jaw/side/e14"
+              }
+            }
+          },
+          "part": "jaw.shapecraft",
+          "variant": null
+        },
+        "id": "jaw"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Revolute"
+            },
+            "distance": null,
+            "flip": true,
+            "onto": {
+              "instance": [
+                "jaw"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "seat/side/e2"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "screw/side/e17"
+              }
+            }
+          },
+          "part": "screw.shapecraft",
+          "variant": null
+        },
+        "id": "screw"
+      }
+    },
+    {
+      "Drive": {
+        "args": {
+          "at": 8.0,
+          "joint": "jaw",
+          "slide": false
+        },
+        "id": "open"
+      }
+    }
+  ],
+  "properties": {
+    "Title": "BENCH VISE"
+  }
+}

@@ -1,0 +1,470 @@
+{
+  "program": [
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": "Fixed",
+            "distance": null,
+            "flip": false
+          },
+          "part": "leaf.shapecraft",
+          "variant": null
+        },
+        "id": "leaf1"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Fastened"
+            },
+            "distance": null,
+            "flip": false,
+            "onto": {
+              "instance": [
+                "leaf1"
+              ],
+              "snap": "ArcCentre",
+              "source": {
+                "Topology": "plate/edge[knuckle/side/e7+side/e11]"
+              }
+            },
+            "with": {
+              "snap": "ArcCentre",
+              "source": {
+                "Topology": "pin/start/e7"
+              }
+            }
+          },
+          "part": "pin.shapecraft",
+          "variant": null
+        },
+        "id": "pin"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Revolute"
+            },
+            "distance": null,
+            "flip": true,
+            "onto": {
+              "instance": [
+                "leaf1"
+              ],
+              "snap": "ArcCentre",
+              "source": {
+                "Topology": "plate/edge[knuckle/end+knuckle/side/e7]#2"
+              }
+            },
+            "with": {
+              "snap": "ArcCentre",
+              "source": {
+                "Topology": "plate/edge[knuckle/end+knuckle/side/e7]"
+              }
+            }
+          },
+          "part": "leaf.shapecraft",
+          "variant": null
+        },
+        "id": "leaf2"
+      }
+    },
+    {
+      "Drive": {
+        "args": {
+          "at": 110.0,
+          "joint": "leaf2",
+          "slide": false
+        },
+        "id": "open"
+      }
+    },
+    {
+      "Drawing": {
+        "args": {
+          "auto_balloons": true,
+          "block": [
+            {
+              "at": [
+                0.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Projection"
+              },
+              "height": 2.5,
+              "label": "Projection",
+              "size": [
+                26.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                26.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Scale"
+              },
+              "height": 3.5,
+              "label": "Scale",
+              "size": [
+                22.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                36.0
+              ],
+              "content": {
+                "Text": "ISO 2768-mK"
+              },
+              "height": 3.5,
+              "label": "General tolerances",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Material"
+              },
+              "height": 3.5,
+              "label": "Material",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Mass"
+              },
+              "height": 3.5,
+              "label": "Mass",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Responsible dept.",
+              "size": [
+                48.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Technical reference",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Document type"
+              },
+              "height": 3.5,
+              "label": "Document type",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Status"
+              },
+              "height": 2.5,
+              "label": "Document status",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 3.5,
+              "label": "Legal owner",
+              "size": [
+                48.0,
+                27.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                13.5
+              ],
+              "content": {
+                "Property": "Author"
+              },
+              "height": 3.5,
+              "label": "Created by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Approved by"
+              },
+              "height": 3.5,
+              "label": "Approved by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Title"
+              },
+              "height": 5.0,
+              "label": "Title",
+              "size": [
+                52.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Part number"
+              },
+              "height": 3.5,
+              "label": "Identification number",
+              "size": [
+                28.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Revision"
+              },
+              "height": 3.5,
+              "label": "Rev.",
+              "size": [
+                13.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                113.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Date"
+              },
+              "height": 3.5,
+              "label": "Date of issue",
+              "size": [
+                27.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                140.0,
+                0.0
+              ],
+              "content": {
+                "Text": "en"
+              },
+              "height": 3.5,
+              "label": "Lang.",
+              "size": [
+                12.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Format"
+              },
+              "height": 3.5,
+              "label": "Size",
+              "size": [
+                14.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                166.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Sheet"
+              },
+              "height": 3.5,
+              "label": "Sheet",
+              "size": [
+                14.0,
+                9.0
+              ]
+            }
+          ],
+          "centres": "All",
+          "drafting": {
+            "letter": 3.5,
+            "past": 3.0,
+            "small": 12.0,
+            "wide": null
+          },
+          "format": "A3",
+          "name": "drawing",
+          "notes": [],
+          "numbers": {
+            "bare": false,
+            "decimals": null,
+            "point": false
+          },
+          "own": [],
+          "parts_columns": [],
+          "parts_list": true,
+          "projection": "ThirdAngle",
+          "scale": [
+            2,
+            1
+          ],
+          "spacing": {
+            "gap": 1.0,
+            "pitch": 8.0
+          },
+          "tangent_edges": "Thin",
+          "template": "ISO A3",
+          "upright": false,
+          "views": [
+            {
+              "at": [
+                110.0,
+                190.0
+              ],
+              "id": "top",
+              "kind": {
+                "Base": {
+                  "side": "Top"
+                }
+              },
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                230.0,
+                190.0
+              ],
+              "id": "side",
+              "kind": {
+                "Projected": {
+                  "beside": "Right",
+                  "of": "top"
+                }
+              },
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                335.0,
+                225.0
+              ],
+              "id": "iso",
+              "kind": {
+                "Base": {
+                  "side": "Isometric"
+                }
+              },
+              "scale": [
+                1,
+                1
+              ],
+              "style": "HiddenRemoved"
+            }
+          ]
+        },
+        "id": "drawing"
+      }
+    }
+  ],
+  "properties": {
+    "Title": "BUTT HINGE"
+  }
+}

@@ -1,0 +1,31 @@
+[package]
+name = "shapecraft-conformance-adapter"
+description = "shapecraft as an adapter for brep-conformance: one JSON request per line on stdin, one reply per line on stdout, each function answered by the kernel's one call for it."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "shapecraft-adapter"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+shapecraft-core.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-shape.workspace = true
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-sketch.workspace = true
+shapecraft-ops-sweep.workspace = true
+shapecraft-ops-faces.workspace = true
+shapecraft-ops-step.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+glam.workspace = true
+
+[lints]
+workspace = true

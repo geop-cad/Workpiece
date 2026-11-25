@@ -1,0 +1,23 @@
+[package]
+name = "shapecraft-ops-testing"
+description = "What the tests of the operations on bodies share."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "shapecraft_ops_testing"
+
+[dependencies]
+anyhow.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-cad-rasterize.workspace = true
+shapecraft-core.workspace = true
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-sketch.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,30 @@
+[package]
+name = "shapecraft-ops-features"
+description = "Features cut into bodies: holes and threads."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_ops_features"
+
+[dependencies]
+anyhow.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-core.workspace = true
+shapecraft-ops-sweep.workspace = true
+shapecraft-shape.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+shapecraft-cad-rasterize.workspace = true
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-datum.workspace = true
+shapecraft-ops-sketch.workspace = true
+shapecraft-ops-testing.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,96 @@
+[workspace]
+resolver = "3"
+members = [
+    "hosts/cli",
+    "core",
+    "core/derive",
+    "lib/solver",
+    "lib/boolean",
+    "lib/render",
+    "ops/sketch",
+    "ops/testing",
+    "ops/annotate",
+    "ops/drawing",
+    "ops/mesh",
+    "ops/appearance",
+    "ops/standard",
+    "ops/sheet-metal",
+    "ops/surface",
+    "ops/features",
+    "ops/bodies",
+    "ops/faces",
+    "ops/blend",
+    "ops/sweep",
+    "lib/shape",
+    "ops/datum",
+    "ops/basic-shapes",
+    "ops/instances",
+    "ops/step",
+    "cad/cad-part",
+    "cad/cad-rasterize",
+    "cad/cad-ui",
+    "hosts/app",
+    "bench/boolean",
+    "bench/conformance",
+]
+
+[workspace.package]
+edition = "2024"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/geop-cad/ShapeCraft"
+# The newest minimum of the dependencies (egui 0.36 asks for 1.95).
+rust-version = "1.95"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.dependencies]
+anyhow = "1.0.104"
+glam = { version = "0.34.3", features = ["serde"] }
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+thiserror = "2.0.21"
+shapecraft-core = { path = "core" }
+shapecraft-solver = { path = "lib/solver" }
+shapecraft-boolean = { path = "lib/boolean" }
+shapecraft-render = { path = "lib/render" }
+shapecraft-ops-sketch = { path = "ops/sketch" }
+shapecraft-ops-testing = { path = "ops/testing" }
+shapecraft-ops-annotate = { path = "ops/annotate" }
+shapecraft-ops-drawing = { path = "ops/drawing" }
+shapecraft-ops-mesh = { path = "ops/mesh" }
+shapecraft-ops-appearance = { path = "ops/appearance" }
+shapecraft-ops-standard = { path = "ops/standard" }
+shapecraft-ops-sheet-metal = { path = "ops/sheet-metal" }
+shapecraft-ops-surface = { path = "ops/surface" }
+shapecraft-ops-features = { path = "ops/features" }
+shapecraft-ops-bodies = { path = "ops/bodies" }
+shapecraft-ops-faces = { path = "ops/faces" }
+shapecraft-ops-blend = { path = "ops/blend" }
+shapecraft-ops-sweep = { path = "ops/sweep" }
+shapecraft-shape = { path = "lib/shape" }
+shapecraft-ops-basic-shapes = { path = "ops/basic-shapes" }
+shapecraft-ops-datum = { path = "ops/datum" }
+shapecraft-ops-instances = { path = "ops/instances" }
+shapecraft-ops-step = { path = "ops/step" }
+shapecraft-cad-part = { path = "cad/cad-part" }
+shapecraft-cad-rasterize = { path = "cad/cad-rasterize" }
+shapecraft-cad-ui = { path = "cad/cad-ui" }
+eframe = { version = "0.36.2", default-features = false }
+
+# The geometry is slow without the optimizer (a fillet takes seconds):
+# a development build optimizes it, and keeps its checks.
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+# The application for the browser (`website/app/build.sh`): optimized as a
+# release build, and linked as one unit, which makes the download smaller.
+[profile.web]
+inherits = "release"
+lto = true
+codegen-units = 1

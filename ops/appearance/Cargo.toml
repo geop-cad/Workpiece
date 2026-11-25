@@ -1,0 +1,23 @@
+[package]
+name = "shapecraft-ops-appearance"
+description = "How the model looks: the step that gives bodies and faces a material or a colour, and the step that is a rendered picture of the model."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_ops_appearance"
+
+[dependencies]
+anyhow.workspace = true
+shapecraft-core.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-testing.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,34 @@
+[package]
+name = "shapecraft-ops-drawing"
+description = "Drawings of the model: sheets with views, and what is said of the model placed on them, laid out to ISO."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_ops_drawing"
+
+[dependencies]
+anyhow.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-cad-rasterize.workspace = true
+shapecraft-core.workspace = true
+shapecraft-ops-appearance.workspace = true
+shapecraft-shape.workspace = true
+shapecraft-ops-sketch.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-blend.workspace = true
+shapecraft-ops-annotate.workspace = true
+shapecraft-ops-testing.workspace = true
+shapecraft-ops-features.workspace = true
+shapecraft-ops-sketch.workspace = true
+shapecraft-ops-sweep.workspace = true
+
+[lints]
+workspace = true

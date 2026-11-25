@@ -1,0 +1,186 @@
+name: Release
+
+# On a tag v*: builds the programs and the Python wheels (wheels.yml), packs an archive for each
+# platform, and attaches all of it to a DRAFT GitHub release. The release stays a draft until
+# someone publishes it by hand; nothing goes to PyPI from here (publish-pypi.yml, by hand).
+#
+#   Linux x86_64   shapecraft-<version>-linux-x86_64.tar.gz   built on glibc 2.28
+#   Windows x86_64 shapecraft-<version>-windows-x86_64.zip    app has an icon and a version resource, no console window
+#   macOS arm64    ShapeCraft-<version>-macos-arm64.dmg       ShapeCraft.app + the command line
+#   macOS x86_64   ShapeCraft-<version>-macos-x86_64.dmg
+#   Python         shapecraft_cad-<version>-*.whl and the sdist
+#
+# Every archive holds the programs, LICENSE-MIT, LICENSE-APACHE, README.md, CHANGELOG.md,
+# THIRD-PARTY.txt (crates and fonts, from `cargo metadata`) and the examples folder.
+#
+# Signing. The Windows exe and the macOS app are NOT signed unless secrets are set:
+#   macOS (Apple Developer Program, 99 USD a year): MACOS_CERTIFICATE (a "Developer ID
+#   Application" certificate as base64 .p12), MACOS_CERTIFICATE_PWD, MACOS_SIGN_IDENTITY (its
+#   name, "Developer ID Application: ... (TEAMID)"), and for notarisation APPLE_ID,
+#   APPLE_TEAM_ID, APPLE_APP_PASSWORD (an app-specific password). With them the .dmg is signed
+#   with the hardened runtime, notarised and stapled, and opens without a warning. Without
+#   them the app is only ad-hoc signed: macOS says it is from an unidentified developer, and
+#   the user opens it once with right-click > Open (or `xattr -dr com.apple.quarantine`).
+#   Windows (Authenticode certificate, or Azure Trusted Signing): not wired here; without it
+#   SmartScreen warns on the first start ("More info" > "Run anyway").
+#   The wheels carry unsigned programs; pip does not set the macOS quarantine flag.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Which to build (any of linux, windows, macos, sdist)"
+        default: "linux,windows,macos,sdist"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  version:
+    name: Version
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        shell: bash
+        run: |
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version *= *"\(.*\)"/\1/p}' Cargo.toml)
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Cargo.toml says $version; the ref is $GITHUB_REF_NAME"
+          # A release tag is v<version>; tags with a suffix (v0.0.0-test1) are for trying this out.
+          case "$GITHUB_REF_NAME" in
+            v*-*) ;;
+            v*) test "$GITHUB_REF_NAME" = "v$version" || { echo "tag $GITHUB_REF_NAME does not match Cargo.toml version $version"; exit 1; } ;;
+          esac
+
+  wheels:
+    name: Programs and wheels
+    needs: version
+    uses: ./.github/workflows/wheels.yml
+    with:
+      platforms: ${{ inputs.platforms || 'linux,windows,macos,sdist' }}
+
+  third-party:
+    name: Third-party notice
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: python3 scripts/third_party.py THIRD-PARTY.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: third-party
+          path: THIRD-PARTY.txt
+          if-no-files-found: error
+
+  package:
+    name: Archives (Linux, Windows)
+    needs: [version, wheels, third-party]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "{third-party,bin-linux-x86_64,bin-windows-x86_64}"
+          path: in
+      - name: Pack
+        run: |
+          v=${{ needs.version.outputs.version }}
+          for p in linux-x86_64 windows-x86_64; do
+            if [ -d in/bin-$p ]; then
+              python3 scripts/package_release.py $p --bin in/bin-$p --version "$v" --third-party in/third-party/THIRD-PARTY.txt --out archives
+            fi
+          done
+          ls -l archives
+      - uses: actions/upload-artifact@v4
+        with:
+          name: archive-linux-windows
+          path: archives/*
+          if-no-files-found: error
+
+  package-macos:
+    name: Disk image (${{ matrix.arch }})
+    needs: [version, wheels, third-party]
+    if: contains(inputs.platforms || 'macos', 'macos')
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: arm64, runner: macos-15 }
+          - { arch: x86_64, runner: macos-15-intel }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "{third-party,bin-macos-${{ matrix.arch }}}"
+          path: in
+      - name: Import the signing certificate
+        id: keychain
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          if [ -z "$MACOS_CERTIFICATE" ]; then echo "no signing certificate: the app is only ad-hoc signed"; exit 0; fi
+          echo "$MACOS_CERTIFICATE" | base64 --decode > cert.p12
+          security create-keychain -p ci build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p ci build.keychain
+          security import cert.p12 -k build.keychain -P "$MACOS_CERTIFICATE_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci build.keychain
+          rm cert.p12
+          echo "signing=true" >> "$GITHUB_OUTPUT"
+          if [ -n "$APPLE_ID" ]; then echo "notarize=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Pack
+        env:
+          MACOS_SIGN_IDENTITY: ${{ steps.keychain.outputs.signing == 'true' && secrets.MACOS_SIGN_IDENTITY || '' }}
+        run: |
+          python3 scripts/package_release.py macos-${{ matrix.arch }} --bin in/bin-macos-${{ matrix.arch }} \
+            --version "${{ needs.version.outputs.version }}" --third-party in/third-party/THIRD-PARTY.txt --out archives
+          ls -l archives
+      - name: Notarise
+        if: steps.keychain.outputs.notarize == 'true'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          for dmg in archives/*.dmg; do
+            xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
+            xcrun stapler staple "$dmg"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: archive-macos-${{ matrix.arch }}
+          path: archives/*
+          if-no-files-found: error
+
+  release:
+    name: Draft release
+    # always(): the macOS jobs may have been left out by a manual run.
+    if: ${{ always() && startsWith(github.ref, 'refs/tags/') && needs.package.result == 'success' && needs.wheels.result == 'success' && contains(fromJSON('["success","skipped"]'), needs.package-macos.result) }}
+    needs: [version, wheels, package, package-macos]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "{archive-*,wheel-*,sdist}"
+          merge-multiple: true
+          path: files
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l files
+          gh release create "$GITHUB_REF_NAME" files/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft \
+            --title "ShapeCraft ${{ needs.version.outputs.version }}" \
+            --notes "See CHANGELOG.md. The archives are unsigned; the wheels are for pip install shapecraft-cad."

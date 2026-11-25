@@ -1,0 +1,41 @@
+name: Publish to PyPI
+
+# By hand only, and never by a push: Actions > Publish to PyPI > Run workflow.
+# Takes the wheels and the sdist of a GitHub release (the draft that release.yml made for the
+# tag; they are named shapecraft_cad-<version>-*.whl and shapecraft_cad-<version>.tar.gz) and
+# uploads them to PyPI with trusted publishing: no token is stored. Set it up once on PyPI
+# (project shapecraft-cad > Publishing > add a GitHub publisher: repository
+# geop-cad/ShapeCraft, workflow publish-pypi.yml, environment pypi) and give the `pypi`
+# environment of the repository a required reviewer.
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The release tag whose wheels and sdist to publish, for example v0.1.0"
+        required: true
+      confirm:
+        description: 'Type "publish" to upload to PyPI (it cannot be undone)'
+        required: true
+
+jobs:
+  publish:
+    name: Upload to PyPI
+    if: inputs.confirm == 'publish'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download the release's Python files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir dist
+          gh release download "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern 'shapecraft_cad-*.whl' --pattern 'shapecraft_cad-*.tar.gz'
+          ls -l dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist

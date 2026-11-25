@@ -1,0 +1,32 @@
+[package]
+name = "shapecraft-boolean-bench"
+description = "The benchmark suite of the booleans: closed forms, near misses, random pairs and public STEP parts, graded pass, wrong or refused."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "boolean-bench"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+shapecraft-core.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-sketch.workspace = true
+shapecraft-ops-standard.workspace = true
+shapecraft-ops-surface.workspace = true
+shapecraft-ops-sweep.workspace = true
+shapecraft-shape.workspace = true
+shapecraft-ops-step.workspace = true
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+glam.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,19 @@
+[package]
+name = "shapecraft-ops-basic-shapes"
+description = "Operations that create basic solid shapes."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_ops_basic_shapes"
+
+[dependencies]
+anyhow.workspace = true
+shapecraft-core.workspace = true
+serde.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,28 @@
+[package]
+name = "shapecraft-ops-sketch"
+description = "The sketch operation: constrained 2D geometry on a plane."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_ops_sketch"
+
+[dependencies]
+anyhow.workspace = true
+shapecraft-core.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-solver.workspace = true
+ttf-parser = "0.25.1"
+epaint_default_fonts = "0.36.2"
+glam.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+shapecraft-ops-basic-shapes.workspace = true
+
+[lints]
+workspace = true

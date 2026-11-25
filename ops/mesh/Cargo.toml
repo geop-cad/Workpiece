@@ -1,0 +1,25 @@
+[package]
+name = "shapecraft-ops-mesh"
+description = "Polygon meshes and subdivision surfaces: a control mesh edited by its vertices, edges and faces, made a body of flat faces or of the smooth NURBS surface it controls."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_ops_mesh"
+
+[dependencies]
+anyhow.workspace = true
+shapecraft-core.workspace = true
+shapecraft-boolean.workspace = true
+glam.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+shapecraft-ops-testing.workspace = true
+
+[lints]
+workspace = true

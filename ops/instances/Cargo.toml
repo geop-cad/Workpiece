@@ -1,0 +1,26 @@
+[package]
+name = "shapecraft-ops-instances"
+description = "Operations that place other parts' worlds as instances."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_ops_instances"
+
+[dependencies]
+anyhow.workspace = true
+shapecraft-core.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-solver.workspace = true
+shapecraft-shape.workspace = true
+glam.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+shapecraft-ops-basic-shapes.workspace = true
+
+[lints]
+workspace = true

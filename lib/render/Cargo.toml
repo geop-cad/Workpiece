@@ -1,0 +1,17 @@
+[package]
+name = "shapecraft-render"
+description = "A small path tracer: pictures of a triangle scene with soft light, shadows, metal and glass."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_render"
+
+[dependencies]
+glam.workspace = true
+
+[lints]
+workspace = true

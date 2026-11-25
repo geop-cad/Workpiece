@@ -1,0 +1,41 @@
+[package]
+name = "shapecraft-cad-ui"
+description = "Application state (model) and what is shown for it (view)."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_cad_ui"
+
+[dependencies]
+anyhow.workspace = true
+glam.workspace = true
+shapecraft-core.workspace = true
+shapecraft-ops-drawing.workspace = true
+shapecraft-ops-mesh.workspace = true
+shapecraft-ops-appearance.workspace = true
+shapecraft-render.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-datum.workspace = true
+shapecraft-ops-instances.workspace = true
+shapecraft-ops-sketch.workspace = true
+shapecraft-ops-annotate.workspace = true
+shapecraft-ops-blend.workspace = true
+shapecraft-ops-faces.workspace = true
+shapecraft-ops-bodies.workspace = true
+shapecraft-ops-standard.workspace = true
+shapecraft-ops-sweep.workspace = true
+shapecraft-shape.workspace = true
+shapecraft-ops-step.workspace = true
+shapecraft-cad-part.workspace = true
+shapecraft-cad-rasterize.workspace = true
+# Previews of parts are PNG pictures.
+png = "0.18.1"
+
+
+[lints]
+workspace = true

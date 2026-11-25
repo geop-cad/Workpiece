@@ -1,0 +1,14 @@
+[package]
+name = "shapecraft-solver"
+description = "A geometric constraint solver: least-motion solves, drags as pulls, and diagnosis."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_solver"
+
+[lints]
+workspace = true

@@ -1,0 +1,30 @@
+[package]
+name = "shapecraft-cli"
+description = "The command line for scripts and agents: makes a part from a recipe, builds it, and says what came of it."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "shapecraft"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+glam.workspace = true
+shapecraft-core.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-shape.workspace = true
+shapecraft-cad-part.workspace = true
+shapecraft-cad-ui.workspace = true
+shapecraft-ops-sketch.workspace = true
+shapecraft-ops-drawing.workspace = true
+shapecraft-ops-instances.workspace = true
+png = "0.18.1"
+serde_json.workspace = true
+
+[lints]
+workspace = true

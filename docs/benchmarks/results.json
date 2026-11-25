@@ -1,0 +1,1128 @@
+{
+ "schema": 1,
+ "generated": "2026-11-25",
+ "shapecraft_commit": "450425c + uncommitted changes",
+ "machine": "AMD Ryzen 9 7950X, 16 cores / 32 threads, 124 GB, Ubuntu 22.04, Linux 6.8; shared with other jobs (load average 6 to 28)",
+ "benchmarks": [
+  {
+   "id": "brep-conformance",
+   "title": "brep-conformance",
+   "rows": [
+    {
+     "kernel": "shapecraft",
+     "version": "0.1.0",
+     "licence": "MIT OR Apache-2.0",
+     "link": "https://github.com/geop-cad/ShapeCraft",
+     "origin": "run here",
+     "scored_by": "self",
+     "suite_version": "2.0.1",
+     "suite_commit": null,
+     "date": "2026-11-25",
+     "cases": 3617,
+     "pass": 3617,
+     "per_category": {
+      "booleans": {
+       "pass": 1253,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 448,
+       "total": 448
+      },
+      "queries": {
+       "pass": 320,
+       "total": 320
+      },
+      "modify": {
+       "pass": 612,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 627,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 171,
+       "total": 171
+      },
+      "step": {
+       "pass": 130,
+       "total": 130
+      },
+      "parts": {
+       "pass": 56,
+       "total": 56
+      }
+     },
+     "median_ms": 22.1,
+     "wall_s": 54.7,
+     "threads": 14,
+     "machine": null,
+     "source": "this repository: bench/conformance",
+     "note": "commit 450425c + uncommitted changes; the cases that read NIST's STEP files (opt-in in the suite) were not run"
+    },
+    {
+     "kernel": "springrep",
+     "version": "2.1.0",
+     "licence": "MIT",
+     "link": "https://github.com/springcraft-ai/springrep",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "suite_version": "2.0.1",
+     "suite_commit": "dc7ac9ed1e588978767a45306f098f6f512f8bba",
+     "date": "2026-11-23",
+     "cases": 3650,
+     "pass": 3650,
+     "per_category": {
+      "booleans": {
+       "pass": 1253,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 448,
+       "total": 448
+      },
+      "queries": {
+       "pass": 320,
+       "total": 320
+      },
+      "modify": {
+       "pass": 612,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 627,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 171,
+       "total": 171
+      },
+      "step": {
+       "pass": 163,
+       "total": 163
+      },
+      "parts": {
+       "pass": 56,
+       "total": 56
+      }
+     },
+     "median_ms": 18.6,
+     "wall_s": 107.3,
+     "threads": 24,
+     "machine": "Intel(R) Xeon(R) Platinum 8488C",
+     "source": "https://cdn.springcraft.ai/brep-conformance/reports/45259371420-1/",
+     "note": "run 45259371420-1, complete: True, verified: True"
+    },
+    {
+     "kernel": "springrep",
+     "version": "2.1.0",
+     "licence": "MIT",
+     "link": "https://github.com/springcraft-ai/springrep",
+     "origin": "reproduced",
+     "scored_by": "ShapeCraft, from the suite's own report",
+     "suite_version": "2.0.1",
+     "suite_commit": null,
+     "date": "2026-11-25",
+     "cases": 3617,
+     "pass": 3617,
+     "per_category": {
+      "booleans": {
+       "pass": 1253,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 448,
+       "total": 448
+      },
+      "queries": {
+       "pass": 320,
+       "total": 320
+      },
+      "modify": {
+       "pass": 612,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 627,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 171,
+       "total": 171
+      },
+      "step": {
+       "pass": 130,
+       "total": 130
+      },
+      "parts": {
+       "pass": 56,
+       "total": 56
+      }
+     },
+     "median_ms": 11.8,
+     "wall_s": 56.6,
+     "threads": 14,
+     "machine": null,
+     "source": "run in the sandbox of bench/conformance",
+     "note": "adapter by the suite's maintainers; built and run offline in the sandbox; the cases that read NIST's STEP files (opt-in in the suite) were not run"
+    },
+    {
+     "kernel": "cadrs",
+     "version": "0.2.9",
+     "licence": "MIT OR Apache-2.0",
+     "link": "https://github.com/rvdende/cadrs",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "suite_version": "2.0.1",
+     "suite_commit": "659116f00a28c9769aaf51576f2e44c1889ffca3",
+     "date": "2026-11-23",
+     "cases": 3650,
+     "pass": 3648,
+     "per_category": {
+      "booleans": {
+       "pass": 1253,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 448,
+       "total": 448
+      },
+      "queries": {
+       "pass": 320,
+       "total": 320
+      },
+      "modify": {
+       "pass": 612,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 627,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 171,
+       "total": 171
+      },
+      "step": {
+       "pass": 161,
+       "total": 163
+      },
+      "parts": {
+       "pass": 56,
+       "total": 56
+      }
+     },
+     "median_ms": 20.6,
+     "wall_s": 173.8,
+     "threads": 24,
+     "machine": "Intel(R) Xeon(R) Platinum 8488C",
+     "source": "https://cdn.springcraft.ai/brep-conformance/reports/45083601338-1/",
+     "note": "run 45083601338-1, complete: True, verified: True"
+    },
+    {
+     "kernel": "kentron",
+     "version": "0.19.3",
+     "licence": "AGPL-3.0-or-later AND BSD-3-Clause AND MIT",
+     "link": "https://github.com/rsz269/kentron",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "suite_version": "2.0.1",
+     "suite_commit": "5cba95bf55b4bf9be3be78ade373f47675ef95bb",
+     "date": "2026-11-23",
+     "cases": 3650,
+     "pass": 3400,
+     "per_category": {
+      "booleans": {
+       "pass": 1183,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 410,
+       "total": 448
+      },
+      "queries": {
+       "pass": 316,
+       "total": 320
+      },
+      "modify": {
+       "pass": 535,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 582,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 171,
+       "total": 171
+      },
+      "step": {
+       "pass": 148,
+       "total": 163
+      },
+      "parts": {
+       "pass": 55,
+       "total": 56
+      }
+     },
+     "median_ms": 30.2,
+     "wall_s": 224.7,
+     "threads": 24,
+     "machine": "Intel(R) Xeon(R) Platinum 8488C",
+     "source": "https://cdn.springcraft.ai/brep-conformance/reports/45204786615-1/",
+     "note": "run 45204786615-1, complete: True, verified: True"
+    },
+    {
+     "kernel": "opencascade",
+     "version": "8.0.1.1.0",
+     "licence": "LGPL-2.1-only WITH OCCT-exception-1.0",
+     "link": "https://github.com/Open-Cascade-SAS/OCCT",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "suite_version": "2.0.1",
+     "suite_commit": "659116f00a28c9769aaf51576f2e44c1889ffca3",
+     "date": "2026-11-23",
+     "cases": 3650,
+     "pass": 2933,
+     "per_category": {
+      "booleans": {
+       "pass": 1192,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 279,
+       "total": 448
+      },
+      "queries": {
+       "pass": 270,
+       "total": 320
+      },
+      "modify": {
+       "pass": 421,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 418,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 171,
+       "total": 171
+      },
+      "step": {
+       "pass": 142,
+       "total": 163
+      },
+      "parts": {
+       "pass": 40,
+       "total": 56
+      }
+     },
+     "median_ms": 56.0,
+     "wall_s": 795.8,
+     "threads": 24,
+     "machine": "Intel(R) Xeon(R) Platinum 8488C",
+     "source": "https://cdn.springcraft.ai/brep-conformance/reports/45083601338-1/",
+     "note": "run 45083601338-1, complete: True, verified: True"
+    },
+    {
+     "kernel": "next.BREP",
+     "version": "0.24.0",
+     "licence": "LicenseRef-Autodrop3d",
+     "link": "https://github.com/mmiscool/next.BREP.io_RUST_BREP_KERNEL",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "suite_version": "2.0.1",
+     "suite_commit": "659116f00a28c9769aaf51576f2e44c1889ffca3",
+     "date": "2026-11-23",
+     "cases": 3650,
+     "pass": 2345,
+     "per_category": {
+      "booleans": {
+       "pass": 995,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 300,
+       "total": 448
+      },
+      "queries": {
+       "pass": 60,
+       "total": 320
+      },
+      "modify": {
+       "pass": 344,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 343,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 129,
+       "total": 171
+      },
+      "step": {
+       "pass": 140,
+       "total": 163
+      },
+      "parts": {
+       "pass": 34,
+       "total": 56
+      }
+     },
+     "median_ms": 107.5,
+     "wall_s": 420.0,
+     "threads": 24,
+     "machine": "Intel(R) Xeon(R) Platinum 8488C",
+     "source": "https://cdn.springcraft.ai/brep-conformance/reports/45083601338-1/",
+     "note": "run 45083601338-1, complete: True, verified: True"
+    },
+    {
+     "kernel": "arris",
+     "version": "0.10.0",
+     "licence": "MIT OR Apache-2.0",
+     "link": "https://github.com/arris-labs/arris",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "suite_version": "2.0.1",
+     "suite_commit": "659116f00a28c9769aaf51576f2e44c1889ffca3",
+     "date": "2026-11-23",
+     "cases": 3650,
+     "pass": 2182,
+     "per_category": {
+      "booleans": {
+       "pass": 962,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 223,
+       "total": 448
+      },
+      "queries": {
+       "pass": 213,
+       "total": 320
+      },
+      "modify": {
+       "pass": 184,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 328,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 115,
+       "total": 171
+      },
+      "step": {
+       "pass": 128,
+       "total": 163
+      },
+      "parts": {
+       "pass": 29,
+       "total": 56
+      }
+     },
+     "median_ms": 127.7,
+     "wall_s": 1048.1,
+     "threads": 24,
+     "machine": "Intel(R) Xeon(R) Platinum 8488C",
+     "source": "https://cdn.springcraft.ai/brep-conformance/reports/45083601338-1/",
+     "note": "run 45083601338-1, complete: True, verified: True"
+    },
+    {
+     "kernel": "cad-kernel",
+     "version": "0.17.0",
+     "licence": "MIT OR Apache-2.0",
+     "link": "https://github.com/bmander/geomsolver",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "suite_version": "2.0.1",
+     "suite_commit": "659116f00a28c9769aaf51576f2e44c1889ffca3",
+     "date": "2026-11-23",
+     "cases": 3650,
+     "pass": 2009,
+     "per_category": {
+      "booleans": {
+       "pass": 1165,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 194,
+       "total": 448
+      },
+      "queries": {
+       "pass": 53,
+       "total": 320
+      },
+      "modify": {
+       "pass": 347,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 220,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 0,
+       "total": 171
+      },
+      "step": {
+       "pass": 0,
+       "total": 163
+      },
+      "parts": {
+       "pass": 30,
+       "total": 56
+      }
+     },
+     "median_ms": 50.7,
+     "wall_s": 164.1,
+     "threads": 24,
+     "machine": "Intel(R) Xeon(R) Platinum 8488C",
+     "source": "https://cdn.springcraft.ai/brep-conformance/reports/45083601338-1/",
+     "note": "run 45083601338-1, complete: True, verified: True"
+    },
+    {
+     "kernel": "solidcore",
+     "version": "1.0.1",
+     "licence": "Apache-2.0",
+     "link": "https://github.com/tangency-labs/solidcore",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "suite_version": "2.0.1",
+     "suite_commit": "659116f00a28c9769aaf51576f2e44c1889ffca3",
+     "date": "2026-11-23",
+     "cases": 3650,
+     "pass": 1727,
+     "per_category": {
+      "booleans": {
+       "pass": 958,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 267,
+       "total": 448
+      },
+      "queries": {
+       "pass": 60,
+       "total": 320
+      },
+      "modify": {
+       "pass": 54,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 359,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 0,
+       "total": 171
+      },
+      "step": {
+       "pass": 0,
+       "total": 163
+      },
+      "parts": {
+       "pass": 29,
+       "total": 56
+      }
+     },
+     "median_ms": 1933.6,
+     "wall_s": 970.7,
+     "threads": 24,
+     "machine": "Intel(R) Xeon(R) Platinum 8488C",
+     "source": "https://cdn.springcraft.ai/brep-conformance/reports/45083601338-1/",
+     "note": "run 45083601338-1, complete: True, verified: True"
+    },
+    {
+     "kernel": "anvil-brep",
+     "version": "0.2.0",
+     "licence": "MIT OR Apache-2.0",
+     "link": "https://github.com/swperb/anvilcad",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "suite_version": "2.0.1",
+     "suite_commit": "dc7ac9ed1e588978767a45306f098f6f512f8bba",
+     "date": "2026-11-23",
+     "cases": 3650,
+     "pass": 1346,
+     "per_category": {
+      "booleans": {
+       "pass": 811,
+       "total": 1253
+      },
+      "constructions": {
+       "pass": 128,
+       "total": 448
+      },
+      "queries": {
+       "pass": 0,
+       "total": 320
+      },
+      "modify": {
+       "pass": 184,
+       "total": 612
+      },
+      "fillets": {
+       "pass": 118,
+       "total": 627
+      },
+      "chamfers": {
+       "pass": 96,
+       "total": 171
+      },
+      "step": {
+       "pass": 0,
+       "total": 163
+      },
+      "parts": {
+       "pass": 9,
+       "total": 56
+      }
+     },
+     "median_ms": 881.8,
+     "wall_s": 404.0,
+     "threads": 24,
+     "machine": "Intel(R) Xeon(R) Platinum 8488C",
+     "source": "https://cdn.springcraft.ai/brep-conformance/reports/45259371420-1/",
+     "note": "run 45259371420-1, complete: True, verified: True"
+    }
+   ],
+   "source": "https://github.com/springcraft-ai/brep-conformance",
+   "metric": "cases passed at 1e-7 mm, by category",
+   "categories": [
+    "booleans",
+    "constructions",
+    "queries",
+    "modify",
+    "fillets",
+    "chamfers",
+    "step",
+    "parts"
+   ]
+  },
+  {
+   "id": "boolean-bench",
+   "title": "The boolean bench",
+   "rows": [
+    {
+     "kernel": "shapecraft",
+     "version": "450425c + uncommitted changes",
+     "licence": "MIT OR Apache-2.0",
+     "link": "https://github.com/geop-cad/ShapeCraft",
+     "origin": "run here",
+     "scored_by": "self",
+     "date": "2026-11-25",
+     "cases": 1917,
+     "refused": 12,
+     "wrong": 3,
+     "crashed": 0,
+     "per_category": {
+      "box": {
+       "pass": 80,
+       "total": 80,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 1.12
+      },
+      "brep-boolean": {
+       "pass": 22,
+       "total": 22,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 3.88
+      },
+      "brep-chamfer": {
+       "pass": 8,
+       "total": 8,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 16.42
+      },
+      "brep-draft": {
+       "pass": 13,
+       "total": 13,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 12.76
+      },
+      "brep-edit": {
+       "pass": 4,
+       "total": 4,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 1.82
+      },
+      "brep-feature": {
+       "pass": 4,
+       "total": 4,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 22.66
+      },
+      "brep-fillet": {
+       "pass": 12,
+       "total": 12,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 3.99
+      },
+      "brep-geometry": {
+       "pass": 20,
+       "total": 20,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 0.447
+      },
+      "brep-loft": {
+       "pass": 6,
+       "total": 6,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 9.68
+      },
+      "brep-nurbs": {
+       "pass": 7,
+       "total": 7,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 10.34
+      },
+      "brep-offset": {
+       "pass": 14,
+       "total": 14,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 127.21
+      },
+      "brep-parts": {
+       "pass": 7,
+       "total": 7,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 1.61
+      },
+      "brep-primitives": {
+       "pass": 8,
+       "total": 8,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 0.515
+      },
+      "brep-shell": {
+       "pass": 31,
+       "total": 31,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 13.82
+      },
+      "brep-singular": {
+       "pass": 8,
+       "total": 8,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 23.41
+      },
+      "brep-spline": {
+       "pass": 7,
+       "total": 7,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 1.51
+      },
+      "brep-sweep": {
+       "pass": 11,
+       "total": 11,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 12.05
+      },
+      "brep-swept": {
+       "pass": 6,
+       "total": 6,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 60.46
+      },
+      "brep-tangent": {
+       "pass": 28,
+       "total": 28,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 15.98
+      },
+      "brep-thicken": {
+       "pass": 20,
+       "total": 20,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 2.74
+      },
+      "chain": {
+       "pass": 7,
+       "total": 7,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 7.62
+      },
+      "coincident": {
+       "pass": 52,
+       "total": 52,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 1.26
+      },
+      "cylinder": {
+       "pass": 85,
+       "total": 85,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 2.2
+      },
+      "features": {
+       "pass": 15,
+       "total": 15,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 1.83
+      },
+      "nearmiss": {
+       "pass": 135,
+       "total": 135,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 1.02
+      },
+      "random": {
+       "pass": 80,
+       "total": 80,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 34.73
+      },
+      "sphere": {
+       "pass": 92,
+       "total": 92,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 6.78
+      },
+      "step": {
+       "pass": 280,
+       "total": 280,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 185.44
+      },
+      "step-conformance": {
+       "pass": 105,
+       "total": 108,
+       "refused": 0,
+       "wrong": 3,
+       "crashed": 0,
+       "median_ms": 64.86
+      },
+      "step-import": {
+       "pass": 663,
+       "total": 675,
+       "refused": 12,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 12.37
+      },
+      "tangent": {
+       "pass": 40,
+       "total": 40,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 2.84
+      },
+      "turned": {
+       "pass": 32,
+       "total": 32,
+       "refused": 0,
+       "wrong": 0,
+       "crashed": 0,
+       "median_ms": 10.02
+      }
+     },
+     "wall_s": 23.6,
+     "machine": "AMD Ryzen 9 7950X, 16 cores / 32 threads, 124 GB, Ubuntu 22.04, Linux 6.8; shared with other jobs (load average 6 to 28)",
+     "note": "",
+     "pass": 1902
+    }
+   ],
+   "source": "https://github.com/geop-cad/ShapeCraft/tree/main/bench/boolean",
+   "metric": "cases passed, refused, wrong or crashed"
+  },
+  {
+   "id": "step-conformance",
+   "title": "step-conformance",
+   "rows": [
+    {
+     "kernel": "shapecraft",
+     "version": "450425c + uncommitted changes",
+     "licence": "MIT OR Apache-2.0",
+     "link": "https://github.com/geop-cad/ShapeCraft",
+     "origin": "run here",
+     "scored_by": "self (ShapeCraft's port of the benchmark's rule, bench/boolean/src/conformance.rs; not the benchmark's scorer)",
+     "date": "2026-11-25",
+     "cases": 108,
+     "per_category": {
+      "shop parts": {
+       "pass": 28,
+       "total": 28
+      },
+      "freeform panel": {
+       "pass": 1,
+       "total": 4
+      },
+      "parts of known shape": {
+       "pass": 76,
+       "total": 76
+      }
+     },
+     "machine": "AMD Ryzen 9 7950X, 16 cores / 32 threads, 124 GB, Ubuntu 22.04, Linux 6.8; shared with other jobs (load average 6 to 28)",
+     "note": "the shop parts are compared with ShapeCraft's own fine mesh, since the benchmark's reference reader (OpenCascade) is not run here",
+     "pass": 105
+    },
+    {
+     "kernel": "ogeom",
+     "version": "0.11.5",
+     "licence": "MIT OR Apache-2.0",
+     "link": "https://github.com/gilbertorconde/ogeom-rs",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "date": "2026-11-22",
+     "cases": 108,
+     "per_category": {
+      "shop parts": {
+       "pass": 28,
+       "total": 28
+      },
+      "freeform panel": {
+       "pass": 3,
+       "total": 4
+      },
+      "parts of known shape": {
+       "pass": 76,
+       "total": 76
+      }
+     },
+     "pass": 107,
+     "machine": "Intel Core i7-12700KF, Windows (the benchmark's README)",
+     "source": "https://github.com/dan335/step-conformance/blob/3f6d18b/README.md",
+     "note": "results/RESULTS.md of step-conformance 61b6a87, run 2026-11-22"
+    },
+    {
+     "kernel": "opencascade",
+     "version": "opencascade-rs 0.3.0 with camcraft's patches, OCCT 7.8.1",
+     "licence": "LGPL-2.1-only WITH OCCT-exception-1.0",
+     "link": "https://github.com/Open-Cascade-SAS/OCCT",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "date": "2026-11-22",
+     "cases": 108,
+     "per_category": {
+      "shop parts": {
+       "pass": 28,
+       "total": 28
+      },
+      "freeform panel": {
+       "pass": 1,
+       "total": 4
+      },
+      "parts of known shape": {
+       "pass": 76,
+       "total": 76
+      }
+     },
+     "pass": 105,
+     "machine": "Intel Core i7-12700KF, Windows (the benchmark's README)",
+     "source": "https://github.com/dan335/step-conformance/blob/3f6d18b/README.md",
+     "note": "results/RESULTS.md of step-conformance 61b6a87, run 2026-11-22"
+    },
+    {
+     "kernel": "solidcraft",
+     "version": "c95c2bef4",
+     "licence": "",
+     "link": "https://github.com/tangency-labs/solidcraft",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "date": "2026-11-22",
+     "cases": 108,
+     "per_category": {
+      "shop parts": {
+       "pass": 28,
+       "total": 28
+      },
+      "freeform panel": {
+       "pass": 1,
+       "total": 4
+      },
+      "parts of known shape": {
+       "pass": 76,
+       "total": 76
+      }
+     },
+     "pass": 105,
+     "machine": "Intel Core i7-12700KF, Windows (the benchmark's README)",
+     "source": "https://github.com/dan335/step-conformance/blob/3f6d18b/README.md",
+     "note": "results/RESULTS.md of step-conformance 61b6a87, run 2026-11-22"
+    },
+    {
+     "kernel": "solidcraft, through cadmpeg",
+     "version": "c95c2bef4, cadmpeg 0.6.12",
+     "licence": "",
+     "link": "https://github.com/cadmpeg/cadmpeg",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "date": "2026-11-22",
+     "cases": 108,
+     "per_category": {
+      "shop parts": {
+       "pass": 28,
+       "total": 28
+      },
+      "freeform panel": {
+       "pass": 1,
+       "total": 4
+      },
+      "parts of known shape": {
+       "pass": 76,
+       "total": 76
+      }
+     },
+     "pass": 105,
+     "machine": "Intel Core i7-12700KF, Windows (the benchmark's README)",
+     "source": "https://github.com/dan335/step-conformance/blob/3f6d18b/README.md",
+     "note": "results/RESULTS.md of step-conformance 61b6a87, run 2026-11-22"
+    },
+    {
+     "kernel": "truck, master",
+     "version": "88ed005",
+     "licence": "",
+     "link": "https://github.com/ricosjp/truck",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "date": "2026-11-22",
+     "cases": 108,
+     "per_category": {
+      "shop parts": {
+       "pass": 23,
+       "total": 28
+      },
+      "freeform panel": {
+       "pass": 0,
+       "total": 4
+      },
+      "parts of known shape": {
+       "pass": 68,
+       "total": 76
+      }
+     },
+     "pass": 91,
+     "machine": "Intel Core i7-12700KF, Windows (the benchmark's README)",
+     "source": "https://github.com/dan335/step-conformance/blob/3f6d18b/README.md",
+     "note": "results/RESULTS.md of step-conformance 61b6a87, run 2026-11-22"
+    },
+    {
+     "kernel": "truck, released",
+     "version": "truck-stepio 0.3.0, truck-meshalgo 0.4.0",
+     "licence": "",
+     "link": "https://github.com/ricosjp/truck",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "date": "2026-11-22",
+     "cases": 108,
+     "per_category": {
+      "shop parts": {
+       "pass": 21,
+       "total": 28
+      },
+      "freeform panel": {
+       "pass": 0,
+       "total": 4
+      },
+      "parts of known shape": {
+       "pass": 60,
+       "total": 76
+      }
+     },
+     "pass": 81,
+     "machine": "Intel Core i7-12700KF, Windows (the benchmark's README)",
+     "source": "https://github.com/dan335/step-conformance/blob/3f6d18b/README.md",
+     "note": "results/RESULTS.md of step-conformance 61b6a87, run 2026-11-22"
+    },
+    {
+     "kernel": "brepkit",
+     "version": "4.1.49",
+     "licence": "",
+     "link": "https://github.com/andymai/brepkit",
+     "origin": "published",
+     "scored_by": "benchmark maintainers",
+     "date": "2026-11-22",
+     "cases": 108,
+     "per_category": {
+      "shop parts": {
+       "pass": 20,
+       "total": 28
+      },
+      "freeform panel": {
+       "pass": 0,
+       "total": 4
+      },
+      "parts of known shape": {
+       "pass": 30,
+       "total": 76
+      }
+     },
+     "pass": 50,
+     "machine": "Intel Core i7-12700KF, Windows (the benchmark's README)",
+     "source": "https://github.com/dan335/step-conformance/blob/3f6d18b/README.md",
+     "note": "results/RESULTS.md of step-conformance 61b6a87, run 2026-11-22"
+    }
+   ],
+   "source": "https://github.com/dan335/step-conformance",
+   "metric": "cells passed (27 parts at four tolerances), by kind of part",
+   "categories": [
+    "shop parts",
+    "freeform panel",
+    "parts of known shape"
+   ]
+  }
+ ]
+}

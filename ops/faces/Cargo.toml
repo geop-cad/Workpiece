@@ -1,0 +1,29 @@
+[package]
+name = "shapecraft-ops-faces"
+description = "Operations on faces of bodies: shell, draft, thicken, move, delete, emboss."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_ops_faces"
+
+[dependencies]
+anyhow.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-core.workspace = true
+shapecraft-shape.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+shapecraft-cad-rasterize.workspace = true
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-sketch.workspace = true
+shapecraft-ops-testing.workspace = true
+shapecraft-ops-sweep.workspace = true
+
+[lints]
+workspace = true

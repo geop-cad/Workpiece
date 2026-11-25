@@ -1,0 +1,39 @@
+[package]
+name = "shapecraft-cad-part"
+description = "Parts: programs of operations that build a world, and the workspace of them."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_cad_part"
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-core.workspace = true
+shapecraft-ops-drawing.workspace = true
+shapecraft-ops-mesh.workspace = true
+shapecraft-ops-appearance.workspace = true
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-datum.workspace = true
+shapecraft-ops-instances.workspace = true
+shapecraft-ops-sketch.workspace = true
+shapecraft-ops-annotate.workspace = true
+shapecraft-ops-standard.workspace = true
+shapecraft-ops-sheet-metal.workspace = true
+shapecraft-ops-surface.workspace = true
+shapecraft-ops-bodies.workspace = true
+shapecraft-ops-faces.workspace = true
+shapecraft-ops-features.workspace = true
+shapecraft-ops-sweep.workspace = true
+shapecraft-ops-blend.workspace = true
+shapecraft-ops-step.workspace = true
+
+[lints]
+workspace = true

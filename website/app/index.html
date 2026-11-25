@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ShapeCraft in the browser</title>
+<meta name="description" content="The ShapeCraft CAD application, running in the browser as WebAssembly. Files you open stay on your computer.">
+<link rel="icon" href="shapecraft.png">
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #f4f5f7; }
+  canvas#shapecraft { display: block; width: 100%; height: 100%; outline: none; }
+  .cover {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: 12px; font: 15px/1.5 system-ui, sans-serif; color: #33363d;
+    background: #f4f5f7; text-align: center; padding: 16px;
+  }
+  .cover p { margin: 0; max-width: 34em; }
+  .cover .weak { color: #6b707a; font-size: 13px; }
+  .spinner {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid #d5d8de; border-top-color: #3b6fd8; animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  #crashed { display: none; }
+  #crashed pre { max-width: 90vw; white-space: pre-wrap; font-size: 12px; color: #a12a2a; }
+  #crashed button { font: inherit; padding: 4px 14px; }
+</style>
+</head>
+<body>
+<canvas id="shapecraft"></canvas>
+<div id="loading" class="cover">
+  <div class="spinner"></div>
+  <p>Loading ShapeCraft…</p>
+  <p class="weak">The whole program runs in this page. Files you open stay on your computer; nothing is uploaded.</p>
+  <noscript><p>ShapeCraft needs JavaScript and WebAssembly.</p></noscript>
+</div>
+<div id="crashed" class="cover">
+  <p><strong>ShapeCraft stopped.</strong> Something broke that the page cannot recover from.
+  Parts you did not save are lost; reload the page to start again.</p>
+  <pre></pre>
+  <button onclick="location.reload()">Reload</button>
+</div>
+<script type="module">
+  import init from "./shapecraft.js";
+  init().catch((e) => {
+    const loading = document.getElementById("loading");
+    loading.innerHTML = "<p>ShapeCraft could not start in this browser: it needs WebAssembly and WebGL 2.</p>";
+    console.error(e);
+  });
+</script>
+</body>
+</html>

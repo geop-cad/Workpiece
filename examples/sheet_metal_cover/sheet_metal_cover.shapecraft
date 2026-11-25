@@ -1,0 +1,2105 @@
+{
+  "program": [
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "15": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 7,
+                  "axis": "U",
+                  "b": 8
+                }
+              }
+            },
+            "16": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 9,
+                  "axis": "U",
+                  "b": 10
+                }
+              }
+            },
+            "17": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 8,
+                  "axis": "V",
+                  "b": 9
+                }
+              }
+            },
+            "18": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 10,
+                  "axis": "V",
+                  "b": 7
+                }
+              }
+            },
+            "19": {
+              "dimension": null,
+              "kind": {
+                "Symmetric": {
+                  "a": 7,
+                  "b": 8,
+                  "line": 6
+                }
+              }
+            },
+            "20": {
+              "dimension": null,
+              "kind": {
+                "Symmetric": {
+                  "a": 8,
+                  "b": 9,
+                  "line": 4
+                }
+              }
+            },
+            "21": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  0.0,
+                  -50.0
+                ],
+                "tolerance": "General",
+                "value": 160.0
+              },
+              "kind": {
+                "DistanceAlong": {
+                  "a": 7,
+                  "axis": "U",
+                  "b": 8
+                }
+              }
+            },
+            "22": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  80.0,
+                  0.0
+                ],
+                "tolerance": "General",
+                "value": 100.0
+              },
+              "kind": {
+                "DistanceAlong": {
+                  "a": 8,
+                  "axis": "V",
+                  "b": 9
+                }
+              }
+            }
+          },
+          "entities": {
+            "11": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  7,
+                  8
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "12": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  8,
+                  9
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "13": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  9,
+                  10
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "14": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  10,
+                  7
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            }
+          },
+          "next": 22,
+          "plane": {
+            "FrameAxis": {
+              "axis": "Z",
+              "frame": "origin"
+            }
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "10": {
+              "at": [
+                -80.0,
+                50.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "7": {
+              "at": [
+                -80.0,
+                -50.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "8": {
+              "at": [
+                80.0,
+                -50.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "9": {
+              "at": [
+                80.0,
+                50.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            }
+          }
+        },
+        "id": "base_outline"
+      }
+    },
+    {
+      "Extrude": {
+        "args": {
+          "areas": [],
+          "caps": false,
+          "combine": "NewBody",
+          "distance": 1.5,
+          "extent": "Distance",
+          "flip": false,
+          "sketch": {
+            "Profile": "base_outline"
+          },
+          "surface": false,
+          "target": null,
+          "up_to": null
+        },
+        "id": "base"
+      }
+    },
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "20": {
+              "dimension": null,
+              "kind": {
+                "Tangent": {
+                  "a": 16,
+                  "b": 18,
+                  "internal": false
+                }
+              }
+            },
+            "21": {
+              "dimension": null,
+              "kind": {
+                "Tangent": {
+                  "a": 16,
+                  "b": 19,
+                  "internal": false
+                }
+              }
+            },
+            "22": {
+              "dimension": null,
+              "kind": {
+                "Tangent": {
+                  "a": 17,
+                  "b": 18,
+                  "internal": false
+                }
+              }
+            },
+            "23": {
+              "dimension": null,
+              "kind": {
+                "Tangent": {
+                  "a": 17,
+                  "b": 19,
+                  "internal": false
+                }
+              }
+            },
+            "24": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  -48.0,
+                  0.0
+                ],
+                "tolerance": "General",
+                "value": 45.0
+              },
+              "kind": {
+                "Distance": [
+                  14,
+                  15
+                ]
+              }
+            },
+            "25": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  -46.0,
+                  -20.5
+                ],
+                "tolerance": "General",
+                "value": 2.5
+              },
+              "kind": {
+                "Size": 18
+              }
+            },
+            "26": {
+              "dimension": null,
+              "kind": {
+                "Equal": [
+                  18,
+                  19
+                ]
+              }
+            },
+            "27": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 14,
+                  "axis": "V",
+                  "b": 15
+                }
+              }
+            },
+            "28": {
+              "dimension": null,
+              "kind": {
+                "Symmetric": {
+                  "a": 14,
+                  "b": 15,
+                  "line": 4
+                }
+              }
+            },
+            "29": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  -48.0,
+                  -22.5
+                ],
+                "tolerance": "General",
+                "value": 32.0
+              },
+              "kind": {
+                "PointLine": {
+                  "line": 9,
+                  "point": 14
+                }
+              }
+            }
+          },
+          "entities": {
+            "16": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  10,
+                  11
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "17": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  12,
+                  13
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "18": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Arc": {
+                  "center": 14,
+                  "end": 12,
+                  "start": 10
+                }
+              },
+              "tolerance": 1e-7
+            },
+            "19": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Arc": {
+                  "center": 15,
+                  "end": 11,
+                  "start": 13
+                }
+              },
+              "tolerance": 1e-7
+            },
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "9": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": {
+                "Topology": "base/end/e14"
+              },
+              "section": false,
+              "shape": {
+                "Line": [
+                  7,
+                  8
+                ]
+              },
+              "tolerance": 1.0188679622641132e-7
+            }
+          },
+          "next": 29,
+          "plane": {
+            "Topology": "base/end"
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "10": {
+              "at": [
+                -50.5,
+                -22.5
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "11": {
+              "at": [
+                -50.5,
+                22.5
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "12": {
+              "at": [
+                -45.5,
+                -22.5
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "13": {
+              "at": [
+                -45.5,
+                22.5
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "14": {
+              "at": [
+                -48.0,
+                -22.5
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "15": {
+              "at": [
+                -48.0,
+                22.5
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "7": {
+              "at": [
+                -80.0,
+                50.0
+              ],
+              "fixed": true,
+              "tolerance": 1.0188679622641132e-7
+            },
+            "8": {
+              "at": [
+                -80.0,
+                -50.0
+              ],
+              "fixed": true,
+              "tolerance": 1.0188679622641132e-7
+            }
+          }
+        },
+        "id": "vent"
+      }
+    },
+    {
+      "Extrude": {
+        "args": {
+          "areas": [],
+          "caps": false,
+          "combine": "Cut",
+          "distance": 10.0,
+          "extent": "ThroughAll",
+          "flip": false,
+          "sketch": {
+            "Profile": "vent"
+          },
+          "surface": false,
+          "target": null,
+          "up_to": null
+        },
+        "id": "slot"
+      }
+    },
+    {
+      "FeaturePattern": {
+        "args": {
+          "along": "Line",
+          "angle": 360.0,
+          "axis": {
+            "FrameAxis": {
+              "axis": "X",
+              "frame": "origin"
+            }
+          },
+          "count": 7,
+          "features": [
+            {
+              "Topology": "slot/side/e18"
+            }
+          ],
+          "sketch": null,
+          "spacing": 16.0,
+          "upright": false
+        },
+        "id": "vents"
+      }
+    },
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "21": {
+              "dimension": null,
+              "kind": {
+                "Symmetric": {
+                  "a": 13,
+                  "b": 14,
+                  "line": 6
+                }
+              }
+            },
+            "22": {
+              "dimension": null,
+              "kind": {
+                "Symmetric": {
+                  "a": 14,
+                  "b": 15,
+                  "line": 4
+                }
+              }
+            },
+            "23": {
+              "dimension": null,
+              "kind": {
+                "Symmetric": {
+                  "a": 15,
+                  "b": 16,
+                  "line": 6
+                }
+              }
+            },
+            "24": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  60.0,
+                  30.0
+                ],
+                "tolerance": "General",
+                "value": 20.0
+              },
+              "kind": {
+                "PointLine": {
+                  "line": 9,
+                  "point": 13
+                }
+              }
+            },
+            "25": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  60.0,
+                  30.0
+                ],
+                "tolerance": "General",
+                "value": 20.0
+              },
+              "kind": {
+                "PointLine": {
+                  "line": 12,
+                  "point": 13
+                }
+              }
+            }
+          },
+          "entities": {
+            "12": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": {
+                "Topology": "base/end/e13"
+              },
+              "section": false,
+              "shape": {
+                "Line": [
+                  10,
+                  11
+                ]
+              },
+              "tolerance": 1.0188679622641132e-7
+            },
+            "17": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 13
+              },
+              "tolerance": 1e-7
+            },
+            "18": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 14
+              },
+              "tolerance": 1e-7
+            },
+            "19": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 15
+              },
+              "tolerance": 1e-7
+            },
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "20": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 16
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "9": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": {
+                "Topology": "base/end/e12"
+              },
+              "section": false,
+              "shape": {
+                "Line": [
+                  7,
+                  8
+                ]
+              },
+              "tolerance": 1.0188679622641132e-7
+            }
+          },
+          "next": 25,
+          "plane": {
+            "Topology": "base/end"
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "10": {
+              "at": [
+                80.0,
+                50.0
+              ],
+              "fixed": true,
+              "tolerance": 1.0188679622641132e-7
+            },
+            "11": {
+              "at": [
+                -80.0,
+                50.0
+              ],
+              "fixed": true,
+              "tolerance": 1.0188679622641132e-7
+            },
+            "13": {
+              "at": [
+                60.0,
+                30.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "14": {
+              "at": [
+                -60.0,
+                30.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "15": {
+              "at": [
+                -60.0,
+                -30.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "16": {
+              "at": [
+                60.0,
+                -30.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "7": {
+              "at": [
+                80.0,
+                -50.0
+              ],
+              "fixed": true,
+              "tolerance": 1.0188679622641132e-7
+            },
+            "8": {
+              "at": [
+                80.0,
+                50.0
+              ],
+              "fixed": true,
+              "tolerance": 1.0188679622641132e-7
+            }
+          }
+        },
+        "id": "holes"
+      }
+    },
+    {
+      "Hole": {
+        "args": {
+          "angle": 0.0,
+          "axis": null,
+          "chamfer": 0.5,
+          "chamfer_angle": 90.0,
+          "class": null,
+          "clearance": "Medium",
+          "deburr": "None",
+          "depth": 10.0,
+          "diameter": 4.5,
+          "extent": "ThroughAll",
+          "face": null,
+          "fine": null,
+          "first": null,
+          "first_offset": 10.0,
+          "flip": false,
+          "head": 11.0,
+          "head_angle": 90.0,
+          "head_depth": 6.4,
+          "head_extent": "Distance",
+          "head_offset": 0.0,
+          "head_up_to": null,
+          "hexagon": false,
+          "kind": "Simple",
+          "modelled": false,
+          "offset": 0.0,
+          "pitch": 1.0,
+          "place": "Sketch",
+          "point": 118.0,
+          "radius": 10.0,
+          "second": null,
+          "second_offset": 10.0,
+          "size": null,
+          "sketch": {
+            "Profile": "holes"
+          },
+          "slotted": false,
+          "target": null,
+          "up_to": null
+        },
+        "id": "mount"
+      }
+    },
+    {
+      "Flange": {
+        "args": {
+          "angle": 90.0,
+          "edge": {
+            "Topology": "base/end/e11"
+          },
+          "flip": false,
+          "length": 40.0,
+          "radius": 2.0,
+          "thickness": 1.5
+        },
+        "id": "side1"
+      }
+    },
+    {
+      "Flange": {
+        "args": {
+          "angle": 90.0,
+          "edge": {
+            "Topology": "base/end/e13"
+          },
+          "flip": false,
+          "length": 40.0,
+          "radius": 2.0,
+          "thickness": 1.5
+        },
+        "id": "side2"
+      }
+    },
+    {
+      "Flange": {
+        "args": {
+          "angle": 90.0,
+          "edge": {
+            "Topology": "side1/along/v4"
+          },
+          "flip": false,
+          "length": 12.0,
+          "radius": 2.0,
+          "thickness": 1.5
+        },
+        "id": "lip1"
+      }
+    },
+    {
+      "Flange": {
+        "args": {
+          "angle": 90.0,
+          "edge": {
+            "Topology": "side2/along/v4"
+          },
+          "flip": false,
+          "length": 12.0,
+          "radius": 2.0,
+          "thickness": 1.5
+        },
+        "id": "lip2"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Topology": "base/start/e11"
+            },
+            {
+              "Topology": "lip1/side/e2"
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "overall_height"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Topology": "side1/side/e2"
+            },
+            {
+              "Topology": "side2/side/e2"
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "overall_width"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Topology": "lip2/side/e3"
+            },
+            {
+              "Topology": "side2/side/e2"
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "lip_width"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Radius",
+          "of": [
+            {
+              "Topology": "side2/side/e5"
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "bend"
+      }
+    },
+    {
+      "Drawing": {
+        "args": {
+          "block": [
+            {
+              "at": [
+                0.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Projection"
+              },
+              "height": 2.5,
+              "label": "Projection",
+              "size": [
+                26.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                26.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Scale"
+              },
+              "height": 3.5,
+              "label": "Scale",
+              "size": [
+                22.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                36.0
+              ],
+              "content": {
+                "Text": "ISO 2768-mK"
+              },
+              "height": 3.5,
+              "label": "General tolerances",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Material"
+              },
+              "height": 3.5,
+              "label": "Material",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Mass"
+              },
+              "height": 3.5,
+              "label": "Mass",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Responsible dept.",
+              "size": [
+                48.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Technical reference",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Document type"
+              },
+              "height": 3.5,
+              "label": "Document type",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Status"
+              },
+              "height": 2.5,
+              "label": "Document status",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 3.5,
+              "label": "Legal owner",
+              "size": [
+                48.0,
+                27.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                13.5
+              ],
+              "content": {
+                "Property": "Author"
+              },
+              "height": 3.5,
+              "label": "Created by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Approved by"
+              },
+              "height": 3.5,
+              "label": "Approved by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Title"
+              },
+              "height": 5.0,
+              "label": "Title",
+              "size": [
+                52.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Part number"
+              },
+              "height": 3.5,
+              "label": "Identification number",
+              "size": [
+                28.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Revision"
+              },
+              "height": 3.5,
+              "label": "Rev.",
+              "size": [
+                13.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                113.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Date"
+              },
+              "height": 3.5,
+              "label": "Date of issue",
+              "size": [
+                27.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                140.0,
+                0.0
+              ],
+              "content": {
+                "Text": "en"
+              },
+              "height": 3.5,
+              "label": "Lang.",
+              "size": [
+                12.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Format"
+              },
+              "height": 3.5,
+              "label": "Size",
+              "size": [
+                14.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                166.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Sheet"
+              },
+              "height": 3.5,
+              "label": "Sheet",
+              "size": [
+                14.0,
+                9.0
+              ]
+            }
+          ],
+          "centres": "All",
+          "drafting": {
+            "letter": 3.5,
+            "past": 3.0,
+            "small": 12.0,
+            "wide": null
+          },
+          "format": "A3",
+          "name": "drawing",
+          "notes": [
+            {
+              "at": [
+                -70.5,
+                -22.750000000000007
+              ],
+              "note": "base/distance",
+              "view": "front"
+            },
+            {
+              "at": [
+                -63.500000000000014,
+                0.0
+              ],
+              "note": "base_outline/d21",
+              "view": "top"
+            },
+            {
+              "at": [
+                0.0,
+                -90.00000000000001
+              ],
+              "note": "base_outline/d22",
+              "view": "top"
+            },
+            {
+              "at": [
+                62.99867367239361,
+                -25.199469468957467
+              ],
+              "note": "bend",
+              "view": "front"
+            },
+            {
+              "at": [
+                63.5,
+                -70.0
+              ],
+              "note": "holes/d24",
+              "view": "top"
+            },
+            {
+              "at": [
+                40.0,
+                -97.00000000000001
+              ],
+              "note": "holes/d25",
+              "view": "top"
+            },
+            {
+              "at": [
+                45.75,
+                -33.50000000000001
+              ],
+              "note": "lip_width",
+              "view": "front"
+            },
+            {
+              "at": [
+                57.40685424949237,
+                -87.40685424949238
+              ],
+              "note": "mount/callout",
+              "view": "top"
+            },
+            {
+              "at": [
+                -64.0,
+                0.0
+              ],
+              "note": "overall_height",
+              "view": "front"
+            },
+            {
+              "at": [
+                2.842170943040401e-14,
+                -40.50000000000001
+              ],
+              "note": "overall_width",
+              "view": "front"
+            },
+            {
+              "at": [
+                0.0,
+                90.0
+              ],
+              "note": "vent/d24",
+              "view": "top"
+            },
+            {
+              "at": [
+                -28.65429120534543,
+                61.1291545714036
+              ],
+              "note": "vent/d25",
+              "view": "top"
+            },
+            {
+              "at": [
+                -70.50000000000001,
+                64.0
+              ],
+              "note": "vent/d29",
+              "view": "top"
+            },
+            {
+              "at": [
+                63.5,
+                40.0
+              ],
+              "note": "vents/spacing",
+              "view": "top"
+            }
+          ],
+          "numbers": {
+            "bare": false,
+            "decimals": null,
+            "point": false
+          },
+          "own": [],
+          "parts_columns": [],
+          "projection": "ThirdAngle",
+          "scale": [
+            1,
+            1
+          ],
+          "spacing": {
+            "gap": 1.0,
+            "pitch": 8.0
+          },
+          "tangent_edges": "Thin",
+          "template": "ISO A3",
+          "upright": false,
+          "views": [
+            {
+              "at": [
+                125.0,
+                190.0
+              ],
+              "id": "top",
+              "kind": {
+                "Base": {
+                  "side": "Top"
+                }
+              },
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                125.0,
+                65.0
+              ],
+              "id": "front",
+              "kind": {
+                "Projected": {
+                  "beside": "Below",
+                  "of": "top"
+                }
+              },
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                320.0,
+                200.0
+              ],
+              "id": "iso",
+              "kind": {
+                "Base": {
+                  "side": "Isometric"
+                }
+              },
+              "scale": [
+                1,
+                2
+              ],
+              "style": "HiddenRemoved"
+            }
+          ]
+        },
+        "id": "drawing"
+      }
+    },
+    {
+      "Unfold": {
+        "args": {
+          "face": {
+            "Topology": "base/end"
+          },
+          "k": 0.44,
+          "thickness": 1.5
+        },
+        "id": "flat"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Topology": "thick/s0/f0/side3"
+            },
+            {
+              "Topology": "thick/s0/f0/side3#2"
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "developed"
+      }
+    },
+    {
+      "Drawing": {
+        "args": {
+          "block": [
+            {
+              "at": [
+                0.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Projection"
+              },
+              "height": 2.5,
+              "label": "Projection",
+              "size": [
+                26.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                26.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Scale"
+              },
+              "height": 3.5,
+              "label": "Scale",
+              "size": [
+                22.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                36.0
+              ],
+              "content": {
+                "Text": "ISO 2768-mK"
+              },
+              "height": 3.5,
+              "label": "General tolerances",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Material"
+              },
+              "height": 3.5,
+              "label": "Material",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Mass"
+              },
+              "height": 3.5,
+              "label": "Mass",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Responsible dept.",
+              "size": [
+                48.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Technical reference",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Document type"
+              },
+              "height": 3.5,
+              "label": "Document type",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Status"
+              },
+              "height": 2.5,
+              "label": "Document status",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 3.5,
+              "label": "Legal owner",
+              "size": [
+                48.0,
+                27.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                13.5
+              ],
+              "content": {
+                "Property": "Author"
+              },
+              "height": 3.5,
+              "label": "Created by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Approved by"
+              },
+              "height": 3.5,
+              "label": "Approved by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Title"
+              },
+              "height": 5.0,
+              "label": "Title",
+              "size": [
+                52.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Part number"
+              },
+              "height": 3.5,
+              "label": "Identification number",
+              "size": [
+                28.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Revision"
+              },
+              "height": 3.5,
+              "label": "Rev.",
+              "size": [
+                13.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                113.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Date"
+              },
+              "height": 3.5,
+              "label": "Date of issue",
+              "size": [
+                27.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                140.0,
+                0.0
+              ],
+              "content": {
+                "Text": "en"
+              },
+              "height": 3.5,
+              "label": "Lang.",
+              "size": [
+                12.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Format"
+              },
+              "height": 3.5,
+              "label": "Size",
+              "size": [
+                14.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                166.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Sheet"
+              },
+              "height": 3.5,
+              "label": "Sheet",
+              "size": [
+                14.0,
+                9.0
+              ]
+            }
+          ],
+          "centres": "All",
+          "drafting": {
+            "letter": 3.5,
+            "past": 3.0,
+            "small": 12.0,
+            "wide": null
+          },
+          "format": "A3",
+          "lines": [
+            {
+              "label": "UP 90° R2",
+              "label_at": "start",
+              "of": {
+                "Datum": "flat/bend1"
+              },
+              "view": "top"
+            },
+            {
+              "label": "UP 90° R2",
+              "label_at": "end",
+              "of": {
+                "Datum": "flat/bend2"
+              },
+              "view": "top"
+            },
+            {
+              "label": "UP 90° R2",
+              "label_at": "start",
+              "of": {
+                "Datum": "flat/bend3"
+              },
+              "view": "top"
+            },
+            {
+              "label": "UP 90° R2",
+              "label_at": "end",
+              "of": {
+                "Datum": "flat/bend4"
+              },
+              "view": "top"
+            }
+          ],
+          "name": "flat_pattern",
+          "notes": [
+            {
+              "at": [
+                -120.35663645854888,
+                0.0
+              ],
+              "note": "base_outline/d21",
+              "view": "top"
+            },
+            {
+              "at": [
+                0.0,
+                -90.0
+              ],
+              "note": "base_outline/d22",
+              "view": "top"
+            },
+            {
+              "at": [
+                0.0,
+                112.0
+              ],
+              "decimals": 1,
+              "note": "developed",
+              "view": "top"
+            }
+          ],
+          "numbers": {
+            "bare": false,
+            "decimals": null,
+            "point": false
+          },
+          "own": [],
+          "parts_columns": [],
+          "projection": "ThirdAngle",
+          "scale": [
+            1,
+            1
+          ],
+          "spacing": {
+            "gap": 1.0,
+            "pitch": 8.0
+          },
+          "tangent_edges": "Thin",
+          "template": "ISO A3",
+          "upright": false,
+          "views": [
+            {
+              "at": [
+                150.0,
+                165.0
+              ],
+              "bodies": [
+                "flat"
+              ],
+              "id": "top",
+              "kind": {
+                "Base": {
+                  "side": "Top"
+                }
+              },
+              "style": "HiddenRemoved"
+            }
+          ],
+          "words": [
+            {
+              "at": [
+                0.0,
+                -125.0
+              ],
+              "height": 3.5,
+              "text": "FLAT PATTERN  K = 0,44  SHEET 1,5 THICK",
+              "view": "top"
+            }
+          ]
+        },
+        "id": "flat_pattern"
+      }
+    },
+    {
+      "DeleteBody": {
+        "args": {
+          "bodies": [
+            {
+              "Topology": "flat"
+            }
+          ]
+        },
+        "id": "flat_gone"
+      }
+    }
+  ],
+  "material": "Steel",
+  "properties": {
+    "Title": "VENTED COVER"
+  }
+}

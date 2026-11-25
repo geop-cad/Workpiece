@@ -1,0 +1,207 @@
+name: Wheels
+
+# Builds the two programs for every platform, and a Python wheel around each (the PyPI
+# distribution `shapecraft-cad`, import name `shapecraft`), plus an sdist that builds from
+# source with cargo. Runs by hand (Actions > Wheels > Run workflow) and is called by release.yml
+# on a tag, which packs the archives from the programs built here.
+#
+# Artifacts: bin-<platform> (the programs), wheel-<platform>, sdist.
+# Nothing is published here: publish-pypi.yml does that, by hand.
+
+on:
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Which to build (any of linux, windows, macos, sdist; macOS minutes cost ten times)"
+        default: "linux,windows,macos,sdist"
+  workflow_call:
+    inputs:
+      platforms:
+        type: string
+        default: "linux,windows,macos,sdist"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  linux:
+    name: Linux x86_64 (manylinux_2_28)
+    if: contains(inputs.platforms || 'linux,windows,macos,sdist', 'linux')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            target
+            .cargo-home/registry
+          key: manylinux-${{ hashFiles('Cargo.lock') }}
+          restore-keys: manylinux-
+      # Built inside the manylinux_2_28 image (glibc 2.28), so the programs start on any
+      # distribution from 2018 on. The build needs only a C compiler; the window and OpenGL
+      # libraries are loaded when the app runs.
+      - name: Build the programs
+        run: |
+          docker run --rm -v "$PWD":/io -w /io \
+            -e CARGO_HOME=/io/.cargo-home -e RUSTUP_HOME=/tmp/rustup \
+            -e RUSTFLAGS="--remap-path-prefix=/io=/src --remap-path-prefix=/io/.cargo-home=/cargo" \
+            quay.io/pypa/manylinux_2_28_x86_64 bash -ec '
+              curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+              . /io/.cargo-home/env
+              cargo build --release --locked -p shapecraft-cli -p shapecraft-app'
+      - name: Check the glibc the programs need
+        run: |
+          for f in shapecraft shapecraft-app; do
+            need=$(objdump -T target/release/$f | grep -o 'GLIBC_[0-9.]*' | sort -Vu | tail -1)
+            echo "$f needs $need"
+            test "$(printf '%s\n' "$need" GLIBC_2.28 | sort -V | tail -1)" = GLIBC_2.28
+          done
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the wheel
+        env:
+          SHAPECRAFT_PREBUILT: ${{ github.workspace }}/target/release
+          SHAPECRAFT_WHEEL_PLAT: manylinux_2_28_x86_64
+        run: |
+          python -m pip install build
+          python -m build --wheel --outdir dist python
+      - name: Install the wheel and build a part with it
+        run: python scripts/smoke_wheel.py dist/*.whl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-linux-x86_64
+          path: |
+            target/release/shapecraft
+            target/release/shapecraft-app
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-linux-x86_64
+          path: dist/*.whl
+          if-no-files-found: error
+
+  windows:
+    name: Windows x86_64
+    if: contains(inputs.platforms || 'linux,windows,macos,sdist', 'windows')
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the programs
+        shell: bash
+        env:
+          RUSTFLAGS: --remap-path-prefix=${{ github.workspace }}=/src
+        run: cargo build --release --locked -p shapecraft-cli -p shapecraft-app
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the wheel
+        shell: bash
+        env:
+          SHAPECRAFT_PREBUILT: ${{ github.workspace }}/target/release
+          SHAPECRAFT_WHEEL_PLAT: win_amd64
+        run: |
+          python -m pip install build
+          python -m build --wheel --outdir dist python
+      - name: Install the wheel and build a part with it
+        shell: bash
+        run: python scripts/smoke_wheel.py dist/*.whl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-windows-x86_64
+          path: |
+            target/release/shapecraft.exe
+            target/release/shapecraft-app.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-windows-x86_64
+          path: dist/*.whl
+          if-no-files-found: error
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    if: contains(inputs.platforms || 'linux,windows,macos,sdist', 'macos')
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Each is built on a Mac of its own kind (macos-14 and macos-13 are no longer offered).
+          - { arch: arm64, runner: macos-15, target: aarch64-apple-darwin, deployment: "11.0", plat: macosx_11_0_arm64 }
+          - { arch: x86_64, runner: macos-15-intel, target: x86_64-apple-darwin, deployment: "10.13", plat: macosx_10_13_x86_64 }
+    env:
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.deployment }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Build the programs
+        env:
+          RUSTFLAGS: --remap-path-prefix=${{ github.workspace }}=/src
+        run: cargo build --release --locked --target ${{ matrix.target }} -p shapecraft-cli -p shapecraft-app
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the wheel
+        env:
+          SHAPECRAFT_PREBUILT: ${{ github.workspace }}/target/${{ matrix.target }}/release
+          SHAPECRAFT_WHEEL_PLAT: ${{ matrix.plat }}
+        run: |
+          python -m pip install build
+          python -m build --wheel --outdir dist python
+      - name: Install the wheel and build a part with it
+        run: python scripts/smoke_wheel.py dist/*.whl
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bin-macos-${{ matrix.arch }}
+          path: |
+            target/${{ matrix.target }}/release/shapecraft
+            target/${{ matrix.target }}/release/shapecraft-app
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-macos-${{ matrix.arch }}
+          path: dist/*.whl
+          if-no-files-found: error
+
+  sdist:
+    name: Source distribution
+    if: contains(inputs.platforms || 'linux,windows,macos,sdist', 'sdist')
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the sdist
+        run: |
+          python -m pip install build
+          python -m build --sdist --outdir dist python
+          ls -l dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+          if-no-files-found: error
+      # What a user without a wheel gets: pip builds the programs with cargo from the sdist.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "/tmp/sdist-build/*/rust -> target"
+      - name: Build a wheel from the sdist and try it
+        run: |
+          mkdir /tmp/sdist-build /tmp/wheelhouse
+          tar xzf dist/*.tar.gz -C /tmp/sdist-build
+          python -m pip wheel --no-deps --wheel-dir /tmp/wheelhouse /tmp/sdist-build/*/
+          python scripts/smoke_wheel.py /tmp/wheelhouse/*.whl

@@ -1,0 +1,12 @@
+{
+  "site_url": "https://geop-cad.github.io/ShapeCraft/",
+  "repository": "https://github.com/geop-cad/ShapeCraft",
+  "branch": "main",
+  "released": false,
+  "downloads": [
+    {"label": "Linux", "detail": "x86_64, .tar.gz", "file": "shapecraft-{version}-linux-x86_64.tar.gz"},
+    {"label": "macOS", "detail": "Apple silicon, .dmg", "file": "ShapeCraft-{version}-macos-arm64.dmg"},
+    {"label": "macOS", "detail": "Intel, .dmg", "file": "ShapeCraft-{version}-macos-x86_64.dmg"},
+    {"label": "Windows", "detail": "x86_64, .zip", "file": "shapecraft-{version}-windows-x86_64.zip"}
+  ]
+}

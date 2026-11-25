@@ -1,0 +1,86 @@
+[package]
+name = "shapecraft-app"
+description = "The desktop application: the cad-ui view drawn with egui, and the viewport with OpenGL (WebGL on the web)."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "shapecraft-app"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+bytemuck = "1.25.2"
+glam.workspace = true
+shapecraft-core.workspace = true
+shapecraft-ops-drawing.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-ops-step.workspace = true
+shapecraft-cad-part.workspace = true
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-datum.workspace = true
+shapecraft-ops-blend.workspace = true
+shapecraft-ops-bodies.workspace = true
+shapecraft-shape.workspace = true
+shapecraft-ops-instances.workspace = true
+shapecraft-ops-sketch.workspace = true
+shapecraft-cad-rasterize.workspace = true
+shapecraft-cad-ui.workspace = true
+shapecraft-ops-appearance.workspace = true
+shapecraft-render.workspace = true
+# Pictures are saved as PNG files.
+png = "0.18.1"
+# The glow renderer: OpenGL on desktop, WebGL in the browser.
+eframe = { workspace = true, features = [
+    "glow",
+    "default_fonts",
+    "accesskit",
+    "wayland",
+    "x11",
+] }
+# SVG icons.
+egui_extras = { version = "0.36.2", default-features = false, features = ["svg"] }
+# `Instant` that also works in a browser (on desktop it is std's).
+web-time = "1.1.0"
+
+# In the browser (see `src/web.rs`): the page, its files and its storage.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+serde.workspace = true
+wasm-bindgen = "0.2.130"
+wasm-bindgen-futures = "0.4.80"
+js-sys = "0.3.107"
+web-sys = { version = "0.3.107", features = [
+    "Blob",
+    "BlobPropertyBag",
+    "console",
+    "Document",
+    "Element",
+    "File",
+    "FileList",
+    "HtmlAnchorElement",
+    "HtmlCanvasElement",
+    "HtmlElement",
+    "HtmlInputElement",
+    "Location",
+    "Performance",
+    "Request",
+    "Response",
+    "Storage",
+    "Url",
+    "UrlSearchParams",
+    "Window",
+] }
+
+[target.'cfg(windows)'.build-dependencies]
+winresource = "0.1"
+
+# The workspace's lints, except that unsafe code is denied rather than
+# forbidden: OpenGL calls are unsafe, and the renderer module allows them.
+[lints.rust]
+unsafe_code = "deny"
+missing_docs = "warn"

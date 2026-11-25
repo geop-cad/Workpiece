@@ -1,0 +1,176 @@
+{
+  "program": [
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": "Fixed",
+            "distance": null,
+            "flip": false
+          },
+          "part": "plate.shapecraft",
+          "variant": null
+        },
+        "id": "plate"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": "Fixed",
+            "distance": null,
+            "flip": false
+          },
+          "part": "pin.shapecraft",
+          "variant": null
+        },
+        "id": "pin1"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": "Fixed",
+            "distance": null,
+            "flip": false
+          },
+          "part": "pin.shapecraft",
+          "variant": null
+        },
+        "id": "pin2"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Fastened"
+            },
+            "distance": null,
+            "flip": true,
+            "onto": {
+              "instance": [
+                "plate"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "plate/end"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "pin/start"
+              }
+            }
+          },
+          "part": "pin.shapecraft",
+          "variant": null
+        },
+        "id": "pin3"
+      }
+    },
+    {
+      "AddPart": {
+        "args": {
+          "bodies": [],
+          "hold": {
+            "angle": null,
+            "constraint": {
+              "Joint": "Fastened"
+            },
+            "distance": null,
+            "flip": true,
+            "offset": [
+              12.0,
+              8.0,
+              0.0
+            ],
+            "onto": {
+              "instance": [
+                "plate"
+              ],
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "plate/end"
+              }
+            },
+            "with": {
+              "snap": "FaceCentre",
+              "source": {
+                "Topology": "pin/start"
+              }
+            }
+          },
+          "part": "pin.shapecraft",
+          "variant": null
+        },
+        "id": "pin4"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Auto",
+          "of": [
+            {
+              "Placed": {
+                "instance": "plate",
+                "source": {
+                  "Topology": "plate/end"
+                }
+              }
+            },
+            {
+              "Placed": {
+                "instance": "pin4",
+                "source": {
+                  "Topology": "pin/end"
+                }
+              }
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "pin4_height"
+      }
+    }
+  ],
+  "cache": {
+    "pin1/pose": [
+      -20.0,
+      0.0,
+      -5.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ],
+    "pin2/pose": [
+      20.0,
+      0.0,
+      -5.0,
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  }
+}

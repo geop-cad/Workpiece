@@ -1,0 +1,25 @@
+[package]
+name = "shapecraft-ops-annotate"
+description = "What is said of the model on it: datum features, dimensions and geometric tolerances."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "shapecraft_ops_annotate"
+
+[dependencies]
+anyhow.workspace = true
+shapecraft-boolean.workspace = true
+shapecraft-core.workspace = true
+shapecraft-shape.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+shapecraft-ops-basic-shapes.workspace = true
+shapecraft-ops-testing.workspace = true
+
+[lints]
+workspace = true

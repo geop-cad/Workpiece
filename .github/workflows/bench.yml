@@ -1,0 +1,101 @@
+name: Benchmarks
+
+# Runs ShapeCraft's own rows of the benchmarks in docs/benchmarks (brep-conformance and the
+# boolean bench with its STEP files) and uploads docs/benchmarks/results.json, regenerated from
+# the run, as an artifact. Other kernels are not run here: their rows in results.json are the
+# ones their benchmark's maintainers published, copied by hand (docs/benchmarks/README.md).
+#
+# Manual, and weekly. The runner is a shared virtual machine: its times are not comparable with
+# the ones in the document, which says what machine those were measured on.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 4 * * 1"
+
+env:
+  CARGO_TERM_COLOR: always
+  # The suite's commit the official 2.0.1 run was made on (springcraft-ai/brep-conformance).
+  SUITE_COMMIT: dc7ac9ed1e588978767a45306f098f6f512f8bba
+
+permissions:
+  contents: read
+
+jobs:
+  brep-conformance:
+    name: brep-conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build ShapeCraft's adapter
+        run: bench/conformance/build.sh
+      - name: Fetch and build the suite at its pinned commit
+        # The suite is third-party code: it runs here with no secrets and a read-only token.
+        run: |
+          git clone --quiet https://github.com/springcraft-ai/brep-conformance "$RUNNER_TEMP/suite"
+          git -C "$RUNNER_TEMP/suite" checkout --quiet "$SUITE_COMMIT"
+          rm -f "$RUNNER_TEMP/suite/rust-toolchain.toml"
+          cargo build --release --locked --manifest-path "$RUNNER_TEMP/suite/Cargo.toml" -p brep-conformance
+      - name: Run the suite on ShapeCraft
+        run: |
+          mkdir -p out
+          "$RUNNER_TEMP/suite/target/release/brep-conformance" \
+            --adapter target/conformance/release/shapecraft-adapter \
+            --threads "$(nproc)" --out out/conformance.json --html out/conformance.html \
+            > out/conformance.log 2>&1
+          tail -n 25 out/conformance.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brep-conformance
+          path: out/
+          retention-days: 90
+
+  boolean-bench:
+    name: Boolean bench and STEP conformance
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: cargo build --release -p shapecraft-boolean-bench
+      - name: Fetch the datasets (pinned by SHA-256 in bench/boolean/datasets.tsv)
+        run: target/release/boolean-bench fetch
+      - name: Run
+        run: |
+          mkdir -p out
+          # Exit status 1 means a case is worse than bench/boolean/baseline.tsv; the numbers are kept either way.
+          target/release/boolean-bench | tee out/boolean.log || echo "worse than the baseline" >&2
+          cp target/bench-results/boolean.tsv out/boolean.tsv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: boolean-bench
+          path: out/
+          retention-days: 90
+
+  results:
+    name: results.json
+    needs: [brep-conformance, boolean-bench]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: runs
+      - name: Regenerate results.json
+        run: |
+          python3 -I docs/benchmarks/update_results.py \
+            --conformance runs/brep-conformance/conformance.json \
+            --boolean-log runs/boolean-bench/boolean.log \
+            --boolean-tsv runs/boolean-bench/boolean.tsv \
+            --machine "GitHub-hosted ubuntu-latest runner (shared virtual machine)" \
+            --commit "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: results.json
+          path: docs/benchmarks/results.json
+          retention-days: 90

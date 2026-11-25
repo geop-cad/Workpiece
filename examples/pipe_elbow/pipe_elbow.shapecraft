@@ -1,0 +1,1325 @@
+{
+  "program": [
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "10": {
+              "dimension": {
+                "diameter": true,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  20.0,
+                  20.0
+                ],
+                "tolerance": "General",
+                "value": 50.0
+              },
+              "kind": {
+                "Size": 7
+              }
+            },
+            "9": {
+              "dimension": {
+                "diameter": true,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  24.0,
+                  24.0
+                ],
+                "tolerance": "General",
+                "value": 60.0
+              },
+              "kind": {
+                "Size": 8
+              }
+            }
+          },
+          "entities": {
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "7": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Circle": {
+                  "center": 1,
+                  "radius": 25.0
+                }
+              },
+              "tolerance": 1e-7
+            },
+            "8": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Circle": {
+                  "center": 1,
+                  "radius": 30.0
+                }
+              },
+              "tolerance": 1e-7
+            }
+          },
+          "next": 10,
+          "plane": {
+            "FrameAxis": {
+              "axis": "Z",
+              "frame": "origin"
+            }
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            }
+          }
+        },
+        "id": "section"
+      }
+    },
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "10": {
+              "dimension": null,
+              "kind": {
+                "PointOn": {
+                  "entity": 6,
+                  "point": 7
+                }
+              }
+            },
+            "11": {
+              "dimension": null,
+              "kind": {
+                "Along": {
+                  "a": 7,
+                  "axis": "U",
+                  "b": 8
+                }
+              }
+            },
+            "12": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  80.0,
+                  180.0
+                ],
+                "tolerance": "General",
+                "value": 100.0
+              },
+              "kind": {
+                "Size": 9
+              }
+            }
+          },
+          "entities": {
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "9": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Arc": {
+                  "center": 7,
+                  "end": 8,
+                  "start": 1
+                }
+              },
+              "tolerance": 1e-7
+            }
+          },
+          "next": 12,
+          "plane": {
+            "FrameAxis": {
+              "axis": "Y",
+              "frame": "origin"
+            }
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "7": {
+              "at": [
+                0.0,
+                100.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            },
+            "8": {
+              "at": [
+                100.0,
+                100.0
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            }
+          }
+        },
+        "id": "bend"
+      }
+    },
+    {
+      "SweptLoft": {
+        "args": {
+          "coil": null,
+          "combine": "NewBody",
+          "left": false,
+          "path": {
+            "Profile": "bend"
+          },
+          "pitch": 1.0,
+          "scale": 1.0,
+          "sections": [
+            {
+              "Profile": "section"
+            }
+          ],
+          "surface": false,
+          "target": null,
+          "turns": 3.0,
+          "twist": 0.0
+        },
+        "id": "pipe"
+      }
+    },
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "13": {
+              "dimension": {
+                "diameter": true,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  52.0,
+                  52.0
+                ],
+                "tolerance": "General",
+                "value": 130.0
+              },
+              "kind": {
+                "Size": 12
+              }
+            },
+            "14": {
+              "dimension": null,
+              "kind": {
+                "Equal": [
+                  11,
+                  10
+                ]
+              }
+            }
+          },
+          "entities": {
+            "10": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": {
+                "Topology": "pipe/run0/start/e0"
+              },
+              "section": false,
+              "shape": {
+                "Arc": {
+                  "center": 7,
+                  "end": 9,
+                  "start": 8
+                }
+              },
+              "tolerance": 2.41904238758242e-7
+            },
+            "11": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Circle": {
+                  "center": 1,
+                  "radius": 25.0
+                }
+              },
+              "tolerance": 1e-7
+            },
+            "12": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Circle": {
+                  "center": 1,
+                  "radius": 65.0
+                }
+              },
+              "tolerance": 1e-7
+            },
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            }
+          },
+          "next": 14,
+          "plane": {
+            "FrameAxis": {
+              "axis": "Z",
+              "frame": "origin"
+            }
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "7": {
+              "at": [
+                -1.0658141036401503e-14,
+                1.1442481555676655e-14
+              ],
+              "fixed": true,
+              "tolerance": 2.41904238758242e-7
+            },
+            "8": {
+              "at": [
+                -4.592425496802574e-15,
+                -25.0
+              ],
+              "fixed": true,
+              "tolerance": 2.41904238758242e-7
+            },
+            "9": {
+              "at": [
+                25.0,
+                -6.123233995736766e-15
+              ],
+              "fixed": true,
+              "tolerance": 2.41904238758242e-7
+            }
+          }
+        },
+        "id": "flange_outline"
+      }
+    },
+    {
+      "Extrude": {
+        "args": {
+          "areas": [],
+          "caps": false,
+          "combine": "Join",
+          "distance": 12.0,
+          "extent": "Distance",
+          "flip": true,
+          "sketch": {
+            "Profile": "flange_outline"
+          },
+          "surface": false,
+          "target": null,
+          "up_to": null
+        },
+        "id": "flange"
+      }
+    },
+    {
+      "Sketch": {
+        "args": {
+          "constraints": {
+            "11": {
+              "dimension": {
+                "diameter": true,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  40.0,
+                  40.0
+                ],
+                "tolerance": "General",
+                "value": 100.0
+              },
+              "kind": {
+                "Size": 9
+              }
+            },
+            "12": {
+              "dimension": null,
+              "kind": {
+                "PointOn": {
+                  "entity": 9,
+                  "point": 7
+                }
+              }
+            },
+            "13": {
+              "dimension": {
+                "diameter": false,
+                "driven": false,
+                "formula": null,
+                "label": [
+                  0.46193976625564337,
+                  0.1913417161825449
+                ],
+                "tolerance": "General",
+                "value": 45.0
+              },
+              "kind": {
+                "Angle": [
+                  4,
+                  8
+                ]
+              }
+            }
+          },
+          "entities": {
+            "10": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 7
+              },
+              "tolerance": 1e-7
+            },
+            "2": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 1
+              },
+              "tolerance": 1e-7
+            },
+            "4": {
+              "auto": false,
+              "axis": "U",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  3
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "6": {
+              "auto": false,
+              "axis": "V",
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  5
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "8": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Line": [
+                  1,
+                  7
+                ]
+              },
+              "tolerance": 1e-7
+            },
+            "9": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Circle": {
+                  "center": 1,
+                  "radius": 50.0
+                }
+              },
+              "tolerance": 1e-7
+            }
+          },
+          "next": 13,
+          "plane": {
+            "Topology": "flange/end"
+          },
+          "points": {
+            "1": {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "3": {
+              "at": [
+                1.0,
+                0.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "5": {
+              "at": [
+                0.0,
+                1.0
+              ],
+              "fixed": true,
+              "tolerance": 1e-7
+            },
+            "7": {
+              "at": [
+                35.35533905932738,
+                35.35533905932738
+              ],
+              "fixed": false,
+              "tolerance": 1e-7
+            }
+          }
+        },
+        "id": "bolt_place"
+      }
+    },
+    {
+      "Hole": {
+        "args": {
+          "angle": 0.0,
+          "axis": null,
+          "chamfer": 0.5,
+          "chamfer_angle": 90.0,
+          "class": null,
+          "clearance": "Medium",
+          "deburr": "None",
+          "depth": 10.0,
+          "diameter": 14.0,
+          "extent": "ToNext",
+          "face": null,
+          "fine": null,
+          "first": null,
+          "first_offset": 10.0,
+          "flip": false,
+          "head": 11.0,
+          "head_angle": 90.0,
+          "head_depth": 6.4,
+          "head_extent": "Distance",
+          "head_offset": 0.0,
+          "head_up_to": null,
+          "hexagon": false,
+          "kind": "Simple",
+          "modelled": false,
+          "offset": 0.0,
+          "pitch": 1.0,
+          "place": "Sketch",
+          "point": 118.0,
+          "radius": 10.0,
+          "second": null,
+          "second_offset": 10.0,
+          "size": null,
+          "sketch": {
+            "Profile": "bolt_place"
+          },
+          "slotted": false,
+          "target": null,
+          "up_to": null
+        },
+        "id": "bolt"
+      }
+    },
+    {
+      "FeaturePattern": {
+        "args": {
+          "along": "Circle",
+          "angle": 360.0,
+          "axis": {
+            "FrameAxis": {
+              "axis": "Z",
+              "frame": "origin"
+            }
+          },
+          "count": 4,
+          "features": [
+            {
+              "Topology": "bolt/side/e1"
+            }
+          ],
+          "sketch": null,
+          "spacing": 10.0,
+          "upright": false
+        },
+        "id": "bolts"
+      }
+    },
+    {
+      "AddPlane": {
+        "args": {
+          "angle": 45.0,
+          "distance": 100.0,
+          "mode": "Offset",
+          "other": false,
+          "references": [
+            {
+              "FrameAxis": {
+                "axis": "X",
+                "frame": "origin"
+              }
+            }
+          ]
+        },
+        "id": "end_plane"
+      }
+    },
+    {
+      "AddPlane": {
+        "args": {
+          "angle": 45.0,
+          "distance": 1.0,
+          "mode": "Midplane",
+          "other": true,
+          "references": [
+            {
+              "FrameAxis": {
+                "axis": "Z",
+                "frame": "origin"
+              }
+            },
+            {
+              "Datum": "end_plane"
+            }
+          ]
+        },
+        "id": "bisector"
+      }
+    },
+    {
+      "FeatureMirror": {
+        "args": {
+          "features": [
+            {
+              "Topology": "flange/side/e12"
+            },
+            {
+              "Topology": "bolt/side/e1"
+            },
+            {
+              "Topology": "bolts/1/bolt/side/e1"
+            },
+            {
+              "Topology": "bolts/2/bolt/side/e1"
+            },
+            {
+              "Topology": "bolts/3/bolt/side/e1"
+            }
+          ],
+          "plane": {
+            "Datum": "bisector"
+          }
+        },
+        "id": "flange2"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Diameter",
+          "of": [
+            {
+              "Topology": "pipe/l1/run0/side/e1"
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "outside"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Diameter",
+          "of": [
+            {
+              "Topology": "pipe/run0/side/e1"
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": "General"
+        },
+        "id": "inside"
+      }
+    },
+    {
+      "Section": {
+        "args": {
+          "along": "Plane",
+          "flip": false,
+          "offset": 0.0,
+          "plane": {
+            "FrameAxis": {
+              "axis": "Y",
+              "frame": "origin"
+            }
+          },
+          "sketch": null
+        },
+        "id": "A"
+      }
+    },
+    {
+      "Drawing": {
+        "args": {
+          "block": [
+            {
+              "at": [
+                0.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Projection"
+              },
+              "height": 2.5,
+              "label": "Projection",
+              "size": [
+                26.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                26.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Scale"
+              },
+              "height": 3.5,
+              "label": "Scale",
+              "size": [
+                22.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                36.0
+              ],
+              "content": {
+                "Text": "ISO 2768-mK"
+              },
+              "height": 3.5,
+              "label": "General tolerances",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Material"
+              },
+              "height": 3.5,
+              "label": "Material",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                36.0
+              ],
+              "content": {
+                "Property": "Mass"
+              },
+              "height": 3.5,
+              "label": "Mass",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Responsible dept.",
+              "size": [
+                48.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                27.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 2.5,
+              "label": "Technical reference",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Document type"
+              },
+              "height": 3.5,
+              "label": "Document type",
+              "size": [
+                52.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                27.0
+              ],
+              "content": {
+                "Property": "Status"
+              },
+              "height": 2.5,
+              "label": "Document status",
+              "size": [
+                28.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "content": {
+                "Text": ""
+              },
+              "height": 3.5,
+              "label": "Legal owner",
+              "size": [
+                48.0,
+                27.0
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                13.5
+              ],
+              "content": {
+                "Property": "Author"
+              },
+              "height": 3.5,
+              "label": "Created by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                48.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Approved by"
+              },
+              "height": 3.5,
+              "label": "Approved by",
+              "size": [
+                52.0,
+                13.5
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Title"
+              },
+              "height": 5.0,
+              "label": "Title",
+              "size": [
+                52.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                9.0
+              ],
+              "content": {
+                "Property": "Part number"
+              },
+              "height": 3.5,
+              "label": "Identification number",
+              "size": [
+                28.0,
+                18.0
+              ]
+            },
+            {
+              "at": [
+                100.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Revision"
+              },
+              "height": 3.5,
+              "label": "Rev.",
+              "size": [
+                13.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                113.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Date"
+              },
+              "height": 3.5,
+              "label": "Date of issue",
+              "size": [
+                27.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                140.0,
+                0.0
+              ],
+              "content": {
+                "Text": "en"
+              },
+              "height": 3.5,
+              "label": "Lang.",
+              "size": [
+                12.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                152.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Format"
+              },
+              "height": 3.5,
+              "label": "Size",
+              "size": [
+                14.0,
+                9.0
+              ]
+            },
+            {
+              "at": [
+                166.0,
+                0.0
+              ],
+              "content": {
+                "Property": "Sheet"
+              },
+              "height": 3.5,
+              "label": "Sheet",
+              "size": [
+                14.0,
+                9.0
+              ]
+            }
+          ],
+          "centres": "All",
+          "drafting": {
+            "letter": 3.5,
+            "past": 3.0,
+            "small": 12.0,
+            "wide": null
+          },
+          "format": "A2",
+          "lines": [
+            {
+              "of": {
+                "Path": "bend"
+              },
+              "view": null
+            }
+          ],
+          "name": "drawing",
+          "notes": [
+            {
+              "at": [
+                -30.0,
+                -40.0
+              ],
+              "note": "bend/d12",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -94.1568542494924,
+                70.6526774050804
+              ],
+              "note": "bolt/callout",
+              "view": "bottom"
+            },
+            {
+              "at": [
+                43.84062043356596,
+                -67.34479727797793
+              ],
+              "note": "bolt_place/d11",
+              "view": "bottom"
+            },
+            {
+              "at": [
+                -7.653668647301799,
+                -5.026586194186251
+              ],
+              "note": "bolt_place/d13",
+              "view": "bottom"
+            },
+            {
+              "at": [
+                98.50417684441203,
+                -82.49582315558803
+              ],
+              "note": "flange/distance",
+              "view": "secA"
+            },
+            {
+              "at": [
+                54.447222151364144,
+                -77.95139899577615
+              ],
+              "note": "flange_outline/d13",
+              "view": "bottom"
+            },
+            {
+              "at": [
+                -20.0,
+                40.0
+              ],
+              "note": "inside",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -40.0,
+                60.0
+              ],
+              "note": "outside",
+              "view": "secA"
+            }
+          ],
+          "numbers": {
+            "bare": false,
+            "decimals": null,
+            "point": false
+          },
+          "own": [],
+          "parts_columns": [],
+          "projection": "ThirdAngle",
+          "scale": [
+            1,
+            1
+          ],
+          "spacing": {
+            "gap": 1.0,
+            "pitch": 8.0
+          },
+          "tangent_edges": "Thin",
+          "template": "ISO A3",
+          "upright": false,
+          "views": [
+            {
+              "at": [
+                210.0,
+                105.0
+              ],
+              "id": "bottom",
+              "kind": {
+                "Base": {
+                  "side": "Bottom"
+                }
+              },
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                210.0,
+                305.0
+              ],
+              "id": "secA",
+              "kind": {
+                "Section": {
+                  "letter": "A",
+                  "of": "bottom",
+                  "section": "A",
+                  "turn": 0.0
+                }
+              },
+              "style": "HiddenRemoved"
+            },
+            {
+              "at": [
+                460.0,
+                290.0
+              ],
+              "id": "iso",
+              "kind": {
+                "Base": {
+                  "side": "IsometricFrontLeft"
+                }
+              },
+              "style": "HiddenRemoved"
+            }
+          ]
+        },
+        "id": "drawing"
+      }
+    }
+  ],
+  "material": "Stainless steel",
+  "properties": {
+    "Title": "ELBOW 90° DN50"
+  }
+}

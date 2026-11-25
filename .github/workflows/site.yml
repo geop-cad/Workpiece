@@ -1,0 +1,86 @@
+name: Site
+
+# Builds the documentation book, the landing page, the examples and the
+# application for the browser (at app/), and publishes them with GitHub
+# Pages. The build job runs on every push to main (and by hand), so the
+# site is checked even on a private repository; the deploy job runs only
+# when the repository is public, because Pages is not available on a
+# private one.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  # Where the site is served from. Not decided yet: this is a placeholder.
+  # For a custom domain: set SITE_URL to it (for example https://shapecraft.example/),
+  # put the bare domain name in a file website/CNAME (assemble.sh copies it into the
+  # site), and set the domain in the repository's Pages settings.
+  # The path of this URL is where the book's pages expect to be ("/ShapeCraft/docs/");
+  # book.toml's site-url is the value for building the book by hand.
+  SITE_URL: https://geop-cad.github.io/ShapeCraft/
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build the site
+    runs-on: ubuntu-latest
+    # (The application for the browser is one large crate linked as one unit:
+    # a cold build takes a while.)
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: mdbook@0.5.2
+      # The application for the browser (website/app/build.sh), served at app/.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: web
+      - name: Install wasm-bindgen (of the version Cargo.lock has) and wasm-opt
+        run: |
+          version=$(sed -n '/^name = "wasm-bindgen"$/{n;s/^version = "\(.*\)"$/\1/p;}' Cargo.lock)
+          echo "WASM_BINDGEN_VERSION=$version" >> "$GITHUB_ENV"
+          binaryen=version_131
+          curl -sSfL "https://github.com/WebAssembly/binaryen/releases/download/$binaryen/binaryen-$binaryen-x86_64-linux.tar.gz" | tar -xz -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/binaryen-$binaryen/bin" >> "$GITHUB_PATH"
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@${{ env.WASM_BINDGEN_VERSION }}
+      - name: Build the application for the browser
+        run: website/app/build.sh
+      - name: Assemble website, screenshots, book, examples and application
+        run: |
+          path=$(python3 -c "import sys, urllib.parse as u; print(u.urlparse(sys.argv[1]).path.rstrip('/') + '/')" "$SITE_URL")
+          export MDBOOK_OUTPUT__HTML__SITE_URL="${path}docs/"
+          website/assemble.sh _site
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    # Pages needs a public repository (or a plan that has Pages for private ones).
+    if: github.event.repository.visibility == 'public'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - id: deployment
+        uses: actions/deploy-pages@v4

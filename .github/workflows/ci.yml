@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Format, lints, tests (Linux)
+    runs-on: ubuntu-latest
+    # The tests took 46 s with a warm build cache on a developer machine;
+    # a cold build of the dependencies and the workspace takes much longer.
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      # The build needs only a C compiler, which the runner has. The app's window
+      # and OpenGL libraries are loaded when it runs, not when it is built or tested.
+      - uses: Swatinem/rust-cache@v2
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: The Python layer builds a part
+        run: |
+          cargo build --release --locked -p shapecraft-cli
+          PYTHONPATH=python python3 agent/examples/flange.py /tmp/flange.shapecraft
+
+  build:
+    name: Builds (${{ matrix.os }})
+    needs: check
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        # macOS minutes cost ten times a Linux minute, so the whole workspace is only
+        # compiled there (no tests); release.yml builds and packs both for real.
+        os: [windows-latest, macos-15]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile the programs
+        run: cargo build --release --locked -p shapecraft-app -p shapecraft-cli
+      - name: Run the command line
+        shell: bash
+        run: |
+          ext=""; [ "${{ runner.os }}" = Windows ] && ext=.exe
+          target/release/shapecraft$ext --version
+          target/release/shapecraft-app$ext --version
