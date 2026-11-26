@@ -1436,7 +1436,6 @@ impl SheetPanel {
 
     /// Selecting, dragging and deleting.
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::too_many_arguments)]
     fn select(
         &mut self,
         response: &egui::Response,
