@@ -28,3 +28,7 @@ __pycache__/
 node_modules/
 /_site/
 /site/
+
+# local secrets
+.env
+.env.*
