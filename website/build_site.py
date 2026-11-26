@@ -69,11 +69,14 @@ def pretty(path):
     return path[:-5] if path.endswith(".html") else path
 
 
+# The community's chat (the invite does not expire).
+DISCORD = "https://discord.gg/btRDgrcwJ5"
+
 def page(title, description, body, root="", path="", extra_head="", script="", base=False, statistics=True):
     """One page. `root` is the way back to the site's top ('' or '../'); `path` its place under SITE_URL."""
     canonical = SITE_URL + pretty(path)
     nav = "".join(f'<a href="{root}{h}">{t}</a>' for t, h in NAV)
-    nav += f'<a href="{root}docs/">Documentation</a><a href="{GH}">GitHub</a>'
+    nav += f'<a href="{root}docs/">Documentation</a><a href="{GH}">GitHub</a><a href="{DISCORD}">Discord</a>'
     base_tag = f'<base href="{SITE_URL}">' if base else ""
     return f"""<!doctype html>
 <html lang="en">
@@ -125,7 +128,7 @@ def footer(root=""):
     <p><strong>{NAME}</strong> is licensed under <a href="{BLOB}/LICENSE-MIT">MIT</a> or
     <a href="{BLOB}/LICENSE-APACHE">Apache-2.0</a>, at your option.</p>
     <p class="links"><a href="{GH}">Repository</a> <a href="{root}docs/">Documentation</a>
-    <a href="{BLOB}/CONTRIBUTING.md">Contributing</a> <a href="{GH}/issues">Issues</a>
+    <a href="{BLOB}/CONTRIBUTING.md">Contributing</a> <a href="{GH}/issues">Issues</a> <a href="{DISCORD}">Discord</a>
     <a href="{BLOB}/CHANGELOG.md">Changelog</a> <a href="{root}privacy.html">Privacy</a>
     <a href="{root}licenses.html">Licences</a></p>
     <p class="small">Open CASCADE, KiCad, FreeCAD, STEP and other names belong to their owners; they are
@@ -385,10 +388,10 @@ def brep_section():
     head = "".join(f'<th scope="col">{c}<br>{ref[c]["total"]}</th>' for c in cats)
     trs = []
     # Best first: by the share of cases passed (the "all" column), ties by the number passed, then by
-    # the categories' shares in the table's order, then by name.
+    # the categories' shares in the table's order; on a full tie Workpiece comes first, then by name.
     def rank(r):
         share = [-(r["per_category"][c]["pass"] / r["per_category"][c]["total"]) for c in cats]
-        return (-(r["pass"] / r["cases"]), -r["pass"], *share, r["kernel"].lower())
+        return (-(r["pass"] / r["cases"]), -r["pass"], *share, r is not sc, r["kernel"].lower())
     for r in sorted(others + [sc], key=rank):
         mine = r is sc
         name = f'<a href="{e(r["link"])}">{e(r["kernel"] if r["kernel"] != "workpiece" else "Workpiece")}</a>'
@@ -648,8 +651,9 @@ p.build("plate.wpc")
 
 def home():
     ex_note = ""
-    wasm = OUT / "app" / "workpiece_bg.wasm"
-    size = f" The first start downloads the program (about {wasm.stat().st_size / 1e6:.0f} MB before compression)." if wasm.exists() else ""
+    # (app/build.sh names it by its contents: workpiece_bg-<hash>.wasm.)
+    wasm = next((OUT / "app").glob("workpiece_bg-*.wasm"), None)
+    size = f" The first start downloads the program (about {wasm.stat().st_size / 1e6:.0f} MB before compression)." if wasm else ""
     body = f"""<section class="hero">
   <div class="wrap">
     <div class="hero-text">
@@ -939,7 +943,7 @@ def licenses():
 
   <h2>Fonts in the application</h2>
   <p>The application draws its text with the fonts of the crate <code>epaint_default_fonts</code> (part of egui),
-  compiled into <code>app/workpiece_bg.wasm</code>:</p>
+  compiled into the application's WebAssembly module (<code>app/workpiece_bg-*.wasm</code>):</p>
   <ul>
     <li><strong>Ubuntu Light</strong>, © 2011 Canonical Ltd., under the Ubuntu Font Licence, Version 1.0.</li>
     <li><strong>Noto Emoji</strong>, © 2013 Google Inc., under the SIL Open Font License, Version 1.1 (OFL-1.1).</li>

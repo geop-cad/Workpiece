@@ -4,6 +4,8 @@ Workpiece is a CAD kernel and a desktop application written in Rust. A part is a
 
 **Site: [workpiece.dev](https://workpiece.dev/)**: the examples, [the documentation](https://workpiece.dev/docs/) and [the application in the browser](https://workpiece.dev/app/).
 
+**Chat: [Discord](https://discord.gg/btRDgrcwJ5)**, for questions, ideas and showing what you built.
+
 > **Status: early.** The code is a working prototype. The `.wpc` part file format is not stable and changes without migration, and the API of the crates is not stable. Not everything in the app is finished; [`Ribbon.md`](Ribbon.md) lists per feature what is built and what is not.
 
 ## Screenshots
@@ -144,4 +146,4 @@ they are named only to identify them.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md). Please also read the [Code of Conduct](CODE_OF_CONDUCT.md); security problems go through [`SECURITY.md`](SECURITY.md).
+See [`CONTRIBUTING.md`](CONTRIBUTING.md). Questions are welcome on [Discord](https://discord.gg/btRDgrcwJ5). Please also read the [Code of Conduct](CODE_OF_CONDUCT.md); security problems go through [`SECURITY.md`](SECURITY.md).
