@@ -20,6 +20,9 @@ on:
         type: string
         default: "linux,windows,macos,sdist"
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 

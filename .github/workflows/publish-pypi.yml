@@ -18,6 +18,9 @@ on:
         description: 'Type "publish" to upload to PyPI (it cannot be undone)'
         required: true
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     name: Upload to PyPI
@@ -31,9 +34,12 @@ jobs:
       - name: Download the release's Python files
         env:
           GH_TOKEN: ${{ github.token }}
+          # Through the environment, not pasted into the script: the input is text anyone who
+          # may run the workflow types.
+          TAG: ${{ inputs.tag }}
         run: |
           mkdir dist
-          gh release download "${{ inputs.tag }}" --repo "$GITHUB_REPOSITORY" --dir dist \
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
             --pattern 'workpiece-*.whl' --pattern 'workpiece-*.tar.gz'
           ls -l dist
       - uses: pypa/gh-action-pypi-publish@release/v1

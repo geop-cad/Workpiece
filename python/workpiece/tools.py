@@ -12,13 +12,10 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
 import sys
 import tempfile
 
-from . import _bin, Report, crop, tile
-
-_binary = _bin.command_line
+from . import _backend, _bin, Report, crop, tile
 
 def _slug(title: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
@@ -88,7 +85,7 @@ def main(argv: list) -> int:
     elif a.command == "sheet":
         with tempfile.TemporaryDirectory() as tmp:
             report = os.path.join(tmp, "r.json")
-            done = subprocess.run([_binary(), "report", a.part, "--report", report], capture_output=True, text=True)
+            done = _backend.run(["report", a.part, "--report", report])
             if done.returncode != 0:
                 raise SystemExit(done.stderr.strip() or done.stdout.strip())
             with open(report) as f:

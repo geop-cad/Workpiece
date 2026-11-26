@@ -1,32 +1,39 @@
 name: Site
 
-# Builds the documentation book, the landing page, the examples and the
-# application for the browser (at app/), and publishes them with GitHub
-# Pages. The build job runs on every push to main (and by hand), so the
-# site is checked even on a private repository; the deploy job runs only
-# when the repository is public, because Pages is not available on a
-# private one.
+# Builds https://workpiece.dev/ (the home page with the examples, the book at docs/, the
+# examples' files at examples/, the application for the browser at app/, the privacy page) and
+# deploys it, with the assistant's functions in cloud/, to the Cloudflare Pages project
+# `workpiece`. Pull requests only build it. A push to main (or a run by hand on main) also
+# deploys, once the repository secret CLOUDFLARE_API_TOKEN is set; without it the deploy job is
+# skipped.
+#
+# Set up once (by the owner): a Cloudflare API token on the account below with Account >
+# Cloudflare Pages > Edit and Account > Workers Scripts > Edit, as the repository secret
+# CLOUDFLARE_API_TOKEN; the custom domains workpiece.dev and www.workpiece.dev on the Pages
+# project; the project's secrets (the assistant's, see cloud/). PostHog's project key is the
+# repository variable POSTHOG_KEY.
+# Build it by hand: website/app/build.sh, then website/assemble.sh <dir> (see assemble.sh).
 
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 env:
-  # Where the site is served from. Not decided yet: this is a placeholder.
-  # For a custom domain: set SITE_URL to it (for example https://workpiece.example/),
-  # put the bare domain name in a file website/CNAME (assemble.sh copies it into the
-  # site), and set the domain in the repository's Pages settings.
-  # The path of this URL is where the book's pages expect to be ("/Workpiece/docs/");
-  # book.toml's site-url is the value for building the book by hand.
-  SITE_URL: https://geop-cad.github.io/Workpiece/
+  SITE_URL: https://workpiece.dev/
+  CLOUDFLARE_ACCOUNT_ID: 9f1c6a47335dac47c8e580e269b0ae8d
+  # Wrangler for the budget worker, and for cloud/ until its package.json brings its own.
+  WRANGLER_VERSION: "4.152.0"
+  # PostHog's browser bundle, served from the site itself (see website/analytics.js).
+  POSTHOG_JS_VERSION: "1.434.15"
 
 permissions:
   contents: read
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: site-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -35,7 +42,25 @@ jobs:
     # (The application for the browser is one large crate linked as one unit:
     # a cold build takes a while.)
     timeout-minutes: 45
+    outputs:
+      deploy: ${{ steps.gate.outputs.deploy }}
     steps:
+      # Deploys only from main, never from a pull request, and only with the token. (A pull request
+      # from a fork gets no secrets anyway.) The token is only tested for being set here.
+      - name: Deploy after the build?
+        id: gate
+        env:
+          HAS_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"; echo "A pull request: build only."
+          elif [ "$GITHUB_REF" != refs/heads/main ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"; echo "::notice::Not main ($GITHUB_REF): build only."
+          elif [ "$HAS_TOKEN" != true ]; then
+            echo "deploy=false" >> "$GITHUB_OUTPUT"; echo "::notice::No secret CLOUDFLARE_API_TOKEN: build only, nothing deployed."
+          else
+            echo "deploy=true" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
       - uses: taiki-e/install-action@v2
         with:
@@ -57,30 +82,109 @@ jobs:
       - uses: taiki-e/install-action@v2
         with:
           tool: wasm-bindgen@${{ env.WASM_BINDGEN_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
       - name: Build the application for the browser
         run: website/app/build.sh
+      # The assistant's Pages Functions and budget worker (cloud/, docs/assistant.md), once there.
+      - name: Check the functions in cloud/
+        if: hashFiles('cloud/package-lock.json') != ''
+        working-directory: cloud
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+      # Fetched at build time from npm and served from the site, so a visitor's browser talks to
+      # nobody but workpiece.dev and PostHog's EU endpoint. The key (a public client key, the
+      # repository variable POSTHOG_KEY) is written in only for a deploy; without it the site
+      # sends nothing.
+      - name: Fetch PostHog's bundle
+        run: |
+          npm pack "posthog-js@$POSTHOG_JS_VERSION" --pack-destination "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/posthog"
+          tar -xzf "$RUNNER_TEMP/posthog-js-$POSTHOG_JS_VERSION.tgz" -C "$RUNNER_TEMP/posthog"
+          echo "POSTHOG_BUNDLE=$RUNNER_TEMP/posthog/package/dist/array.no-external.js" >> "$GITHUB_ENV"
       - name: Assemble website, screenshots, book, examples and application
+        env:
+          POSTHOG_KEY: ${{ steps.gate.outputs.deploy == 'true' && vars.POSTHOG_KEY || '' }}
         run: |
           path=$(python3 -c "import sys, urllib.parse as u; print(u.urlparse(sys.argv[1]).path.rstrip('/') + '/')" "$SITE_URL")
           export MDBOOK_OUTPUT__HTML__SITE_URL="${path}docs/"
           website/assemble.sh _site
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
+          name: site
           path: _site
+          retention-days: 7
+          if-no-files-found: error
 
   deploy:
-    name: Deploy to GitHub Pages
+    name: Deploy to workpiece.dev
     needs: build
-    # Pages needs a public repository (or a plan that has Pages for private ones).
-    if: github.event.repository.visibility == 'public'
+    if: needs.build.outputs.deploy == 'true'
     runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    timeout-minutes: 20
+    concurrency:
+      group: deploy-workpiece
+      cancel-in-progress: false
     steps:
-      - uses: actions/configure-pages@v5
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: site
+          # Where cloud/wrangler.toml's pages_build_output_dir expects it.
+          path: site
+      - name: What there is to deploy
+        id: parts
+        run: |
+          if [ -d cloud/budget-worker ]; then echo "budget=true" >> "$GITHUB_OUTPUT"; fi
+          if [ -f cloud/wrangler.toml ]; then echo "cloud=true" >> "$GITHUB_OUTPUT"; fi
+      - uses: actions/setup-node@v4
+        if: steps.parts.outputs.cloud == 'true'
+        with:
+          node-version: 24
+      # The functions bundle their dependencies (the Anthropic SDK) when Wrangler uploads them.
+      - name: Install the functions' dependencies
+        if: steps.parts.outputs.cloud == 'true' && hashFiles('cloud/package-lock.json') != ''
+        working-directory: cloud
+        run: npm ci
+      - name: Make sure the Pages project exists
+        uses: cloudflare/wrangler-action@v3
+        continue-on-error: true
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+          command: pages project create workpiece --production-branch main
+      # The assistant's budget: the Durable Object the Pages project binds (cloud/wrangler.toml,
+      # script_name), so it goes first. Its vars are the money caps.
+      - name: Deploy the assistant's budget worker
+        if: steps.parts.outputs.budget == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+          workingDirectory: cloud/budget-worker
+          command: deploy
+      # Run from cloud/ so Wrangler finds its functions/ (Pages Functions are found relative to the
+      # working directory, not to the folder deployed) and its wrangler.toml, which holds every
+      # binding and var of the project; the secrets stay set on the project.
+      - name: Deploy the site and the functions
+        if: steps.parts.outputs.cloud == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+          workingDirectory: cloud
+          command: pages deploy ../site --project-name=workpiece --branch=main --commit-dirty=true
+      - name: Deploy the site (no functions yet)
+        if: steps.parts.outputs.cloud != 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: ${{ env.WRANGLER_VERSION }}
+          command: pages deploy site --project-name=workpiece --branch=main --commit-dirty=true

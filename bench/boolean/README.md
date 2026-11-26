@@ -3,7 +3,7 @@
 The thorough tests of `lib/boolean` and of the STEP importer: 1917 cases that take about half a
 minute on 32 threads (minutes on a laptop). They are not part of `cargo test`; run them when the
 boolean code or the STEP importer changes. How the results compare with other projects' is in
-[`docs/benchmarks`](../../docs/benchmarks/README.md).
+[`docs/benchmarks`](https://github.com/geop-cad/Workpiece/blob/main/docs/benchmarks/README.md).
 
 ## Method
 

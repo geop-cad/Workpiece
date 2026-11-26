@@ -32,4 +32,4 @@ p.build("plate.wpc").show()
 PDF sheets are turned into pictures with poppler's `pdftoppm`, which is not a Python package
 (`apt install poppler-utils`, `brew install poppler`); without it a build leaves the pictures out.
 
-Documentation and source: https://github.com/geop-cad/Workpiece. Licensed under MIT or Apache-2.0.
+Documentation: https://workpiece.dev/docs/. Source: https://github.com/geop-cad/Workpiece. Licensed under MIT or Apache-2.0.

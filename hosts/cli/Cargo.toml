@@ -4,6 +4,7 @@ description = "The command line for scripts and agents: makes a part from a reci
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+homepage.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 publish = false
@@ -14,17 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow.workspace = true
-glam.workspace = true
-workpiece-core.workspace = true
-workpiece-boolean.workspace = true
-workpiece-shape.workspace = true
-workpiece-part.workspace = true
-workpiece-ui.workspace = true
-workpiece-ops-sketch.workspace = true
-workpiece-ops-drawing.workspace = true
-workpiece-ops-instances.workspace = true
-png = "0.18.1"
-serde_json.workspace = true
+workpiece-make.workspace = true
 
 [lints]
 workspace = true

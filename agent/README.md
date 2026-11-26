@@ -8,6 +8,9 @@ constraints and driving dimensions, features, and patterns; `Part.build(path)` w
 `.wpc` file, solves and builds it, and returns a `Report`. `agent/examples/` has complete
 scripts: `flange.py`, `pinned_plate.py` (assembly), `bracket.py` (a drawing built to a
 declared original), `wood_box.py` (parts + assembly sheet with detail, section, parts list).
+The browser app's assistant runs the same layer in Pyodide, on the page's WebAssembly kernel
+(`_backend.py`): there `import workpiece` works as it is, and there are no PDF tools, so sheets
+are looked at with its `view` tool rather than as files (docs/assistant.md).
 
 **Read the quick reference below; read a long section only when you need it** with
 `python -m workpiece.tools help <topic>` (`help` alone lists the topics; `help drawing`,

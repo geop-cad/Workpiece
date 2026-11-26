@@ -11,12 +11,13 @@ are, and what other projects' numbers are known and from where. The numbers are 
 <!-- ANCHOR: summary -->
 | Benchmark | What it grades | Workpiece | Scored by |
 |---|---|---|---|
-| [brep-conformance](#brep-conformance) 2.0.1 | 3617 of its 3650 cases (the other 33 read NIST files and were not run): booleans, constructions, queries, modify, fillets, chamfers, STEP, parts, at 1e-7 mm | 3617 of 3617 | Workpiece (self-scored; the suite's authors have not reviewed Workpiece's adapter) |
+| [brep-conformance](#brep-conformance) 2.0.1 | all 3650 cases, the 33 that read NIST's STEP files included: booleans, constructions, queries, modify, fillets, chamfers, STEP, parts, at 1e-7 mm | 3650 of 3650 | Workpiece (self-scored; the suite's authors have not reviewed Workpiece's adapter) |
 | [The boolean bench](#the-boolean-bench) | 1917 cases: closed-form booleans, near misses, random pairs, brep-bench's cases, 675 public STEP files | 1902 pass, 12 refused, 3 wrong, 0 crashed | Workpiece (self-scored) |
 | [step-conformance](#step-conformance) | 27 STEP parts at four mesh tolerances (108 cells) | 105 of 108 | Workpiece's port of the benchmark's rule (self-scored); not the benchmark's own scorer |
 
-Run on 2026-11-25. On brep-conformance, springrep also passes every case (the maintainers' run of all
-3650, and reproduced here on the same 3617), cadrs passes 3648 of 3650, and the other kernels in the
+Run on 2026-11-25 (brep-conformance: the whole suite again on 2026-11-26). On brep-conformance,
+springrep also passes every case (the maintainers' run of all 3650, and reproduced here on the 3617
+without NIST's files), cadrs passes 3648 of 3650, and the other kernels in the
 maintainers' published runs pass fewer. On step-conformance, Workpiece is level with three published
 readers at 105 cells, and one published reader (ogeom) passes two more. Details, and where Workpiece is
 weak, follow.
@@ -85,18 +86,24 @@ gave the same 105; that run is not repeated here.)
 
 ## Workpiece's results
 
-The runs of 2026-11-25. Machine: AMD Ryzen 9 7950X (16 cores, 32 threads), 124 GB, Ubuntu 22.04.5,
+The runs of 2026-11-25, and the whole brep-conformance suite again on 2026-11-26 (below). Machine: AMD Ryzen 9 7950X (16 cores, 32 threads), 124 GB, Ubuntu 22.04.5,
 Linux 6.8.0; the machine was shared with other jobs (load average 6 to 28), so times are indicative.
 Workpiece was built from commit `450425c` plus uncommitted changes (`rustc 1.97.0-nightly`, release
 profile). The suite and springrep were built with Rust 1.99.1 in the sandbox described below.
 
 ### brep-conformance
 
-Suite 2.0.1 at commit `dc7ac9e`, the one the maintainers' runs below were made on; 3617 cases, seed 1,
-120 s per call, 14 workers. The 33 cases that read NIST's STEP files are opt-in in the suite and were not
-run, which is why `step` is 130 here and 163 in the published runs. Workpiece does not answer four
-functions (`inertia`, `betti`, `section_area`, `mesh`); no case of the 3617 was counted as unsupported
-for lacking one.
+Suite 2.0.1 at commit `dc7ac9e`, the one the maintainers' runs below were made on. The whole suite, all
+3650 cases, in one run on 2026-11-26 with `--nist` (the 33 cases that read NIST's STEP files are opt-in
+in the suite; the files were downloaded with the suite's own checksum-verified `nist/fetch.py`), seed
+1, 120 s per call, 14 workers, judged at 1e-7 mm: **3650 of 3650**: booleans 1253, constructions 448,
+queries 320, modify 612, fillets 627, chamfers 171, step 163 (the 33 NIST cases included), parts 56;
+none unsupported, refused, timed out, failed or crashed. Workpiece does not answer four functions
+(`inertia`, `betti`, `section_area`, `mesh`); no case was counted as unsupported for lacking one.
+
+The two earlier runs of 2026-11-25, without the NIST cases (3617 cases), gave 3617 of 3617; the
+medians per category below are from those two runs, made back to back with springrep in the same
+sandbox:
 
 | category | cases | Workpiece at 1e-7 mm | median ms, run 1 / run 2 |
 |---|---|---|---|
@@ -110,7 +117,8 @@ for lacking one.
 | parts | 56 | 56 | 14.4 / 18.2 |
 | all | 3617 | 3617 | 22.1 / 28.1 |
 
-No case failed, was refused, timed out or crashed. A whole run took 55 s and 68 s of wall time.
+No case failed, was refused, timed out or crashed. A whole run of the 3617 took 55 s and 68 s of wall time
+(the run of all 3650: 53 s).
 springrep 2.1.0 (the maintainers' adapter, reproduced here in the same sandbox, back to back) took 57 s
 and 71 s and passed all 3617 as well; its medians in the same two runs were: booleans 44.5 / 44.8,
 constructions 166.6 / 177.8, queries 1.1 / 1.2, modify 2.2 / 2.2, fillets 3.4 / 3.5, chamfers 1.2 / 1.3,
@@ -179,11 +187,13 @@ the suite's [`reports.json`](https://github.com/springcraft-ai/brep-conformance/
 the numbers below are counted from those files by
 [`update_results.py`](https://github.com/geop-cad/Workpiece/blob/main/docs/benchmarks/update_results.py). The leaderboard is at
 [springcraft-ai.github.io/brep-conformance](https://springcraft-ai.github.io/brep-conformance/).
-Cases passed at 1e-7 mm:
+Cases passed at 1e-7 mm, best first (by the share of the cases run that passed, the `all` column;
+ties by the number passed):
 
 | Kernel | Version | Licence | booleans (1253) | constructions (448) | queries (320) | modify (612) | fillets (627) | chamfers (171) | step (163) | parts (56) | all (3650) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | [springrep](https://github.com/springcraft-ai/springrep) | 2.1.0 | MIT | 1253 | 448 | 320 | 612 | 627 | 171 | 163 | 56 | 3650 |
+| **Workpiece** (self-scored, run here 2026-11-26) | 0.1.0 | MIT OR Apache-2.0 | 1253 | 448 | 320 | 612 | 627 | 171 | 163 | 56 | **3650** |
 | [cadrs](https://github.com/rvdende/cadrs) | 0.2.9 | MIT OR Apache-2.0 | 1253 | 448 | 320 | 612 | 627 | 171 | 161 | 56 | 3648 |
 | [kentron](https://github.com/rsz269/kentron) | 0.19.3 | AGPL-3.0-or-later AND BSD-3-Clause AND MIT | 1183 | 410 | 316 | 535 | 582 | 171 | 148 | 55 | 3400 |
 | [OpenCascade](https://github.com/Open-Cascade-SAS/OCCT) | 8.0.1.1.0 | LGPL-2.1-only WITH OCCT-exception-1.0 | 1192 | 279 | 270 | 421 | 418 | 171 | 142 | 40 | 2933 |
@@ -192,12 +202,10 @@ Cases passed at 1e-7 mm:
 | [cad-kernel](https://github.com/bmander/geomsolver) | 0.17.0 | MIT OR Apache-2.0 | 1165 | 194 | 53 | 347 | 220 | 0 | 0 | 30 | 2009 |
 | [solidcore](https://github.com/tangency-labs/solidcore) | 1.0.1 | Apache-2.0 | 958 | 267 | 60 | 54 | 359 | 0 | 0 | 29 | 1727 |
 | [anvil-brep](https://github.com/swperb/anvilcad) | 0.2.0 | MIT OR Apache-2.0 | 811 | 128 | 0 | 184 | 118 | 96 | 0 | 9 | 1346 |
-| **Workpiece** (self-scored, run here 2026-11-25, 3617 cases) | 0.1.0 | MIT OR Apache-2.0 | 1253 | 448 | 320 | 612 | 627 | 171 | 130 of 130 | 56 | **3617 of 3617** |
 
-How to read it: the rows above Workpiece's are the maintainers' reports, whole suite (3650 cases);
-Workpiece's row was run here on 3617 of those cases without the 33 that read NIST files, so the
-`step` and `all` cells have other denominators and are not strictly comparable. springrep 2.1.0 was
-also reproduced here on the same 3617 cases: 3617 of 3617. The maintainers' registry lists a version for
+How to read it: every row but Workpiece's is the maintainers' report, whole suite (3650 cases);
+Workpiece's row is the run here of the same 3650 cases (the NIST files included), self-scored.
+springrep 2.1.0 was also reproduced here on the 3617 cases without the NIST files: 3617 of 3617. The maintainers' registry lists a version for
 each kernel and the adapter commit their run used; some kernels' licences are as their registry
 states and may differ in other releases. The rows say what each kernel passed in the suite's run, not
 what it can do outside the suite.
@@ -214,8 +222,8 @@ listed per feature in [`Ribbon.md`](https://github.com/geop-cad/Workpiece/blob/m
 - **Self-scored.** Every Workpiece row is a run by Workpiece's authors. The brep-conformance suite's
   authors have not reviewed Workpiece's adapter, and the step-conformance maintainers have not
   scored this version.
-- **Not every case ran.** The 33 brep-conformance cases that read NIST's STEP files were not run; the
-  adapter does not answer the functions `inertia`, `betti`, `section_area` and `mesh`.
+- **Functions not answered.** The brep-conformance adapter does not answer the functions `inertia`,
+  `betti`, `section_area` and `mesh` (no case of the suite's 3650 needed them).
 - **STEP import.** 12 of 675 public STEP files are refused (listed above); the importer reads solids
   (including tessellated AP242 solids) and does not read wires, and refuses a band around a B-spline
   ring's tube (`ops/step/src/lib.rs`); 3 of 108 step-conformance cells fail (the freeform panel); on the

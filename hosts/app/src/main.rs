@@ -27,9 +27,13 @@
 // A Windows release build is a window application: no console opens beside it.
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
+#[cfg(target_arch = "wasm32")]
+mod assistant;
 mod demo;
 mod files;
 mod icons;
+#[cfg(target_arch = "wasm32")]
+mod kernel;
 mod render;
 mod theme;
 mod ui;
@@ -102,10 +106,14 @@ fn main() -> anyhow::Result<()> {
     eframe::run_native("Workpiece", options, Box::new(create)).map_err(|e| anyhow::anyhow!("{e}"))
 }
 
-/// In a browser, the application starts in the page (see [`web`]).
+/// In a browser, the application starts in the page (see [`web`]); in
+/// a Web Worker (the assistant's, which runs scripts on the [`kernel`])
+/// there is no page, and nothing starts.
 #[cfg(target_arch = "wasm32")]
 fn main() {
-    web::start();
+    if web_sys::window().is_some() {
+        web::start();
+    }
 }
 
 /// The application, as eframe makes it: on desktop and in a browser.
@@ -548,6 +556,11 @@ impl eframe::App for App {
                     ui.separator();
                     ui::ribbon::history(ui, &view.ribbon, &mut out);
                     ui.separator();
+                    #[cfg(target_arch = "wasm32")]
+                    {
+                        assistant::button(ui);
+                        ui.separator();
+                    }
                     if let Some((path, dirty)) = &view.document {
                         ui.weak(if *dirty {
                             format!("{path} •")
@@ -602,6 +615,9 @@ impl eframe::App for App {
                 ui.separator();
                 ui::overview::show(ui, &view.overview, &mut out);
             });
+        // (The assistant's panel, at the right, in a browser.)
+        #[cfg(target_arch = "wasm32")]
+        assistant::show(ui, &mut self.model, &mut self.fit);
         let area = egui::CentralPanel::default()
             .frame(egui::Frame::new().fill(theme::color::CANVAS))
             .show(ui, |ui| {

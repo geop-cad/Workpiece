@@ -1,0 +1,31 @@
+# The Cloudflare Pages project `workpiece` (https://workpiece.dev/): the
+# whole site (home page, book, examples, the browser app at /app/) and the
+# Pages Functions in functions/ (the assistant's /api/agent/*). Deployed
+# only by .github/workflows/site.yml, from this directory, so that
+# Wrangler finds functions/ and this file:
+#
+#   wrangler pages deploy <the assembled site> --project-name=workpiece --branch=main
+#
+# With this file, the project's bindings and vars come from here, not from
+# the dashboard: every binding the functions use must be listed. Secrets
+# (ANTHROPIC_API_KEY, SESSION_SECRET, TURNSTILE_SECRET) stay set on the
+# project and are not listed here. See docs/assistant.md.
+name = "workpiece"
+# (The workflow names the assembled site on the command line; this is
+# where website/assemble.sh is pointed at by hand.)
+pages_build_output_dir = "../site"
+compatibility_date = "2026-10-01"
+
+# The assistant's budget: the Durable Object class of the worker in
+# budget-worker/, which must be deployed first. The money caps are that
+# worker's vars (budget-worker/wrangler.toml).
+[[durable_objects.bindings]]
+name = "AGENT_BUDGET"
+class_name = "AgentBudget"
+script_name = "workpiece-agent-budget"
+
+[vars]
+AGENT_MODEL = "claude-sonnet-5-5"
+AGENT_EFFORT = "medium"
+# "1" switches the assistant off.
+AGENT_DISABLED = "0"

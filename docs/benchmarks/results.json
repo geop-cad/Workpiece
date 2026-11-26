@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "generated": "2026-11-25",
+ "generated": "2026-11-26",
  "workpiece_commit": "450425c + uncommitted changes",
  "machine": "AMD Ryzen 9 7950X, 16 cores / 32 threads, 124 GB, Ubuntu 22.04, Linux 6.8; shared with other jobs (load average 6 to 28)",
  "benchmarks": [
@@ -17,9 +17,9 @@
      "scored_by": "self",
      "suite_version": "2.0.1",
      "suite_commit": null,
-     "date": "2026-11-25",
-     "cases": 3617,
-     "pass": 3617,
+     "date": "2026-11-26",
+     "cases": 3650,
+     "pass": 3650,
      "per_category": {
       "booleans": {
        "pass": 1253,
@@ -46,20 +46,20 @@
        "total": 171
       },
       "step": {
-       "pass": 130,
-       "total": 130
+       "pass": 163,
+       "total": 163
       },
       "parts": {
        "pass": 56,
        "total": 56
       }
      },
-     "median_ms": 22.1,
-     "wall_s": 54.7,
+     "median_ms": 22.3,
+     "wall_s": 53.2,
      "threads": 14,
      "machine": null,
      "source": "this repository: bench/conformance",
-     "note": "commit 450425c + uncommitted changes; the cases that read NIST's STEP files (opt-in in the suite) were not run"
+     "note": "with the cases that read NIST's STEP files (--nist)"
     },
     {
      "kernel": "springrep",

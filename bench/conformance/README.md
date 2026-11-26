@@ -8,7 +8,7 @@ passes at 1e-7 mm; cases it does not support count against it.
 
 This folder holds Workpiece's adapter (`src/`, the binary `workpiece-adapter`) and the scripts that
 build and run the suite in a sandbox. How the results compare with other kernels' is in
-[`docs/benchmarks`](../../docs/benchmarks/README.md).
+[`docs/benchmarks`](https://github.com/geop-cad/Workpiece/blob/main/docs/benchmarks/README.md).
 
 ## Method
 
@@ -145,9 +145,17 @@ bench/conformance/sandbox.sh -- sh -c 'cd /work/springrep-adapter && cargo build
 springrep is run from **springrep 2.1.0 on crates.io**, which the adapter's manifest asks for
 (`springrep = "=2.1.0"`), not from a clone of its repository.
 
-The suite also has cases that read NIST's STEP files (`step/read-nist`, 33 of its 3650 cases); they
-need its `nist/fetch.py` to download the files, which is not run here, so they are not part of the
-results below.
+The suite also has cases that read NIST's STEP files (`step/read-nist`, 33 of its 3650 cases), run only
+with `--nist`. Their files come from the suite's own `nist/fetch.py`, run outside the sandbox (it needs
+the network) with an isolated Python; it downloads NIST's archive (from the suite's CDN or nist.gov),
+checks it against the SHA-256 written in the script before unpacking, and writes only the `.stp` files
+that `nist/validation.json` lists, into the suite's `nist/` folder. Then the whole suite runs in the
+sandbox, which sees that folder as `/work/suite/nist`:
+
+```sh
+python3 -I $SB/suite/nist/fetch.py
+bench/conformance/run.sh workpiece --nist /work/suite/nist
+```
 
 ## Audit of the third-party code
 
@@ -169,15 +177,21 @@ built and run only inside the sandbox.
   springrep's library writes no file.
 - **Embedded files.** A minified three.js r128 goes into the HTML report; it runs only in a browser that
   opens the report.
-- **Scripts not run.** `bench/*.sh` (their benchmark machine's setup), `nist/fetch.py`, `site/`, the
-  GitHub workflows.
+- **Scripts not run.** `bench/*.sh` (their benchmark machine's setup), `site/`, the GitHub workflows.
+- **`nist/fetch.py`** (71 lines, read on 2026-11-26) is the one script of theirs run outside the sandbox:
+  standard library only; it fetches one zip from two fixed addresses, refuses it unless its SHA-256
+  matches, and writes only the listed `.stp` files beside itself.
 
 ## Current results
 
-2026-11-25, suite 2.0.1 at commit `dc7ac9e` (3617 cases without the NIST ones, seed 1, 120 s per call, 14
-workers on a 32-thread AMD Ryzen 9 7950X shared with other jobs), Workpiece at `450425c` with
-uncommitted changes. **All 3617 cases pass at 1e-7 mm; no failure, refusal, timeout or crash.** The
-whole run took 55 s and 68 s in two runs.
+2026-11-26, suite 2.0.1 at commit `dc7ac9e`, the whole suite with `--nist` (all 3650 cases, seed 1, 120 s
+per call, 14 workers on a 32-thread AMD Ryzen 9 7950X shared with other jobs). **All 3650 cases pass at
+1e-7 mm**: booleans 1253, constructions 448, queries 320, modify 612, fillets 627, chamfers 171, step 163
+(the 33 NIST cases included), parts 56; none unsupported, refused, timed out, failed or crashed. The run
+took 53 s. Self-scored: the suite's maintainers have not reviewed this adapter.
+
+The medians per category are from the two earlier runs of 2026-11-25 without the NIST cases (3617
+cases, all passed, 55 s and 68 s; Workpiece at `450425c` with uncommitted changes):
 
 | category | cases | at 1e-7 mm | median ms (two runs) |
 |---|---|---|---|
@@ -187,9 +201,9 @@ whole run took 55 s and 68 s in two runs.
 | modify | 612 | 612 | 5.9 / 6.2 |
 | fillets | 627 | 627 | 4.3 / 4.5 |
 | chamfers | 171 | 171 | 1.8 / 1.9 |
-| step | 130 | 130 | 0.4 / 0.5 |
+| step (without NIST) | 130 | 130 | 0.4 / 0.5 |
 | parts | 56 | 56 | 14.4 / 18.2 |
 | all | 3617 | 3617 | 22.1 / 28.1 |
 
-springrep 2.1.0 passes all 3617 as well on this machine (57 s and 71 s for the whole run). The times are
+springrep 2.1.0 passes all 3617 as well on this machine, in those runs (57 s and 71 s for the whole run). The times are
 from a machine with other work running, and differ between runs, so they are not a measure of speed.

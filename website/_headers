@@ -1,0 +1,30 @@
+# Cloudflare Pages' response headers (https://developers.cloudflare.com/pages/configuration/headers/),
+# copied to the site's root by assemble.sh. Pages already answers every file with an ETag and
+# "Cache-Control: public, max-age=0, must-revalidate", so a browser asks again on each visit and
+# gets a 304 (no download) when the file did not change. Only names that never change their
+# contents may be cached for longer; the application's files keep their names from build to build
+# (workpiece.js loads workpiece_bg.wasm by name), so they must stay revalidated: an old .wasm
+# beside a new .js would not start.
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+
+/app/*.wasm
+  Content-Type: application/wasm
+  Cache-Control: public, max-age=0, must-revalidate
+
+# The home page's pictures: a day-old screenshot breaks nothing.
+/assets/*
+  Cache-Control: public, max-age=86400
+
+# The assistant's Python worker runs scripts a model wrote: it may load only what our own site
+# serves and may connect nowhere else (the worker also removes its network functions after
+# start-up; this header closes what script cannot: import()).
+/app/assistant/worker.js
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; connect-src 'self'
+
+# Pyodide's files change only when its pinned version does: a day's cache spares a returning
+# visitor a round of checks on some 13 MB of files.
+/app/assistant/pyodide/*
+  Cache-Control: public, max-age=86400

@@ -54,6 +54,12 @@ pub struct Part {
     /// property is by default.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub properties: std::collections::BTreeMap<String, String>,
+    /// The script the part was made of, where a script made it (the
+    /// browser's assistant keeps the Python it wrote here): to read and
+    /// copy, and to start a change from. Nothing builds from it; the
+    /// part may have been changed by hand since.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub script: Option<String>,
     /// Where the text of what is said of the model stands on it, by the
     /// annotation's name, where the user stood it elsewhere than it
     /// stands by itself.

@@ -110,7 +110,35 @@ section > .wrap > h2 { margin-bottom: .5rem; }
 .tags li { font-size: .75rem; padding: .05rem .5rem; border-radius: 99px; background: var(--surface-2); color: var(--muted); }
 .card-links { margin-top: auto !important; padding: .8rem 0 1rem; display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center; border-top: 1px solid var(--border); font-size: .9rem; }
 .card-links a, button.sheet { font-size: .88rem; }
-button.sheet { padding: .2rem .7rem; border-radius: 6px; background: var(--accent-soft); color: var(--accent); border-width: 1px; }
+/* drawing sheets: white paper in both themes; a click opens one full size */
+.examples { grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.card-main img { border-bottom: 1px solid var(--border); }
+.card h3 { margin: .9rem 1rem .4rem; }
+.card h3 a { text-decoration: none; }
+.sheet-fig { margin: 0; }
+.card .sheet-fig { border-bottom: 1px solid var(--border); }
+.sheet-open { display: block; width: 100%; padding: 0; border: 0; background: #fff; cursor: zoom-in; }
+.sheet-open img { width: 100%; height: auto; background: #fff; }
+.sheet-thumbs { display: flex; flex-wrap: nowrap; gap: .4rem; padding: .5rem; background: var(--surface-2); }
+.sheet-thumb { display: flex; flex-direction: column; align-items: center; gap: .15rem; flex: 1 1 0; min-width: 0; max-width: 6rem; padding: .2rem; font: inherit; font-size: .72rem; color: var(--muted); background: transparent; border: 2px solid transparent; border-radius: 6px; cursor: pointer; }
+.sheet-thumb img { width: 100%; height: auto; background: #fff; border: 1px solid var(--border); }
+.sheet-thumb[aria-pressed="true"] { border-color: var(--accent); color: var(--text); }
+.sheet-thumb:hover { color: var(--text); }
+/* the drawing feature near the top */
+.drawings { background: var(--surface); }
+.dr-row { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); gap: 1.5rem; align-items: center; margin: 1.5rem 0; }
+.dr-part { margin: 0; }
+.dr-part img { border: 1px solid var(--border); border-radius: var(--radius); }
+.drawings .sheet-fig { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+/* examples/index.html: a row per example */
+.examples-page { padding: 2.5rem 0 3rem; }
+.ex-row { display: grid; grid-template-columns: minmax(0, 4fr) minmax(0, 8fr); gap: 1.5rem; align-items: start; padding: 2rem 0; border-top: 1px solid var(--border); }
+.ex-row h2 { font-size: 1.4rem; margin-top: .9rem; }
+.ex-row h2 a { text-decoration: none; }
+.ex-row .tags, .ex-row p { margin-left: 0; margin-right: 0; }
+.ex-render img { border: 1px solid var(--border); border-radius: var(--radius); }
+.ex-row .sheet-fig { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.ex-row .card-links { border-top: 0; padding-top: 0; }
 .mobile-note { display: none; }
 
 /* features */
@@ -121,6 +149,8 @@ button.sheet { padding: .2rem .7rem; border-radius: 6px; background: var(--accen
 .feature ul { margin: 0; padding: 0 1rem 0 2.2rem; font-size: .93rem; color: var(--text); }
 .feature li { margin-bottom: .3rem; }
 .mini-code { aspect-ratio: 900 / 520; overflow: hidden; border-bottom: 1px solid var(--border); background: var(--code-bg); }
+.mini-stat { aspect-ratio: 900 / 520; display: flex; flex-direction: column; justify-content: center; gap: .6rem; padding: 1.5rem; border-bottom: 1px solid var(--border); background: var(--surface-2); color: var(--muted); }
+.mini-stat .big { font-size: 3.4rem; }
 .mini-code pre { margin: 0; border: 0; border-radius: 0; height: 100%; font-size: .78rem; }
 
 /* code */
@@ -198,6 +228,7 @@ dialog#lightbox::backdrop { background: rgba(5, 8, 12, .7); }
 @media (max-width: 860px) {
   .hero .wrap { grid-template-columns: 1fr; gap: 1.8rem; }
   .script-row { grid-template-columns: 1fr; }
+  .dr-row, .ex-row { grid-template-columns: 1fr; }
   .mobile-note { display: block; }
   .needs-desktop { display: none; }
   section { padding: 2.5rem 0; }
@@ -208,7 +239,7 @@ dialog#lightbox::backdrop { background: rgba(5, 8, 12, .7); }
   nav { gap: .1rem .8rem; }
   nav a { font-size: .88rem; }
   .actions .button { flex: 1 1 100%; text-align: center; }
-  .grid, .features { grid-template-columns: 1fr; }
+  .grid, .features, .examples { grid-template-columns: 1fr; }
 }
 @media print { .top, dialog { display: none; } }
 td:nth-child(3) { white-space: normal; min-width: 9rem; max-width: 14rem; }

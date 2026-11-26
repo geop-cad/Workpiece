@@ -14,7 +14,8 @@
 A script is the model: sketches say their constraints and driving dimensions (the solver
 places the geometry; the coordinates you give are only a starting guess), features refer to
 sketches and to named faces and edges, repeats are patterns. `build` runs the `workpiece` command
-line and returns what came of it: failed steps, each sketch's degrees of freedom, volumes
+line (see `_backend`: the program, or in a browser the page's kernel) and returns what came of
+it: failed steps, each sketch's degrees of freedom, volumes
 after every step, faces and edges by name, lint, and optionally pictures.
 
 See README.md beside this file for the conventions (planes, arcs, names).
@@ -34,8 +35,8 @@ from dataclasses import dataclass, field
 
 from . import _check as workpiece_check  # what a script declares of the original; scorecard; lint
 from . import _images as workpiece_images  # crops and tiles
-from . import _bin
-from ._bin import __version__, command_line as _binary  # noqa: F401
+from . import _backend, _bin
+from ._bin import __version__  # noqa: F401
 from ._check import original  # noqa: F401  (re-exported: `from workpiece import original`)
 from ._images import crop, tile  # noqa: F401
 
@@ -234,7 +235,7 @@ def material(folder: str, name: str, density: float, colour=(180, 180, 186)) -> 
     """Adds the material `name` (density in kg/m³) to the materials of `folder` (its
     `materials.json`, which the app reads too; the built-in ones if it has none yet), so that
     `Part(material=name)` saved there weighs what it is made of."""
-    done = subprocess.run([_binary(), "materials", "--in", folder], capture_output=True, text=True)
+    done = _backend.run(["materials", "--in", folder])
     if done.returncode != 0:
         raise RuntimeError(done.stderr.strip() or done.stdout.strip())
     library = json.loads(done.stdout)
@@ -1380,7 +1381,7 @@ class Part:
             recipe, report = os.path.join(tmp, "recipe.json"), os.path.join(tmp, "report.json")
             with open(recipe, "w") as f:
                 json.dump(self.recipe(), f)
-            command = [_binary(), "make", recipe, "-o", path, "--report", report, "--times"]
+            command = ["make", recipe, "-o", path, "--report", report, "--times"]
             if picture:
                 command += ["--picture", picture, "--samples", str(int(samples)),
                             "--size", f"{int(size[0])}x{int(size[1])}", "--seconds", str(float(seconds))]
@@ -1390,7 +1391,7 @@ class Part:
                     pictures = not any(st.get("op") == "Drawing" for st in self.recipe()["steps"] if isinstance(st, dict))
                 if not pictures:
                     command += ["--no-pictures"]
-            done = subprocess.run(command, capture_output=True, text=True)
+            done = _backend.run(command)
             if done.returncode != 0:
                 raise RuntimeError(done.stderr.strip() or done.stdout.strip())
             seconds = {"steps": 0.0, "drawings and lint": 0.0, "pictures": 0.0}

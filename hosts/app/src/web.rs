@@ -9,6 +9,7 @@
 //!   relative to it) from the site, a name being looked up in the
 //!   examples' `index.json`; `?tab=drawing` then opens its drawing.
 //! - with no part open, a start screen lists the examples.
+//! - `?assistant=1` opens the assistant's panel ([`crate::assistant`]).
 //! - the settings are kept in the page's local storage.
 //! - there are no threads: parts build on the page's one thread.
 //!
@@ -138,6 +139,35 @@ fn log(text: &str) {
     web_sys::console::log_1(&text.into());
 }
 
+/// Counts `event` with `properties` in the site's statistics: the page's
+/// `window.workpieceTrack` (`../analytics.js`, which sends nothing
+/// without the site's key, or under Do Not Track or an opt-out). Never a
+/// file's name or anything typed: kinds and counts only.
+pub fn track(event: &str, properties: serde_json::Value) {
+    let window = window();
+    let Ok(f) = js_sys::Reflect::get(&window, &"workpieceTrack".into()) else {
+        return;
+    };
+    let Some(f) = f.dyn_ref::<js_sys::Function>() else {
+        return;
+    };
+    let properties = js_sys::JSON::parse(&properties.to_string()).unwrap_or(JsValue::UNDEFINED);
+    let _ = f.call2(&window, &event.into(), &properties);
+}
+
+/// What kind of file `path` is, for the statistics: its extension, if
+/// it is one of those the app knows.
+pub fn kind_of(path: &str) -> &'static str {
+    let lower = path.to_lowercase();
+    let known = [
+        "wpc", "step", "stp", "igs", "iges", "stl", "3mf", "dxf", "svg", "pdf", "png", "tap", "nc",
+    ];
+    known
+        .into_iter()
+        .find(|k| lower.ends_with(&format!(".{k}")))
+        .unwrap_or("other")
+}
+
 /// A query parameter of the page's address.
 fn query(name: &str) -> Option<String> {
     let search = window().location().search().ok()?;
@@ -171,6 +201,7 @@ pub fn start() {
         });
         match runner.start(canvas, options, create).await {
             Ok(()) => {
+                track("app_loaded", serde_json::json!({}));
                 if let Some(loading) = window()
                     .document()
                     .and_then(|d| d.get_element_by_id("loading"))
@@ -180,8 +211,12 @@ pub fn start() {
             }
             Err(e) => log(&format!("Workpiece did not start: {e:?}")),
         }
-        // Read the examples, and open what the address asks for.
+        // Read the examples, and open what the address asks for
+        // (`?assistant` opens the assistant's panel too).
         spawn_local(read_examples());
+        if query("assistant").is_some() {
+            crate::assistant::toggle();
+        }
         if let Some(open) = query("open") {
             let drawing = query("tab").is_some_and(|t| t.eq_ignore_ascii_case("drawing"));
             spawn_local(open_named(open, drawing));
@@ -376,6 +411,7 @@ async fn read_picked(list: web_sys::FileList, folder: bool) {
             Err(e) => return send(Event::Failed(format!("reading {name}: {}", js_text(&e)))),
         };
         let bytes = js_sys::Uint8Array::new(&buffer).to_vec();
+        track("file_opened", serde_json::json!({ "kind": kind_of(&name) }));
         if let Err(e) = files::write(&name, &bytes) {
             return send(Event::Failed(format!("reading {name}: {e}")));
         }
@@ -410,6 +446,11 @@ async fn read_picked(list: web_sys::FileList, folder: bool) {
 
 /// Hands `bytes` to the user as a download named as `path`'s file.
 pub fn download(path: &str, bytes: &[u8]) {
+    // (A part file saved, or the model exported for other programs.)
+    match kind_of(path) {
+        "wpc" => track("file_saved", serde_json::json!({ "kind": "wpc" })),
+        format => track("export", serde_json::json!({ "format": format })),
+    }
     let name = path.rsplit('/').next().unwrap_or(path);
     let parts = js_sys::Array::of1(&js_sys::Uint8Array::from(bytes));
     let options = web_sys::BlobPropertyBag::new();
@@ -457,7 +498,7 @@ async fn thumbnail(example: Example) {
     send(Event::Thumbnail(example.name, pixels));
 }
 
-fn decode_png(bytes: &[u8]) -> Option<(usize, usize, Vec<u8>)> {
+pub(crate) fn decode_png(bytes: &[u8]) -> Option<(usize, usize, Vec<u8>)> {
     let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
     decoder.set_transformations(png::Transformations::normalize_to_color8());
     let mut reader = decoder.read_info().ok()?;
@@ -651,6 +692,10 @@ fn examples_grid(ui: &mut egui::Ui) {
             }
             let response = response.on_hover_text(hover.trim());
             if response.clicked() {
+                track(
+                    "example_opened",
+                    serde_json::json!({ "example": example.name }),
+                );
                 spawn_local(open_named(example.file.clone(), false));
             }
             if !ui.is_rect_visible(rect) {

@@ -1,0 +1,42 @@
+[
+  {
+    "name": "run_python",
+    "description": "Runs a Python script in the browser's Python (Pyodide, standard library only) with the `workpiece` authoring layer installed: `from workpiece import Part, ...`. The script builds a part with `report = p.build(\"name.wpc\")` and prints what it needs, usually `report.show()`. The answer is everything the script printed (stdout, then stderr; a traceback if it raised), the same text the layer prints on a desktop: each step ok or FAILED with its error, every sketch's degrees of freedom, bodies and volumes, masses, drawing problems, lint. The last part the script built becomes the part open in the editor (the user can undo that as one step), and the script is kept with it. Files the script writes stay in this conversation's working folder, so a later script can build on parts an earlier one built. There is no network and no pip.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "script": { "type": "string", "description": "The whole Python script, as a file would hold it." }
+      },
+      "required": ["script"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "view",
+    "description": "A picture of the part open in the editor, as it is now: shaded, from a side (`iso`, `front`, `back`, `left`, `right`, `top`, `bottom`), or one of its drawing sheets (`sheet`: the id of a Drawing step). Look after a change that matters, before telling the user it is done.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "side": { "type": "string", "enum": ["iso", "front", "back", "left", "right", "top", "bottom"], "description": "Where the part is seen from (default iso)." },
+        "sheet": { "type": "string", "description": "Instead of the part, the drawing sheet of this Drawing step." }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "read_guide",
+    "description": "A section of the authoring layer's guide (its README): the API, how to work, drawings, assemblies, conventions. Without `section`, the list of sections. Read `quick-reference` before the first script, and a long section only when you need it.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "section": { "type": "string", "description": "A heading, by its slug or a part of it: `quick`, `how-to-work`, `drawing`, `tolerances`, `assemblies`, `conventions`." }
+      },
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "get_part",
+    "description": "The part open in the editor: its name, the script it was made of (if a script made it; the user may have changed the part by hand since), and the report of a build of it as it is now. Call it before changing a part you have not built in this conversation.",
+    "input_schema": { "type": "object", "properties": {}, "additionalProperties": false }
+  }
+]

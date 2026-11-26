@@ -184,6 +184,34 @@ fn adding_opens_the_dialog_and_cancelling_removes_the_step() -> anyhow::Result<(
 }
 
 #[test]
+fn a_part_made_by_a_script_replaces_the_open_one_as_one_undo_step() -> anyhow::Result<()> {
+    let mut m = model();
+    m.update(Message::Open("bolt".into()))?;
+    click(&mut m, "Frame")?;
+    m.update(Message::FinishEdit)?;
+    let mut made = Part::new(vec![frame("a", 1.0), place("p", "made_nut")]);
+    made.script = Some("from workpiece import Part".into());
+    let placed = BTreeMap::from([("made_nut".to_owned(), Part::new(vec![frame("n", 0.0)]))]);
+    m.update(Message::ReplacePart {
+        part: Box::new(made.clone()),
+        placed,
+    })?;
+    assert_eq!(program(&m, "bolt"), ["a", "p"]);
+    assert_eq!(m.workspace.part("bolt")?.script, made.script);
+    assert!(m.workspace.part("made_nut").is_ok());
+    m.update(Message::Undo)?;
+    assert_eq!(
+        program(&m, "bolt"),
+        ["frame1"],
+        "one undo step takes it all back"
+    );
+    assert!(m.workspace.part("made_nut").is_err());
+    m.update(Message::Redo)?;
+    assert_eq!(program(&m, "bolt"), ["a", "p"]);
+    Ok(())
+}
+
+#[test]
 fn edits_of_one_step_are_one_undo_step_until_ended() -> anyhow::Result<()> {
     let mut m = model();
     m.update(Message::Open("bolt".into()))?;

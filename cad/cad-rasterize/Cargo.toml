@@ -4,6 +4,7 @@ description = "Turns built worlds and edit handles into triangle, line and verte
 edition.workspace = true
 version.workspace = true
 license.workspace = true
+homepage.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 

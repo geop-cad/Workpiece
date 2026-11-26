@@ -3731,6 +3731,7 @@ dependencies = [
  "winresource",
  "workpiece-boolean",
  "workpiece-core",
+ "workpiece-make",
  "workpiece-ops-appearance",
  "workpiece-ops-basic-shapes",
  "workpiece-ops-blend",
@@ -3781,17 +3782,7 @@ name = "workpiece-cli"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "glam",
- "png 0.18.1",
- "serde_json",
- "workpiece-boolean",
- "workpiece-core",
- "workpiece-ops-drawing",
- "workpiece-ops-instances",
- "workpiece-ops-sketch",
- "workpiece-part",
- "workpiece-shape",
- "workpiece-ui",
+ "workpiece-make",
 ]
 
 [[package]]
@@ -3831,6 +3822,25 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "workpiece-make"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "glam",
+ "png 0.18.1",
+ "serde_json",
+ "web-time",
+ "workpiece-boolean",
+ "workpiece-core",
+ "workpiece-ops-drawing",
+ "workpiece-ops-instances",
+ "workpiece-ops-sketch",
+ "workpiece-part",
+ "workpiece-shape",
+ "workpiece-ui",
 ]
 
 [[package]]

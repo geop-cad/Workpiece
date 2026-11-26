@@ -21,3 +21,10 @@ __pycache__/
 
 # The worked benchmark cases keep the part files of their multi-item drawings
 !/cad-vs-cad-bench/**/*.parts/
+
+# Wrangler's and npm's local state (cloud/), and a site assembled by hand
+.cloudflare/
+.wrangler/
+node_modules/
+/_site/
+/site/

@@ -34,6 +34,10 @@ on:
         description: "Which to build (any of linux, windows, macos, sdist)"
         default: "linux,windows,macos,sdist"
 
+# Every job reads only; the draft release's job alone may write (its own permissions below).
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 

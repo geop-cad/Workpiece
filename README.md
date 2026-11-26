@@ -2,6 +2,8 @@
 
 Workpiece is a CAD kernel and a desktop application written in Rust. A part is a list of steps (sketches with constraints, extrudes, fillets, holes, patterns, drawings and so on) that the program applies in order to build solids and surfaces on NURBS geometry; changing an early step rebuilds the ones after it. The same parts can be edited in the app, scripted from Python through a command line, and put together into assemblies with joints and drawn on ISO sheets.
 
+**Site: [workpiece.dev](https://workpiece.dev/)**: the examples, [the documentation](https://workpiece.dev/docs/) and [the application in the browser](https://workpiece.dev/app/).
+
 > **Status: early.** The code is a working prototype. The `.wpc` part file format is not stable and changes without migration, and the API of the crates is not stable. Not everything in the app is finished; [`Ribbon.md`](Ribbon.md) lists per feature what is built and what is not.
 
 ## Screenshots
@@ -108,7 +110,7 @@ PYTHONPATH=python python3 agent/examples/flange.py   # or: pip install ./python,
 | `agent/` | The Python layer over the command line, and its examples. |
 | `bench/` | Benchmarks: `boolean` and `conformance`. |
 | `docs/` | Documentation: [`ARCHITECTURE.md`](docs/ARCHITECTURE.md), screenshots, and the book sources (`docs/book/`). |
-| `website/` | The static landing page. |
+| `website/` | The site at [workpiece.dev](https://workpiece.dev/): the pages, the statistics and how it is assembled; `website/app/` builds the application for the browser. `.github/workflows/site.yml` deploys it to Cloudflare Pages. |
 
 How the pieces fit together is described in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 

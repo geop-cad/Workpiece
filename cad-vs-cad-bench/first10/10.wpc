@@ -2312,7 +2312,202 @@
           "format": "A3",
           "general_tolerance": "ISO 2768-mK",
           "name": "drawing1",
-          "notes": [],
+          "notes": [
+            {
+              "at": [
+                78.0,
+                -24.0
+              ],
+              "decimals": 2,
+              "note": "bore/callout",
+              "view": "plan"
+            },
+            {
+              "at": [
+                -40.0,
+                -70.0
+              ],
+              "decimals": 2,
+              "note": "dome_sk/dome_r",
+              "view": "plan"
+            },
+            {
+              "at": [
+                0.0,
+                23.97
+              ],
+              "decimals": 1,
+              "note": "dome_sk/sphere_gap",
+              "view": "side"
+            },
+            {
+              "at": [
+                -50.0,
+                -40.0
+              ],
+              "decimals": 1,
+              "note": "lid_sk/d21",
+              "view": "plan"
+            },
+            {
+              "at": [
+                70.32499999999999,
+                -4.444999999999993
+              ],
+              "decimals": 1,
+              "note": "lid_sk/d22",
+              "view": "side"
+            },
+            {
+              "at": [
+                48.0,
+                -40.0
+              ],
+              "decimals": 1,
+              "note": "lug_od_sk/offset",
+              "view": "plan"
+            },
+            {
+              "at": [
+                74.0,
+                -8.0
+              ],
+              "note": "lug_sk/d20",
+              "view": "front"
+            },
+            {
+              "at": [
+                -45.0,
+                -22.0
+              ],
+              "decimals": 1,
+              "note": "lug_sk/d21",
+              "view": "front"
+            },
+            {
+              "at": [
+                -19.0,
+                46.0
+              ],
+              "decimals": 1,
+              "note": "lug_sk/half_l",
+              "view": "plan"
+            },
+            {
+              "at": [
+                19.0,
+                46.0
+              ],
+              "decimals": 1,
+              "note": "lug_sk/half_r",
+              "view": "plan"
+            },
+            {
+              "at": [
+                0.0,
+                -40.0
+              ],
+              "decimals": 1,
+              "note": "od_ref",
+              "view": "secv"
+            },
+            {
+              "at": [
+                -60.0,
+                -45.0
+              ],
+              "decimals": 3,
+              "note": "r375",
+              "view": "front"
+            },
+            {
+              "at": [
+                -34.0,
+                -46.0
+              ],
+              "note": "rib/thickness",
+              "view": "plan"
+            },
+            {
+              "at": [
+                0.0,
+                -26.0
+              ],
+              "decimals": 0,
+              "note": "rib_sk/d29",
+              "view": "secv"
+            },
+            {
+              "at": [
+                44.0,
+                24.0
+              ],
+              "decimals": 0,
+              "note": "rib_sk/d30",
+              "view": "secv"
+            },
+            {
+              "at": [
+                -70.0,
+                -30.0
+              ],
+              "decimals": 1,
+              "note": "round_outer/radius",
+              "view": "front"
+            },
+            {
+              "at": [
+                30.0,
+                -68.0
+              ],
+              "decimals": 0,
+              "note": "sleeve_sk/d12",
+              "view": "plan"
+            },
+            {
+              "at": [
+                72.0,
+                42.0
+              ],
+              "decimals": 1,
+              "note": "sleeve_sk/sleeve_dia",
+              "view": "plan"
+            },
+            {
+              "at": [
+                58.0,
+                26.0
+              ],
+              "decimals": 1,
+              "note": "sleeve_top/distance",
+              "view": "front"
+            },
+            {
+              "at": [
+                72.0,
+                6.0
+              ],
+              "note": "sphere_plane/distance",
+              "view": "secv"
+            },
+            {
+              "at": [
+                -64.0,
+                34.0
+              ],
+              "note": "wall/thickness",
+              "view": "front"
+            },
+            {
+              "at": [
+                -56.0,
+                22.0
+              ],
+              "decimals": 3,
+              "note": "wall_ref",
+              "view": "front"
+            }
+          ],
           "numbers": {
             "bare": true,
             "decimals": 3,

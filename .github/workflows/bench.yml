@@ -39,11 +39,15 @@ jobs:
           git -C "$RUNNER_TEMP/suite" checkout --quiet "$SUITE_COMMIT"
           rm -f "$RUNNER_TEMP/suite/rust-toolchain.toml"
           cargo build --release --locked --manifest-path "$RUNNER_TEMP/suite/Cargo.toml" -p brep-conformance
+          # NIST's STEP files for the 33 cases that read them, with the suite's own script (it checks
+          # the archive's SHA-256 before unpacking).
+          python3 -I "$RUNNER_TEMP/suite/nist/fetch.py"
       - name: Run the suite on Workpiece
         run: |
           mkdir -p out
           "$RUNNER_TEMP/suite/target/release/brep-conformance" \
             --adapter target/conformance/release/workpiece-adapter \
+            --nist "$RUNNER_TEMP/suite/nist" \
             --threads "$(nproc)" --out out/conformance.json --html out/conformance.html \
             > out/conformance.log 2>&1
           tail -n 25 out/conformance.log

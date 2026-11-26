@@ -27,8 +27,10 @@ dependencies = []
 images = ["Pillow"]
 
 [project.urls]
-Homepage = "https://github.com/geop-cad/Workpiece"
+Homepage = "https://workpiece.dev/"
+Documentation = "https://workpiece.dev/docs/"
 Source = "https://github.com/geop-cad/Workpiece"
+Issues = "https://github.com/geop-cad/Workpiece/issues"
 
 [project.scripts]
 workpiece = "workpiece.cli:main"

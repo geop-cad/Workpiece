@@ -327,6 +327,22 @@ impl Model {
                 self.workspace.parts.insert(path.clone(), Part::default());
                 return self.update(Message::Open(path));
             }
+            Message::ReplacePart { part, placed } => {
+                let path = self.active_part.clone().context("no active part")?;
+                if !self.editing.is_empty() {
+                    self.update(Message::CancelEdit)?;
+                }
+                self.change(None, |ws| {
+                    for (at, placed) in placed {
+                        anyhow::ensure!(at != path, "{path} cannot place itself");
+                        ws.parts.insert(at, placed);
+                    }
+                    *ws.part_mut(&path)? = *part;
+                    Ok(())
+                })?;
+                self.history.seal();
+                true
+            }
             Message::Close => {
                 let Some(path) = self.active_part.take() else {
                     return Ok(());

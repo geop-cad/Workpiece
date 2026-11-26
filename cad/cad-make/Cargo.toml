@@ -1,0 +1,29 @@
+[package]
+name = "workpiece-make"
+description = "What the command line does — make a part of a recipe, build it, report on it — as a library both hosts run: the command line on disk, the browser app on the files it keeps in memory."
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+glam.workspace = true
+workpiece-core.workspace = true
+workpiece-boolean.workspace = true
+workpiece-shape.workspace = true
+workpiece-part.workspace = true
+workpiece-ui.workspace = true
+workpiece-ops-sketch.workspace = true
+workpiece-ops-drawing.workspace = true
+workpiece-ops-instances.workspace = true
+png = "0.18.1"
+serde_json.workspace = true
+# `Instant` that also works in a browser (on desktop it is std's).
+web-time = "1.1.0"
+
+[lints]
+workspace = true

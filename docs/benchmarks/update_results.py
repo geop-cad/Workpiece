@@ -200,7 +200,10 @@ def main():
             rows.append(row)
 
         if args.conformance:
-            put(conformance_row(load(args.conformance), "run here", args.date, "this repository: bench/conformance", f"commit {args.commit}; the cases that read NIST's STEP files (opt-in in the suite) were not run"))
+            report = load(args.conformance)
+            nist = any("nist" in case["test"] for case in report["cases"])
+            note = "with the cases that read NIST's STEP files (--nist)" if nist else "the cases that read NIST's STEP files (opt-in in the suite) were not run"
+            put(conformance_row(report, "run here", args.date, "this repository: bench/conformance", (f"commit {args.commit}; " if args.commit else "") + note))
         for path in args.reproduced:
             put(conformance_row(load(path), "reproduced", args.date, "run in the sandbox of bench/conformance", "adapter by the suite's maintainers; built and run offline in the sandbox; the cases that read NIST's STEP files (opt-in in the suite) were not run"))
         for path in args.published_conformance:

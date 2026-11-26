@@ -1,6 +1,8 @@
 #!/bin/sh
 # build.sh [out dir]: the application for the browser, as a static folder
-# (index.html, workpiece.js, workpiece_bg.wasm, the icon); by default
+# (index.html, workpiece.js, workpiece_bg.wasm, the icon, and the
+# assistant: assistant/ with its scripts, the Python layer as
+# workpiece-python.zip and Pyodide, vendored by vendor.sh); by default
 # website/app/dist. Serve the folder over HTTP (a page from file:// cannot
 # load WebAssembly modules).
 #
@@ -57,6 +59,23 @@ fi
 cp "$HERE/index.html" "$OUT/"
 cp "$REPO/hosts/app/assets/workpiece.png" "$OUT/"
 
+# The assistant, loaded once it is first opened: its scripts, the Python layer from this
+# repository's sources (python/workpiece, with agent/README.md as the README it reads its
+# guide from), and Pyodide.
+mkdir -p "$OUT/assistant"
+for f in "$HERE"/assistant/*.js; do cp "$f" "$OUT/assistant/"; done
+python3 - "$REPO" "$OUT/assistant/workpiece-python.zip" <<'PY'
+import os, sys, zipfile
+repo, out = sys.argv[1:]
+package = os.path.join(repo, "python", "workpiece")
+with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+    for name in sorted(os.listdir(package)):
+        if name.endswith(".py"):
+            z.write(os.path.join(package, name), f"workpiece/{name}")
+    z.write(os.path.join(repo, "agent", "README.md"), "workpiece/README.md")
+PY
+"$HERE/vendor.sh" "$OUT"
+
 size() { wc -c <"$1" | tr -d ' '; }
 raw=$(size "$OUT/workpiece_bg.wasm")
 gz=$(gzip -9 -c "$OUT/workpiece_bg.wasm" | wc -c | tr -d ' ')
@@ -66,4 +85,5 @@ if command -v brotli >/dev/null 2>&1; then
   line="$line, $br with brotli"
 fi
 echo "$line"
+echo "the assistant (loaded when it is opened): $(du -sk "$OUT/assistant" | cut -f1) KB"
 echo "written to $OUT"

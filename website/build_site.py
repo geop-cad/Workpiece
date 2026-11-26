@@ -2,7 +2,8 @@
 """build_site.py <out dir>: writes the pages of the site into a folder assemble.sh has made.
 
 Written here: index.html (the home page), scripts/<example>.html (each example's script,
-highlighted), 404.html, robots.txt and sitemap.xml. Read at build time, never copied by hand:
+highlighted), examples/index.html (every example with its sheets), privacy.html, 404.html, robots.txt and sitemap.xml. Every page but the privacy
+page loads analytics.js (anonymous statistics; off unless the deploy set a key). Read at build time, never copied by hand:
 
   examples/index.json          the gallery (a card per example)
   docs/benchmarks/results.json the benchmark section
@@ -59,13 +60,18 @@ def write(rel, text):
 
 # ---------------------------------------------------------------- page frame
 
-NAV = [("Examples", "#examples"), ("Features", "#features"), ("Scripting", "#scripting"),
+NAV = [("Drawings", "#drawings"), ("Examples", "#examples"), ("Features", "#features"), ("Scripting", "#scripting"),
        ("Benchmarks", "#benchmarks"), ("Get it", "#get-it")]
 
 
-def page(title, description, body, root="", path="", extra_head="", script="", base=False):
+def pretty(path):
+    """A page's address as Cloudflare Pages serves it: foo.html is served at foo (and redirected there)."""
+    return path[:-5] if path.endswith(".html") else path
+
+
+def page(title, description, body, root="", path="", extra_head="", script="", base=False, statistics=True):
     """One page. `root` is the way back to the site's top ('' or '../'); `path` its place under SITE_URL."""
-    canonical = SITE_URL + path
+    canonical = SITE_URL + pretty(path)
     nav = "".join(f'<a href="{root}{h}">{t}</a>' for t, h in NAV)
     nav += f'<a href="{root}docs/">Documentation</a><a href="{GH}">GitHub</a>'
     base_tag = f'<base href="{SITE_URL}">' if base else ""
@@ -94,6 +100,7 @@ def page(title, description, body, root="", path="", extra_head="", script="", b
 <meta name="twitter:description" content="{e(description)}">
 <meta name="twitter:image" content="{SITE_URL}assets/og.png">
 <link rel="stylesheet" href="{root}style.css">
+{f'<script src="{root}analytics.js" defer></script>' if statistics else ""}
 {extra_head}</head>
 <body>
 <a class="skip" href="#main">Skip to the content</a>
@@ -119,7 +126,7 @@ def footer(root=""):
     <a href="{BLOB}/LICENSE-APACHE">Apache-2.0</a>, at your option.</p>
     <p class="links"><a href="{GH}">Repository</a> <a href="{root}docs/">Documentation</a>
     <a href="{BLOB}/CONTRIBUTING.md">Contributing</a> <a href="{GH}/issues">Issues</a>
-    <a href="{BLOB}/CHANGELOG.md">Changelog</a></p>
+    <a href="{BLOB}/CHANGELOG.md">Changelog</a> <a href="{root}privacy.html">Privacy</a></p>
     <p class="small">Open CASCADE, KiCad, FreeCAD, STEP and other names belong to their owners; they are
     named only to identify them. Icons and example models are original to the project.</p>
   </div>
@@ -172,35 +179,139 @@ def app(name, tab=""):
     return f"app/?open={name}" + (f"&amp;tab={tab}" if tab else "")
 
 
-def gallery():
+def sheets(ex):
+    """The example's drawing sheets that have an SVG: the main one first, then drawing-<name>.svg sorted.
+    Each: svg and pdf (paths under examples/), a label, and the sheet's size in px for width/height."""
+    drawing = ex.get("drawing")
+    if not drawing:
+        return []
+    folder = (REPO / "examples" / drawing).parent
+    main = folder / (Path(drawing).stem + ".svg")
+    files = ([main] if main.exists() else []) + sorted(folder.glob("drawing-*.svg"))
+    out = []
+    for f in files:
+        rel = f.relative_to(REPO / "examples").as_posix()
+        box = re.search(r'viewBox="0 0 ([0-9.]+) ([0-9.]+)"', f.read_text()[:400])
+        w, h = (float(box.group(1)), float(box.group(2))) if box else (420.0, 297.0)
+        pdf = f.with_suffix(".pdf")
+        if f == main:
+            label = "Assembly" if "assembly" in ex["title"].lower() else "Part"
+        else:
+            label = f.stem[len("drawing-"):].replace("_", " ").capitalize()
+        out.append({"svg": rel, "pdf": pdf.relative_to(REPO / "examples").as_posix() if pdf.exists() else None,
+                    "label": label, "key": f.stem, "w": round(w * 4), "h": round(h * 4)})
+    return out
+
+
+def sheet_figure(ex, root="", eager=False):
+    """The example's first sheet, large, opening full size on a click; the others as thumbnails that swap in."""
+    shs = sheets(ex)
+    if not shs:
+        return ""
+    n, t = ex["name"], ex["title"]
+    first = shs[0]
+    load = 'loading="eager"' if eager else 'loading="lazy"'
+
+    def attrs(sh):
+        return (f'data-svg="{root}examples/{e(sh["svg"])}" data-pdf="{root}examples/{e(sh["pdf"] or "")}" '
+                f'data-title="{e(t)}: {e(sh["label"].lower())} sheet" data-sheet-name="{e(sh["key"])}" '
+                f'data-open="{root}{app(n, "drawing")}"')
+    thumbs = ""
+    if len(shs) > 1:
+        buttons = "".join(
+            f'<button type="button" class="sheet-thumb" aria-pressed="{"true" if i == 0 else "false"}" {attrs(sh)} '
+            f'data-w="{sh["w"]}" data-h="{sh["h"]}">'
+            f'<img src="{root}examples/{e(sh["svg"])}" alt="" width="{sh["w"]}" height="{sh["h"]}" loading="lazy" decoding="async">'
+            f'<span>{e(sh["label"])}</span></button>' for i, sh in enumerate(shs))
+        thumbs = f'<div class="sheet-thumbs" role="group" aria-label="{len(shs)} sheets of {e(t)}">{buttons}</div>'
+    return f"""<figure class="sheet-fig">
+    <button type="button" class="sheet-open" {attrs(first)} aria-label="Open the drawing sheet of {e(t)} full size">
+      <img src="{root}examples/{e(first['svg'])}" alt="The ISO drawing sheet of {e(t)}: views with dimensions and a title block" width="{first['w']}" height="{first['h']}" {load} decoding="async">
+    </button>
+    {thumbs}
+  </figure>"""
+
+
+def card_links(ex, root=""):
+    n = ex["name"]
+    shs = sheets(ex)
+    links = [f'<a href="{root}{app(n)}" class="needs-desktop">Open in the app</a>',
+             f'<a href="{root}{app(n, "drawing")}" class="needs-desktop">Drawing in the app</a>']
+    if shs and shs[0]["pdf"]:
+        links.append(f'<a href="{root}examples/{e(shs[0]["pdf"])}" data-sheet-name="{e(shs[0]["key"])}">PDF</a>')
+    if ex.get("script"):
+        links.append(f'<a href="{root}scripts/{n}.html">Script</a>')
+    return " ".join(links)
+
+
+def gallery(root=""):
     cards = []
     for ex in EXAMPLES:
         n = ex["name"]
-        folder = ex["file"].split("/")[0]
-        drawing = ex.get("drawing")
-        svg = re.sub(r"\.pdf$", ".svg", drawing) if drawing else None
-        has_svg = svg and (REPO / "examples" / svg).exists()
+        shs = sheets(ex)
         tags = "".join(f"<li>{e(t)}</li>" for t in ex.get("tags", []))
-        links = [f'<a href="{app(n, "drawing")}" class="needs-desktop">Drawing in the app</a>']
-        if has_svg:
-            links.insert(0, f'<button type="button" class="sheet" data-svg="examples/{e(svg)}" '
-                            f'data-title="{e(ex["title"])}" data-open="{app(n, "drawing")}" '
-                            f'data-pdf="examples/{e(drawing)}">View the sheet</button>')
-        if drawing:
-            links.append(f'<a href="examples/{e(drawing)}">PDF</a>')
-        if ex.get("script"):
-            links.append(f'<a href="scripts/{n}.html">Script</a>')
-        cards.append(f"""<article class="card">
-  <a class="card-main" href="{app(n)}" data-sheet="{'examples/' + e(svg) if has_svg else ''}">
-    <img src="examples/{e(ex['thumbnail'])}" alt="{e(ex['title'])}: a shaded view of the part" width="640" height="480" loading="lazy" decoding="async">
-    <h3>{e(ex['title'])}</h3>
+        cards.append(f"""<article class="card" data-example="{e(n)}">
+  <a class="card-main" href="{root}{app(n)}" data-sheet="{root + 'examples/' + e(shs[0]['svg']) if shs else ''}">
+    <img src="{root}examples/{e(ex['thumbnail'])}" alt="{e(ex['title'])}: a shaded view of the part" width="640" height="480" loading="lazy" decoding="async">
   </a>
+  {sheet_figure(ex, root)}
+  <h3><a href="{root}{app(n)}">{e(ex['title'])}</a></h3>
   <p>{e(ex['description'])}</p>
   <ul class="tags" aria-label="Tags">{tags}</ul>
-  <p class="card-links">{" ".join(links)}</p>
+  <p class="card-links">{card_links(ex, root)}</p>
 </article>""")
-        del folder
     return "\n".join(cards)
+
+
+def examples_page():
+    """examples/index.html: every example in a row of its own, the render beside its sheets, large."""
+    rows = []
+    for ex in EXAMPLES:
+        n = ex["name"]
+        tags = "".join(f"<li>{e(t)}</li>" for t in ex.get("tags", []))
+        rows.append(f"""<article class="ex-row" id="{e(n)}" data-example="{e(n)}">
+  <div class="ex-side">
+    <a class="ex-render" href="../{app(n)}"><img src="{e(ex['thumbnail'])}" alt="{e(ex['title'])}: a shaded view of the part" width="640" height="480" loading="lazy" decoding="async"></a>
+    <h2><a href="../{app(n)}">{e(ex['title'])}</a></h2>
+    <p>{e(ex['description'])}</p>
+    <ul class="tags" aria-label="Tags">{tags}</ul>
+    <p class="card-links">{card_links(ex, "../")}</p>
+  </div>
+  {sheet_figure(ex, "../")}
+</article>""")
+    body = f"""<div class="wrap examples-page">
+  <p class="crumb"><a href="../#examples">&larr; Home</a></p>
+  <h1>Examples and their drawings</h1>
+  <p class="lead">{len(EXAMPLES)} original parts and assemblies. Each is one Python script that builds the part and its
+  ISO drawing sheets; nothing on a sheet was drawn by hand. Click a sheet to see it full size, or open the part in the
+  web app, already built.</p>
+  {"".join(rows)}
+</div>"""
+    return page(f"Examples and their drawings – {NAME}", "Every Workpiece example with its ISO drawing sheets, made by the same script as the part.",
+                body, root="../", path="examples/", script=LIGHTBOX)
+
+
+def drawing_feature():
+    """Near the top of the home page: one part and its sheet side by side."""
+    ex = next((x for x in EXAMPLES if x["name"] == "bearing_housing"), None)
+    if not ex or not sheets(ex):
+        return ""
+    n = ex["name"]
+    return f"""<section id="drawings" class="drawings" aria-labelledby="dr-h" data-example="{e(n)}">
+  <div class="wrap">
+    <h2 id="dr-h">ISO drawings from the same script</h2>
+    <p class="lead">The script that builds the part also lays out its sheet: projected and section views, dimensions
+    with tolerances, datums, surface texture and the title block. Change a dimension and the drawing follows.</p>
+    <div class="dr-row">
+      <figure class="dr-part">
+        <a href="{app(n)}"><img src="assets/x-bearing_housing.webp" alt="The flanged bearing housing, rendered" width="1200" height="900" loading="lazy" decoding="async"></a>
+        <figcaption>{e(ex['title'])}, as built by <a href="scripts/{n}.html">its script</a></figcaption>
+      </figure>
+      {sheet_figure(ex)}
+    </div>
+    <p><a class="button" href="examples/">All examples with their drawings</a></p>
+  </div>
+</section>"""
 
 
 def script_pages():
@@ -215,7 +326,7 @@ def script_pages():
   <p class="crumb"><a href="../#examples">&larr; Examples</a></p>
   <h1>{e(ex['title'])}: the script</h1>
   <p>{e(ex['description'])}</p>
-  <p class="actions">
+  <p class="actions" data-example="{e(n)}">
     <a class="button" href="../{app(n)}">Open the part in the app</a>
     <a class="button plain" href="../examples/{e(src)}" download>Download the .py</a>
     <a class="button plain" href="{BLOB}/examples/{e(src)}">On GitHub</a>
@@ -272,19 +383,24 @@ def brep_section():
 
     head = "".join(f'<th scope="col">{c}<br>{ref[c]["total"]}</th>' for c in cats)
     trs = []
-    for r in others + [sc]:
+    # Best first: by the share of cases passed (the "all" column), ties by the number passed, then by
+    # the categories' shares in the table's order, then by name.
+    def rank(r):
+        share = [-(r["per_category"][c]["pass"] / r["per_category"][c]["total"]) for c in cats]
+        return (-(r["pass"] / r["cases"]), -r["pass"], *share, r["kernel"].lower())
+    for r in sorted(others + [sc], key=rank):
         mine = r is sc
         name = f'<a href="{e(r["link"])}">{e(r["kernel"] if r["kernel"] != "workpiece" else "Workpiece")}</a>'
         if mine:
             name = f'<strong>{name}</strong><br><span class="badge">self-scored, run here {e(r["date"])}, {r["cases"]} cases</span>'
         tds = "".join(f"<td>{cell(r, c)}</td>" for c in cats)
-        total = f'{r["pass"]} of {r["cases"]}' if mine else str(r["pass"])
+        total = str(r["pass"]) if r["cases"] == others[0]["cases"] else f'{r["pass"]} of {r["cases"]}'
         cls = ' class="mine"' if mine else ""
         trs.append(f'<tr{cls}><th scope="row">{name}</th><td>{e(r["version"])}</td>'
                    f'<td>{e(r["licence"])}</td>{tds}<td><strong>{total}</strong></td></tr>')
-    table = f"""<p class="small">Cases passed at 1e-7 mm in brep-conformance, suite {e(sc['suite_version'])}. The other rows are the maintainers' reports of
-{e(others[0]['date'])} (all {others[0]['cases']} cases, each run by them on one machine); Workpiece's row was run here on {sc['cases']} of those
-cases, without the 33 that read NIST's STEP files, so its <em>step</em> and <em>all</em> cells have other denominators.</p>
+    table = f"""<p class="small">Cases passed at 1e-7 mm in brep-conformance, suite {e(sc['suite_version'])}, best first (by the share of cases passed, ties by the number passed). The other rows are the maintainers' reports of
+{e(others[0]['date'])} (all {others[0]['cases']} cases, each run by them on one machine); Workpiece's row was run here, self-scored,
+{"on the same " + str(sc['cases']) + " cases, the NIST files included" if sc['cases'] == others[0]['cases'] else "on " + str(sc['cases']) + " of those cases, so its cells with another denominator say so"}.</p>
 <div class="table-wrap" tabindex="0" role="region" aria-label="brep-conformance results by kernel">
 <table>
 <thead><tr><th scope="col">Kernel</th><th scope="col">Version</th><th scope="col">Licence</th>{head}<th scope="col">all<br>{others[0]['cases']}</th></tr></thead>
@@ -360,7 +476,8 @@ def benchmarks():
     names = ", ".join(r["kernel"] for r in tied)
     s1 = f"On brep-conformance, {names} also passes every case"
     if rep["pass"] == rep["cases"]:
-        s1 += f" (the maintainers{apos} run of all {tied[0]['cases']}, and reproduced here on the same {rep['cases']})"
+        same = f"the same {rep['cases']}" if rep["cases"] == sc["cases"] else f"the {rep['cases']} cases without NIST{apos}s files"
+        s1 += f" (the maintainers{apos} run of all {tied[0]['cases']}, and reproduced here on {same})"
     if near:
         s1 += ", and " + ", ".join(f"{r['kernel']} passes {r['pass']} of {r['cases']}" for r in near)
     s1 += f"; the other kernels in the maintainers{apos} runs pass fewer (from {lowest['pass']} of {lowest['cases']} up). "
@@ -368,8 +485,13 @@ def benchmarks():
     if above:
         s1 += ", and " + ", ".join(f"{r['kernel']} passes {r['pass'] - sstep['pass']} more" for r in above)
     sentence = s1 + "."
-    speed = (f"On the same machine, in the same sandbox, springrep’s median per case was {rep['median_ms']} ms and Workpiece’s "
-             f"{sc['median_ms']} ms: Workpiece is not faster overall, and neither kernel is faster in every category.")
+    if rep["cases"] == sc["cases"]:
+        speed = (f"On the same machine, in the same sandbox, springrep’s median per case was {rep['median_ms']} ms and Workpiece’s "
+                 f"{sc['median_ms']} ms: neither kernel is faster in every category.")
+    else:
+        speed = (f"Speed: run back to back in the same sandbox on the {rep['cases']} cases without NIST’s files ({rep['date']}), "
+                 f"springrep’s median per case was {rep['median_ms']} ms, lower than Workpiece’s; neither kernel is faster in "
+                 "every category (the benchmarks page has the medians).")
     return f"""<section id="benchmarks" aria-labelledby="bench-h">
 <div class="wrap">
   <h2 id="bench-h">Benchmarks</h2>
@@ -396,14 +518,14 @@ def benchmarks():
   <ul class="plain">
     <li>{e(sentence)}</li>
     <li>{e(speed)}</li>
-    <li>The 33 brep-conformance cases that read NIST&rsquo;s STEP files were not run; Workpiece&rsquo;s adapter does not answer the functions <code>inertia</code>, <code>betti</code>, <code>section_area</code> and <code>mesh</code>.</li>
+    <li>{"Every brep-conformance case was run, the 33 that read NIST&rsquo;s STEP files included" if sc['cases'] == others[0]['cases'] else "The brep-conformance cases that read NIST&rsquo;s STEP files were not run"}; Workpiece&rsquo;s adapter does not answer the functions <code>inertia</code>, <code>betti</code>, <code>section_area</code> and <code>mesh</code>, and no case was counted as unsupported for that.</li>
     <li>The boolean bench is Workpiece&rsquo;s own suite, built on public data and brep-bench&rsquo;s cases; the 12 refused STEP files are listed in the method page. Booleans that cannot be done exactly are refused with a reason rather than approximated.</li>
     <li>On step-conformance&rsquo;s shop parts the reference mesh is Workpiece&rsquo;s own, so those cells are a weaker check than the benchmark&rsquo;s. The three cells Workpiece fails are the freeform panel.</li>
     <li>The rows say what each kernel passed in the suite&rsquo;s run, not what it can do outside the suite, and none of the benchmarks measures the sketcher, assemblies, drawings or the app.</li>
   </ul>
   <p>Method, machine, versions, sources, dates and every command to reproduce the numbers:
   <a href="docs/benchmarks.html">the benchmarks page of the documentation</a>
-  (<a href="{BLOB}/docs/benchmarks/README.md">source</a>). Run on {e(RESULTS['generated'])}.</p>
+  (<a href="{BLOB}/docs/benchmarks/README.md">source</a>). Last updated {e(RESULTS['generated'])}.</p>
 </div>
 </section>"""
 
@@ -417,9 +539,9 @@ def downloads():
         fname = d["file"].format(version=VERSION)
         if released:
             url = f"{GH}/releases/download/v{VERSION}/{fname}"
-            buttons.append(f'<a class="button dl" href="{e(url)}"><strong>{e(d["label"])}</strong><small>{e(d["detail"])}</small></a>')
+            buttons.append(f'<a class="button dl" data-download="{e(d["label"] + " " + d["detail"])}" href="{e(url)}"><strong>{e(d["label"])}</strong><small>{e(d["detail"])}</small></a>')
         else:
-            buttons.append(f'<a class="button dl pending" href="{GH}/releases" aria-label="{e(d["label"])}, {e(d["detail"])}: no release yet"><strong>{e(d["label"])}</strong><small>{e(d["detail"])}</small><small class="soon">Coming with the first release</small></a>')
+            buttons.append(f'<a class="button dl pending" data-download="{e(d["label"] + " " + d["detail"])}" href="{GH}/releases" aria-label="{e(d["label"])}, {e(d["detail"])}: no release yet"><strong>{e(d["label"])}</strong><small>{e(d["detail"])}</small><small class="soon">Coming with the first release</small></a>')
     note = (f"Version {e(VERSION)}. Each archive holds the programs, the licences and the examples." if released else
             "There is no release yet; these buttons will point at the files of the first one. Until then, build from source (below) or try it in the browser.")
     soon = "" if released else ' <span class="soon-tag">coming with the first release</span>'
@@ -458,6 +580,11 @@ def features():
           "Fillet and chamfer on edges of any NURBS shape; holes to the sizes of the standards; threads.",
           "Booleans on tolerant B-reps: one that cannot be done exactly is refused with a reason.",
           "Change an early step and the ones after it are rebuilt."]),
+        ("f-annotate.webp", "The Annotate tab: a cast bracket with its dimensions, its H7 bore, datum A and a flatness and a parallelism tolerance frame standing on the model in 3D",
+         "Dimensions and tolerances on the model",
+         ["Dimensions, fits and tolerances (ISO 129-1, ISO 286), datum features (ISO 5459) and geometric tolerances (ISO 1101) are placed on the model in the 3D view, as ISO 16792 shows them, in the Annotate tab or from a script (p.dimension, p.datum_feature, p.geometric_tolerance, tol= on any sketch dimension).",
+          "The sizes steps are held to count too: a sketch's dimensions, an extrude's distance, a hole's diameter, each with its tolerance.",
+          "The drawing takes them from there: one source for model and sheet. What the model says and a sheet does not show yet, the sheet offers to place."]),
         ("f-sketcher.webp", "A sketch being edited: two circles and six holes with their dimensions", "Constraint sketcher",
          ["Lines, arcs, circles, slots, ellipses, splines, text.",
           "Constraints and driving dimensions with tolerances, solved by the geometric solver; the sketch says how many degrees of freedom are left.",
@@ -483,9 +610,24 @@ def features():
 </article>""")
     cards.append(f"""<article class="feature">
   <div class="mini-code">{code_block(MINI, "A short script")}</div>
-  <h3>Scripting and exchange</h3>
-  <ul><li>A Python library and a command line write and build parts; see <a href="#scripting">Scripting</a>.</li>
+  <h3>One script: part, check and drawing</h3>
+  <ul><li>A Python script builds the part, its assembly and its ISO drawing sheets; the build reports every step, the
+  degrees of freedom left in each sketch, lint and problems on the sheets. See <a href="#scripting">Scripting</a>.</li>
+  <li>All {len(EXAMPLES)} <a href="examples/">examples</a> are such scripts, rebuilt clean (every step ok, every sketch fully
+  constrained, no drawing problem) by <a href="{BLOB}/examples/build_all.py"><code>examples/build_all.py --check</code></a>.</li>
   <li>Import STEP, IGES, STL and 3MF; export STEP, IGES, STL, 3MF and drawings as PDF and DXF.</li></ul>
+</article>""")
+    bc = BY_ID["brep-conformance"]
+    mine = next(r for r in bc["rows"] if r["kernel"] == "workpiece")
+    pc = mine["per_category"]
+    cards.append(f"""<article class="feature">
+  <div class="mini-stat"><span class="big">{mine['pass']}<span class="of">/{mine['cases']}</span></span>
+  <span>cases of the third-party suite brep-conformance {e(mine['suite_version'])} passed at 1e-7 mm, self-scored</span>
+  <span class="small">fillets {pc['fillets']['pass']}/{pc['fillets']['total']} · chamfers {pc['chamfers']['pass']}/{pc['chamfers']['total']} · booleans {pc['booleans']['pass']}/{pc['booleans']['total']} · STEP {pc['step']['pass']}/{pc['step']['total']}</span></div>
+  <h3>A kernel measured by others&rsquo; tests</h3>
+  <ul><li>Booleans, fillets and chamfers on general NURBS edges, shells and STEP import, checked case by case against
+  the suite&rsquo;s own expected values; the run, its date and how to repeat it are on <a href="docs/benchmarks.html">the benchmarks page</a>.</li>
+  <li>A boolean that cannot be done exactly is refused with a reason, never approximated. See <a href="#benchmarks">Benchmarks</a>.</li></ul>
 </article>""")
     return "\n".join(cards)
 
@@ -524,12 +666,14 @@ def home():
   </div>
 </section>
 
+{drawing_feature()}
+
 <section id="examples" aria-labelledby="ex-h">
   <div class="wrap">
     <h2 id="ex-h">Examples</h2>
-    <p class="lead">{len(EXAMPLES)} original parts and assemblies, each written as a Python script. Click one to open it in the web app, already built.</p>
-    <p class="small mobile-note">The web app needs a desktop browser. On this screen a card opens its drawing sheet instead.</p>
-    <div class="grid">
+    <p class="lead">{len(EXAMPLES)} original parts and assemblies, each written as a Python script that also draws its sheets. Click a part to open it in the web app, already built, or a sheet to see it full size; <a href="examples/">the examples page</a> shows the sheets larger.</p>
+    <p class="small mobile-note">The web app needs a desktop browser. On this screen a part's picture opens its drawing sheet instead.</p>
+    <div class="grid examples">
 {gallery()}
     </div>
   </div>
@@ -566,10 +710,10 @@ python -m workpiece flange.wpc   # opens the part in the desktop app</code></pre
 
 {downloads()}
 """
-    return page(f"{NAME}: an open-source CAD kernel and app in Rust", TAGLINE, body, path="", script=SCRIPT)
+    return page(f"{NAME}: an open-source CAD kernel and app in Rust", TAGLINE, body, path="", script=LIGHTBOX)
 
 
-SCRIPT = """<dialog id="lightbox" aria-labelledby="lb-title">
+LIGHTBOX = """<dialog id="lightbox" aria-labelledby="lb-title">
   <div class="lb-bar">
     <h2 id="lb-title"></h2>
     <span class="lb-links"><a id="lb-open" href="#" class="needs-desktop">Open in the app</a> <a id="lb-pdf" href="#">PDF</a>
@@ -580,31 +724,45 @@ SCRIPT = """<dialog id="lightbox" aria-labelledby="lb-title">
 </dialog>
 <script>
 (function () {
+  // A sheet (.sheet-open) opens full size here; a thumbnail (.sheet-thumb) puts its sheet in the
+  // large place of its figure. On a phone a card's picture opens its sheet (the app needs a desktop).
   var box = document.getElementById('lightbox');
-  if (!box || !box.showModal) return;
   var img = document.getElementById('lb-img'), zoom = document.getElementById('lb-zoom');
   var small = window.matchMedia('(max-width: 820px), (pointer: coarse)');
   var last = null;
-  function show(svg, title, open, pdf, from) {
-    last = from;
-    img.src = svg;
-    img.alt = 'Drawing sheet of ' + title;
+  function show(b) {
+    if (!box || !box.showModal) { window.location.href = b.dataset.svg; return; }
+    last = b;
+    var card = b.closest('[data-example]');
+    if (card) box.setAttribute('data-example', card.getAttribute('data-example'));
+    img.src = b.dataset.svg;
+    img.alt = 'Drawing sheet of ' + b.dataset.title;
     img.classList.remove('actual'); zoom.setAttribute('aria-pressed', 'false');
-    document.getElementById('lb-title').textContent = title;
-    document.getElementById('lb-open').href = open;
-    document.getElementById('lb-pdf').href = pdf;
+    document.getElementById('lb-title').textContent = b.dataset.title;
+    document.getElementById('lb-open').href = b.dataset.open;
+    var pdf = document.getElementById('lb-pdf');
+    pdf.hidden = !b.dataset.pdf; pdf.href = b.dataset.pdf || '#';
     box.showModal();
   }
+  function swap(t) {
+    var fig = t.closest('.sheet-fig'), big = fig.querySelector('.sheet-open'), pic = big.querySelector('img');
+    ['svg', 'pdf', 'title', 'sheetName'].forEach(function (k) { big.dataset[k] = t.dataset[k]; });
+    pic.src = t.dataset.svg; pic.width = +t.dataset.w; pic.height = +t.dataset.h;
+    big.setAttribute('aria-label', 'Open ' + t.dataset.title + ' full size');
+    fig.querySelectorAll('.sheet-thumb').forEach(function (o) { o.setAttribute('aria-pressed', String(o === t)); });
+  }
   document.addEventListener('click', function (ev) {
-    var b = ev.target.closest('button.sheet');
-    if (b) { show(b.dataset.svg, b.dataset.title, b.dataset.open, b.dataset.pdf, b); return; }
+    var t = ev.target.closest('.sheet-thumb');
+    if (t) { swap(t); return; }
+    var b = ev.target.closest('.sheet-open');
+    if (b) { show(b); return; }
     var a = ev.target.closest('a.card-main');
     if (a && small.matches && a.dataset.sheet) {
-      ev.preventDefault();
-      var s = a.parentNode.querySelector('button.sheet');
-      if (s) show(s.dataset.svg, s.dataset.title, s.dataset.open, s.dataset.pdf, a);
+      var s = a.parentNode.querySelector('.sheet-open');
+      if (s) { ev.preventDefault(); show(s); }
     }
   });
+  if (!box) return;
   zoom.addEventListener('click', function () {
     var on = img.classList.toggle('actual'); zoom.setAttribute('aria-pressed', String(on));
   });
@@ -614,6 +772,144 @@ SCRIPT = """<dialog id="lightbox" aria-labelledby="lb-title">
 })();
 </script>
 """
+
+
+# ---------------------------------------------------------------- privacy
+
+# What analytics.js and the app send. Change this page together with website/analytics.js,
+# the app's calls of window.workpieceTrack, and the assistant's functions in cloud/.
+PRIVACY_SCRIPT = """<script>
+(function () {
+  // The opt-out switch: the same flag website/analytics.js reads. One origin serves the site, the
+  // book and the app, so it covers all three.
+  var KEY = 'workpiece-statistics-off';
+  var box = document.getElementById('stats'), note = document.getElementById('stats-note');
+  if (navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.globalPrivacyControl === true) {
+    box.checked = false; box.disabled = true;
+    note.textContent = ' Off: your browser asks sites not to track it.';
+  } else {
+    var off = false;
+    try { off = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    box.checked = !off;
+    box.addEventListener('change', function () {
+      try {
+        if (box.checked) localStorage.removeItem(KEY); else localStorage.setItem(KEY, '1');
+        note.textContent = box.checked ? ' On from the next page you open.' : ' Off. Saved in this browser.';
+      } catch (e) {
+        note.textContent = ' Your browser blocks storage, so this choice cannot be remembered.';
+      }
+    });
+  }
+  // Put together here rather than written out, so a plain scrape of the page does not find the address.
+  var user = 'tobi.jacob', domain = 'gmx.net';
+  document.querySelectorAll('[data-email]').forEach(function (a) {
+    a.href = 'mailto:' + user + '@' + domain; a.textContent = user + '@' + domain;
+  });
+})();
+</script>
+"""
+
+
+def privacy():
+    host = SITE_URL.split("//", 1)[-1].rstrip("/")
+    body = f"""<div class="wrap prose">
+  <h1>Privacy</h1>
+  <p class="small">Covers {e(host)}: the home page, the documentation at <a href="docs/">docs/</a>, the examples and
+  the application in the browser at <a href="app/">app/</a>. Last changed 26 November 2026.</p>
+
+  <h2>Who is responsible</h2>
+  <p>Tobias Jacob<br>Hübingerweg 26<br>56323 Waldesch<br>Germany<br>
+  Email: <a data-email href="#">(shown with JavaScript)</a></p>
+  <p class="small">This is also the site's imprint (Impressum, § 5 DDG).</p>
+
+  <h2>In short</h2>
+  <ul>
+    <li>The CAD application runs in your browser. Parts you build and files you open or save stay on your
+    computer; nothing is uploaded, unless you use the assistant (below).</li>
+    <li>The site and the application count anonymous usage statistics without cookies and without storing
+    anything on your device. You can switch them off <a href="#switch">below</a>; they are off by themselves
+    if your browser sends Do Not Track or Global Privacy Control.</li>
+    <li>No advertising, no tracking across sites, no session recordings, no selling of data. Every script,
+    font and picture is served from this site; no page loads anything from someone else's server.</li>
+  </ul>
+
+  <h2>Hosting</h2>
+  <p>The site is served by Cloudflare Pages (Cloudflare, Inc., 101 Townsend St, San Francisco, CA 94107, USA). To
+  deliver a page, Cloudflare processes your IP address and the technical data of the request (time, address of the
+  page, browser identification) and may keep them in short-lived logs for security and to keep the service running.
+  Legal basis: Art. 6(1)(f) GDPR, our legitimate interest in serving the site securely. Cloudflare is certified under
+  the EU-US Data Privacy Framework and processes this data on our behalf under a data processing agreement.</p>
+
+  <h2 id="statistics">Anonymous usage statistics</h2>
+  <p>To learn which pages are read, which examples are opened and which features of the application are used or
+  fail, the pages send the following events to PostHog (PostHog Inc.), in PostHog's EU cloud (Frankfurt,
+  Germany):</p>
+  <ul>
+    <li>that a page was opened: its address, the page you came from, browser and version, operating system, device
+    type, screen and window size, browser language and time zone;</li>
+    <li>on the home page, which sections were on screen long enough to be read;</li>
+    <li>which example was opened, and how (in the application, its drawing in the application, or its script);</li>
+    <li>which example's drawing sheet was looked at, and how (opened full size, picked among its sheets, or as PDF);</li>
+    <li>which kind of link was followed: the application, the documentation, GitHub, PyPI, a download (with the
+    platform's name), this page, a heading of the same page, or another;</li>
+    <li>in the application: that it started; which built-in example was opened; that a file was opened, saved or
+    exported, with its kind or format only (for example “STEP”), never its name or contents; that the assistant was
+    opened and that it took a turn, never what was written in it.</li>
+  </ul>
+  <p>Nothing you type, no file name, no part and no sketch is ever sent. The statistics run in PostHog's cookieless
+  mode: no cookie is set and nothing is stored on or read from your device. To count visitors, PostHog computes a
+  hash of your IP address and browser identification together with a secret that changes every day; the IP address
+  itself is not stored, and the hash cannot be linked across days. PostHog derives an approximate location (country,
+  region) from the IP address before discarding it. We do not create user profiles and cannot identify you.
+  Statistics are kept for at most one year.</p>
+  <p>Legal basis: Art. 6(1)(f) GDPR, our legitimate interest in finding failures and in learning how the site and the
+  application are used. You can object at any time with effect for the future with this switch. It covers the whole
+  site, the documentation and the application, and is kept in your browser's local storage (a single flag, used for
+  nothing else):</p>
+  <p id="switch"><label><input type="checkbox" id="stats"> Count my visits to {e(host)}</label>
+  <span id="stats-note" class="small"></span></p>
+  <p class="small">Statistics are also off if your browser sends Do Not Track or Global Privacy Control, and in any
+  build of the site made without a PostHog key (for example one you build yourself).</p>
+
+  <h2 id="assistant">The assistant in the application</h2>
+  <p>The application has an assistant that writes and builds parts for you. It is used only when you open it and
+  write to it. Then:</p>
+  <ul>
+    <li>Before the first message, Cloudflare Turnstile (Cloudflare, Inc.) checks that you are a person; it processes
+    your IP address and technical data of your browser for that check.</li>
+    <li>A session cookie <code>workpiece_agent</code> is set, sent only to this site's assistant service
+    (<code>/api/agent</code>) and valid for at most a day. It is strictly necessary for the assistant and holds no
+    identifier of you, only a signed session.</li>
+    <li>What you write, the scripts the assistant writes, the reports of building them, the current part's script
+    and the pictures of the part the assistant looks at are sent through our service on Cloudflare to Anthropic
+    (Anthropic PBC, USA), whose model writes the answers. Anthropic processes them under its commercial terms for its
+    API, which do not allow training models on them. Do not write personal information into the assistant if you do
+    not want it sent.</li>
+    <li>To share the assistant's daily budget fairly, our service counts turns per IP address; those counters are
+    deleted at the end of each day (UTC). Its log keeps, per turn, token counts and costs only, never a message.</li>
+  </ul>
+  <p>Legal basis: Art. 6(1)(b) GDPR for answering what you asked the assistant, and Art. 6(1)(f) GDPR for protecting
+  the service from abuse.</p>
+
+  <h2>Email</h2>
+  <p>If you email us, we use your address and message only to answer you, and delete them when the conversation is
+  finished unless we are required to keep them. Legal basis: Art. 6(1)(f) GDPR, or Art. 6(1)(b) GDPR where your
+  message concerns a contract.</p>
+
+  <h2>Links to other sites</h2>
+  <p>Links to GitHub and PyPI open those sites; nothing is sent to them before you click. Their own privacy policies
+  apply there.</p>
+
+  <h2>Your rights</h2>
+  <p>You have the right of access (Art. 15 GDPR), rectification (Art. 16), erasure (Art. 17), restriction of processing
+  (Art. 18), data portability (Art. 20) and to object to processing based on legitimate interests (Art. 21). Because the
+  usage statistics are anonymous, we usually cannot find data belonging to you in them. Email us to exercise any of
+  these rights. You may also lodge a complaint with a data protection supervisory authority, in particular in the EU
+  member state where you live or work. The authority responsible for us is the Landesbeauftragte für den Datenschutz
+  und die Informationsfreiheit Rheinland-Pfalz (<a href="https://www.datenschutz.rlp.de">datenschutz.rlp.de</a>).</p>
+</div>"""
+    return page(f"Privacy – {NAME}", f"What {host} and the application in the browser send, to whom, and how to switch the statistics off.",
+                body, path="privacy.html", script=PRIVACY_SCRIPT, statistics=False)
 
 
 def not_found():
@@ -630,10 +926,12 @@ def main():
     write("index.html", home())
     write("404.html", not_found())
     write("robots.txt", f"User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}sitemap.xml\n")
-    urls = ["", "app/", "docs/", "docs/benchmarks.html"] + scripts
+    write("privacy.html", privacy())
+    write("examples/index.html", examples_page())
+    urls = ["", "examples/", "app/", "docs/", "docs/benchmarks.html", "privacy.html"] + scripts
     write("sitemap.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-          + "".join(f"  <url><loc>{e(SITE_URL + u)}</loc></url>\n" for u in urls) + "</urlset>\n")
-    print(f"build_site: {1 + len(scripts)} pages, version {VERSION}, pip name {PIP}, SITE_URL {SITE_URL}")
+          + "".join(f"  <url><loc>{e(SITE_URL + pretty(u))}</loc></url>\n" for u in urls) + "</urlset>\n")
+    print(f"build_site: {4 + len(scripts)} pages, version {VERSION}, pip name {PIP}, SITE_URL {SITE_URL}")
 
 
 if __name__ == "__main__":

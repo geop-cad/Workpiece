@@ -6,8 +6,9 @@ src = "src"
 
 [output.html]
 git-repository-url = "https://github.com/geop-cad/Workpiece"
-# Where the book is served from, as a path. The site workflow (.github/workflows/site.yml)
-# sets this from SITE_URL; change it here only for a book built by hand.
-# For a custom domain served at the root, this is "/docs/".
-site-url = "/Workpiece/docs/"
+# Where the book is served from, as a path (https://workpiece.dev/docs/). The site workflow
+# (.github/workflows/site.yml) sets it from SITE_URL too.
+site-url = "/docs/"
+# The site's statistics (the site's privacy page says what they send).
+additional-js = ["statistics.js"]
 no-section-label = true

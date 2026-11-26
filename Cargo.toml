@@ -29,6 +29,7 @@ members = [
     "cad/cad-part",
     "cad/cad-rasterize",
     "cad/cad-ui",
+    "cad/cad-make",
     "hosts/app",
     "bench/boolean",
     "bench/conformance",
@@ -39,6 +40,7 @@ edition = "2024"
 version = "0.1.0"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/geop-cad/Workpiece"
+homepage = "https://workpiece.dev/"
 # The newest minimum of the dependencies (egui 0.36 asks for 1.95).
 rust-version = "1.95"
 
@@ -78,6 +80,7 @@ workpiece-ops-step = { path = "ops/step" }
 workpiece-part = { path = "cad/cad-part" }
 workpiece-rasterize = { path = "cad/cad-rasterize" }
 workpiece-ui = { path = "cad/cad-ui" }
+workpiece-make = { path = "cad/cad-make" }
 eframe = { version = "0.36.2", default-features = false }
 
 # The geometry is slow without the optimizer (a fillet takes seconds):

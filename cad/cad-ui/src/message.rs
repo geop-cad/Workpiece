@@ -25,6 +25,15 @@ pub enum Message {
     },
     /// Add a new, empty part at this path (never saved) and open it.
     New(String),
+    /// The active part becomes `part` (made elsewhere: by a script), in
+    /// one change, undone as one; `placed` are the parts it places, by
+    /// path, put in the workspace as they are given.
+    ReplacePart {
+        /// What the active part is now.
+        part: Box<Part>,
+        /// The parts it places, by path.
+        placed: BTreeMap<String, Part>,
+    },
     /// Close the active part, dropping it from the workspace unless
     /// another part places it.
     Close,
