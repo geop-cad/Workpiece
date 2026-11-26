@@ -8,7 +8,9 @@ const CACHE_SECONDS = 30;
 
 export const onRequestGet: PagesFunction<AgentEnv> = async ({ request, env }) => {
   const cache = caches.default;
-  const key = new Request(new URL(request.url).toString(), { method: "GET" });
+  // One key, whatever the query string: a flood of distinct URLs is answered
+  // from the cache too, and never reaches the budget object.
+  const key = new Request(new URL("/api/agent/status", request.url).toString(), { method: "GET" });
   const cached = await cache.match(key);
   if (cached) return cached;
   const setup = setupOf(env);

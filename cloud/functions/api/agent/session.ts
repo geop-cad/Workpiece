@@ -3,7 +3,7 @@
  * token, then opens a session (at most IP_SESSIONS_PER_DAY per address)
  * and sets its signed cookie. See docs/assistant.md.
  */
-import { clientIp, errorResponse, refusalResponse, sameOrigin, setupOf, unavailable, type AgentEnv } from "../../../lib/agent/http.ts";
+import { clientIp, errorResponse, readBody, refusalResponse, sameOrigin, setupOf, unavailable, type AgentEnv } from "../../../lib/agent/http.ts";
 import { sessionCookie, signSession } from "../../../lib/agent/session.ts";
 import { verifyTurnstile } from "../../../lib/agent/turnstile.ts";
 
@@ -11,10 +11,11 @@ export const onRequestPost: PagesFunction<AgentEnv> = async ({ request, env }) =
   const setup = setupOf(env);
   if (!setup) return unavailable();
   if (!sameOrigin(request)) return errorResponse(400, "invalid", "Cross-site request.");
-  if (Number(request.headers.get("content-length") ?? "0") > 4096) return errorResponse(400, "invalid", "Body too large.");
+  const raw = await readBody(request, 4096);
+  if (!raw) return errorResponse(400, "invalid", "Body too large.");
   let token: unknown;
   try {
-    const body = (await request.json()) as Record<string, unknown>;
+    const body = JSON.parse(new TextDecoder().decode(raw)) as Record<string, unknown>;
     token = body?.turnstile;
   } catch {
     return errorResponse(400, "invalid", "The body must be JSON.");

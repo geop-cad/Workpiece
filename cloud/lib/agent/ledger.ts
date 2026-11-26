@@ -4,28 +4,33 @@
  * functions on its storage (`ctx.storage.kv`), one call at a time, so
  * every check-and-update here is atomic: a cap checked is a cap held.
  *
- * Money is in nanodollars (integers). A turn first `admit`s (rates and
- * quotas, before anything is asked of the API), then `reserve`s an upper
- * bound of its cost (refused if the bound does not fit the day's or the
- * lifetime's remainder, reservations still open counted as spent), then
- * `settle`s to what the response's usage says it cost. A reservation never
- * settled is charged in full once RESERVATION_TTL_MS has passed.
+ * Money is in nanodollars (integers). A turn first `admit`s (the caller's
+ * rates and quotas, before anything is asked of the API: the turn counts
+ * against the caller's minute windows and day from here on), then
+ * `reserve`s an upper bound of its cost (refused if the bound does not fit
+ * the day's or the lifetime's remainder, or the session's or the address's
+ * money for the day, reservations still open counted as spent; only a
+ * reserved turn counts towards the global minute window), then `settle`s
+ * to what the response's usage says it cost. A reservation never settled
+ * is charged in full once RESERVATION_TTL_MS has passed.
  *
  * Keys:
  *   total              lifetime spend, never reset
  *   day:<YYYY-MM-DD>   the day's ledger (DayRecord), never deleted
  *   res:<id>           an open reservation (Reservation)
- *   cnt:<key>          a counter of the day in `counters_day`
+ *   cnt:<key>          a counter of the day in `counters_day` (turns, sessions, money of a session or address)
  *   win:<key>          the timestamps of the last minute's turns
  *   swept:<id>         a reservation charged in full, so a late settle is not charged again
  */
 import {
   GLOBAL_SESSIONS_PER_DAY,
   GLOBAL_TURNS_PER_MINUTE,
+  IP_NANO_USD_PER_DAY,
   IP_SESSIONS_PER_DAY,
   IP_TURNS_PER_DAY,
   IP_TURNS_PER_MINUTE,
   RESERVATION_TTL_MS,
+  SESSION_NANO_USD_PER_DAY,
   SESSION_TURNS_PER_DAY,
   SESSION_TURNS_PER_MINUTE,
 } from "./config.ts";
@@ -56,6 +61,8 @@ interface Reservation {
   amount: number;
   day: string;
   at: number;
+  sid: string;
+  ip: string;
 }
 
 export interface Limits {
@@ -100,13 +107,22 @@ function charge(kv: Kv, day: string, amount: number, swept: boolean) {
   });
 }
 
+/** Charges a closed reservation: to the day, and to its session's and address's money if the counters are still of its day. */
+function chargeReservation(kv: Kv, reservation: Reservation, amount: number, swept: boolean) {
+  charge(kv, reservation.day, amount, swept);
+  if (kv.get<string>("counters_day") === reservation.day) {
+    add(kv, `usd:s:${reservation.sid}`, amount);
+    add(kv, `usd:ip:${reservation.ip}`, amount);
+  }
+}
+
 /** Charges reservations past their TTL in full, and drops the counters and windows of past days. */
 function housekeep(kv: Kv, now: number) {
   for (const [key, reservation] of [...kv.list<Reservation>({ prefix: "res:" })]) {
     if (now - reservation.at > RESERVATION_TTL_MS) {
       kv.delete(key);
       kv.put(`swept:${key.slice(4)}`, true);
-      charge(kv, reservation.day, reservation.amount, true);
+      chargeReservation(kv, reservation, reservation.amount, true);
     }
   }
   const today = dayOf(now);
@@ -151,27 +167,62 @@ function budgetRefusal(kv: Kv, budgets: Budgets, now: number, amount: number): R
 }
 
 const counter = (kv: Kv, key: string) => kv.get<number>(`cnt:${key}`) ?? 0;
-const bump = (kv: Kv, key: string) => kv.put(`cnt:${key}`, counter(kv, key) + 1);
+const add = (kv: Kv, key: string, amount: number) => kv.put(`cnt:${key}`, counter(kv, key) + amount);
+const bump = (kv: Kv, key: string) => add(kv, key, 1);
+
+/** What is left today of the session's and of the address's money, today's open reservations counted as spent. */
+function moneyLeft(kv: Kv, sid: string, ip: string, now: number): { session: number; ip: number } {
+  const today = dayOf(now);
+  let session = SESSION_NANO_USD_PER_DAY - counter(kv, `usd:s:${sid}`);
+  let address = IP_NANO_USD_PER_DAY - counter(kv, `usd:ip:${ip}`);
+  for (const [, reservation] of kv.list<Reservation>({ prefix: "res:" })) {
+    if (reservation.day !== today) continue;
+    if (reservation.sid === sid) session -= reservation.amount;
+    if (reservation.ip === ip) address -= reservation.amount;
+  }
+  return { session, ip: address };
+}
 
 function window(kv: Kv, key: string, now: number): number[] {
   return (kv.get<number[]>(`win:${key}`) ?? []).filter((at) => now - at < MINUTE_MS);
 }
 
-export function limitsOf(kv: Kv, sid: string, ip: string): Limits {
-  const left = Math.min(
-    SESSION_TURNS_PER_DAY - counter(kv, `turns:s:${sid}`),
-    IP_TURNS_PER_DAY - counter(kv, `turns:ip:${ip}`),
-  );
+/** The caller's turns left today: none once its money for the day is spent. */
+export function limitsOf(kv: Kv, sid: string, ip: string, now: number): Limits {
+  const money = moneyLeft(kv, sid, ip, now);
+  const left =
+    money.session <= 0 || money.ip <= 0
+      ? 0
+      : Math.min(SESSION_TURNS_PER_DAY - counter(kv, `turns:s:${sid}`), IP_TURNS_PER_DAY - counter(kv, `turns:ip:${ip}`));
   return { turns_left_today: Math.max(0, left), turns_per_day: SESSION_TURNS_PER_DAY };
 }
 
-function quotaRefusal(kv: Kv, sid: string, ip: string, now: number): Refusal | null {
-  if (limitsOf(kv, sid, ip).turns_left_today > 0) return null;
+function usedUp(now: number): Refusal {
   return {
     ok: false,
     error: "quota",
-    message: "You have used today's free assistant turns. They renew at 00:00 UTC.",
+    message: "You have used today's free assistant allowance. It renews at 00:00 UTC.",
     retry_after: secondsToMidnight(now),
+  };
+}
+
+/** Refuses when the caller's turns or money for the day are used up. */
+function quotaRefusal(kv: Kv, sid: string, ip: string, now: number): Refusal | null {
+  return limitsOf(kv, sid, ip, now).turns_left_today > 0 ? null : usedUp(now);
+}
+
+/** Refuses when `amount` does not fit what is left of the session's or the address's money today. */
+function moneyRefusal(kv: Kv, sid: string, ip: string, now: number, amount: number): Refusal | null {
+  const money = moneyLeft(kv, sid, ip, now);
+  return money.session < amount || money.ip < amount ? usedUp(now) : null;
+}
+
+function rateRefusal(key: string, recent: number[], now: number): Refusal {
+  return {
+    ok: false,
+    error: "rate",
+    message: key === "global" ? "The assistant is busy. Try again in a minute." : "Too many requests. Wait a moment.",
+    retry_after: Math.max(1, Math.ceil((recent[0] + MINUTE_MS - now) / 1000)),
   };
 }
 
@@ -183,8 +234,10 @@ export interface Caller {
 
 /**
  * Lets a turn ask the API anything (even to count its tokens): refuses
- * when the budget is gone, the caller's turns for the day are used, or a
- * per-minute rate is reached. Counts the turn in the minute windows.
+ * when the budget is gone, the caller's turns or money for the day are
+ * used, or a minute rate (the caller's, or everyone's) is reached. From
+ * here on the turn counts against the caller's minute windows and turns
+ * of the day, whether or not it gets as far as reserving.
  */
 export function admit(kv: Kv, budgets: Budgets, { sid, ip, now }: Caller): Granted | Refusal {
   housekeep(kv, now);
@@ -197,36 +250,33 @@ export function admit(kv: Kv, budgets: Budgets, { sid, ip, now }: Caller): Grant
   ];
   for (const [key, limit] of windows) {
     const recent = window(kv, key, now);
-    if (recent.length >= limit) {
-      return {
-        ok: false,
-        error: "rate",
-        message: key === "global" ? "The assistant is busy. Try again in a minute." : "Too many requests. Wait a moment.",
-        retry_after: Math.max(1, Math.ceil((recent[0] + MINUTE_MS - now) / 1000)),
-      };
-    }
+    if (recent.length >= limit) return rateRefusal(key, recent, now);
   }
-  for (const [key] of windows) kv.put(`win:${key}`, [...window(kv, key, now), now]);
-  return { ok: true, limits: limitsOf(kv, sid, ip) };
+  for (const key of [`s:${sid}`, `ip:${ip}`]) kv.put(`win:${key}`, [...window(kv, key, now), now]);
+  bump(kv, `turns:s:${sid}`);
+  bump(kv, `turns:ip:${ip}`);
+  return { ok: true, limits: limitsOf(kv, sid, ip, now) };
 }
 
 /**
  * Holds `amount` (an upper bound of the turn's cost) under `id`, and
- * counts the turn against the caller's day. Refused when the amount does
- * not fit the day's or the lifetime's remainder, or the caller's turns ran
- * out since `admit` (two turns racing).
+ * counts the turn in everyone's minute window and the day's turns.
+ * Refused when the amount does not fit the day's or the lifetime's
+ * remainder or the session's or the address's money for the day (two
+ * turns racing included), or everyone's minute rate is reached.
  */
 export function reserve(kv: Kv, budgets: Budgets, caller: Caller & { id: string; amount: number }): Granted | Refusal {
   const { sid, ip, now, id, amount } = caller;
   housekeep(kv, now);
-  const refusal = budgetRefusal(kv, budgets, now, amount) ?? quotaRefusal(kv, sid, ip, now);
+  const refusal = budgetRefusal(kv, budgets, now, amount) ?? moneyRefusal(kv, sid, ip, now, amount);
   if (refusal) return refusal;
+  const recent = window(kv, "global", now);
+  if (recent.length >= GLOBAL_TURNS_PER_MINUTE) return rateRefusal("global", recent, now);
+  kv.put("win:global", [...recent, now]);
   const day = dayOf(now);
-  kv.put<Reservation>(`res:${id}`, { amount, day, at: now });
-  bump(kv, `turns:s:${sid}`);
-  bump(kv, `turns:ip:${ip}`);
+  kv.put<Reservation>(`res:${id}`, { amount, day, at: now, sid, ip });
   updateDay(kv, day, (record) => (record.turns += 1));
-  return { ok: true, limits: limitsOf(kv, sid, ip) };
+  return { ok: true, limits: limitsOf(kv, sid, ip, now) };
 }
 
 /**
@@ -238,7 +288,7 @@ export function settle(kv: Kv, { id, cost, now }: { id: string; cost: number; no
   const reservation = kv.get<Reservation>(`res:${id}`);
   if (reservation) {
     kv.delete(`res:${id}`);
-    charge(kv, reservation.day, cost, false);
+    chargeReservation(kv, reservation, cost, false);
   } else if (!kv.get<boolean>(`swept:${id}`)) {
     charge(kv, dayOf(now), cost, false);
   }
@@ -261,7 +311,7 @@ export function openSession(kv: Kv, budgets: Budgets, { sid, ip, now }: Caller):
   }
   bump(kv, `sessions:ip:${ip}`);
   updateDay(kv, day, (record) => (record.sessions += 1));
-  return { ok: true, limits: limitsOf(kv, sid, ip) };
+  return { ok: true, limits: limitsOf(kv, sid, ip, now) };
 }
 
 /** Whether a turn reserving `minimum` (the least any turn reserves) would fit the budget now. Nothing else is said. */

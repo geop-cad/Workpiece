@@ -4,7 +4,8 @@ import { MAX_BODY_BYTES, MAX_MESSAGES, MAX_USER_TEXT_CHARS } from "../lib/agent/
 import { Invalid, validateTurn } from "../lib/agent/validate.ts";
 
 const tools = new Set(["run_python", "view"]);
-const check = (body: unknown, bytes = 1000) => validateTurn(body, bytes, tools);
+const check = (body: unknown, bytes = 1000) => validateTurn(body, bytes, tools).messages;
+const SIG = "A".repeat(43);
 const invalid = (body: unknown, pattern: RegExp, bytes = 1000) =>
   assert.throws(() => check(body, bytes), (e: unknown) => e instanceof Invalid && pattern.test(e.message));
 
@@ -12,6 +13,7 @@ const toolTurn = [
   { role: "user", content: "Make a 20 mm cube." },
   {
     role: "assistant",
+    signature: SIG,
     content: [
       { type: "thinking", thinking: "", signature: "sig" },
       { type: "text", text: "Adding it.", citations: null },
@@ -47,7 +49,7 @@ test("roles alternate, start and end with the user", () => {
 
 test("at most MAX_MESSAGES messages", () => {
   const messages = Array.from({ length: MAX_MESSAGES + 1 }, (_, i) =>
-    i % 2 === 0 ? { role: "user", content: "x" } : { role: "assistant", content: [{ type: "text", text: "y" }] },
+    i % 2 === 0 ? { role: "user", content: "x" } : { role: "assistant", signature: SIG, content: [{ type: "text", text: "y" }] },
   );
   invalid({ messages }, /more than/);
 });
@@ -59,11 +61,11 @@ test("user text is limited per block", () => {
 });
 
 test("only our tools, and only blocks a CAD session sends", () => {
-  const withTool = (name: string) => [toolTurn[0], { role: "assistant", content: [{ type: "tool_use", id: "t", name, input: {} }] }, { role: "user", content: [{ type: "tool_result", tool_use_id: "t", content: "ok" }] }];
+  const withTool = (name: string) => [toolTurn[0], { role: "assistant", signature: SIG, content: [{ type: "tool_use", id: "t", name, input: {} }] }, { role: "user", content: [{ type: "tool_result", tool_use_id: "t", content: "ok" }] }];
   invalid({ messages: withTool("web_search") }, /not a tool/);
   invalid({ messages: [{ role: "user", content: [{ type: "document", source: {} }] }] }, /text or tool_result/);
   invalid({ messages: [{ role: "user", content: [{ type: "image", source: {} }] }] }, /text or tool_result/);
-  invalid({ messages: [toolTurn[0], { role: "assistant", content: [{ type: "server_tool_use", id: "x" }] }, toolTurn[0]] }, /must be text, thinking/);
+  invalid({ messages: [toolTurn[0], { role: "assistant", signature: SIG, content: [{ type: "server_tool_use", id: "x" }] }, toolTurn[0]] }, /must be text, thinking/);
   invalid({ messages: [{ role: "user", content: [{ type: "text", text: "x", cache_control: { type: "ephemeral" } }] }] }, /cache_control/);
 });
 
@@ -91,4 +93,38 @@ test("the body limit leaves the image out", () => {
   check(withImages(png(data)), MAX_BODY_BYTES + data.length);
   invalid(withImages(png(data)), /larger than/, MAX_BODY_BYTES + data.length + 1);
   invalid({ messages: [{ role: "user", content: "hi" }] }, /larger than/, MAX_BODY_BYTES + 1);
+});
+
+test("every assistant message carries a signature, kept out of what is forwarded", () => {
+  const turn = validateTurn({ messages: toolTurn }, 1000, tools);
+  assert.equal(turn.signed.length, 1);
+  assert.equal(turn.signed[0].signature, SIG);
+  assert.deepEqual(turn.signed[0].content, turn.messages[1].content);
+  assert.equal("signature" in turn.messages[1], false);
+  const unsigned = structuredClone(toolTurn) as Record<string, unknown>[];
+  delete unsigned[1].signature;
+  invalid({ messages: unsigned }, /signature/);
+  invalid({ messages: [toolTurn[0], { ...toolTurn[1], signature: "short" }, toolTurn[2]] }, /signature/);
+  invalid({ messages: [{ role: "user", content: "x", signature: SIG }] }, /unexpected field `signature`/);
+});
+
+test("tool use ids are the API's kind, and texts are never empty", () => {
+  const withId = (id: string) => [
+    toolTurn[0],
+    { role: "assistant", signature: SIG, content: [{ type: "tool_use", id, name: "view", input: {} }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: id, content: "ok" }] },
+  ];
+  check({ messages: withId("toolu_01AbC-9") });
+  for (const id of ["!!", "", "x".repeat(65), "a b"]) invalid({ messages: withId(id) }, /letters, digits/);
+  invalid({ messages: [{ role: "user", content: "" }] }, /not be empty/);
+  invalid({ messages: [{ role: "user", content: [{ type: "text", text: "" }] }] }, /not be empty/);
+  invalid({ messages: [toolTurn[0], { role: "assistant", signature: SIG, content: [{ type: "text", text: "" }] }, toolTurn[0]] }, /not be empty/);
+  invalid({ messages: [...toolTurn.slice(0, 2), { role: "user", content: [{ type: "tool_result", tool_use_id: "tu1", content: "" }] }] }, /not be empty/);
+});
+
+test("a tool result's text is capped like the user's", () => {
+  const result = (content: unknown) => ({ messages: [...toolTurn.slice(0, 2), { role: "user", content: [{ type: "tool_result", tool_use_id: "tu1", content }] }] });
+  check(result("x".repeat(MAX_USER_TEXT_CHARS)));
+  invalid(result("x".repeat(MAX_USER_TEXT_CHARS + 1)), /longer than/);
+  invalid(result([{ type: "text", text: "x".repeat(MAX_USER_TEXT_CHARS + 1) }]), /longer than/);
 });

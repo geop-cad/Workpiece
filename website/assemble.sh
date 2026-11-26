@@ -1,6 +1,6 @@
 #!/bin/sh
 # assemble.sh <out dir>: the site as it is published: the pages build_site.py writes (home page,
-# the examples' scripts, privacy page, 404, robots.txt, sitemap.xml) with style.css, assets/,
+# the examples' scripts, privacy and licences pages, 404, robots.txt, sitemap.xml, THIRD-PARTY.txt) with style.css, assets/,
 # analytics.js and Cloudflare Pages' _headers, the book (built from docs/book) as docs/, the
 # examples as examples/ and, once app/build.sh has built it, the application for the browser as
 # app/. SITE_URL (default: site.json's) is where it is served from.
@@ -34,6 +34,13 @@ if [ -f "$APP/index.html" ]; then
   cp -r "$APP" "$OUT/app"
 else
   echo "assemble.sh: no application in $APP (run website/app/build.sh): the site has none" >&2
+fi
+# The licences of what the application in the browser is built from (the crates, with the fonts'
+# licence texts), linked from licenses.html; it needs cargo, as app/build.sh does.
+if command -v cargo >/dev/null 2>&1; then
+  python3 "$REPO/scripts/third_party.py" "$OUT/THIRD-PARTY.txt" --target wasm32-unknown-unknown
+else
+  echo "assemble.sh: no cargo: THIRD-PARTY.txt is not written" >&2
 fi
 # The statistics' bundle and key (see analytics.js).
 key=$(printf '%s' "${POSTHOG_KEY:-}" | tr -d '[:space:]')

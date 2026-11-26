@@ -48,7 +48,7 @@ jobs:
     outputs:
       version: ${{ steps.v.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - id: v
         shell: bash
         run: |
@@ -72,10 +72,12 @@ jobs:
     name: Third-party notice
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable (a branch: the toolchain is named below)
+        with:
+          toolchain: stable
       - run: python3 scripts/third_party.py THIRD-PARTY.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: third-party
           path: THIRD-PARTY.txt
@@ -86,8 +88,8 @@ jobs:
     needs: [version, wheels, third-party]
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: "{third-party,bin-linux-x86_64,bin-windows-x86_64}"
           path: in
@@ -100,7 +102,7 @@ jobs:
             fi
           done
           ls -l archives
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: archive-linux-windows
           path: archives/*
@@ -118,8 +120,8 @@ jobs:
           - { arch: arm64, runner: macos-15 }
           - { arch: x86_64, runner: macos-15-intel }
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: "{third-party,bin-macos-${{ matrix.arch }}}"
           path: in
@@ -158,7 +160,7 @@ jobs:
             xcrun notarytool submit "$dmg" --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" --wait
             xcrun stapler staple "$dmg"
           done
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: archive-macos-${{ matrix.arch }}
           path: archives/*
@@ -173,7 +175,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: "{archive-*,wheel-*,sdist}"
           merge-multiple: true

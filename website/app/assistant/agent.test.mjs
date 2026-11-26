@@ -2,10 +2,16 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 // The assistant's loop (agent.js), ported with it from geop's web/test/agent.test.ts.
 // Run by `npm test` in cloud/ (node --test).
+import { validateTurn } from "../../../cloud/lib/agent/validate.ts";
 import {
   AgentError,
+  COMPACT_AT_BYTES,
   EARLIER_PICTURE,
+  LONGEST_TOOL_TEXT,
   answer,
+  compact,
+  sizeOf,
+  toolText,
   describeTool,
   partContext,
   postTurn,
@@ -27,8 +33,9 @@ function server(answers) {
   };
 }
 
+const SIG = "S".repeat(43);
 const said = (text, stop = "end_turn") => ({
-  message: { content: [{ type: "text", text }], stop_reason: stop },
+  message: { content: [{ type: "text", text }], stop_reason: stop, signature: SIG },
   limits: { turns_left_today: 9, turns_per_day: 10 },
 });
 const uses = (...calls) => ({
@@ -38,6 +45,7 @@ const uses = (...calls) => ({
       ...calls.map(([id, name, input]) => ({ type: "tool_use", id, name, input })),
     ],
     stop_reason: "tool_use",
+    signature: SIG,
   },
 });
 
@@ -130,23 +138,116 @@ test("stopping answers the tools not run, and asks no further turn", async () =>
   assert.equal(answered.length, 2, "both tool uses answered");
 });
 
-test("a tool use cut off by max_tokens is left out of the conversation", async () => {
-  const cut = {
-    message: {
-      content: [
-        { type: "text", text: "Adding" },
-        { type: "tool_use", id: "a", name: "run_python", input: {} },
-      ],
-      stop_reason: "max_tokens",
-    },
-  };
+test("an assistant message is kept exactly as the server answered it, with its signature", async () => {
+  const cut = { message: { content: [{ type: "text", text: "Adding" }], stop_reason: "max_tokens", signature: SIG } };
   const result = await answer(
     withPrompt([], "x"),
     { turn: server([cut]).turn, runTool: async () => assert.fail("not run") },
     new AbortController().signal,
   );
   assert.equal(result.ended, "max_tokens");
-  assert.deepEqual(result.messages[1].content, [{ type: "text", text: "Adding" }]);
+  assert.deepEqual(result.messages[1], { role: "assistant", content: [{ type: "text", text: "Adding" }], signature: SIG });
+});
+
+test("a tool's text is never empty and never over what the server takes", () => {
+  assert.equal(toolText(""), "(no output)");
+  assert.equal(toolText(undefined), "(no output)");
+  const long = toolText("x".repeat(LONGEST_TOOL_TEXT + 500));
+  assert.equal(long.length, LONGEST_TOOL_TEXT);
+  assert.match(long, /cut off\]$/);
+});
+
+/** A conversation of `rounds` script runs, each script and report `size` characters. */
+function longConversation(rounds, size) {
+  let messages = withPrompt([], "Make a bracket.", [{ type: "text", text: "No part is open in the editor." }]);
+  for (let i = 0; i < rounds; i++) {
+    messages.push({
+      role: "assistant",
+      signature: SIG,
+      content: [
+        { type: "thinking", thinking: "plan", signature: "sig" },
+        { type: "text", text: `Try ${i}.` },
+        { type: "tool_use", id: `toolu_${i}`, name: "run_python", input: { script: `# run ${i}\n${"p.extrude(s, 8)\n".repeat(size / 16)}` } },
+      ],
+    });
+    messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: `toolu_${i}`, content: `report ${i}\n${"ok Extrude\n".repeat(size / 11)}` }] });
+  }
+  return messages;
+}
+
+test("a conversation grown past COMPACT_AT_BYTES is compacted before it is sent, into one the server takes", async () => {
+  const history = longConversation(12, 6000);
+  assert.ok(sizeOf(history) > COMPACT_AT_BYTES);
+  const model = server([said("Done.")]);
+  const compacted = [];
+  const result = await answer(history, { turn: model.turn, runTool: async () => assert.fail(), onCompact: (h) => compacted.push(h) }, new AbortController().signal);
+  assert.equal(compacted.length, 1);
+  const sent = model.sent[0];
+  assert.equal(sent.length, 1);
+  assert.ok(sizeOf(sent) < COMPACT_AT_BYTES / 2);
+  const summary = sent[0].content[0].text;
+  assert.match(summary, /compacted/);
+  assert.match(summary, /Make a bracket/);
+  assert.match(summary, /# run 11/);
+  assert.match(summary, /report 11/);
+  // The server's own validation takes it: no assistant message, every text within its limit.
+  validateTurn({ messages: sent }, sizeOf(sent), new Set(["run_python"]));
+  assert.equal(result.messages.length, 2);
+});
+
+test("compacting keeps the user's latest words as they are", () => {
+  const history = withPrompt(longConversation(2, 160), "Now make it 10 mm thicker.");
+  const [only] = compact(history);
+  assert.equal(only.role, "user");
+  assert.deepEqual(only.content.at(-1), { type: "text", text: "Now make it 10 mm thicker." });
+});
+
+test("too_long compacts and asks again, once", async () => {
+  const history = longConversation(2, 160);
+  const sent = [];
+  let calls = 0;
+  const result = await answer(
+    history,
+    {
+      turn: async (messages) => {
+        sent.push(messages);
+        if (calls++ === 0) throw new AgentError("too_long", "too long", 400);
+        return said("Done.");
+      },
+      runTool: async () => assert.fail(),
+    },
+    new AbortController().signal,
+  );
+  assert.equal(result.ended, "end_turn");
+  assert.equal(sent[1].length, 1);
+  // Twice too long: the error stands.
+  await assert.rejects(
+    answer(history, { turn: async () => { throw new AgentError("too_long", "too long", 400); }, runTool: async () => assert.fail() }, new AbortController().signal),
+    (e) => e.code === "too_long",
+  );
+});
+
+test("a session that ended is renewed once, and the conversation, signed for the old one, is compacted", async () => {
+  const history = longConversation(1, 160);
+  let renewed = 0;
+  let calls = 0;
+  const sent = [];
+  const result = await answer(
+    history,
+    {
+      turn: async (messages) => {
+        sent.push(messages);
+        if (calls++ === 0) throw new AgentError("session", "ended", 401);
+        return said("Done.");
+      },
+      renewSession: async () => void renewed++,
+      runTool: async () => assert.fail(),
+    },
+    new AbortController().signal,
+  );
+  assert.equal(renewed, 1);
+  assert.equal(result.ended, "end_turn");
+  assert.ok(sent[1].every((m) => m.role === "user"));
 });
 
 test("the server's refusals are read from its JSON", async () => {

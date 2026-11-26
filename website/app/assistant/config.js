@@ -26,9 +26,6 @@ export const SKIP_TURNSTILE = LOCAL && new URLSearchParams(globalThis.location?.
 /** The Pyodide the build vendors into assistant/pyodide/ (website/app/vendor.sh). */
 export const PYODIDE = "./pyodide/";
 
-/** The longest a tool's text answer is sent as (the server takes 256 KB a request besides the picture). */
-export const LONGEST_TOOL_TEXT = 24_000;
-
 /** The longest prompt the chat box takes. */
 export const LONGEST_PROMPT = 4000;
 

@@ -11,6 +11,7 @@ import {
   MAX_IMAGES_PER_REQUEST,
   MAX_MESSAGES,
   MAX_USER_TEXT_CHARS,
+  TOOL_USE_ID,
 } from "./config.ts";
 
 type MessageParam = Anthropic.MessageParam;
@@ -45,10 +46,18 @@ interface Context {
   imageBytes: number;
 }
 
+/** A text the user's side sends (a prompt, a tool's answer): not empty, at most MAX_USER_TEXT_CHARS. */
 function userText(text: unknown, path: string): string {
   const s = string(text, path);
+  if (s === "") fail(path, "must not be empty");
   if (s.length > MAX_USER_TEXT_CHARS) fail(path, `longer than ${MAX_USER_TEXT_CHARS} characters`);
   return s;
+}
+
+function toolUseId(value: unknown, path: string): string {
+  const id = string(value, path);
+  if (!TOOL_USE_ID.test(id)) fail(path, "must be 1 to 64 letters, digits, _ or -");
+  return id;
 }
 
 function image(block: Json, path: string, ctx: Context): Anthropic.ImageBlockParam {
@@ -70,7 +79,7 @@ function image(block: Json, path: string, ctx: Context): Anthropic.ImageBlockPar
 
 function toolResult(block: Json, path: string, ctx: Context, expected: Set<string>): Anthropic.ToolResultBlockParam {
   onlyKeys(block, ["type", "tool_use_id", "content", "is_error"], path);
-  const id = string(block.tool_use_id, `${path}.tool_use_id`);
+  const id = toolUseId(block.tool_use_id, `${path}.tool_use_id`);
   if (!expected.delete(id)) fail(`${path}.tool_use_id`, "answers no tool_use of the message before");
   const result: Anthropic.ToolResultBlockParam = { type: "tool_result", tool_use_id: id };
   if (block.is_error !== undefined) {
@@ -79,14 +88,14 @@ function toolResult(block: Json, path: string, ctx: Context, expected: Set<strin
   }
   const content = block.content;
   if (typeof content === "string") {
-    result.content = content;
+    result.content = userText(content, `${path}.content`);
   } else if (Array.isArray(content)) {
     result.content = content.map((part, i) => {
       const p = `${path}.content[${i}]`;
       if (!isObject(part)) fail(p, "must be an object");
       if (part.type === "text") {
         onlyKeys(part, ["type", "text"], p);
-        return { type: "text" as const, text: string(part.text, `${p}.text`) };
+        return { type: "text" as const, text: userText(part.text, `${p}.text`) };
       }
       if (part.type === "image") return image(part, p, ctx);
       fail(`${p}.type`, "must be text or image");
@@ -118,7 +127,7 @@ function userContent(content: unknown, path: string, ctx: Context, expected: Set
 }
 
 /** An assistant turn as the model returned it. Returns it and the ids of its tool calls. */
-function assistantContent(content: unknown, path: string, ctx: Context): [ContentBlockParam[], Set<string>] {
+function assistantContent(content: unknown, path: string, toolNames: ReadonlySet<string>): [ContentBlockParam[], Set<string>] {
   if (!Array.isArray(content) || content.length === 0) fail(path, "must be a non-empty array");
   const toolUses = new Set<string>();
   const blocks = content.map((block, i): ContentBlockParam => {
@@ -129,6 +138,7 @@ function assistantContent(content: unknown, path: string, ctx: Context): [Conten
         // `citations: null` comes back on text blocks; there are no citations here.
         onlyKeys(block, ["type", "text", "citations"], p);
         if (block.citations !== undefined && block.citations !== null) fail(`${p}.citations`, "must be null");
+        if (block.text === "") fail(`${p}.text`, "must not be empty");
         return { type: "text", text: string(block.text, `${p}.text`) };
       case "thinking":
         onlyKeys(block, ["type", "thinking", "signature"], p);
@@ -138,9 +148,9 @@ function assistantContent(content: unknown, path: string, ctx: Context): [Conten
         return { type: "redacted_thinking", data: string(block.data, `${p}.data`) };
       case "tool_use": {
         onlyKeys(block, ["type", "id", "name", "input", "caller", "toolset_name"], p);
-        const id = string(block.id, `${p}.id`);
+        const id = toolUseId(block.id, `${p}.id`);
         const name = string(block.name, `${p}.name`);
-        if (!ctx.toolNames.has(name)) fail(`${p}.name`, `\`${name}\` is not a tool of this assistant`);
+        if (!toolNames.has(name)) fail(`${p}.name`, `\`${name}\` is not a tool of this assistant`);
         if (!isObject(block.input)) fail(`${p}.input`, "must be an object");
         // Our tools are only ever called by the model directly, never by a toolset.
         const caller = block.caller;
@@ -160,12 +170,29 @@ function assistantContent(content: unknown, path: string, ctx: Context): [Conten
 }
 
 /**
+ * An assistant message's content as the endpoint forwards it, rebuilt
+ * field by field: what turn.ts signs when it answers, and what
+ * validateTurn rebuilds when the message comes back. Throws `Invalid`.
+ */
+export function rebuildAssistant(content: unknown, toolNames: ReadonlySet<string>): ContentBlockParam[] {
+  return assistantContent(content, "content", toolNames)[0];
+}
+
+/** A turn's messages as forwarded, and every assistant message with the signature it came back with. */
+export interface ValidTurn {
+  messages: MessageParam[];
+  signed: { content: ContentBlockParam[]; signature: string }[];
+}
+
+/**
  * The messages of a turn request's `body`, which is `rawBytes` long.
  * Throws `Invalid`, naming what is wrong, for anything but a conversation
  * of user and assistant turns, alternating and ending with the user, in
- * the blocks a browser CAD session sends.
+ * the blocks a browser CAD session sends. Every assistant message must
+ * carry the `signature` the endpoint answered it with (checked by
+ * signature.ts's verifyTurn, which needs the key).
  */
-export function validateTurn(body: unknown, rawBytes: number, toolNames: ReadonlySet<string>): MessageParam[] {
+export function validateTurn(body: unknown, rawBytes: number, toolNames: ReadonlySet<string>): ValidTurn {
   if (!isObject(body)) fail("body", "must be an object");
   onlyKeys(body, ["messages"], "body");
   const messages = body.messages;
@@ -173,18 +200,27 @@ export function validateTurn(body: unknown, rawBytes: number, toolNames: Readonl
   if (messages.length > MAX_MESSAGES) fail("messages", `more than ${MAX_MESSAGES}`);
   if (messages.length % 2 === 0) fail("messages", "must end with a user turn");
   const ctx: Context = { toolNames, images: 0, imageBytes: 0 };
+  const signed: ValidTurn["signed"] = [];
   let expected = new Set<string>();
   const out = messages.map((message, i): MessageParam => {
     const path = `messages[${i}]`;
     if (!isObject(message)) fail(path, "must be an object");
-    onlyKeys(message, ["role", "content"], path);
     const role = i % 2 === 0 ? "user" : "assistant";
     if (message.role !== role) fail(`${path}.role`, `must be ${role}: turns alternate, starting with the user`);
-    if (role === "user") return { role, content: userContent(message.content, `${path}.content`, ctx, expected) };
-    const [content, toolUses] = assistantContent(message.content, `${path}.content`, ctx);
+    if (role === "user") {
+      onlyKeys(message, ["role", "content"], path);
+      return { role, content: userContent(message.content, `${path}.content`, ctx, expected) };
+    }
+    onlyKeys(message, ["role", "content", "signature"], path);
+    const signature = message.signature;
+    if (typeof signature !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(signature)) {
+      fail(`${path}.signature`, "must be the signature the assistant answered this message with");
+    }
+    const [content, toolUses] = assistantContent(message.content, `${path}.content`, toolNames);
+    signed.push({ content, signature });
     expected = toolUses;
     return { role, content };
   });
   if (rawBytes - ctx.imageBytes > MAX_BODY_BYTES) fail("body", `larger than ${MAX_BODY_BYTES} bytes besides the image`);
-  return out;
+  return { messages: out, signed };
 }

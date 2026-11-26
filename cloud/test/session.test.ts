@@ -29,3 +29,12 @@ test("the cookie is HttpOnly, Secure, SameSite=Strict on /api/agent, and reads b
   assert.equal(cookieValue("a=b; workpiece_agent=v.1.s; c=d"), "v.1.s");
   assert.equal(cookieValue(null), null);
 });
+
+test("a malformed cookie is no session, never a throw", async () => {
+  const value = await signSession("secret", sid, now);
+  const [, expiry] = value.split(".");
+  // A one-character signature is not base64 of anything: atob throws on it.
+  for (const bad of [`${sid}.${expiry}.A`, `${sid}.${expiry}.AAAAA`, `${sid}.${expiry}.`, "..", "%%%"]) {
+    assert.equal(await verifySession("secret", bad, now), null, bad);
+  }
+});

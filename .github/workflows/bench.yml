@@ -27,9 +27,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable (a branch: the toolchain is named below)
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - name: Build Workpiece's adapter
         run: bench/conformance/build.sh
       - name: Fetch and build the suite at its pinned commit
@@ -51,7 +53,7 @@ jobs:
             --threads "$(nproc)" --out out/conformance.json --html out/conformance.html \
             > out/conformance.log 2>&1
           tail -n 25 out/conformance.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: brep-conformance
           path: out/
@@ -62,9 +64,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable (a branch: the toolchain is named below)
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
       - name: Build
         run: cargo build --release -p workpiece-boolean-bench
       - name: Fetch the datasets (pinned by SHA-256 in bench/boolean/datasets.tsv)
@@ -75,7 +79,7 @@ jobs:
           # Exit status 1 means a case is worse than bench/boolean/baseline.tsv; the numbers are kept either way.
           target/release/boolean-bench | tee out/boolean.log || echo "worse than the baseline" >&2
           cp target/bench-results/boolean.tsv out/boolean.tsv
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: boolean-bench
           path: out/
@@ -86,8 +90,8 @@ jobs:
     needs: [brep-conformance, boolean-bench]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: runs
       - name: Regenerate results.json
@@ -98,7 +102,7 @@ jobs:
             --boolean-tsv runs/boolean-bench/boolean.tsv \
             --machine "GitHub-hosted ubuntu-latest runner (shared virtual machine)" \
             --commit "$GITHUB_SHA"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: results.json
           path: docs/benchmarks/results.json

@@ -3,16 +3,19 @@
  * CAD agent. The browser runs the loop and the tools; this endpoint adds
  * our system prompt, tools and model, and accounts for every cent: admit
  * (rates, quotas), count the prompt's tokens, reserve the turn's worst
- * case, call the model, settle to its usage. See docs/assistant.md.
+ * case, call the model, settle to its usage. Every assistant message it
+ * answers is signed for the session (lib/agent/signature.ts), and a turn
+ * carrying one it did not sign is refused. See docs/assistant.md.
  */
 import Anthropic from "@anthropic-ai/sdk";
-import { MAX_BODY_BYTES, MAX_IMAGE_BASE64_BYTES, MAX_INPUT_TOKENS, MAX_TOKENS, UPSTREAM_TIMEOUT_MS } from "../../../lib/agent/config.ts";
-import { costOf, reservationFor } from "../../../lib/agent/cost.ts";
-import { clientIp, errorResponse, refusalResponse, sameOrigin, setupOf, unavailable, type AgentEnv } from "../../../lib/agent/http.ts";
+import { MAX_BODY_BYTES, MAX_IMAGE_BASE64_BYTES, MAX_TOKENS, UPSTREAM_TIMEOUT_MS } from "../../../lib/agent/config.ts";
+import { costOf, inputBound, inputLimit, reservationFor } from "../../../lib/agent/cost.ts";
+import { clientIp, errorResponse, readBody, refusalResponse, sameOrigin, setupOf, unavailable, type AgentEnv, type Setup } from "../../../lib/agent/http.ts";
 import { SYSTEM_PROMPT } from "../../../lib/agent/prompt.ts";
 import { cookieValue, verifySession } from "../../../lib/agent/session.ts";
-import { Invalid, validateTurn } from "../../../lib/agent/validate.ts";
-import toolDefinitions from "./tools.json";
+import { signedReply, verifyTurn } from "../../../lib/agent/signature.ts";
+import { Invalid, validateTurn, type ValidTurn } from "../../../lib/agent/validate.ts";
+import toolDefinitions from "./tools.json" with { type: "json" };
 
 const TOOLS = toolDefinitions as Anthropic.Tool[];
 const TOOL_NAMES: ReadonlySet<string> = new Set(TOOLS.map((tool) => tool.name));
@@ -24,51 +27,20 @@ function log(fields: Record<string, unknown>) {
   console.log(JSON.stringify({ event: "agent_turn", ...fields }));
 }
 
-export const onRequestPost: PagesFunction<AgentEnv> = async ({ request, env }) => {
-  const setup = setupOf(env);
-  if (!setup) return unavailable();
-  if (!sameOrigin(request)) return errorResponse(400, "invalid", "Cross-site request.");
-
-  const sid = await verifySession(setup.sessionSecret, cookieValue(request.headers.get("cookie")) ?? "", Date.now());
-  if (!sid) return errorResponse(401, "session", "Please verify that you are human to start the assistant.");
-  const ip = clientIp(request);
-
-  const limit = MAX_BODY_BYTES + MAX_IMAGE_BASE64_BYTES;
-  if (Number(request.headers.get("content-length") ?? "0") > limit) return errorResponse(400, "invalid", "The conversation is too large.");
-  const raw = new Uint8Array(await request.arrayBuffer());
-  if (raw.length > limit) return errorResponse(400, "invalid", "The conversation is too large.");
-  let messages: Anthropic.MessageParam[];
-  try {
-    messages = validateTurn(JSON.parse(new TextDecoder().decode(raw)), raw.length, TOOL_NAMES);
-  } catch (e) {
-    if (e instanceof SyntaxError) return errorResponse(400, "invalid", "The body must be JSON.");
-    if (e instanceof Invalid) return errorResponse(400, "invalid", e.message);
-    throw e;
-  }
-
-  const admitted = await setup.budget.admit({ sid, ip, now: Date.now() });
-  if (!admitted.ok) return refusalResponse(admitted);
-
-  // No retries: a retried request may be billed twice against one reservation.
-  const client = new Anthropic({ apiKey: setup.apiKey, baseURL: setup.baseURL, maxRetries: 0, timeout: UPSTREAM_TIMEOUT_MS });
-  const thinking: Anthropic.ThinkingConfigParam = { type: "adaptive", display: "summarized" };
-
-  let counted: number;
-  try {
-    counted = (await client.messages.countTokens({ model: setup.model, system: SYSTEM, tools: TOOLS, thinking, messages })).input_tokens;
-  } catch (e) {
-    log({ stage: "count", status: e instanceof Anthropic.APIError ? e.status : "network" });
-    return errorResponse(502, "upstream", "The assistant could not be reached. Try again.");
-  }
-  if (counted > MAX_INPUT_TOKENS) {
-    return errorResponse(400, "invalid", "The conversation is too long for the assistant. Start a new chat.");
-  }
-
-  const id = crypto.randomUUID();
-  const amount = reservationFor(setup.price, counted, MAX_TOKENS);
-  const reserved = await setup.budget.reserve({ sid, ip, now: Date.now(), id, amount });
-  if (!reserved.ok) return refusalResponse(reserved);
-
+/**
+ * The model call and its settlement, from a reservation `id` of `amount`
+ * on: run under `waitUntil`, so that a client going away cannot cancel
+ * it between reserving and settling.
+ */
+async function callAndSettle(
+  setup: Setup,
+  client: Anthropic,
+  sid: string,
+  messages: Anthropic.MessageParam[],
+  counted: number,
+  id: string,
+  amount: number,
+): Promise<Response | { content: unknown[]; signature: string | null; stop_reason: string | null; usage: Anthropic.Usage }> {
   let response: Anthropic.Message;
   try {
     response = await client.messages.create({
@@ -76,7 +48,7 @@ export const onRequestPost: PagesFunction<AgentEnv> = async ({ request, env }) =
       max_tokens: MAX_TOKENS,
       system: SYSTEM,
       tools: TOOLS,
-      thinking,
+      thinking: { type: "adaptive", display: "summarized" },
       output_config: { effort: setup.effort },
       // The growing conversation, cached at its last block.
       cache_control: { type: "ephemeral" },
@@ -92,9 +64,9 @@ export const onRequestPost: PagesFunction<AgentEnv> = async ({ request, env }) =
     log({ stage: "create", status: status ?? "network", reserved_nano: amount, charged_nano: billed ? amount : 0 });
     return errorResponse(502, "upstream", "The assistant did not answer. Try again.");
   }
-
   const cost = costOf(setup.price, response.usage);
   await setup.budget.settle({ id, cost, now: Date.now() });
+  const reply = await signedReply(setup.sessionSecret, sid, response.content, response.stop_reason, TOOL_NAMES);
   log({
     model: setup.model,
     messages: messages.length,
@@ -108,9 +80,62 @@ export const onRequestPost: PagesFunction<AgentEnv> = async ({ request, env }) =
     cost_nano: cost,
     // The reservation is meant as an upper bound; say so loudly if it was not one.
     over_reservation: cost > amount,
+    ...(reply.signature === null ? { unsigned: true } : {}),
   });
-  return Response.json(
-    { message: { content: response.content, stop_reason: response.stop_reason, usage: response.usage }, limits: reserved.limits },
-    { headers: { "cache-control": "no-store" } },
-  );
+  return { ...reply, stop_reason: response.stop_reason, usage: response.usage };
+}
+
+export const onRequestPost: PagesFunction<AgentEnv> = async ({ request, env, waitUntil }) => {
+  const setup = setupOf(env);
+  if (!setup) return unavailable();
+  if (!sameOrigin(request)) return errorResponse(400, "invalid", "Cross-site request.");
+
+  const sid = await verifySession(setup.sessionSecret, cookieValue(request.headers.get("cookie")) ?? "", Date.now());
+  if (!sid) return errorResponse(401, "session", "Please verify that you are human to start the assistant.");
+  const ip = clientIp(request);
+
+  const raw = await readBody(request, MAX_BODY_BYTES + MAX_IMAGE_BASE64_BYTES);
+  if (!raw) return errorResponse(400, "invalid", "The conversation is too large.");
+  let turn: ValidTurn;
+  try {
+    turn = validateTurn(JSON.parse(new TextDecoder().decode(raw)), raw.length, TOOL_NAMES);
+  } catch (e) {
+    if (e instanceof SyntaxError) return errorResponse(400, "invalid", "The body must be JSON.");
+    if (e instanceof Invalid) return errorResponse(400, "invalid", e.message);
+    throw e;
+  }
+  if (!(await verifyTurn(setup.sessionSecret, sid, turn))) {
+    return errorResponse(400, "invalid", "The conversation holds an assistant message this session's assistant did not write.");
+  }
+  const messages = turn.messages;
+
+  const admitted = await setup.budget.admit({ sid, ip, now: Date.now() });
+  if (!admitted.ok) return refusalResponse(admitted);
+
+  // No retries: a retried request may be billed twice against one reservation.
+  const client = new Anthropic({ apiKey: setup.apiKey, baseURL: setup.baseURL, maxRetries: 0, timeout: UPSTREAM_TIMEOUT_MS });
+  const thinking: Anthropic.ThinkingConfigParam = { type: "adaptive", display: "summarized" };
+
+  let counted: number;
+  try {
+    counted = (await client.messages.countTokens({ model: setup.model, system: SYSTEM, tools: TOOLS, thinking, messages })).input_tokens;
+  } catch (e) {
+    log({ stage: "count", status: e instanceof Anthropic.APIError ? e.status : "network" });
+    return errorResponse(502, "upstream", "The assistant could not be reached. Try again.");
+  }
+  // The bound the reservation is made of, not the bare count, must fit.
+  if (inputBound(counted) > inputLimit(setup.price)) {
+    return errorResponse(400, "too_long", "The conversation is too long for the assistant. Start a new chat.");
+  }
+
+  const id = crypto.randomUUID();
+  const amount = reservationFor(setup.price, counted, MAX_TOKENS);
+  const reserved = await setup.budget.reserve({ sid, ip, now: Date.now(), id, amount });
+  if (!reserved.ok) return refusalResponse(reserved);
+
+  const work = callAndSettle(setup, client, sid, messages, counted, id, amount);
+  waitUntil(work);
+  const answered = await work;
+  if (answered instanceof Response) return answered;
+  return Response.json({ message: answered, limits: reserved.limits }, { headers: { "cache-control": "no-store" } });
 };

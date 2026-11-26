@@ -18,7 +18,7 @@
 //   answer(id, json)            the app's answer to a request
 
 import { AgentError, answer, available, describeTool, partContext, postTurn, startSession, usedUp, withPrompt } from "./agent.js";
-import { LONGEST_PICTURE, LONGEST_PROMPT, LONGEST_TOOL_TEXT, SITE_KEY, SKIP_TURNSTILE } from "./config.js";
+import { LONGEST_PICTURE, LONGEST_PROMPT, SITE_KEY, SKIP_TURNSTILE } from "./config.js";
 
 const TURNSTILE_SCRIPT = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
 
@@ -146,7 +146,7 @@ async function work(op, args, signal) {
 
 // --- the tools -------------------------------------------------------------
 
-const clip = (text) => (text.length > LONGEST_TOOL_TEXT ? `${text.slice(0, LONGEST_TOOL_TEXT)}\n[… cut off]` : text);
+// (Every tool's text is clipped to what the server takes by agent.js's `toolText`.)
 
 function base64(bytes) {
   let binary = "";
@@ -216,7 +216,7 @@ const TOOLS = {
     } else if (!done.failed) {
       text += "\n\n[The script built no part: the part in the editor is as it was.]";
     }
-    return { text: clip(text), isError: done.failed };
+    return { text, isError: done.failed };
   },
 
   async view({ side, sheet }, signal) {
@@ -236,7 +236,7 @@ const TOOLS = {
   },
 
   async read_guide({ section }, signal) {
-    return { text: clip(await work("guide", { section: section ?? null }, signal)), isError: false };
+    return { text: await work("guide", { section: section ?? null }, signal), isError: false };
   },
 
   async get_part(_, signal) {
@@ -246,7 +246,7 @@ const TOOLS = {
     const script = document.script
       ? `The script it was made of (the user may have changed the part by hand since):\n<script>\n${document.script}\n</script>`
       : "No script made it: the user built it by hand in the editor.";
-    return { text: clip(`The part open in the editor: ${document.path}\n\n${script}\n\nA build of it as it is now:\n${report}`), isError: false };
+    return { text: `The part open in the editor: ${document.path}\n\n${script}\n\nA build of it as it is now:\n${report}`, isError: false };
   },
 };
 
@@ -370,16 +370,16 @@ async function send(prompt) {
     const result = await answer(
       asked,
       {
-        turn: async (history, signal) => {
+        turn: (history, signal) => {
           track("assistant_turn");
-          try {
-            return await postTurn(history, signal, API);
-          } catch (e) {
-            // The session ended: prove again to be human, once.
-            if (!(e instanceof AgentError) || e.code !== "session") throw e;
-            await ensureSession(true);
-            return postTurn(history, signal, API);
-          }
+          return postTurn(history, signal, API);
+        },
+        // The session ended: prove again to be human (once a prompt); the loop then compacts the conversation.
+        renewSession: () => ensureSession(true),
+        onCompact: (history) => {
+          asked = history;
+          heard.length = 0;
+          messages = history;
         },
         runTool,
         onMessage: (message) => {

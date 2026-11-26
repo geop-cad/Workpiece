@@ -16,7 +16,9 @@ sends the results with the next request. The endpoint adds what the client
 must not choose (our system prompt, our tools, our model, our
 `max_tokens`) and accounts for every request against hard caps. It is
 useless as a general LLM proxy: it takes only a conversation with our
-tools, and the model is told to refuse anything but modelling.
+tools, every assistant message in it must carry the signature the endpoint
+gave it in this session (so the client cannot write the model's side), and
+the model is told to refuse anything but modelling.
 
 ```
 browser ──POST /api/agent/session {turnstile}──▶ Pages Function ──siteverify──▶ Turnstile
@@ -33,9 +35,10 @@ browser ──POST /api/agent/turn {messages}─────▶ Pages Function
 ## Where the code is
 
 - `cloud/` — the server: `functions/api/agent/{session,turn,status}.ts` (the
-  endpoints), `functions/api/agent/tools.json` (the tools), `lib/agent/`
-  (configuration, validation, accounting, sessions, Turnstile, the system
-  prompt), `budget-worker/` (the Durable Object), `test/` (unit tests),
+  endpoints), `functions/api/agent/_middleware.ts` (the host guard in front
+  of all three), `functions/api/agent/tools.json` (the tools), `lib/agent/`
+  (configuration, validation, message signatures, accounting, sessions,
+  Turnstile, the system prompt), `budget-worker/` (the Durable Object), `test/` (unit tests),
   `dev-stub.mjs` (local development).
 - `website/app/assistant/` — the page's side, loaded the first time the
   user opens the assistant: `agent.js` (the loop, ported from geop),
@@ -74,9 +77,14 @@ prefix stays small. With a prompt the page sends one line on the open part
 
 The worker fetches everything it needs while it starts (Pyodide from
 `/app/assistant/pyodide/`, the layer as `workpiece-python.zip`, the app's
-own wasm); after that `fetch`, `XMLHttpRequest`, `WebSocket`,
-`EventSource`, `importScripts` and nested workers are taken away from its
-global and their prototypes, so a script can compute and answer, nothing
+own wasm); after that every API a worker can make a request with is taken
+away from its global, its navigator and their prototypes (`NETWORK_APIS`
+in `worker.js`: `fetch`, `XMLHttpRequest`, `WebSocket`, `WebSocketStream`,
+`EventSource`, `WebTransport`, `importScripts`, `Worker`, `SharedWorker`,
+`BroadcastChannel`, `caches` / `CacheStorage` / `Cache`, `FontFace` /
+`fonts`, `Notification`, `RTCPeerConnection`, `fetchLater`, and
+`navigator.serviceWorker` / `navigator.sendBeacon`; the e2e test reads the
+same list and checks each), so a script can compute and answer, nothing
 else. (JavaScript's dynamic `import()` cannot be taken away that way; a
 `Content-Security-Policy` header on `/app/assistant/worker.js` — the
 header a worker obeys is its own script's — closes it too, see "Headers"
@@ -94,31 +102,64 @@ below.) The Stop button ends the worker; the next run starts a new one
   its expiry, HMAC-signed. Answers `200 {"limits": Limits}`; any failed
   check is `401 session` and sets nothing.
 - `POST /api/agent/turn` `{"messages": MessageParam[]}` — answers
-  `200 {"message": {"content", "stop_reason", "usage"}, "limits": Limits}`.
-  A `stop_reason` of `"refusal"` is returned like any other; the browser
-  shows it and runs none of that turn's tools.
-- `GET /api/agent/status` — `{"available": bool}` (cached 30 s), nothing
-  else. The panel says "paused" when it is false.
+  `200 {"message": {"content", "stop_reason", "usage", "signature"},
+  "limits": Limits}`. `content` is the model's answer as the conversation
+  keeps it (a tool use only when `stop_reason` is `tool_use`, no empty
+  text, `[{"type": "text", "text": "…"}]` for an empty answer); the client
+  appends it unchanged as `{"role": "assistant", "content", "signature"}`.
+  `signature` is HMAC-SHA256 under a key derived from `SESSION_SECRET`
+  (`HMAC(SESSION_SECRET, "workpiece assistant message signature v1")`)
+  over the session id, a newline and the content as the server rebuilds it,
+  serialised with sorted keys (`cloud/lib/agent/signature.ts`); it is null
+  only for content a turn could not carry back. A `stop_reason` of
+  `"refusal"` is returned like any other; the browser shows it and runs
+  none of that turn's tools.
+- `GET /api/agent/status` — `{"available": bool}` (cached 30 s under one
+  key, whatever the query string), nothing else. The panel says "paused"
+  when it is false.
+- On any host but `workpiece.dev` (the project's `*.pages.dev` aliases
+  among them) every `/api/agent/*` request is `404` before an endpoint, the
+  cache or the budget object is reached; `localhost`, `127.0.0.1` and
+  `[::1]` answer only with `TURNSTILE_ALLOW_TEST_HOSTNAMES=1`.
 - `Limits` = `{"turns_left_today": number, "turns_per_day": number}`, per
-  user (the smaller of the session's and its address's remainder).
+  user (the smaller of the session's and its address's remainder; 0 once
+  the session's or the address's money for the day is spent).
 - Errors are `{"error": code, "message": text, "retry_after"?: seconds}`
   (also as a `Retry-After` header): `401 session` (no, bad or expired
   cookie, or Turnstile failed: the page shows Turnstile again, once),
-  `429 rate`, `429 quota`, `503 budget` (daily or lifetime budget spent,
-  the kill switch, or the endpoint not configured: "the free assistant is
-  paused"), `400 invalid`, `502 upstream`. The panel shows each message as
-  the server words it.
+  `429 rate`, `429 quota` (the turns or the money of the session or of the
+  address for the day), `503 budget` (daily or lifetime budget spent, the
+  kill switch, or the endpoint not configured: "the free assistant is
+  paused"), `400 invalid`, `400 too_long` (more input tokens than a request
+  may have: the page compacts the conversation and asks once more),
+  `502 upstream`. The panel shows each message as the server words it.
 
 What a turn may contain (anything else is `400 invalid`): only the key
 `messages`; at most 80 messages, user and assistant alternating, first and
-last the user; user blocks `text` (at most 24 000 characters; the chat box
-caps a typed prompt at 4000) and `tool_result` (text, or one png/jpeg
-base64 image of at most 300 KB per request: the page sends every earlier
-picture as a line of text); assistant blocks `text`, `tool_use` of a tool
-in `tools.json`, and `thinking` / `redacted_thinking` as the model returned
-them; every `tool_use` answered by a `tool_result` in the next message. The
-body may be 256 KB besides the image's data. The accepted blocks are
-rebuilt field by field, so nothing else the client sends reaches the API.
+last the user; user blocks `text` (not empty, at most 24 000 characters;
+the chat box caps a typed prompt at 4000) and `tool_result` (text, as a
+string or text parts, each not empty and at most 24 000 characters, and
+one png/jpeg base64 image of at most 300 KB per request: the page sends
+every earlier picture as a line of text); assistant messages
+`{"role", "content", "signature"}`, every one with a valid signature for
+this session (checked before anything is counted), of blocks `text` (not
+empty), `tool_use` of a tool in `tools.json`, and `thinking` /
+`redacted_thinking` as the model returned them; tool use ids
+`^[A-Za-z0-9_-]{1,64}$`; every `tool_use` answered by a `tool_result` in
+the next message. The body may be 128 KB besides the image's data, read as
+a stream and given up past its cap whatever its `Content-Length` says. The
+accepted blocks are rebuilt field by field, so nothing else the client
+sends reaches the API.
+
+The page keeps every request under these limits: a tool's text is clipped
+to 24 000 characters (`toolText` in `agent.js`), and once the conversation
+passes 96 KB (`COMPACT_AT_BYTES`), when the server answers `too_long`, or
+after the session was renewed (the old messages are signed for the old
+session), it is compacted into one user message: the user's earlier
+messages, what the assistant said last, the last script and what it
+printed, and the last tools' answers, then the user's latest words as they
+were (`compact`; no assistant message or thinking is carried over, which is
+the shape the API's preserved-thinking check allows).
 
 ## Limits
 
@@ -128,15 +169,38 @@ All in `cloud/lib/agent/config.ts`:
 |---|---|
 | turns per session per UTC day | 40 |
 | turns per session per minute | 6 |
+| money per session per UTC day | 0.75 USD |
 | turns per IP per UTC day | 80 |
 | turns per IP per minute | 12 |
+| money per IP per UTC day | 1.50 USD |
 | new sessions per IP per UTC day | 3 |
-| turns per minute, everyone | 60 |
-| new sessions per UTC day, everyone | 500 |
+| turns per minute, everyone (reserved turns only) | 60 |
+| new sessions per UTC day, everyone | 20 000 |
 | session lifetime | 24 h |
-| input tokens per request | 100 000 |
+| input tokens per request (the count plus its margin) | 40 000 |
+| request body besides the image | 128 KB |
 | `max_tokens` | 8192 (thinking counts towards it) |
 | model turns per prompt (the page's cap) | 25 |
+
+"IP" is the address in `CF-Connecting-IP`: an IPv4 address whole, an IPv6
+address by its /64 (`clientIp` in `lib/agent/http.ts`). Turns per day and
+per minute count from `admit` on, so a request refused later (by
+`count_tokens`, say) still costs the caller its own turn and minute slot;
+only a turn that reserved counts towards everyone's minute window, so
+refused requests cannot fill it. Money per session and per IP: a turn's
+reservation must fit the remainder (open reservations counted), and it is
+settled to the real cost. A typical turn costs 1–4 cents with the cache, so
+0.75 USD is some 20–40 turns of a session; the worst turn reserves about
+0.19 USD (Sonnet 5.5: 40 000 tokens plus margin at the cache-write rate and
+8192 output tokens). One address can take at most 1.50 USD, 7.5 % of the
+20 USD daily cap.
+
+What remains possible: someone with many IPv4 addresses or /64s and a
+Turnstile-solving service can open up to 3 sessions per address and spend
+1.50 USD per address, so about 14 addresses spend the day's 20 USD and
+pause the assistant for everyone until 00:00 UTC (the lifetime cap and the
+Console workspace's spend limit still hold). Locking everyone out of new
+sessions takes 20 000 solved challenges from 6 667 addresses in a day.
 
 The money caps are vars of the budget worker
 (`cloud/budget-worker/wrangler.toml`): `AGENT_DAILY_BUDGET_USD = "20"` (per
@@ -146,7 +210,12 @@ unreadable value counts as 0 and closes the endpoint.
 The model is `AGENT_MODEL` (`claude-sonnet-5-5`), with adaptive thinking
 (summarized) at `AGENT_EFFORT` (`medium`; `low`, `medium` or `high`). A
 model not in the price table `PRICES` refuses to start, since its spend
-could not be accounted for. The tools and the system prompt are one cached
+could not be accounted for. The table holds Anthropic's list prices
+(checked 2026-11-26): Opus 5.5 $4 / $20 per million tokens, cache reads
+$0.20; Sonnet 5.5 $2 / $10, cache reads $0.10; Haiku 5.5 $0.10 / $0.50 up
+to 100K prompt tokens and $0.50 / $2.50 above (priced in that band, and a
+request never reaches it: the input limit is the smaller of 40 000 and a
+model's band). Cache writes are 1.25× (5 minutes) or 2× (1 hour) input. The tools and the system prompt are one cached
 prefix; the growing conversation is cached at its last block.
 
 ## How the caps are enforced
@@ -156,18 +225,26 @@ named `global`), which handles one call at a time; its methods do not
 await, so each check-and-update is atomic. KV would not do: it is
 eventually consistent and cannot hold a hard cap.
 
+0. **Verify**: the cookie, the body (streamed, capped), its shape, and the
+   signature of every assistant message. Nothing is counted yet.
 1. **Admit**: refuses if the budget is spent, the session's or the
-   address's turns for the day are used up, or a minute rate is reached.
+   address's turns or money for the day are used up, or a minute rate is
+   reached. Counts the turn in the caller's own minute windows and day.
    Nothing has been asked of the API yet.
-2. **Count**: `count_tokens` (free) counts the exact request. Over 100 000
-   tokens is refused.
+2. **Count**: `count_tokens` (free) counts the exact request. The count
+   plus 10 % and 500 tokens over 40 000 is refused (`too_long`).
 3. **Reserve**: an upper bound of the turn's cost — the counted input plus
    10 % and 500 tokens, all at the cache-write rate, plus `max_tokens` at
-   the output rate. Refused unless it fits both the day's and the
-   lifetime's remainder, counting every reservation still open as spent.
+   the output rate. Refused unless it fits the day's and the lifetime's
+   remainder and the session's and the address's money for the day,
+   counting every reservation still open as spent, and everyone's minute
+   rate allows it (where it is counted).
 4. **Call** the Messages API, with the SDK's retries off (a retry could be
-   billed twice against one reservation) and a 5-minute timeout.
-5. **Settle** to the cost of the response's `usage`. If the API answered a
+   billed twice against one reservation) and a 5-minute timeout. The call
+   and step 5 run in a promise handed to `waitUntil`, which the response
+   also awaits, so a client that goes away does not cancel them.
+5. **Settle** to the cost of the response's `usage`, charged to the day,
+   the session and the address. If the API answered a
    4xx, no model ran and 0 is charged; on a 5xx, a timeout or a dropped
    connection the whole reservation is charged. A reservation never
    settled is charged in full after 15 minutes.

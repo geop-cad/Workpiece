@@ -27,6 +27,7 @@ env:
   WRANGLER_VERSION: "4.152.0"
   # PostHog's browser bundle, served from the site itself (see website/analytics.js).
   POSTHOG_JS_VERSION: "1.434.15"
+  POSTHOG_JS_INTEGRITY: "sha512-ZfBkNrQiFr1Q43G3dR0USzTRdfx+6gKPebyoWDmKnLUhG3yRgYjLH914J6ifEDRnH+RaGOx7rsWKxKcvaSJXHg=="
 
 permissions:
   contents: read
@@ -61,28 +62,34 @@ jobs:
           else
             echo "deploy=true" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/checkout@v4
-      - uses: taiki-e/install-action@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: taiki-e/install-action@893d6ee8d714b6c7dfe2bcd94e5759e9a7958a7e # v2
         with:
           tool: mdbook@0.5.2
       # The application for the browser (website/app/build.sh), served at app/.
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@39008827e6b4319a349e9a42dfc90579dd25f1ca # stable (a branch: the toolchain is named below)
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           key: web
       - name: Install wasm-bindgen (of the version Cargo.lock has) and wasm-opt
         run: |
           version=$(sed -n '/^name = "wasm-bindgen"$/{n;s/^version = "\(.*\)"$/\1/p;}' Cargo.lock)
           echo "WASM_BINDGEN_VERSION=$version" >> "$GITHUB_ENV"
+          # Pinned by its sha256 (computed from the release download, which matches the
+          # release's own .sha256 file): a new version is a new hash here.
           binaryen=version_131
-          curl -sSfL "https://github.com/WebAssembly/binaryen/releases/download/$binaryen/binaryen-$binaryen-x86_64-linux.tar.gz" | tar -xz -C "$RUNNER_TEMP"
+          binaryen_sha256=b5bf1f0eaf17c63ee588ff7a5954dc8f6ce2c26989051c66f24dfe9ece3e46db
+          curl -sSfL -o "$RUNNER_TEMP/binaryen.tar.gz" "https://github.com/WebAssembly/binaryen/releases/download/$binaryen/binaryen-$binaryen-x86_64-linux.tar.gz"
+          echo "$binaryen_sha256  $RUNNER_TEMP/binaryen.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/binaryen.tar.gz" -C "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/binaryen-$binaryen/bin" >> "$GITHUB_PATH"
-      - uses: taiki-e/install-action@v2
+      - uses: taiki-e/install-action@893d6ee8d714b6c7dfe2bcd94e5759e9a7958a7e # v2
         with:
           tool: wasm-bindgen@${{ env.WASM_BINDGEN_VERSION }}
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
       - name: Build the application for the browser
@@ -102,6 +109,9 @@ jobs:
       - name: Fetch PostHog's bundle
         run: |
           npm pack "posthog-js@$POSTHOG_JS_VERSION" --pack-destination "$RUNNER_TEMP"
+          # The registry's integrity of that version (npm view posthog-js@<version> dist.integrity).
+          integrity=$(openssl dgst -sha512 -binary "$RUNNER_TEMP/posthog-js-$POSTHOG_JS_VERSION.tgz" | base64 -w0)
+          test "sha512-$integrity" = "$POSTHOG_JS_INTEGRITY"
           mkdir -p "$RUNNER_TEMP/posthog"
           tar -xzf "$RUNNER_TEMP/posthog-js-$POSTHOG_JS_VERSION.tgz" -C "$RUNNER_TEMP/posthog"
           echo "POSTHOG_BUNDLE=$RUNNER_TEMP/posthog/package/dist/array.no-external.js" >> "$GITHUB_ENV"
@@ -112,7 +122,7 @@ jobs:
           path=$(python3 -c "import sys, urllib.parse as u; print(u.urlparse(sys.argv[1]).path.rstrip('/') + '/')" "$SITE_URL")
           export MDBOOK_OUTPUT__HTML__SITE_URL="${path}docs/"
           website/assemble.sh _site
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: site
           path: _site
@@ -129,8 +139,8 @@ jobs:
       group: deploy-workpiece
       cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: site
           # Where cloud/wrangler.toml's pages_build_output_dir expects it.
@@ -140,7 +150,7 @@ jobs:
         run: |
           if [ -d cloud/budget-worker ]; then echo "budget=true" >> "$GITHUB_OUTPUT"; fi
           if [ -f cloud/wrangler.toml ]; then echo "cloud=true" >> "$GITHUB_OUTPUT"; fi
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         if: steps.parts.outputs.cloud == 'true'
         with:
           node-version: 24
@@ -150,7 +160,7 @@ jobs:
         working-directory: cloud
         run: npm ci
       - name: Make sure the Pages project exists
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         continue-on-error: true
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -161,7 +171,7 @@ jobs:
       # script_name), so it goes first. Its vars are the money caps.
       - name: Deploy the assistant's budget worker
         if: steps.parts.outputs.budget == 'true'
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
@@ -173,7 +183,7 @@ jobs:
       # binding and var of the project; the secrets stay set on the project.
       - name: Deploy the site and the functions
         if: steps.parts.outputs.cloud == 'true'
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}
@@ -182,7 +192,7 @@ jobs:
           command: pages deploy ../site --project-name=workpiece --branch=main --commit-dirty=true
       - name: Deploy the site (no functions yet)
         if: steps.parts.outputs.cloud != 'true'
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@9acf94ace14e7dc412b076f2c5c20b8ce93c79cd # v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ env.CLOUDFLARE_ACCOUNT_ID }}

@@ -6,8 +6,8 @@
 // program runs, on the files it is handed.
 //
 // Everything is fetched while starting; after that the worker can reach no
-// network (fetch, XMLHttpRequest, WebSocket, EventSource, importScripts and
-// nested workers are taken away), so a script the model wrote can do no
+// network: every API a worker can make a request with is taken away
+// (`seal`, its list is NETWORK_APIS), so a script the model wrote can do no
 // more than compute and answer. The page stops a run by ending the worker.
 //
 // Messages: {id, op, ...} in, {id, ok, result} or {id, ok: false, error} out.
@@ -45,18 +45,57 @@ function command(args, files) {
   return done;
 }
 
-/** Takes every way out of the worker away. */
+/**
+ * Every API a dedicated worker's global (or its navigator) has that makes
+ * a request or hands data to another context, as the specifications
+ * expose them to workers: Fetch (`fetch`), XMLHttpRequest, WebSockets
+ * (`WebSocket`, `WebSocketStream`), Server-Sent Events (`EventSource`),
+ * WebTransport, the classic-script loader (`importScripts`), nested
+ * workers (`Worker`, `SharedWorker`), `BroadcastChannel`, Service Workers
+ * (`caches`: Cache.add fetches; `navigator.serviceWorker`: register fetches
+ * a script), the CSS Font Loading API (`FontFace`, `fonts`: a font source
+ * is fetched), Notifications (an icon is fetched), WebRTC
+ * (`RTCPeerConnection`, where a browser exposes it to workers), and the
+ * window-only `fetchLater` and `navigator.sendBeacon` in case a browser
+ * exposes them here too. (Dynamic `import()` cannot be taken away; the
+ * worker's Content-Security-Policy closes it, docs/assistant.md.)
+ */
+export const NETWORK_APIS = [
+  "fetch",
+  "XMLHttpRequest",
+  "WebSocket",
+  "WebSocketStream",
+  "EventSource",
+  "WebTransport",
+  "importScripts",
+  "Worker",
+  "SharedWorker",
+  "BroadcastChannel",
+  "caches",
+  "CacheStorage",
+  "Cache",
+  "FontFace",
+  "fonts",
+  "Notification",
+  "RTCPeerConnection",
+  "fetchLater",
+];
+/** The same on the worker's navigator. */
+export const NAVIGATOR_NETWORK_APIS = ["serviceWorker", "sendBeacon"];
+
+/** Takes every way out of the worker away: each name, on the object and every prototype it has, becomes a function that throws. */
 function seal() {
   const refuse = (what) =>
     function () {
       throw new Error(`${what} is not available to scripts here: there is no network`);
     };
-  const names = ["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "importScripts", "Worker", "SharedWorker", "BroadcastChannel"];
-  const holders = [self, Object.getPrototypeOf(self)];
-  for (let proto = Object.getPrototypeOf(self); proto; proto = Object.getPrototypeOf(proto)) holders.push(proto);
-  for (const holder of holders) {
-    for (const name of names) {
-      if (Object.prototype.hasOwnProperty.call(holder, name)) {
+  const close = (object, names) => {
+    if (!object) return;
+    const holders = [object];
+    for (let proto = Object.getPrototypeOf(object); proto; proto = Object.getPrototypeOf(proto)) holders.push(proto);
+    for (const holder of holders) {
+      for (const name of names) {
+        if (!Object.prototype.hasOwnProperty.call(holder, name)) continue;
         try {
           Object.defineProperty(holder, name, { value: refuse(name), writable: false, configurable: false });
         } catch {
@@ -64,8 +103,9 @@ function seal() {
         }
       }
     }
-  }
-  if (self.navigator && "sendBeacon" in self.navigator) self.navigator.sendBeacon = refuse("sendBeacon");
+  };
+  close(self.navigator, NAVIGATOR_NETWORK_APIS);
+  close(self, NETWORK_APIS);
 }
 
 async function start() {

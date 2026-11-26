@@ -17,9 +17,11 @@ npm test           # node >= 23.6 (runs the .ts tests directly); also the page's
 npm run stub       # the endpoints without Cloudflare, for the browser app (see below)
 ```
 
-- `functions/api/agent/` — the assistant: `session.ts` (Turnstile, signed
-  cookie), `turn.ts` (one model turn), `status.ts`, and `tools.json` (the
-  tools the browser runs: `run_python`, `view`, `read_guide`, `get_part`).
+- `functions/api/agent/` — the assistant: `_middleware.ts` (404 on any host
+  but workpiece.dev, before the rest), `session.ts` (Turnstile, signed
+  cookie), `turn.ts` (one model turn, its answer signed for the session),
+  `status.ts`, and `tools.json` (the tools the browser runs: `run_python`,
+  `view`, `read_guide`, `get_part`).
   Its code is in `lib/agent/`, its limits in `lib/agent/config.ts`, its
   system prompt in `lib/agent/prompt.ts`.
 - `budget-worker/` — the worker `workpiece-agent-budget` with the Durable

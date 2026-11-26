@@ -2,9 +2,11 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   GLOBAL_TURNS_PER_MINUTE,
+  IP_NANO_USD_PER_DAY,
   IP_SESSIONS_PER_DAY,
   IP_TURNS_PER_DAY,
   RESERVATION_TTL_MS,
+  SESSION_NANO_USD_PER_DAY,
   SESSION_TURNS_PER_DAY,
   SESSION_TURNS_PER_MINUTE,
 } from "../lib/agent/config.ts";
@@ -30,7 +32,8 @@ function turn(kv: MemoryKv, b: Budgets, sid: string, ip: string, now: number, am
 
 test("reserve before, settle after: the day and the total carry the actual cost", () => {
   const kv = new MemoryKv();
-  const r = reserve(kv, budgets, { sid: "s", ip: "i", now: t0, id: "a", amount: 1 * USD });
+  assert.ok(admit(kv, budgets, { sid: "s", ip: "i", now: t0 }).ok);
+  const r = reserve(kv, budgets, { sid: "s", ip: "i", now: t0, id: "a", amount: 0.5 * USD });
   assert.ok(r.ok);
   assert.deepEqual(r.limits, { turns_left_today: SESSION_TURNS_PER_DAY - 1, turns_per_day: SESSION_TURNS_PER_DAY });
   // While open, the reservation counts against the remainder.
@@ -56,7 +59,8 @@ test("a reservation that does not fit the day's remainder is refused, open reser
 test("the daily cap resets at 00:00 UTC; the total never does", () => {
   const kv = new MemoryKv();
   const b: Budgets = { daily: 1 * USD, total: 1.5 * USD };
-  assert.ok(turn(kv, b, "s", "i", t0, 1 * USD, 1 * USD).ok);
+  assert.ok(turn(kv, b, "s0", "i0", t0, 0.5 * USD, 0.5 * USD).ok);
+  assert.ok(turn(kv, b, "s1", "i1", t0, 0.5 * USD, 0.5 * USD).ok);
   const sameDay = admit(kv, b, { sid: "s2", ip: "i2", now: t0 + MIN });
   assert.ok(!sameDay.ok && sameDay.error === "budget" && sameDay.retry_after !== undefined);
   const nextDay = t0 + 24 * 3600 * 1000;
@@ -105,11 +109,66 @@ test("per-session minute rate", () => {
   assert.ok(admit(kv, budgets, { sid: "s", ip: "i", now: t0 + MIN }).ok);
 });
 
-test("global minute rate holds over many addresses", () => {
+test("global minute rate holds over many addresses, counting reserved turns only", () => {
   const kv = new MemoryKv();
-  for (let i = 0; i < GLOBAL_TURNS_PER_MINUTE; i++) assert.ok(admit(kv, budgets, { sid: `s${i}`, ip: `ip${i}`, now: t0 }).ok);
+  // Admitted but never reserved (refused at count_tokens, say): everyone's window stays free.
+  for (let i = 0; i < 2 * GLOBAL_TURNS_PER_MINUTE; i++) assert.ok(admit(kv, budgets, { sid: `a${i}`, ip: `ipa${i}`, now: t0 }).ok);
+  for (let i = 0; i < GLOBAL_TURNS_PER_MINUTE; i++) {
+    assert.ok(admit(kv, budgets, { sid: `s${i}`, ip: `ip${i}`, now: t0 }).ok);
+    assert.ok(reserve(kv, budgets, { sid: `s${i}`, ip: `ip${i}`, now: t0, id: id(), amount: 1000 }).ok);
+  }
   const refused = admit(kv, budgets, { sid: "x", ip: "x", now: t0 });
-  assert.ok(!refused.ok && refused.error === "rate");
+  assert.ok(!refused.ok && refused.error === "rate" && /busy/.test(refused.message));
+  // A turn admitted just before the window filled is refused at reserve.
+  const late = reserve(kv, budgets, { sid: "a0", ip: "ipa0", now: t0, id: id(), amount: 1000 });
+  assert.ok(!late.ok && late.error === "rate");
+});
+
+test("a request refused after admit still counts against the caller's own minute window and day", () => {
+  const kv = new MemoryKv();
+  for (let i = 0; i < SESSION_TURNS_PER_MINUTE; i++) assert.ok(admit(kv, budgets, { sid: "s", ip: "i", now: t0 }).ok);
+  assert.ok(!admit(kv, budgets, { sid: "s", ip: "i", now: t0 }).ok);
+  const later = admit(kv, budgets, { sid: "s", ip: "i", now: t0 + MIN });
+  assert.ok(later.ok && later.limits.turns_left_today === SESSION_TURNS_PER_DAY - SESSION_TURNS_PER_MINUTE - 1);
+});
+
+test("money per session and per address per day: the reservation must fit, the settled cost is what counts", () => {
+  const kv = new MemoryKv();
+  const reserveFor = (sid: string, ip: string, amount: number, now = t0) => {
+    const a = admit(kv, budgets, { sid, ip, now });
+    if (!a.ok) return a;
+    return reserve(kv, budgets, { sid, ip, now, id: id(), amount });
+  };
+  // One session: its reservations open count; a settled one counts what it cost.
+  const first = id();
+  assert.ok(admit(kv, budgets, { sid: "s", ip: "i", now: t0 }).ok);
+  assert.ok(reserve(kv, budgets, { sid: "s", ip: "i", now: t0, id: first, amount: SESSION_NANO_USD_PER_DAY / 2 }).ok);
+  const over = reserveFor("s", "i", SESSION_NANO_USD_PER_DAY / 2 + 1);
+  assert.ok(!over.ok && over.error === "quota");
+  settle(kv, { id: first, cost: SESSION_NANO_USD_PER_DAY / 4, now: t0 });
+  assert.ok(reserveFor("s", "i", SESSION_NANO_USD_PER_DAY / 2, t0 + 1).ok);
+  // The address: sessions together never pass IP_NANO_USD_PER_DAY.
+  let spent = 0;
+  for (let i = 0; spent + SESSION_NANO_USD_PER_DAY / 2 <= IP_NANO_USD_PER_DAY; i++) {
+    const r = reserveFor(`t${i}`, "j", SESSION_NANO_USD_PER_DAY / 2, t0 + i * MIN);
+    assert.ok(r.ok);
+    spent += SESSION_NANO_USD_PER_DAY / 2;
+  }
+  const fresh = reserveFor("fresh", "j", 1, t0 + 10 * MIN);
+  assert.ok(!fresh.ok && fresh.error === "quota");
+  // A spent address shows no turns left, and admits nothing more today.
+  assert.ok(!admit(kv, budgets, { sid: "fresh2", ip: "j", now: t0 + 11 * MIN }).ok);
+  // The next UTC day, all is renewed.
+  assert.ok(reserveFor("fresh", "j", SESSION_NANO_USD_PER_DAY / 2, t0 + 24 * 3600 * 1000).ok);
+});
+
+test("a reservation swept in full counts against the caller's money", () => {
+  const kv = new MemoryKv();
+  assert.ok(reserve(kv, budgets, { sid: "s", ip: "i", now: t0, id: "gone", amount: SESSION_NANO_USD_PER_DAY }).ok);
+  const after = t0 + RESERVATION_TTL_MS + 1;
+  const refused = admit(kv, budgets, { sid: "s", ip: "i", now: after });
+  assert.ok(!refused.ok && refused.error === "quota");
+  assert.equal(ledger(kv).days["2026-10-25"].swept, 1);
 });
 
 test("per-session daily quota, renewed the next UTC day", () => {
@@ -127,15 +186,19 @@ test("per-address daily quota spans its sessions", () => {
   assert.ok(!refused.ok && refused.error === "quota");
 });
 
-test("two turns racing past admit cannot both take the session's last turn", () => {
+test("two turns racing cannot both take the session's last turn, or its last money", () => {
   const kv = new MemoryKv();
   for (let i = 0; i < SESSION_TURNS_PER_DAY - 1; i++) assert.ok(turn(kv, budgets, "s", "i", t0 + i * MIN, 1000, 10).ok);
   const now = t0 + SESSION_TURNS_PER_DAY * MIN;
   assert.ok(admit(kv, budgets, { sid: "s", ip: "i", now }).ok);
-  assert.ok(admit(kv, budgets, { sid: "s", ip: "i", now }).ok);
-  assert.ok(reserve(kv, budgets, { sid: "s", ip: "i", now, id: "first", amount: 1 }).ok);
-  const second = reserve(kv, budgets, { sid: "s", ip: "i", now, id: "second", amount: 1 });
+  const second = admit(kv, budgets, { sid: "s", ip: "i", now });
   assert.ok(!second.ok && second.error === "quota");
+  // Money: two admitted turns of one session, the second's reservation does not fit beside the first's.
+  assert.ok(admit(kv, budgets, { sid: "m", ip: "k", now }).ok);
+  assert.ok(admit(kv, budgets, { sid: "m", ip: "k", now }).ok);
+  assert.ok(reserve(kv, budgets, { sid: "m", ip: "k", now, id: "first", amount: 0.4 * USD }).ok);
+  const racing = reserve(kv, budgets, { sid: "m", ip: "k", now, id: "second", amount: 0.4 * USD });
+  assert.ok(!racing.ok && racing.error === "quota");
 });
 
 test("sessions per address per day", () => {
@@ -166,7 +229,8 @@ test("concurrent reservations never let settled spend pass the cap", () => {
 test("status says unavailable once no turn's least reservation fits", () => {
   const kv = new MemoryKv();
   const b: Budgets = { daily: 1 * USD, total: 100 * USD };
-  assert.ok(turn(kv, b, "s", "i", t0, 0.95 * USD, 0.95 * USD).ok);
+  assert.ok(turn(kv, b, "s0", "i0", t0, 0.5 * USD, 0.5 * USD).ok);
+  assert.ok(turn(kv, b, "s1", "i1", t0, 0.45 * USD, 0.45 * USD).ok);
   assert.equal(available(kv, b, t0, 0.01 * USD), true);
   assert.equal(available(kv, b, t0, 0.1 * USD), false);
 });

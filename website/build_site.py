@@ -2,7 +2,7 @@
 """build_site.py <out dir>: writes the pages of the site into a folder assemble.sh has made.
 
 Written here: index.html (the home page), scripts/<example>.html (each example's script,
-highlighted), examples/index.html (every example with its sheets), privacy.html, 404.html, robots.txt and sitemap.xml. Every page but the privacy
+highlighted), examples/index.html (every example with its sheets), privacy.html, licenses.html (third-party notices), 404.html, robots.txt and sitemap.xml. Every page but the privacy
 page loads analytics.js (anonymous statistics; off unless the deploy set a key). Read at build time, never copied by hand:
 
   examples/index.json          the gallery (a card per example)
@@ -126,7 +126,8 @@ def footer(root=""):
     <a href="{BLOB}/LICENSE-APACHE">Apache-2.0</a>, at your option.</p>
     <p class="links"><a href="{GH}">Repository</a> <a href="{root}docs/">Documentation</a>
     <a href="{BLOB}/CONTRIBUTING.md">Contributing</a> <a href="{GH}/issues">Issues</a>
-    <a href="{BLOB}/CHANGELOG.md">Changelog</a> <a href="{root}privacy.html">Privacy</a></p>
+    <a href="{BLOB}/CHANGELOG.md">Changelog</a> <a href="{root}privacy.html">Privacy</a>
+    <a href="{root}licenses.html">Licences</a></p>
     <p class="small">Open CASCADE, KiCad, FreeCAD, STEP and other names belong to their owners; they are
     named only to identify them. Icons and example models are original to the project.</p>
   </div>
@@ -830,7 +831,8 @@ def privacy():
     anything on your device. You can switch them off <a href="#switch">below</a>; they are off by themselves
     if your browser sends Do Not Track or Global Privacy Control.</li>
     <li>No advertising, no tracking across sites, no session recordings, no selling of data. Every script,
-    font and picture is served from this site; no page loads anything from someone else's server.</li>
+    font and picture is served from this site; no page loads anything from someone else's server, except the
+    human check of the assistant (Cloudflare Turnstile, below), and only once you write to the assistant.</li>
   </ul>
 
   <h2>Hosting</h2>
@@ -872,21 +874,27 @@ def privacy():
   build of the site made without a PostHog key (for example one you build yourself).</p>
 
   <h2 id="assistant">The assistant in the application</h2>
-  <p>The application has an assistant that writes and builds parts for you. It is used only when you open it and
-  write to it. Then:</p>
+  <p>The application has an assistant that writes and builds parts for you. Opening it loads its scripts and
+  Python from this site and asks this site whether the assistant is available; nothing else is sent until you write
+  to it. Then:</p>
   <ul>
-    <li>Before the first message, Cloudflare Turnstile (Cloudflare, Inc.) checks that you are a person; it processes
-    your IP address and technical data of your browser for that check.</li>
+    <li>Before the first message is sent, your browser loads Cloudflare Turnstile's script from
+    <code>challenges.cloudflare.com</code> (Cloudflare, Inc.), which checks that you are a person; it processes your
+    IP address and technical data of your browser for that check.</li>
     <li>A session cookie <code>workpiece_agent</code> is set, sent only to this site's assistant service
     (<code>/api/agent</code>) and valid for at most a day. It is strictly necessary for the assistant and holds no
     identifier of you, only a signed session.</li>
-    <li>What you write, the scripts the assistant writes, the reports of building them, the current part's script
-    and the pictures of the part the assistant looks at are sent through our service on Cloudflare to Anthropic
-    (Anthropic PBC, USA), whose model writes the answers. Anthropic processes them under its commercial terms for its
+    <li>What you write, the scripts the assistant writes and what running them printed, and what the assistant reads
+    of the part open in the editor (its file name, its number of steps, the script it was made of, the report of
+    building it, its drawing sheets and pictures of it) are sent through our service on Cloudflare to Anthropic
+    (Anthropic PBC, USA), whose model writes the answers. Name your file accordingly if its name is personal. Anthropic processes them under its commercial terms for its
     API, which do not allow training models on them. Do not write personal information into the assistant if you do
     not want it sent.</li>
-    <li>To share the assistant's daily budget fairly, our service counts turns per IP address; those counters are
-    deleted at the end of each day (UTC). Its log keeps, per turn, token counts and costs only, never a message.</li>
+    <li>To share the assistant's daily budget fairly, our service counts turns, and what they cost, per session and
+    per IP address (for an IPv6 address, its first half, the /64 network): each session and each address gets a
+    small daily allowance of the budget, and the assistant says when it is used up. Those counters are deleted with
+    the first request after 00:00 UTC each day. Its log keeps, per turn, token counts and costs only, never a message
+    or an address.</li>
   </ul>
   <p>Legal basis: Art. 6(1)(b) GDPR for answering what you asked the assistant, and Art. 6(1)(f) GDPR for protecting
   the service from abuse.</p>
@@ -912,6 +920,56 @@ def privacy():
                 body, path="privacy.html", script=PRIVACY_SCRIPT, statistics=False)
 
 
+# ---------------------------------------------------------------- licences
+
+def pinned(path, pattern):
+    """A version pinned in a build file (vendor.sh, the site workflow), so this page names what is shipped."""
+    found = re.search(pattern, (REPO / path).read_text(encoding="utf-8"))
+    return found.group(1) if found else "?"
+
+
+def licenses():
+    pyodide = pinned("website/app/vendor.sh", r"(?m)^VERSION=(\S+)")
+    posthog = pinned(".github/workflows/site.yml", r'POSTHOG_JS_VERSION: "([^"]+)"')
+    body = f"""<div class="wrap prose">
+  <h1>Licences</h1>
+  <p>{NAME} is licensed under <a href="{BLOB}/LICENSE-MIT">MIT</a> or <a href="{BLOB}/LICENSE-APACHE">Apache-2.0</a>, at
+  your option. The application in the browser, and the site, ship the following works of others under their own
+  licences.</p>
+
+  <h2>Fonts in the application</h2>
+  <p>The application draws its text with the fonts of the crate <code>epaint_default_fonts</code> (part of egui),
+  compiled into <code>app/workpiece_bg.wasm</code>:</p>
+  <ul>
+    <li><strong>Ubuntu Light</strong>, © 2011 Canonical Ltd., under the Ubuntu Font Licence, Version 1.0.</li>
+    <li><strong>Noto Emoji</strong>, © 2013 Google Inc., under the SIL Open Font License, Version 1.1 (OFL-1.1).</li>
+    <li><strong>Hack</strong>, © 2018 Source Foundry Authors, under the MIT License; it builds on Bitstream Vera Sans
+    Mono, © 2003 Bitstream Inc., under the Bitstream Vera License (reserved font names “Bitstream” and “Vera”), and on
+    the DejaVu project's work, which is in the public domain.</li>
+    <li><strong>emoji-icon-font</strong>, © 2014 John Slegers, under the MIT License.</li>
+  </ul>
+  <p>The full texts of these licences, and the list of every Rust crate the application is built from with its
+  licence, are in <a href="THIRD-PARTY.txt">THIRD-PARTY.txt</a>.</p>
+
+  <h2>Python in the assistant</h2>
+  <p>The assistant runs its scripts in <strong>Pyodide</strong> {e(pyodide)}, served from
+  <code>app/assistant/pyodide/</code> unchanged, © the Pyodide contributors, under the
+  <a href="https://www.mozilla.org/MPL/2.0/">Mozilla Public License 2.0</a>. Its source is at
+  <a href="https://github.com/pyodide/pyodide">github.com/pyodide/pyodide</a> (the release {e(pyodide)}). Pyodide
+  contains CPython and its standard library, © Python Software Foundation, under the
+  <a href="https://docs.python.org/3/license.html">PSF License Agreement</a>, and further libraries under their own
+  licences, listed in <a href="https://github.com/pyodide/pyodide/blob/main/LICENSE">Pyodide's licence notices</a>.</p>
+
+  <h2>Statistics</h2>
+  <p>Where the site counts anonymous statistics (see <a href="privacy.html#statistics">Privacy</a>), it serves
+  PostHog's browser bundle <code>posthog-js</code> {e(posthog)} from <code>vendor/posthog/</code>, © PostHog Inc. (Hiberly,
+  Inc.) and © Mixpanel, Inc., under the licences its package names, Apache-2.0 and MIT
+  (<a href="https://github.com/PostHog/posthog-js/blob/main/LICENSE">its licence</a>).</p>
+</div>"""
+    return page(f"Licences – {NAME}", f"The licences of the fonts, Python and the statistics bundle that {NAME} ships.",
+                body, path="licenses.html")
+
+
 def not_found():
     body = f"""<div class="wrap prose">
   <h1>There is nothing at this address</h1>
@@ -927,11 +985,12 @@ def main():
     write("404.html", not_found())
     write("robots.txt", f"User-agent: *\nAllow: /\n\nSitemap: {SITE_URL}sitemap.xml\n")
     write("privacy.html", privacy())
+    write("licenses.html", licenses())
     write("examples/index.html", examples_page())
-    urls = ["", "examples/", "app/", "docs/", "docs/benchmarks.html", "privacy.html"] + scripts
+    urls = ["", "examples/", "app/", "docs/", "docs/benchmarks.html", "privacy.html", "licenses.html"] + scripts
     write("sitemap.xml", '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
           + "".join(f"  <url><loc>{e(SITE_URL + pretty(u))}</loc></url>\n" for u in urls) + "</urlset>\n")
-    print(f"build_site: {4 + len(scripts)} pages, version {VERSION}, pip name {PIP}, SITE_URL {SITE_URL}")
+    print(f"build_site: {5 + len(scripts)} pages, version {VERSION}, pip name {PIP}, SITE_URL {SITE_URL}")
 
 
 if __name__ == "__main__":

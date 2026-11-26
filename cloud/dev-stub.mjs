@@ -9,14 +9,17 @@
 // It serves the built app at /app/ (and the rest of website/ beside it,
 // where there is any) and answers /api/agent/{session,status,turn}: any
 // token opens a session; every turn request is checked with the server's
-// own validation (lib/agent/validate.ts, the tools of tools.json) and
-// answered by a canned model: first a run_python of a real script (a
+// own validation (lib/agent/validate.ts, the tools of tools.json) and its
+// signatures of the assistant's messages (lib/agent/signature.ts, under a
+// stub secret), and answered by a canned model: first a run_python of a real script (a
 // plate), then a view of the part, then a sentence that quotes the report
 // line it was sent back. No real model is asked.
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { MAX_BODY_BYTES, MAX_IMAGE_BASE64_BYTES } from "./lib/agent/config.ts";
+import { signedReply, verifyTurn } from "./lib/agent/signature.ts";
 import { validateTurn } from "./lib/agent/validate.ts";
 
 const HERE = fileURLToPath(new URL(".", import.meta.url));
@@ -46,7 +49,20 @@ report.show()
 /** The second canned answer's script ("… drawing …" in the prompt): the plate with a drawing sheet. */
 export const DRAWN = SCRIPT.replace('p.extrude(s, 8, id="plate")', 'p.extrude(s, 8, id="plate")\np.drawing()').replace('"plate.wpc"', '"drawn.wpc"');
 
-/** A script that tries every way out of the worker, and says which were blocked. */
+/** The names worker.js takes away (its NETWORK_APIS and NAVIGATOR_NETWORK_APIS), read from it so the two lists stay one. */
+function sealedNames(list) {
+  const source = readFileSync(join(HERE, "../website/app/assistant/worker.js"), "utf8");
+  const body = new RegExp(`export const ${list} = \\[([^\\]]*)\\]`).exec(source)?.[1] ?? "";
+  return [...body.matchAll(/"([A-Za-z]+)"/g)].map((m) => m[1]);
+}
+export const SEALED = sealedNames("NETWORK_APIS");
+export const SEALED_NAVIGATOR = sealedNames("NAVIGATOR_NETWORK_APIS");
+
+/**
+ * A script that tries every way out of the worker, and says which were
+ * blocked: four real requests, then every name of worker.js's lists,
+ * blocked if it is absent or throws worker.js's refusal when called.
+ */
 export const NETWORK = `import js
 def tried(name, f):
     try:
@@ -58,6 +74,23 @@ tried("fetch", lambda: js.fetch("https://example.com/"))
 tried("XMLHttpRequest", lambda: js.XMLHttpRequest.new())
 tried("WebSocket", lambda: js.WebSocket.new("wss://example.com/"))
 tried("importScripts", lambda: js.importScripts("https://example.com/x.js"))
+def sealed(holder, prefix, name):
+    try:
+        value = getattr(holder, name)
+    except AttributeError:
+        print(f"{prefix}{name}: sealed (absent)")
+        return
+    try:
+        value()
+    except Exception as e:
+        if "no network" in str(e):
+            print(f"{prefix}{name}: sealed")
+            return
+    print(f"{prefix}{name}: OPEN")
+for name in ${JSON.stringify(SEALED)}:
+    sealed(js, "", name)
+for name in ${JSON.stringify(SEALED_NAVIGATOR)}:
+    sealed(js.navigator, "navigator.", name)
 `;
 
 const TYPES = {
@@ -74,6 +107,9 @@ const TYPES = {
 };
 
 const limits = { turns_left_today: 40, turns_per_day: 40 };
+/** The stub's one session, and the secret its assistant messages are signed with. */
+const SID = "stub";
+const SECRET = "stub-secret";
 let calls = 0;
 
 /** All text of the tool results in `messages`. */
@@ -125,7 +161,11 @@ function turn(messages) {
   if (/network/i.test(prompt)) {
     if (results.length === 0) return message([{ type: "tool_use", id, name: "run_python", input: { script: NETWORK } }], "tool_use");
     const text = resultsText(messages).join("\n");
-    const blocked = ["fetch", "XMLHttpRequest", "WebSocket", "importScripts"].every((name) => text.includes(`${name}: blocked`));
+    const blocked =
+      ["fetch", "XMLHttpRequest", "WebSocket", "importScripts"].every((name) => text.includes(`${name}: blocked`)) &&
+      SEALED.length > 10 &&
+      [...SEALED, ...SEALED_NAVIGATOR.map((n) => `navigator.${n}`)].every((name) => new RegExp(`^${name.replace(".", "\\.")}: sealed`, "m").test(text)) &&
+      !/: OPEN/.test(text);
     return message([{ type: "text", text: blocked ? "Done: the network is closed to scripts." : `NO: ${text}`, citations: null }], "end_turn");
   }
   // "forever": a script that does not end (the user stops it).
@@ -183,17 +223,23 @@ createServer(async (req, res) => {
   }
   if (url.pathname === "/api/agent/turn" && req.method === "POST") {
     if (!/workpiece_agent=stub/.test(req.headers.cookie ?? "")) return json(res, 401, { error: "session", message: "No session." });
-    let messages;
+    const refuse = (message) => {
+      console.log(JSON.stringify({ stub: "invalid", message }));
+      return json(res, 400, { error: "invalid", message });
+    };
+    if (Buffer.byteLength(body) > MAX_BODY_BYTES + MAX_IMAGE_BASE64_BYTES) return refuse("The conversation is too large.");
+    let valid;
     try {
-      messages = validateTurn(JSON.parse(body), Buffer.byteLength(body), TOOLS);
+      valid = validateTurn(JSON.parse(body), Buffer.byteLength(body), TOOLS);
     } catch (e) {
-      console.log(JSON.stringify({ stub: "invalid", message: e.message }));
-      return json(res, 400, { error: "invalid", message: e.message });
+      return refuse(e.message);
     }
-    const answer = turn(messages);
+    if (!(await verifyTurn(SECRET, SID, valid))) return refuse("The conversation holds an assistant message this session's assistant did not write.");
+    const answer = turn(valid.messages);
+    const reply = await signedReply(SECRET, SID, answer.content, answer.stop_reason, TOOLS);
     limits.turns_left_today -= 1;
-    console.log(JSON.stringify({ stub: "turn", messages: messages.length, answered: answer.content.map((b) => b.name ?? b.type).join(",") }));
-    return json(res, 200, { message: answer, limits });
+    console.log(JSON.stringify({ stub: "turn", messages: valid.messages.length, bytes: Buffer.byteLength(body), answered: answer.content.map((b) => b.name ?? b.type).join(",") }));
+    return json(res, 200, { message: { ...answer, ...reply }, limits });
   }
   // The app, and the site's pages around it.
   const path = normalize(decodeURIComponent(url.pathname));

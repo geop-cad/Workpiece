@@ -13,7 +13,12 @@ function base64url(bytes: ArrayBuffer): string {
 
 function fromBase64url(text: string): Uint8Array<ArrayBuffer> | null {
   if (!/^[A-Za-z0-9_-]*$/.test(text)) return null;
-  const binary = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
+  let binary: string;
+  try {
+    binary = atob(text.replace(/-/g, "+").replace(/_/g, "/"));
+  } catch {
+    return null; // A length base64 cannot have (one character over a group of four).
+  }
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
   return bytes;
@@ -30,8 +35,16 @@ export async function signSession(secret: string, sid: string, now: number): Pro
   return `${payload}.${base64url(signature)}`;
 }
 
-/** The session id of a cookie value, or null if it is malformed, forged or expired. */
+/** The session id of a cookie value, or null if it is malformed, forged or expired (never a throw: a bad cookie is a 401). */
 export async function verifySession(secret: string, value: string, now: number): Promise<string | null> {
+  try {
+    return await verified(secret, value, now);
+  } catch {
+    return null;
+  }
+}
+
+async function verified(secret: string, value: string, now: number): Promise<string | null> {
   const parts = value.split(".");
   if (parts.length !== 3) return null;
   const [sid, expiry, signature] = parts;
@@ -47,6 +60,7 @@ export function sessionCookie(value: string): string {
   return `${COOKIE_NAME}=${value}; HttpOnly; Secure; SameSite=Strict; Path=/api/agent; Max-Age=${SESSION_LIFETIME_SECONDS}`;
 }
 
+/** The cookie's value in a Cookie header, or null. (Malformed values come back as they are: verifySession refuses them.) */
 export function cookieValue(header: string | null): string | null {
   for (const part of (header ?? "").split(";")) {
     const [name, ...rest] = part.trim().split("=");
