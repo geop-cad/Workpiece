@@ -908,69 +908,90 @@ fn turns_along(
     if sides.len() < 2 {
         return out;
     }
-    // (By where they are: in cubes as big as the longest of them.)
-    let cube = sides
-        .iter()
-        .map(|s| s.0.distance(s.1))
-        .fold(reach * 1e-6, f64::max);
+    // (By where they are: in cubes as big as most of them are long — and
+    // as a 32nd of the longest, so that one that lies along another is
+    // within the cubes beside those it runs through, however long — each
+    // in all the cubes it runs through. Not as big as the longest: a long
+    // sliver of a face would put all of them in one, and each would be
+    // looked at with all the others.)
+    let mut lengths: Vec<f64> = sides.iter().map(|s| s.0.distance(s.1)).collect();
+    lengths.sort_by(f64::total_cmp);
+    let cube = lengths[lengths.len() / 2]
+        .max(lengths[lengths.len() - 1] / 32.0)
+        .max(reach * 1e-6);
     let at = |p: Point3| (p / cube).floor().to_array().map(|x| x as i64);
+    let through = |a: Point3, b: Point3| -> Vec<[i64; 3]> {
+        let steps = ((a.distance(b) / cube * 2.0).ceil() as usize).max(1);
+        let mut all: Vec<[i64; 3]> = (0..=steps)
+            .map(|k| at(a.lerp(b, k as f64 / steps as f64)))
+            .collect();
+        all.dedup();
+        all
+    };
     let mut cubes: std::collections::HashMap<[i64; 3], Vec<usize>> = Default::default();
     for (k, s) in sides.iter().enumerate() {
-        cubes.entry(at((s.0 + s.1) / 2.0)).or_default().push(k);
+        for c in through(s.0, s.1) {
+            let list = cubes.entry(c).or_default();
+            if list.last() != Some(&k) {
+                list.push(k);
+            }
+        }
     }
     let near = reach * 1e-7;
     for (k, u) in sides.iter().enumerate() {
         let length = u.0.distance(u.1);
-        if length <= near {
+        if length <= near || u.3 != 1 {
             continue;
         }
         let way = (u.1 - u.0) / length;
         let normal_at = |s: f64| u.2[0].lerp(u.2[1], s);
-        let [x, y, z] = at((u.0 + u.1) / 2.0);
-        for dx in -1..=1 {
-            for dy in -1..=1 {
-                for dz in -1..=1 {
-                    let Some(those) = cubes.get(&[x + dx, y + dy, z + dz]) else {
-                        continue;
-                    };
-                    for &j in those {
-                        let v = &sides[j];
-                        // (Each pair once: the one that looks at who
-                        // looks first.)
-                        if j == k || u.3 != 1 || v.3 != -1 {
-                            continue;
+        let mut those: Vec<usize> = Vec::new();
+        for [x, y, z] in through(u.0, u.1) {
+            for dx in -1..=1 {
+                for dy in -1..=1 {
+                    for dz in -1..=1 {
+                        if let Some(in_it) = cubes.get(&[x + dx, y + dy, z + dz]) {
+                            those.extend(in_it);
                         }
-                        // (Along it as nearly as the faces are flat:
-                        // two faces that meet there without an edge
-                        // are each sampled at their own points, and
-                        // their sides are chords of the one outline,
-                        // a little apart.)
-                        let within = near.max(length.max(v.0.distance(v.1)) * 3e-2);
-                        let off = |p: Point3| (p - u.0).reject_from_normalized(way).length();
-                        if off(v.0) > within || off(v.1) > within {
-                            continue;
-                        }
-                        let (s, t) = ((v.0 - u.0).dot(way) / length, (v.1 - u.0).dot(way) / length);
-                        let (lo, hi) = (s.min(t).max(0.0), s.max(t).min(1.0));
-                        if (hi - lo) * length <= near {
-                            continue;
-                        }
-                        let mid = (lo + hi) / 2.0;
-                        let along_v = if (t - s).abs() > 1e-300 {
-                            (mid - s) / (t - s)
-                        } else {
-                            0.5
-                        };
-                        let normal_v = v.2[0].lerp(v.2[1], along_v);
-                        if !smooth(normal_at(mid), normal_v) {
-                            continue;
-                        }
-                        let (a, b) = (u.0 + way * (lo * length), u.0 + way * (hi * length));
-                        let outward = (normal_at(mid) + normal_v).normalize_or_zero();
-                        out.push((a, b, (a + b) / 2.0 + outward * (reach * 4e-3)));
                     }
                 }
             }
+        }
+        those.sort_unstable();
+        those.dedup();
+        for &j in &those {
+            let v = &sides[j];
+            // (Each pair once: the one that looks at who looks first.)
+            if j == k || v.3 != -1 {
+                continue;
+            }
+            // (Along it as nearly as the faces are flat: two faces that
+            // meet there without an edge are each sampled at their own
+            // points, and their sides are chords of the one outline, a
+            // little apart.)
+            let within = near.max(length.max(v.0.distance(v.1)) * 3e-2);
+            let off = |p: Point3| (p - u.0).reject_from_normalized(way).length();
+            if off(v.0) > within || off(v.1) > within {
+                continue;
+            }
+            let (s, t) = ((v.0 - u.0).dot(way) / length, (v.1 - u.0).dot(way) / length);
+            let (lo, hi) = (s.min(t).max(0.0), s.max(t).min(1.0));
+            if (hi - lo) * length <= near {
+                continue;
+            }
+            let mid = (lo + hi) / 2.0;
+            let along_v = if (t - s).abs() > 1e-300 {
+                (mid - s) / (t - s)
+            } else {
+                0.5
+            };
+            let normal_v = v.2[0].lerp(v.2[1], along_v);
+            if !smooth(normal_at(mid), normal_v) {
+                continue;
+            }
+            let (a, b) = (u.0 + way * (lo * length), u.0 + way * (hi * length));
+            let outward = (normal_at(mid) + normal_v).normalize_or_zero();
+            out.push((a, b, (a + b) / 2.0 + outward * (reach * 4e-3)));
         }
     }
     out
@@ -1123,11 +1144,11 @@ fn see(
         if let Some((u, v)) = turn {
             let out = (u.2[0] + u.2[1] + v.2[0] + v.2[1]).normalize_or_zero();
             pieces.push((u.0, u.1, (u.0 + u.1) / 2.0 + out * (reach * 4e-3)));
-        } else if beside.iter().all(|u| u.3 == beside[0].3) {
-            alone.extend(beside.iter().map(|&(a, b, n, looks)| {
-                let n = if key(a) <= key(b) { n } else { [n[1], n[0]] };
-                (a, b, n, looks)
-            }));
+        } else if let [(a, b, n, looks)] = beside[..] {
+            // (A side two triangles have whole, looking the same way, is
+            // inside a face: no third lies along it.)
+            let n = if key(a) <= key(b) { n } else { [n[1], n[0]] };
+            alone.push((a, b, n, looks));
         }
     }
     // Where such sides lie along each other, one looking at who looks

@@ -1367,7 +1367,7 @@
           "rho": 0.5,
           "section": "Circular",
           "size": 2.0,
-          "tangent": false
+          "tangent": true
         },
         "id": "rib_crests"
       }

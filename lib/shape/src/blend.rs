@@ -2492,6 +2492,22 @@ fn blend_found(
                 let made = combine(op, &body, &tool)
                     .with_context(|| format!("blending {}", called(edge)))?
                     .solid;
+                // Only the tool's round shows (and its ends): where a side
+                // of it does, it stands out of the body — its rail runs off
+                // the face it is to lie on, past that face's rim. (Not a
+                // speck of one the boolean leaves where it lies in a face.)
+                let tool_name = format!("{id}/e{k}/");
+                if let Some(side) = made.faces.iter().enumerate().find_map(|(f, face)| {
+                    let name = face.name.as_deref()?;
+                    (flank(name, &tool_name)
+                        && workpiece_boolean::face_area(&made, f) > reach * reach * 1e-4)
+                        .then_some(name)
+                }) {
+                    anyhow::bail!(
+                        "blending {} did not come out as a blend: a side of its tool shows ({side}) — the round runs off a face it is to touch",
+                        called(edge)
+                    );
+                }
                 // The blend takes something away, or adds something — and
                 // no more than its tool holds.
                 let (after, holds) = (measure(&made).volume, measure(&tool).volume);
@@ -2738,6 +2754,21 @@ impl workpiece_core::Choices for Section {
             Section::Curvature | Section::Centred => "section-curvature",
         })
     }
+}
+
+/// Whether `name` is of a side of a blend tool named `tool…` (of either
+/// half of it): not its round (`side/e0`) nor an end of it.
+fn flank(name: &str, tool: &str) -> bool {
+    let Some(rest) = name.strip_prefix(tool) else {
+        return false;
+    };
+    let rest = rest
+        .strip_prefix("h0/")
+        .or_else(|| rest.strip_prefix("h1/"))
+        .unwrap_or(rest);
+    rest.strip_prefix("side/e")
+        .map(|n| n.split('#').next().unwrap_or(n))
+        .is_some_and(|n| !n.is_empty() && n != "0" && n.bytes().all(|b| b.is_ascii_digit()))
 }
 
 #[cfg(test)]
@@ -3757,6 +3788,82 @@ mod tests {
                 "r {r}: {added} against {wanted}"
             );
         }
+        Ok(())
+    }
+
+    #[test]
+    fn a_round_at_a_rib_s_foot_fades_out_over_the_rounds_beside_it() -> anyhow::Result<()> {
+        // A rib on a floor, its top sloping down to the floor (as a cast
+        // bracket's): its sides are rounded into the floor (R3), then
+        // its foot, where the slope meets the floor (R2). At each end of
+        // the foot the slope ends at its rim with a root round, which
+        // runs on smoothly from the floor: the ball rolls over that rim
+        // and the round comes to nothing at the corner — cut back square
+        // there instead, its tool stood out over the root round.
+        let p = Point2::new;
+        let floor = workpiece_boolean::block(
+            "floor",
+            Point3::ZERO,
+            [Point3::X, Point3::Y, Point3::Z],
+            [40.0, 40.0, 5.0],
+        )?;
+        // (The rib's outline in x and z, stood up: 4 thick about y = 20.)
+        let rib = prism(&[p(10.0, 0.0), p(30.0, 0.0), p(10.0, 15.0)], 4.0).mapped(
+            &|q| Point3::new(q.x, 18.0 + q.z, 5.0 + q.y),
+            true,
+            1.0,
+        )?;
+        let body = combine(Op::Union, &floor, &rib)?.solid;
+        let along = |solid: &Solid, test: &dyn Fn(Point3) -> bool| -> Vec<usize> {
+            (0..solid.edges.len())
+                .filter(|&e| {
+                    let edge = &solid.edges[e];
+                    let (t0, t1) = edge.range;
+                    (0..=4).all(|k| test(edge.point(t0 + (t1 - t0) * f64::from(k) / 4.0)))
+                })
+                .collect()
+        };
+        let feet = along(&body, &|q| {
+            (q.z - 5.0).abs() < 1e-6
+                && q.x > 9.0
+                && ((q.y - 18.0).abs() < 1e-6 || (q.y - 22.0).abs() < 1e-6)
+        });
+        assert_eq!(feet.len(), 2);
+        let rooted = blend_solid(&body, "roots", &feet, &round(3.0), true)?;
+        let toe = along(&rooted, &|q| {
+            (q.x - 30.0).abs() < 1e-6 && (q.z - 5.0).abs() < 1e-6
+        });
+        assert!(!toe.is_empty());
+        let before = measure(&rooted).volume;
+        let made = blend_solid(&rooted, "foot", &toe, &round(2.0), true)?;
+        let after = sound(&made);
+        // Only its round shows of its tool.
+        let names: Vec<&str> = made
+            .faces
+            .iter()
+            .filter_map(|f| f.name.as_deref())
+            .collect();
+        assert!(
+            !names
+                .iter()
+                .any(|n| n.starts_with("foot/") && !n.contains("/side/e0")),
+            "{names:?}"
+        );
+        // It adds less than a round in the slope's corner along all of
+        // the foot (from root to root, 10) would: (tan(a/2) − a/2) r²
+        // over 10, where the slope turns from the floor by a.
+        let a = (15.0_f64 / 20.0).atan();
+        let whole = ((a / 2.0).tan() - a / 2.0) * 4.0 * 10.0;
+        let added = after - before;
+        assert!(added > 0.3 * whole && added < whole, "{added} {whole}");
+        // Mirrored, the same.
+        let mirror = |q: Point3| Point3::new(q.x, 40.0 - q.y, q.z);
+        let theirs = rooted.mapped(&mirror, true, 1.0)?;
+        let toe = along(&theirs, &|q| {
+            (q.x - 30.0).abs() < 1e-6 && (q.z - 5.0).abs() < 1e-6
+        });
+        let theirs = blend_solid(&theirs, "foot", &toe, &round(2.0), true)?;
+        assert!((measure(&theirs).volume - after).abs() < 1e-6 * before);
         Ok(())
     }
 }

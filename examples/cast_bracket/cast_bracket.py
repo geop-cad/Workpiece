@@ -89,10 +89,11 @@ rep = p.build(OUT)
 joints = rep.edges(where=lambda e: e["name"].startswith("bracket/edge[") and "rib" in e["name"])
 p.fillet(joints, 3, id="rib_roots")
 rep = p.build(OUT)
+# R2 where each rib's sloping top meets the wall and the base: picked by an end of each, the rest
+# of that edge (its pieces between the roots) follows as its tangent chain, and the round fades
+# out over the R3 roots at both sides.
 crests = rep.edges(where=lambda e: e["name"].startswith(("rib/", "rib_mirror/")) and "/along/" in e["name"])
-# (Only the crests: their tangent chain runs on into the edges where the ribs' sides meet the
-# bracket, which the R3 roots have rounded already.)
-p.fillet(crests, 2, id="rib_crests", tangent=False)
+p.fillet(crests, 2, id="rib_crests")
 rep = p.build(OUT)
 ends = rep.edges(where=lambda e: e["straight"] and abs(e["middle"][0] - 35) < 1e-6 and abs(abs(e["middle"][1]) - 50) < 1e-6)
 p.fillet(ends, 10, id="base_corners")

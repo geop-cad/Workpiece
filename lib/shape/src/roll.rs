@@ -689,6 +689,11 @@ pub struct Rolled {
     /// At each end, where the ball rolls on over the rim of one of the
     /// faces as the round fades out there ([`RunOut`]).
     run_out: std::cell::RefCell<[Option<RunOut>; 2]>,
+    /// Those of the other pieces of a tangent chain it is a piece of
+    /// ([`Chain::tool`]): where the tool goes into the body beside them
+    /// it does so alike in every piece, else two pieces' sections
+    /// would not be one where they meet.
+    run_out_beside: std::cell::RefCell<Vec<RunOut>>,
 }
 
 /// A tool's sections swept along its edge: the degree and knots along
@@ -1713,6 +1718,7 @@ impl Rolled {
             moved: std::cell::RefCell::new(Vec::new()),
             cut_back: std::cell::Cell::new([false; 2]),
             run_out: std::cell::RefCell::new([None, None]),
+            run_out_beside: std::cell::RefCell::new(Vec::new()),
         };
         // An outside edge where going into one face leads behind the
         // other.
@@ -2100,7 +2106,8 @@ impl Rolled {
             // goes into the body from the rail on the face it leaves
             // between that face's normal and the face the edge ends
             // on's: as it does where the ball comes to the rim.
-            for out in self.run_out.borrow().iter().flatten() {
+            let beside = self.run_out_beside.borrow();
+            for out in self.run_out.borrow().iter().flatten().chain(beside.iter()) {
                 let j = 1 - out.stay;
                 let rail = if j == 0 { a } else { b };
                 let uv = workpiece_boolean::geometry::foot(&out.face.0, rail.0, out.face.2).0;
@@ -2737,6 +2744,7 @@ impl Rolled {
         if !even
             || self.swell.iter().any(Option::is_some)
             || self.run_out.borrow().iter().any(Option::is_some)
+            || !self.run_out_beside.borrow().is_empty()
         {
             return None;
         }
@@ -3396,6 +3404,9 @@ impl Rolled {
         // own, across an edge with it: the body goes on past the end
         // beside the edge, and so does its edge, most likely.
         let mut goes_on = false;
+        // (The faces that run on smoothly from one of the edge's own
+        // across an edge with it.)
+        let mut on_from: Vec<(usize, Point3)> = Vec::new();
         let taken = |f: usize, planes: &[(usize, Point3)], curved: &[(usize, Point3, bool)]| {
             planes.iter().any(|p| p.0 == f) || curved.iter().any(|c| c.0 == f)
         };
@@ -3440,6 +3451,12 @@ impl Rolled {
                         touching.push(f);
                     } else {
                         goes_on = true;
+                        if self.faces.iter().any(|&g| {
+                            normals_at(g).iter().any(|m| n.cross(*m).length() <= 1e-6)
+                                && shares(f, g)
+                        }) {
+                            on_from.push((f, n));
+                        }
                     }
                     continue;
                 }
@@ -3461,6 +3478,34 @@ impl Rolled {
         // flat where the faces are curved: the ball touches them a
         // little out of the plane of its station, so a cap laid over
         // that section would not lie on its edges.)
+        // Unless the edge itself ends there, though one of its faces
+        // goes on: the other ends at its rim with the face that does (a
+        // rib's slanted end where a round at its foot runs on from the
+        // floor). Then the ball rolls on over that rim to the end
+        // ([`RunOut`]) — cut back square there instead, the tool would
+        // stand out past the rim.
+        let continues = (0..solid.edges.len()).any(|e| {
+            let edge = &solid.edges[e];
+            if e == self.edge || !edge.ends.contains(&vertex) {
+                return false;
+            }
+            let (t0, t1) = edge.range;
+            let out = if edge.ends[0] == vertex {
+                edge.curve.derivative_at(t0).1
+            } else {
+                -edge.curve.derivative_at(t1).1
+            };
+            out.normalize_or_zero().dot(-way) > 1.0 - 1e-6
+        });
+        if planes.is_empty()
+            && curved.is_empty()
+            && !continues
+            && let [(f, n)] = on_from[..]
+        {
+            curved.push((f, n, true));
+            touching.push(f);
+            goes_on = false;
+        }
         let smooth = planes.is_empty() && curved.is_empty() && goes_on;
         if smooth {
             planes.push((usize::MAX, way));
@@ -3571,6 +3616,23 @@ impl<'a> Chain<'a> {
         let n = self.pieces.len();
         if n == 1 && !self.pieces[0].1 && !self.closed {
             return self.pieces[0].0.tool(id, margin, stretch);
+        }
+        // (Where the ball rolls over a rim at an end of the chain, the
+        // tool goes into the body there alike in every piece.)
+        for (i, (rolled, _)) in self.pieces.iter().enumerate() {
+            let others: Vec<RunOut> = self
+                .pieces
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != i)
+                .flat_map(|(_, (other, _))| other.run_out.borrow().clone())
+                .flatten()
+                .collect();
+            if others.len() != rolled.run_out_beside.borrow().len() {
+                *rolled.run_out_beside.borrow_mut() = others;
+                rolled.seen.borrow_mut().clear();
+                rolled.moved.borrow_mut().clear();
+            }
         }
         // Each piece's own stretch: the chain's at its ends, joined to
         // the next piece elsewhere.

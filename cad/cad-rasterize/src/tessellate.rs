@@ -52,31 +52,55 @@ fn samples(surface: &NurbsSurface, along_v: bool) -> Vec<f64> {
         };
         if along_v { d_v } else { d_u }
     };
+    // (The normal there: `∂u × ∂v`.)
+    let normal = |t: f64, other: f64| {
+        let (_, d_u, d_v) = if along_v {
+            surface.derivatives_at(other, t)
+        } else {
+            surface.derivatives_at(t, other)
+        };
+        d_u.cross(d_v)
+    };
     let mut out = Vec::new();
     for pair in distinct.windows(2) {
-        let per_span = if degree <= 1 {
-            1
-        } else {
-            let mut turned = 0.0_f64;
-            for other in places {
-                let at = |f: f64| way(pair[0] + (pair[1] - pair[0]) * f, other);
-                let ways = [0.001, 0.25, 0.5, 0.75, 0.999].map(at);
-                let all: f64 = ways.windows(2).map(|w| w[0].angle_between(w[1])).sum();
-                if all.is_finite() {
-                    turned = turned.max(all);
-                }
-            }
-            let step = std::f64::consts::TAU / (8 * FINEST) as f64;
-            // A span that bends at all gets a few steps however little
-            // it turns: mirrored stripes show every corner of a nearly
-            // flat face. (Below a thousandth of a radian the turning is
-            // the rounding of a flat face's angles.)
-            let least = if turned > 1e-3 {
-                (GENTLEST / (distinct.len() - 1)).max(2)
-            } else {
-                1
+        // How much the surface turns along the span: its lines across
+        // it bend, or — where they run straight, as a ruled face's do —
+        // its normal turns about them (a blade twisted between two
+        // straight sections, a saddle: else sampled at its corners only,
+        // as if flat).
+        let (mut bends, mut twists) = (0.0_f64, 0.0_f64);
+        for other in places {
+            let along = |at: &dyn Fn(f64) -> Point3| -> f64 {
+                let ways =
+                    [0.001, 0.25, 0.5, 0.75, 0.999].map(|f| at(pair[0] + (pair[1] - pair[0]) * f));
+                ways.windows(2).map(|w| w[0].angle_between(w[1])).sum()
             };
-            ((turned / step).ceil() as usize).clamp(least, FINEST.max(least))
+            let bent = if degree <= 1 {
+                0.0
+            } else {
+                along(&|t| way(t, other))
+            };
+            let twisted = along(&|t| normal(t, other));
+            if bent.is_finite() {
+                bends = bends.max(bent);
+            }
+            if twisted.is_finite() {
+                twists = twists.max(twisted);
+            }
+        }
+        // A span that bends at all gets a few steps however little:
+        // mirrored stripes show every corner of a nearly flat face.
+        // (Below a thousandth of a radian the turning is the rounding of
+        // a flat face's angles.) One that only twists gets a step for
+        // each 192nd of a turn its normal turns.
+        let step = std::f64::consts::TAU / (8 * FINEST) as f64;
+        let per_span = if bends > 1e-3 {
+            let least = (GENTLEST / (distinct.len() - 1)).max(2);
+            ((bends.max(twists) / step).ceil() as usize).clamp(least, FINEST.max(least))
+        } else if twists > 1e-3 {
+            ((twists / step).ceil() as usize).clamp(2, FINEST)
+        } else {
+            1
         };
         for k in 0..per_span {
             out.push(pair[0] + (pair[1] - pair[0]) * k as f64 / per_span as f64);
@@ -882,6 +906,45 @@ mod tests {
         assert_eq!(round.len(), 2 * FINEST + 1);
         assert_eq!(round.first(), Some(&0.0));
         assert_eq!(round.last(), Some(&1.0));
+        // A blade twisted 40° between two straight sections (a bilinear
+        // patch: its lines both ways run straight) is sampled across and
+        // along as its normal turns — not at its corners only, as if
+        // flat, which drew its outline wrong (the axial fan's blades).
+        let (c, s) = (40f64.to_radians().cos(), 40f64.to_radians().sin());
+        let twisted = NurbsSurface::new(
+            1,
+            1,
+            vec![0.0, 0.0, 1.0, 1.0],
+            vec![0.0, 0.0, 1.0, 1.0],
+            2,
+            2,
+            vec![
+                Point3::new(-1.0, 0.0, 0.0),
+                Point3::new(-c, -s, 4.0),
+                Point3::new(1.0, 0.0, 0.0),
+                Point3::new(c, s, 4.0),
+            ],
+            None,
+        )?;
+        for along_v in [false, true] {
+            let steps = samples(&twisted, along_v).len() - 1;
+            assert!((2..=FINEST).contains(&steps), "{steps} steps");
+        }
+        // A flat patch is still its corners.
+        let flat = NurbsSurface::new(
+            1,
+            1,
+            vec![0.0, 0.0, 1.0, 1.0],
+            vec![0.0, 0.0, 1.0, 1.0],
+            2,
+            2,
+            [[-1.0, 0.0], [-1.0, 4.0], [1.0, 0.0], [1.0, 4.0]]
+                .map(|[x, z]| Point3::new(x, 0.0, z))
+                .to_vec(),
+            None,
+        )?;
+        assert_eq!(samples(&flat, false), [0.0, 1.0]);
+        assert_eq!(samples(&flat, true), [0.0, 1.0]);
         Ok(())
     }
 
