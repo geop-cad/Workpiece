@@ -222,6 +222,16 @@ pub fn start() {
             }
             Err(e) => log(&format!("Workpiece did not start: {e:?}")),
         }
+        // Leaving the page with work not saved asks first.
+        let leaving = Closure::<dyn FnMut(web_sys::Event)>::new(|event: web_sys::Event| {
+            if UNSAVED.get() {
+                event.prevent_default();
+                let _ = js_sys::Reflect::set(&event, &"returnValue".into(), &"".into());
+            }
+        });
+        let _ = window()
+            .add_event_listener_with_callback("beforeunload", leaving.as_ref().unchecked_ref());
+        leaving.forget();
         // Read the examples, and open what the address asks for
         // (`?assistant` opens the assistant's panel too).
         spawn_local(read_examples());
@@ -232,6 +242,17 @@ pub fn start() {
             spawn_local(open_named(open, query("tab")));
         }
     });
+}
+
+thread_local! {
+    /// Whether a part of the workspace has work that is not saved.
+    static UNSAVED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Says whether a part of the workspace has work that is not saved:
+/// leaving the page then asks first.
+pub fn set_unsaved(unsaved: bool) {
+    UNSAVED.set(unsaved);
 }
 
 /// The emoji fonts egui has on the desktop, fetched from the page's
@@ -509,7 +530,8 @@ async fn fetch_part(url: &str) -> Result<String, String> {
         };
         if !workpiece_part::is_step(&path) {
             let text = String::from_utf8_lossy(&bytes);
-            let part = Part::from_text(&text).map_err(|e| format!("reading {path}: {e:#}"))?;
+            let part =
+                Part::from_file(&path, &text).map_err(|e| format!("reading {path}: {e:#}"))?;
             todo.extend(part.placed_parts());
         }
     }
@@ -569,7 +591,7 @@ async fn read_picked(list: web_sys::FileList, folder: bool) {
             return send(Event::Failed(format!("reading {name}: {e}")));
         }
         if name.ends_with(&format!(".{}", workpiece_ops_instances::PART_EXTENSION)) {
-            let placed = Part::from_text(&String::from_utf8_lossy(&bytes))
+            let placed = Part::from_file(&name, &String::from_utf8_lossy(&bytes))
                 .map(|p| p.placed_parts())
                 .unwrap_or_default();
             parts.push((name, placed));

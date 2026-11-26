@@ -190,19 +190,20 @@ impl Operation for AddPart {
         context: &workpiece_core::EditContext<'_>,
         (): &(),
     ) -> EditVisualization<workpiece_core::Edit<AddPartArgs, ()>> {
-        // The dialog chooses the part's file and its variant and its
-        // mates; while none holds it, it is dragged in the view (or its
-        // pose typed in).
+        // The dialog chooses the part's file, its variant, its bodies
+        // and how it is held: by its mates (dragged in the view as far
+        // as they let it), or fixed (its pose typed, or the gizmo
+        // dragged).
         let args = self.args.clone();
         // The fields the arguments give; where it is is the cache's.
         let fields = workpiece_core::Arguments::fields(&args, context);
-        let place = crate::placing::pose_field(&self.id, context, &self.args.hold);
+        let (pose, gizmo) = crate::placing::placement(&self.id, context, &self.args.hold);
         let mut all: Vec<workpiece_core::Widget<workpiece_core::Edit<AddPartArgs, ()>>> = fields
             .into_iter()
             .map(|field| field.map(workpiece_core::Edit::args))
             .collect();
-        all.extend(place);
-        EditVisualization::new(VBox::new(all), Default::default())
+        all.extend(pose);
+        EditVisualization::new(VBox::new(all), gizmo)
     }
 
     fn summary(&self) -> String {
@@ -265,46 +266,22 @@ fn fields_of(
         };
         fields.push(Choice::new("Variant", options, selected, with_variant).into());
     }
-    // Which of its bodies come along, each ticked or not (where it has
-    // more than one): all of them ticked is none named.
+    // Which of its bodies come along (where it has more than one).
     let bodies = context.parts.bodies(&args.part, args.variant.as_deref());
     if bodies.len() > 1 {
-        let taken = match args.bodies.len() {
-            0 => "all".to_owned(),
-            n => format!("{n} of {}", bodies.len()),
+        let with = {
+            let args = args.clone();
+            move |bodies| AddPartArgs {
+                bodies,
+                ..args.clone()
+            }
         };
-        let label = workpiece_core::widgets::Label::new("Bodies", taken, Default::default());
-        fields.push(label.into());
-        for body in &bodies {
-            let taken = args.bodies.is_empty() || args.bodies.contains(body);
-            let tick = {
-                let (args, bodies, body) = (args.clone(), bodies.clone(), body.clone());
-                move |i: usize| {
-                    let was: Vec<String> = match args.bodies.is_empty() {
-                        true => bodies.clone(),
-                        false => args.bodies.clone(),
-                    };
-                    let now: Vec<String> = bodies
-                        .iter()
-                        .filter(|b| match **b == body {
-                            true => i == 0,
-                            false => was.contains(b),
-                        })
-                        .cloned()
-                        .collect();
-                    AddPartArgs {
-                        bodies: if now.len() == bodies.len() {
-                            Vec::new()
-                        } else {
-                            now
-                        },
-                        ..args.clone()
-                    }
-                }
-            };
-            let options = vec!["Taken".to_owned(), "Left out".to_owned()];
-            fields.push(Choice::new(body.clone(), options, usize::from(!taken), tick).into());
-        }
+        fields.extend(crate::placing::bodies_fields(
+            context.step,
+            &bodies,
+            &args.bodies,
+            with,
+        ));
     }
     // How it is held: fixed or not, and its mates, each a reference on
     // what is there, one of its own and the constraint between them.
@@ -422,14 +399,18 @@ mod tests {
     }
 
     #[test]
-    fn its_pose_is_typed_into_the_cache_until_a_mate_holds_it() -> anyhow::Result<()> {
+    fn its_pose_is_typed_into_the_cache_while_it_is_fixed() -> anyhow::Result<()> {
         let mut op = add("b", "bolt");
+        op.args.hold = crate::Hold::fixed();
         let world = Arc::new(World::new());
         let cache = workpiece_core::Cache::default();
         let context = workpiece_core::EditContext::standalone(&world, &cache);
         let edit = op.visualize_edit(&context, &());
-        // No gizmo: the part is dragged in the view.
-        assert!(edit.handles.is_empty());
+        // Fixed: its pose, typed or moved by the gizmo.
+        assert!(matches!(
+            edit.handles.get("pose"),
+            Some(workpiece_core::handles::Handle::Gizmo(_))
+        ));
         let mut pose = None;
         edit.dialog.visit(&mut |w| {
             if let workpiece_core::Widget::PoseInput(input) = w {
@@ -443,7 +424,8 @@ mod tests {
         cache.replace("b", edit.kept.expect("where the part is"));
         let moved = Pose::from_translation(Point3::Y);
         assert_eq!(crate::assembly::placed(&cache, "b"), moved);
-        // Held by a mate, it has no pose of its own to type.
+        // Held by its mates, it has no pose of its own to type, nor a
+        // gizmo: it is dragged in the view.
         let origin = crate::Anchor {
             instance: vec!["base".into()],
             source: workpiece_core::Source::Datum("origin".into()),
@@ -462,7 +444,7 @@ mod tests {
         edit.dialog.visit(&mut |w| {
             any |= matches!(w, workpiece_core::Widget::PoseInput(_));
         });
-        assert!(!any);
+        assert!(!any && edit.handles.is_empty());
         Ok(())
     }
 }

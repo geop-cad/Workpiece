@@ -18,6 +18,8 @@ pub struct EditDialog {
     pub placement: Placement,
     /// The reference field being picked, by widget path.
     pub picking: Option<Vec<usize>>,
+    /// What the view shows of a row of the dialog under the pointer.
+    pub pointed: Option<workpiece_core::widgets::Pointed>,
     /// Why the step cannot be applied, if it cannot.
     pub error: Option<String>,
     /// Closes the dialog, keeping the changes.
@@ -56,6 +58,7 @@ impl EditDialog {
             title: session.op.id().to_owned(),
             placement: session.visualization.placement,
             picking: model.picking.clone(),
+            pointed: model.pointed.clone(),
             error: model.error(),
             finish: Button::new("Done", || Message::FinishEdit)
                 .with_hotkey(Hotkey::named(Key::Enter)),

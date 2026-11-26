@@ -205,24 +205,10 @@ pub fn left_whole(world: &World, cut: &workpiece_core::world::Cutting) -> bool {
     };
     // (Taken: to the left of the piece of the line it is beside, the
     // first and the last running on.)
-    let pieces = cut.path.len().saturating_sub(1);
-    let taken = |p: Point3| {
-        let d = p - cut.origin;
-        let q = Point2::new(d.dot(cut.x), d.dot(cut.y));
-        cut.path
-            .windows(2)
-            .enumerate()
-            .map(|(k, w)| {
-                let along = w[1] - w[0];
-                let s = ((q - w[0]).dot(along) / along.length_squared().max(1e-300)).clamp(
-                    if k == 0 { f64::NEG_INFINITY } else { 0.0 },
-                    if k + 1 == pieces { f64::INFINITY } else { 1.0 },
-                );
-                let off = (w[0] + along * s).distance(q);
-                (off, along.normalize_or_zero().perp_dot(q - w[0]))
-            })
-            .min_by(|a, b| a.0.total_cmp(&b.0))
-            .is_some_and(|(_, left)| left > 0.0)
+    let line = workpiece_core::world::Cutting {
+        bounded: false,
+        ..cut.clone()
     };
+    let taken = |p: Point3| line.takes_away(p);
     !corners(lo, hi).into_iter().all(taken)
 }

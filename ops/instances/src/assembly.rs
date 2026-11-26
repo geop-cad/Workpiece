@@ -421,24 +421,28 @@ pub fn settle(world: &mut World, cache: &mut workpiece_core::Cache) {
             instance.pose = pose;
         }
     }
-    // (A part at its own origin has nothing to remember.)
-    for (name, instance) in &world.instances {
-        if instance.pose == Pose::IDENTITY {
-            cache.replace(name, []);
-        } else {
-            cache.replace(name, kept(&instance.pose));
-        }
-    }
-    for joint in &world.joints {
-        cache.replace(&joint.name, [("made".to_owned(), vec![1.0])]);
-    }
+    keep(cache, world, &BTreeMap::new());
 }
 
-/// Writes where instances of a part are to its `cache`, as [`settle`]
-/// finds them: each by its name. What a drag leaves.
-pub fn keep(cache: &mut workpiece_core::Cache, poses: &BTreeMap<String, Pose>) {
-    for (name, pose) in poses {
-        cache.replace(name, kept(pose));
+/// Writes to the part's `cache` where the instances of its `world` are
+/// — those in `moved` where that has them (what a drag leaves), the
+/// others where they are — and that its joints are made, as [`settle`]
+/// leaves them: the part's next build starts from all of it. (A part
+/// placed in the one that is open is built from its own cache, which
+/// no build writes: a drag of something in it writes everything, or
+/// the next build would snap what it never knew made.)
+pub fn keep(cache: &mut workpiece_core::Cache, world: &World, moved: &BTreeMap<String, Pose>) {
+    // Each entry by itself: the first mate of a placed part makes a
+    // joint named as the step that places it, so that the joint's mark
+    // and where the part is are entries of the same step.
+    for (name, instance) in &world.instances {
+        let pose = moved.get(name).unwrap_or(&instance.pose);
+        // (A part at its own origin has nothing to remember.)
+        let numbers = (*pose != Pose::IDENTITY).then(|| numbers(pose).to_vec());
+        cache.set(&entry(name, "pose"), numbers);
+    }
+    for joint in &world.joints {
+        cache.set(&entry(&joint.name, "made"), Some(vec![1.0]));
     }
 }
 

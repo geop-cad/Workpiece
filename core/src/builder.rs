@@ -70,6 +70,20 @@ impl Cache {
         self.replace(to, entries);
     }
 
+    /// Sets the numbers called `name` — or, with `None`, takes them
+    /// away — and leaves every other entry as it is (unlike
+    /// [`replace`](Self::replace), nothing under `name` goes with it).
+    pub fn set(&mut self, name: &str, values: Option<Vec<f64>>) {
+        match values {
+            Some(values) => {
+                self.values.insert(name.to_owned(), values);
+            }
+            None => {
+                self.values.remove(name);
+            }
+        }
+    }
+
     /// Replaces everything under `owner` with `entries`, each named
     /// `"{owner}/{name}"`.
     pub fn replace(&mut self, owner: &str, entries: impl IntoIterator<Item = (String, Vec<f64>)>) {

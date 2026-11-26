@@ -78,7 +78,8 @@ pub fn read_to_string(path: &str) -> io::Result<String> {
 }
 
 /// Writes `bytes` to the file at `path` (making the folders it is in, on
-/// disk).
+/// disk). On disk the file is whole or as it was: what is written goes
+/// to a file beside it first, which then takes its place.
 pub fn write(path: &str, bytes: impl AsRef<[u8]>) -> io::Result<()> {
     if IN_MEMORY {
         memory().write(path, bytes.as_ref());
@@ -88,7 +89,13 @@ pub fn write(path: &str, bytes: impl AsRef<[u8]>) -> io::Result<()> {
     if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
         std::fs::create_dir_all(dir)?;
     }
-    std::fs::write(path, bytes)
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(format!(".{}.writing", std::process::id()));
+    let beside = path.with_file_name(name);
+    std::fs::write(&beside, bytes)?;
+    std::fs::rename(&beside, path).inspect_err(|_| {
+        let _ = std::fs::remove_file(&beside);
+    })
 }
 
 /// Whether there is a file at `path`.

@@ -40,6 +40,7 @@ mod ui;
 #[cfg(target_arch = "wasm32")]
 mod web;
 
+use anyhow::Context;
 use eframe::egui;
 use workpiece_core::{Placement, Widget};
 use workpiece_ui::{Message, Model, View};
@@ -145,6 +146,34 @@ enum FileAction {
     /// Read the part at this path (and what it places) and put it in the
     /// edit dialog's file field at this widget path.
     Choose(Vec<usize>, String),
+    /// Write a new, empty part to the file at this path, place it in the
+    /// focused part and focus it there.
+    NewPartHere(String),
+    /// Close the active part (asking first, if that loses work).
+    Close,
+}
+
+/// What waits for the user to say what becomes of the work that is not
+/// saved: Save all, Discard or Cancel.
+struct Asking {
+    /// What is done once they have said.
+    then: Then,
+    /// The parts whose work would be lost.
+    unsaved: Vec<String>,
+}
+
+/// What closes parts, and so asks first if that loses work.
+#[derive(Debug, Clone, PartialEq)]
+enum Then {
+    /// Close the active part.
+    Close,
+    /// Close it and open the part at this path.
+    Open(String),
+    /// Close it and make a new part.
+    New,
+    /// Quit the application (close the window; in a browser, close every
+    /// part).
+    Quit,
 }
 
 /// The application state handed to eframe.
@@ -185,6 +214,13 @@ struct App {
     /// The last file error, shown until dismissed.
     error: Option<String>,
     title: String,
+    /// The question what becomes of the work not saved, while it is
+    /// asked.
+    asking: Option<Asking>,
+    /// What waits for the active part to be saved under a name first.
+    after_save: Option<Then>,
+    /// Whether the window closes now, the question answered.
+    quitting: bool,
 }
 
 /// Has `model` build its parts beside the interface, on all but one of
@@ -221,18 +257,22 @@ impl App {
             None => match std::env::args().nth(1) {
                 Some(path) => {
                     let parts = files::load(&path, &workpiece_part::Workspace::default())?;
-                    let mut model = Model::new(workpiece_part::Workspace::new(parts));
+                    let mut model = Model::default();
                     // (Built beside the interface from the start: a part
                     // that takes long to build opens a window at once.)
                     threaded(&mut model);
-                    model.update(Message::Open(path))?;
+                    // (Read from their files: they are saved as they are.)
+                    model.update(Message::Load {
+                        parts,
+                        open: Some(path),
+                    })?;
                     model
                 }
                 // (In a browser, the start screen shows first.)
                 None if cfg!(target_arch = "wasm32") => Model::default(),
                 None => {
                     let mut model = Model::default();
-                    model.update(Message::New(files::untitled(&model.workspace)))?;
+                    model.update(Message::New(files::untitled(&model.workspace, "")))?;
                     model
                 }
             },
@@ -301,6 +341,9 @@ impl App {
             previews: Default::default(),
             error: None,
             title: String::new(),
+            asking: None,
+            after_save: None,
+            quitting: false,
         })
     }
 
@@ -313,27 +356,22 @@ impl App {
 
     fn file(&mut self, action: FileAction) -> anyhow::Result<()> {
         match action {
-            FileAction::New => {
-                let name = files::untitled(&self.model.workspace);
-                self.model.update(Message::New(name))?;
-            }
+            FileAction::New => self.closing(Then::New)?,
+            FileAction::Close => self.closing(Then::Close)?,
             FileAction::Browse => self.file_dialog = Some(FileDialog::new(Purpose::Open, "")),
-            FileAction::Open(path) => {
-                let parts = files::load(&path, &self.model.workspace)?;
-                self.model.update(Message::Load {
-                    parts,
-                    open: Some(path),
-                })?;
+            // A part of the workspace (one placed in the part worked
+            // on) is turned to: nothing closes.
+            FileAction::Open(path) if self.model.workspace.parts.contains_key(&path) => {
+                self.model.update(Message::Open(path))?;
                 self.fit = true;
             }
+            FileAction::Open(path) => self.closing(Then::Open(path))?,
             FileAction::Save => {
                 let Some(path) = self.model.active_part.clone() else {
                     return Ok(());
                 };
                 if self.model.saved.contains_key(&path) {
-                    self.model.take_preview(&path)?;
-                    files::save(&path, self.model.workspace.part(&path)?)?;
-                    self.model.update(Message::Saved(path))?;
+                    self.save_all(&path, false)?;
                 } else {
                     self.file_dialog = Some(FileDialog::new(Purpose::SaveAs, &path));
                 }
@@ -344,8 +382,34 @@ impl App {
             }
             FileAction::SaveAs(path) => {
                 self.model.update(Message::SaveAs(path.clone()))?;
-                self.model.take_preview(&path)?;
-                files::save(&path, self.model.workspace.part(&path)?)?;
+                self.save_all(&path, true)?;
+                // What waited for the part to have a name goes on.
+                if let Some(then) = self.after_save.take() {
+                    self.closing(then)?;
+                }
+            }
+            FileAction::NewPartHere(path) => {
+                let within = self.model.focused_part().context("no part to add it to")?;
+                // A placed part is always a file: the new one is written
+                // first, beside the part that places it (as named), and
+                // that one must have a file to be beside.
+                anyhow::ensure!(
+                    self.model.saved.contains_key(&within),
+                    "{within} has no file yet: save it first (File → Save as…), \
+                     then make the new part in it"
+                );
+                anyhow::ensure!(
+                    !workpiece_core::files::exists(&path),
+                    "there is a file {path} already: name the new part otherwise, \
+                     or place that file (Add part)"
+                );
+                anyhow::ensure!(
+                    !self.model.workspace.parts.contains_key(&path),
+                    "there is a part {path:?} already"
+                );
+                files::save(&path, &workpiece_part::Part::default())?;
+                self.model
+                    .update(Message::NewPartHere(Some(path.clone())))?;
                 self.model.update(Message::Saved(path))?;
             }
             FileAction::Export(path) => {
@@ -449,6 +513,162 @@ impl App {
             }
         }
         Ok(())
+    }
+
+    /// Saves the part at `path` with what it needs (see
+    /// [`files::save_all`]): each part written is saved, and a failure
+    /// says what was written and what not.
+    fn save_all(&mut self, path: &str, replace: bool) -> anyhow::Result<()> {
+        self.model.take_preview(path)?;
+        let (written, done) = files::save_all(&self.model, path, replace);
+        for path in written {
+            self.model.update(Message::Saved(path))?;
+        }
+        done
+    }
+
+    /// Does `then`, which closes parts: first asks what becomes of the
+    /// work it would lose, if it would lose any.
+    fn closing(&mut self, then: Then) -> anyhow::Result<()> {
+        let unsaved = match then {
+            Then::Quit => self.model.unsaved_all(),
+            _ => {
+                let closing = self.model.closing();
+                closing
+                    .into_iter()
+                    .filter(|p| self.model.would_lose(p))
+                    .collect()
+            }
+        };
+        if unsaved.is_empty() {
+            return self.close(then);
+        }
+        self.asking = Some(Asking { then, unsaved });
+        Ok(())
+    }
+
+    /// Does `then`, whatever is not saved.
+    fn close(&mut self, then: Then) -> anyhow::Result<()> {
+        match then {
+            Then::Close => self.model.update(Message::Close)?,
+            Then::Open(path) => {
+                self.model.update(Message::Close)?;
+                let parts = files::load(&path, &self.model.workspace)?;
+                self.model.update(Message::Load {
+                    parts,
+                    open: Some(path),
+                })?;
+                self.fit = true;
+            }
+            Then::New => {
+                self.model.update(Message::Close)?;
+                let name = files::untitled(&self.model.workspace, "");
+                self.model.update(Message::New(name))?;
+            }
+            Then::Quit => self.quitting = true,
+        }
+        Ok(())
+    }
+
+    /// Saves what `then` would lose, then does it. A part that has no
+    /// file yet is named first (Save as), and `then` waits for that.
+    fn save_then(&mut self, then: Then) -> anyhow::Result<()> {
+        let tops = match then {
+            Then::Quit => self.model.tops(),
+            _ => self.model.active_part.clone().into_iter().collect(),
+        };
+        for top in tops {
+            if !self
+                .model
+                .unsaved(&top)
+                .iter()
+                .any(|p| self.model.would_lose(p))
+            {
+                continue;
+            }
+            if !self.model.saved.contains_key(&top) {
+                if self.model.active_part.as_deref() != Some(&top) {
+                    self.model.update(Message::Open(top.clone()))?;
+                }
+                self.after_save = Some(then);
+                self.file_dialog = Some(FileDialog::new(Purpose::SaveAs, &top));
+                return Ok(());
+            }
+            self.save_all(&top, false)?;
+        }
+        self.closing(then)
+    }
+
+    /// Asks what becomes of the work not saved, while that is asked.
+    fn ask(&mut self, ctx: &egui::Context) {
+        let Some(asking) = &self.asking else {
+            return;
+        };
+        let mut answer = None;
+        let mut cancel = false;
+        let modal = egui::Modal::new(egui::Id::new("unsaved")).show(ctx, |ui| {
+            ui.set_width(380.0);
+            ui.heading(match asking.unsaved.len() {
+                1 => "A part is not saved",
+                _ => "Parts are not saved",
+            });
+            let these = match asking.unsaved.len() {
+                1 => "this part",
+                _ => "these parts",
+            };
+            ui.label(match asking.then {
+                Then::Quit => format!("Save the work in {these} before quitting?"),
+                Then::Close => format!("Save the work in {these} before closing?"),
+                Then::Open(_) | Then::New => {
+                    format!("Save the work in {these} before the part worked on closes?")
+                }
+            });
+            ui.add_space(4.0);
+            for path in &asking.unsaved {
+                let saved = self.model.saved.contains_key(path);
+                ui.horizontal(|ui| {
+                    ui.label(format!("• {path}"));
+                    if !saved {
+                        ui.weak("(no file yet)");
+                    }
+                });
+            }
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                let button =
+                    egui::Button::new(egui::RichText::new("Save all").color(egui::Color32::WHITE))
+                        .fill(theme::color::ACCENT);
+                if ui
+                    .add(button)
+                    .on_hover_text("Write each of them to its file, then go on")
+                    .clicked()
+                {
+                    answer = Some(true);
+                }
+                if ui
+                    .button("Discard")
+                    .on_hover_text("Go on without saving: what is not saved is lost")
+                    .clicked()
+                {
+                    answer = Some(false);
+                }
+                cancel = ui.button("Cancel").clicked();
+            });
+        });
+        if cancel || modal.should_close() {
+            self.asking = None;
+        }
+        if let Some(save) = answer
+            && let Some(asking) = self.asking.take()
+        {
+            let done = match save {
+                true => self.save_then(asking.then),
+                false => self.close(asking.then),
+            };
+            if let Err(e) = done {
+                self.error = Some(format!("{e:#}"));
+            }
+        }
     }
 }
 
@@ -556,7 +776,7 @@ impl eframe::App for App {
                         }
                         ui.separator();
                         if ui.add_enabled(open, item("Close", "Ctrl+W")).clicked() {
-                            out.push(Message::Close);
+                            actions.push(FileAction::Close);
                             ui.close();
                         }
                     });
@@ -756,7 +976,7 @@ impl eframe::App for App {
                 (Some(path), Purpose::Field(field)) => {
                     actions.push(FileAction::Choose(field, path));
                 }
-                (Some(path), Purpose::NewPart) => out.push(Message::NewPartHere(Some(path))),
+                (Some(path), Purpose::NewPart) => actions.push(FileAction::NewPartHere(path)),
             }
         }
         if let Some(error) = self.error.clone() {
@@ -774,8 +994,11 @@ impl eframe::App for App {
 
         for message in out {
             // A new part needs a name first: the dialog sends it on.
-            if matches!(message, Message::NewPartHere(None)) {
-                let name = files::untitled(&self.model.workspace);
+            // (It goes beside the part it is placed in.)
+            if matches!(message, Message::NewPartHere(_)) {
+                let within = self.model.focused_part().unwrap_or_default();
+                let folder = workpiece_part::file_set::folder_of(&within);
+                let name = files::untitled(&self.model.workspace, &folder);
                 self.file_dialog = Some(FileDialog::new(Purpose::NewPart, &name));
                 continue;
             }
@@ -813,6 +1036,26 @@ impl eframe::App for App {
                 self.error = Some(format!("{e:#}"));
             }
         }
+        // Closing the window with work not saved asks first.
+        if ui.ctx().input(|i| i.viewport().close_requested()) && !self.quitting {
+            let unsaved = self.model.unsaved_all();
+            if !unsaved.is_empty() {
+                ui.ctx()
+                    .send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                if self.asking.is_none() {
+                    self.asking = Some(Asking {
+                        then: Then::Quit,
+                        unsaved,
+                    });
+                }
+            }
+        }
+        self.ask(ui.ctx());
+        if self.quitting {
+            ui.ctx().send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+        #[cfg(target_arch = "wasm32")]
+        web::set_unsaved(!self.model.unsaved_all().is_empty());
         let title = match View::new(&self.model).document {
             Some((path, true)) => format!("{path} • — Workpiece"),
             Some((path, false)) => format!("{path} — Workpiece"),
@@ -992,7 +1235,7 @@ fn shortcuts(
             actions.push(FileAction::Save);
         }
         if i.consume_key(Modifiers::COMMAND, Key::W) {
-            out.push(Message::Close);
+            actions.push(FileAction::Close);
         }
         browse = i.consume_key(Modifiers::COMMAND, Key::O);
         if let Some(table) = &view.table {

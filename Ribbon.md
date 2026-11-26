@@ -147,7 +147,7 @@ button a way.
 ## Assembly
 
 ### Part
-- Insert part (a part file or a STEP file) ✓
+- Insert part (a part file or a STEP file) ✓ (its dialog: the part, its variant, which of its bodies come along — a table, a tick and a "solo" button a row, the body under the pointer shown in the view, "Show all" bringing them all again — and how it is held)
 - New part (made in place) ✓
 - Standard part ✓ (one catalogue searched by typing — hexagon head screws ISO 4017 and socket head cap screws ISO 4762 in their lengths, nuts and washers M3–M16, dowel pins ISO 8734, eight ball bearings — with filters for the kind of part and the size; each kind has a seat — a screw's ring under its head, a nut's or a washer's face, a pin's end, a bearing's side face — that its first mate starts at, so one pick of a face or a hole's rim stands it there, revolute (concentric, coincident); more mates as for any placed part; threads, sockets and bearing balls drawn plain; in millimetres)
 - Replace part ✓ (edit the step that places it and choose another file)
@@ -156,9 +156,9 @@ button a way.
 
 ### Position
 - Connector (a frame on a part to join by) ✓
-- Joint (rigid, revolute, slider, cylindrical, planar, ball) ✓ — a placed part (Add part, Standard part) is held by a list of mates, rows added and removed: each a reference on what is there (Onto) and one on the part (With), each with a button that turns it over, and the constraint between them from a drop-down with icons of the joints that fit the two (two axes or rims turn in each other by default, anything else is fastened); two mates hold what one leaves free. Fixed or not is a choice of its own. No gizmo: a part not yet held is dragged where it goes
+- Joint (rigid, revolute, slider, cylindrical, planar, ball) ✓ — a placed part (Add part, Standard part) is held "By its mates" or "Fixed". By its mates: a table of mates, rows added and removed, each a reference on what is there (Onto) and one on the part (With), each with a button that turns it over, and the constraint between them from a drop-down with icons of the joints that fit the two (two axes or rims turn in each other by default, anything else is fastened); how far off and what it lets go under the row, opened; two mates hold what one leaves free; no pose of its own: a part not yet held is dragged where it goes. Fixed: its pose typed or moved by a gizmo; its mates are kept, hidden, and hold nothing till it is held by them again
 - Ground (fix a part where it is) ✓ (a part's "Fixed" way of moving)
-- Move (drag within what the joints allow) ✓ (the left button drags a placed part, while nothing is edited and while a step is — a part being placed too; a fixed part stays)
+- Move (drag within what the joints allow) ✓ (the left button drags a placed part, while nothing is edited and while a step is — a part being placed too: the innermost part that its mates leave free to move, in the assembly that places it, which keeps where it went — in a placed sub-assembly too; one they hold, the assembly around it; Shift+drag moves the assembly around it instead (a screw that only turns in its hole looks as if nothing moved, and the status line says so). A fixed part stays, and the status line says why nothing moves: fixed, held by its mates, or driven)
 - Mechanism (gear, rack and pinion, screw: one joint driving another) ✓ (its joints are pointed at in the view: while a joint field picks, the joints it takes are drawn where they are, highlighted under the pointer and named beside it)
 - Joint limits ✓ and drives ✓ (Drive holds a joint at an angle or a distance; with a parameter there, the variants run it through its range; and Contents → Display → Motion runs a joint that has limits from one to the other by a slider, the parts drawn where that leaves them)
 
@@ -185,6 +185,7 @@ button a way.
 - Render ✓ (a step that is a picture of the model as it is there: traced with light, shadows, reflections and glass, shown as it adds up while the view is turned as ever; studio, outdoor or dark-room light, a floor that catches the shadow, a backdrop colour; saved as PNG. Not implemented: pictures as textures, lights of one's own, depth of field)
 - Units ✓ (a part's unit of length — mm, cm, m, in — chosen in Contents; STEP and 3MF exports say it; not implemented: converting numbers, mixed units in one field)
 - Show / Hide ✓, Isolate ✓ (double-click a body in Contents)
+- Pick ✓ (pointing at the model, in every field and for selecting: what is in front comes first — an edge or a vertex behind a face never before that face; of what lies at about the same depth (within two pick radii), a vertex before an edge before a face, so an edge of the face under the pointer still comes first; what a section cuts away and hidden bodies are not picked; the right button goes on to the next under the pointer, drawn over everything so one behind others shows, its name beside the pointer)
 - Export (STEP ✓, IGES ✓, STL ✓ and 3MF ✓ from File → Export…; a drawing as DXF ✓ or PDF ✓ — see Drawing below)
 
 ## Further tabs and workbenches

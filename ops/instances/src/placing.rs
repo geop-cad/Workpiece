@@ -6,10 +6,12 @@
 use std::sync::Arc;
 use workpiece_core::math::rotation_x;
 
+use std::collections::BTreeMap;
+use workpiece_core::handles::{Gizmo, Handle};
 use workpiece_core::hotkey::Hotkey;
 use workpiece_core::widgets::{
-    Choice, ConnectorInput, Group, HBox, Label, Mood, NumericInput, Picked, PoseInput, Scope,
-    ToolButton,
+    Check, Choice, ConnectorInput, HBox, Label, Mood, NumericInput, Picked, Pointed, PoseInput,
+    Scope, Table, ToolButton,
 };
 use workpiece_core::world::{Connector, Instance, Joint, JointKind, Limits};
 use workpiece_core::{Builder, Edit, EditContext, Made, Pose, Widget, World};
@@ -257,8 +259,9 @@ impl Mating {
 #[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct Hold {
-    /// Whether it stays where it is put: mates and drags move what is
-    /// connected to it, never it.
+    /// Whether it stays where it is put (its pose, in the part's
+    /// cache): drags move what is joined to it, never it, and its own
+    /// mates are kept but hold nothing while it is.
     #[serde(skip_serializing_if = "is_false")]
     pub fixed: bool,
     /// Its mates, each a pair of references and the constraint between
@@ -293,24 +296,23 @@ impl Hold {
         }
     }
 
-    /// Whether a mate with both its references holds it.
+    /// Whether a mate with both its references holds it (it is not
+    /// fixed).
     pub fn mated(&self) -> bool {
-        self.mates.iter().any(|m| m.pair().is_some())
+        !self.fixed && self.mates.iter().any(|m| m.pair().is_some())
     }
 
     /// What a step that places something says of how it is held, after
     /// its name.
     pub fn said(&self) -> String {
+        if self.fixed {
+            return ", fixed".to_owned();
+        }
         let made: Vec<&Mating> = self.mates.iter().filter(|m| m.pair().is_some()).collect();
-        let mates = match made[..] {
+        match made[..] {
             [] => String::new(),
             [one] => format!(", {} joint", one.kind.label().to_lowercase()),
             _ => format!(", {} mates", made.len()),
-        };
-        if self.fixed {
-            format!(", fixed{mates}")
-        } else {
-            mates
         }
     }
 }
@@ -334,8 +336,8 @@ fn is_zero(offset: &[f64; 3]) -> bool {
 }
 
 /// Puts `world` into `made` as the instance `id` — where the part's
-/// cache has it — held as `hold` says: fixed or not, and with a joint
-/// for each of its mates that has both its references (the first on
+/// cache has it — held as `hold` says: fixed, or with a joint for each
+/// of its mates that has both its references (the first on
 /// what is there already, the second on what is placed, told from
 /// inside it).
 pub fn place(
@@ -350,7 +352,9 @@ pub fn place(
         "instance {id:?} exists"
     );
     let pose = crate::assembly::placed(builder.cache(), id);
-    for (k, mate) in hold.mates.iter().enumerate() {
+    // Fixed, it stays where it is put: its mates hold nothing.
+    let mates = if hold.fixed { &[][..] } else { &hold.mates[..] };
+    for (k, mate) in mates.iter().enumerate() {
         let Some((onto, own)) = mate.pair() else {
             continue;
         };
@@ -388,13 +392,18 @@ pub fn place(
     Ok(())
 }
 
-/// The fields that say how what the step `step` places is held: whether
-/// it is fixed where it is put, then each of its mates — a reference on
-/// what is there already and one on what is placed, each with a button
-/// that turns it over, and the constraint between the two, of those
-/// that fit the pair — with a button to add another. `seat` is the mate
-/// a standard part starts with: its constraint and which way it looks
-/// once what it goes onto is picked.
+/// The fields that say how what the step `step` places is held: the
+/// choice of the two ways — by its mates, or fixed where it is put —
+/// and, held by its mates, those as a table: a row for each, its
+/// reference on what is there already and its reference on what is
+/// placed (each with the button that turns it over), the constraint
+/// between the two (of those that fit the pair) and the button that
+/// takes it away; what it lets go and how far off it is held under the
+/// row, opened. A button adds another. Fixed, where it is is
+/// [`placement`]'s (the mates stay, holding nothing, to come back when
+/// it is held by them again). `seat` is the mate a standard part starts
+/// with: its constraint and which way it looks once what it goes onto
+/// is picked.
 pub fn hold_fields(hold: &Hold, step: &str, seat: Option<&Mating>) -> Vec<Widget<Hold>> {
     let mut fields: Vec<Widget<Hold>> = vec![
         Choice::new(
@@ -413,6 +422,11 @@ pub fn hold_fields(hold: &Hold, step: &str, seat: Option<&Mating>) -> Vec<Widget
         .with_icons(vec![Some("constraint-free"), Some("constraint-fixed")])
         .into(),
     ];
+    if hold.fixed {
+        return fields;
+    }
+    let columns = ["Onto", "With", "Joint", ""].map(str::to_owned).to_vec();
+    let mut table = Table::new(columns).showing(4);
     for (k, mate) in hold.mates.iter().enumerate() {
         let with_mate = {
             let hold = hold.clone();
@@ -422,7 +436,7 @@ pub fn hold_fields(hold: &Hold, step: &str, seat: Option<&Mating>) -> Vec<Widget
                 hold
             }
         };
-        let mut rows: Vec<Widget<Hold>> = mate_fields(mate, k, step, seat.filter(|_| k == 0))
+        let mut cells: Vec<Widget<Hold>> = mate_fields(mate, k, step, seat.filter(|_| k == 0))
             .into_iter()
             .map(|field| field.map(with_mate.clone()))
             .collect();
@@ -436,7 +450,8 @@ pub fn hold_fields(hold: &Hold, step: &str, seat: Option<&Mating>) -> Vec<Widget
                 hold
             }
         };
-        rows.push(
+        cells.insert(
+            3,
             ToolButton::new(
                 "mate-remove",
                 "Remove this mate",
@@ -446,8 +461,9 @@ pub fn hold_fields(hold: &Hold, step: &str, seat: Option<&Mating>) -> Vec<Widget
             .with_hint("Take this mate away: what it held is free again")
             .into(),
         );
-        fields.push(Group::new(format!("Mate {}", k + 1), rows).into());
+        table = table.row(cells, None);
     }
+    fields.push(table.into());
     let add = {
         let hold = hold.clone();
         move || {
@@ -461,7 +477,7 @@ pub fn hold_fields(hold: &Hold, step: &str, seat: Option<&Mating>) -> Vec<Widget
             .with_hint("Another pair of references and a constraint between them: two mates hold what one leaves free")
             .into(),
     );
-    if !hold.mated() && !hold.fixed {
+    if !hold.mated() {
         fields.push(
             Label::new(
                 "",
@@ -475,9 +491,97 @@ pub fn hold_fields(hold: &Hold, step: &str, seat: Option<&Mating>) -> Vec<Widget
     fields
 }
 
+/// The fields that say which of the bodies `all` of what the step
+/// `step` places come along, `taken` (none named: all of them; `with`
+/// makes the step's arguments of that): how many, a button that brings
+/// them all again, and a table of them, each with its tick and a
+/// button that brings it alone ("solo"; again, and they all come
+/// again). A row under the pointer shows its body in the view. The
+/// last body that comes along cannot be left out.
+pub fn bodies_fields<A: 'static>(
+    step: &str,
+    all: &[String],
+    taken: &[String],
+    with: impl Fn(Vec<String>) -> A + Clone + 'static,
+) -> Vec<Widget<A>> {
+    let now: Vec<String> = match taken.is_empty() {
+        true => all.to_vec(),
+        false => taken.to_vec(),
+    };
+    // All of them is none named.
+    let named = {
+        let all = all.to_vec();
+        move |mut these: Vec<String>| {
+            these.sort_by_key(|b| all.iter().position(|a| a == b));
+            if these.len() == all.len() {
+                Vec::new()
+            } else {
+                these
+            }
+        }
+    };
+    let said = match now.len() == all.len() {
+        true => format!("all {}", all.len()),
+        false => format!("{} of {}", now.len(), all.len()),
+    };
+    let every = {
+        let with = with.clone();
+        move || with(Vec::new())
+    };
+    let mut fields: Vec<Widget<A>> = vec![
+        HBox::new(vec![
+            Label::new("Bodies", said, Mood::Plain).into(),
+            ToolButton::new("body-all", "Show all", Hotkey::shift('A'), every)
+                .with_hint("Bring all the part's bodies along")
+                .disabled((now.len() == all.len()).then(|| "All of them come along".to_owned()))
+                .into(),
+        ])
+        .into(),
+    ];
+    let mut table = Table::new(vec!["Body".to_owned(), String::new()]).showing(6);
+    for body in all {
+        let on = now.contains(body);
+        let alone = on && now.len() == 1 && all.len() > 1;
+        let tick = {
+            let (with, named, now, body) = (with.clone(), named.clone(), now.clone(), body.clone());
+            move |tick: bool| {
+                let mut these: Vec<String> = now.iter().filter(|b| **b != body).cloned().collect();
+                if tick {
+                    these.push(body.clone());
+                }
+                with(named(these))
+            }
+        };
+        let solo = {
+            let (with, body) = (with.clone(), body.clone());
+            move || match alone {
+                true => with(Vec::new()),
+                false => with(vec![body.clone()]),
+            }
+        };
+        let check = Check::new(body.clone(), on, tick)
+            .with_hint("Whether this body comes along")
+            .disabled((on && now.len() == 1).then(|| "One body at least comes along".to_owned()));
+        let hint = match alone {
+            true => "Bring all the bodies along again",
+            false => "Bring this body alone: every other is left out",
+        };
+        let solo = ToolButton::new("body-solo", "Solo", Hotkey::shift('O'), solo)
+            .with_hint(hint)
+            .active(alone);
+        let pointed = Pointed {
+            instance: vec![step.to_owned()],
+            source: workpiece_core::Source::Topology(body.clone()),
+        };
+        table = table.row(vec![check.into(), solo.into()], Some(pointed));
+    }
+    fields.push(table.into());
+    fields
+}
+
 /// The fields of the mate `k`: its two references, each with the button
-/// that turns it over; the constraint between them; how far off the
-/// first it is; and what the constraint lets go.
+/// that turns it over; the constraint between them; then how far off
+/// the first it is, and what the constraint lets go.
 fn mate_fields(mate: &Mating, k: usize, step: &str, seat: Option<&Mating>) -> Vec<Widget<Mating>> {
     let before = mate.pair().is_some();
     let pick = |onto: bool| {
@@ -601,22 +705,34 @@ fn mate_fields(mate: &Mating, k: usize, step: &str, seat: Option<&Mating>) -> Ve
     fields
 }
 
-/// The field that says where something placed is, while no mate holds
-/// it: where it is belongs to the part's cache, not to the step's
-/// arguments — set by hand here, or by dragging the part in the view.
-pub fn pose_field<A: 'static, S: 'static>(
+/// How large the gizmo of something placed is, in pixels.
+const GIZMO_SIZE: f64 = 90.0;
+
+/// The field of where something placed is, and its gizmo by name.
+pub type Placement<M> = (Option<Widget<M>>, BTreeMap<String, Handle<M>>);
+
+/// Where something placed is, while it is fixed: the field of its pose
+/// and a gizmo at it in the view, each setting it. Where it is belongs
+/// to the part's cache, not to the step's arguments. Held by its mates
+/// it has neither: it is dragged in the view as far as they let it.
+pub fn placement<A: 'static, S: 'static>(
     id: &str,
     context: &EditContext<'_>,
     hold: &Hold,
-) -> Option<Widget<Edit<A, S>>> {
-    if hold.mated() {
-        return None;
+) -> Placement<Edit<A, S>> {
+    let mut handles = BTreeMap::new();
+    if !hold.fixed {
+        return (None, handles);
     }
-    let with_pose = |pose: Pose| crate::assembly::kept(&pose);
+    let with_pose = |pose: Pose| Edit::kept(crate::assembly::kept(&pose));
     // Where it is now: where it was put or dragged.
     let now = crate::assembly::placed(context.cache, id);
-    let place: Widget<workpiece_core::Kept> = PoseInput::new("Pose", now, with_pose).into();
-    Some(place.map(Edit::kept))
+    let field = PoseInput::new("Pose", now, with_pose).into();
+    handles.insert(
+        "pose".to_owned(),
+        Gizmo::new(now, GIZMO_SIZE, with_pose).into(),
+    );
+    (Some(field), handles)
 }
 
 #[cfg(test)]
@@ -683,10 +799,13 @@ mod tests {
             mates: vec![point],
         };
         let fields = hold_fields(&hold, "part", None);
-        let Some(Widget::Group(group)) = fields.get(1) else {
+        let Some(Widget::Table(table)) = fields.get(1) else {
+            panic!("expected the table of the mates");
+        };
+        let Some(row) = table.rows.first() else {
             panic!("expected the first mate");
         };
-        let Some(Widget::Choice(choice)) = group.children.get(2) else {
+        let Some(Widget::Choice(choice)) = row.children().get(2) else {
             panic!("expected the constraint's choice");
         };
         // (The revolute mate it was still shows, though it fits no more.)
@@ -698,9 +817,62 @@ mod tests {
             panic!("expected the button that adds a mate");
         };
         assert_eq!(add.click().map(|h| h.mates.len()), Some(2));
-        let Some(Widget::ToolButton(remove)) = group.children.last() else {
+        let Some(Widget::ToolButton(remove)) = row.children().get(3) else {
             panic!("expected the button that takes it away");
         };
         assert_eq!(remove.click().map(|h| h.mates.len()), Some(0));
+        // Fixed, the mates do not show (they are kept, to come back).
+        let fixed = Hold {
+            fixed: true,
+            ..hold
+        };
+        let fields = hold_fields(&fixed, "part", None);
+        assert_eq!(fields.len(), 1, "only the choice of how it is held");
+        let Some(Widget::Choice(held)) = fields.first() else {
+            panic!("expected how it is held");
+        };
+        let back = held.set(0).expect("by its mates");
+        assert_eq!(back.mates.len(), 1);
+    }
+
+    #[test]
+    fn bodies_are_ticked_or_brought_alone() {
+        let all: Vec<String> = ["a", "b", "c"].map(str::to_owned).to_vec();
+        let fields = bodies_fields("part", &all, &[], |taken| taken);
+        let Some(Widget::Table(table)) = fields.get(1) else {
+            panic!("expected the table of the bodies");
+        };
+        assert_eq!(table.rows.len(), 3);
+        // A row shows its body in the view.
+        let pointed = table.pointed[1].as_ref().expect("the body");
+        assert_eq!(pointed.instance, ["part"]);
+        assert_eq!(pointed.source, Source::Topology("b".into()));
+        let cell = |table: &Table<Vec<String>>, row: usize, k: usize| -> Option<Vec<String>> {
+            match table.rows[row].children().get(k)? {
+                Widget::Check(check) => check.toggle(),
+                Widget::ToolButton(tool) => tool.click(),
+                _ => None,
+            }
+        };
+        // Ticked off, it is left out: the others are named.
+        assert_eq!(cell(table, 1, 0), Some(vec!["a".into(), "c".into()]));
+        // Solo: it alone; solo again (or Show all): all of them.
+        let alone = cell(table, 1, 1).expect("solo");
+        assert_eq!(alone, ["b"]);
+        let fields = bodies_fields("part", &all, &alone, |taken| taken);
+        let Some(Widget::Table(table)) = fields.get(1) else {
+            panic!("expected the table of the bodies");
+        };
+        assert!(matches!(&table.rows[1].children()[1], Widget::ToolButton(t) if t.active));
+        assert_eq!(cell(table, 1, 1), Some(Vec::new()));
+        // The last that comes along cannot be left out.
+        assert_eq!(cell(table, 1, 0), None);
+        let Some(Widget::HBox(head)) = fields.first() else {
+            panic!("expected how many come along");
+        };
+        let Some(Widget::ToolButton(every)) = head.children.get(1) else {
+            panic!("expected Show all");
+        };
+        assert_eq!(every.click(), Some(Vec::new()));
     }
 }

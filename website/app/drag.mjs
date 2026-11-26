@@ -121,6 +121,11 @@ socket.onmessage = ({ data }) => {
   const message = JSON.parse(data);
   if (message.method === "Runtime.consoleAPICalled") logs.push(message.params.args.map((a) => a.value ?? a.description ?? "").join(" "));
   if (message.method === "Runtime.exceptionThrown") logs.push(`exception: ${message.params.exceptionDetails.exception?.description ?? message.params.exceptionDetails.text}`);
+  // (A part dragged is not saved: leaving the page for the next one asks first, and the
+  // answer is to leave.)
+  if (message.method === "Page.javascriptDialogOpening" && message.params.type === "beforeunload") {
+    socket.send(JSON.stringify({ id: ++nextId, method: "Page.handleJavaScriptDialog", params: { accept: true } }));
+  }
   pending.get(message.id)?.(message);
 };
 const send = (method, params = {}) =>

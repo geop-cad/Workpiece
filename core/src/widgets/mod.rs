@@ -25,6 +25,7 @@ mod numeric_input;
 mod pose_input;
 mod reference_input;
 mod reference_list;
+mod table;
 mod tool_button;
 mod vbox;
 
@@ -43,6 +44,7 @@ pub use numeric_input::NumericInput;
 pub use pose_input::PoseInput;
 pub use reference_input::ReferenceInput;
 pub use reference_list::ReferenceList;
+pub use table::{Pointed, Table};
 pub use tool_button::{Group, Label, Mood, TextInput, ToolButton};
 pub use vbox::VBox;
 
@@ -97,6 +99,8 @@ pub enum Widget<M> {
     ColourInput(ColourInput<M>),
     /// A check mark.
     Check(Check<M>),
+    /// Rows of like things under column headings.
+    Table(Table<M>),
 }
 
 impl<M: 'static> Widget<M> {
@@ -125,15 +129,18 @@ impl<M: 'static> Widget<M> {
             Widget::TextInput(w) => Widget::TextInput(w.map_rc(f)),
             Widget::ColourInput(w) => Widget::ColourInput(w.map_rc(f)),
             Widget::Check(w) => Widget::Check(w.map_rc(f)),
+            Widget::Table(w) => Widget::Table(w.map_rc(f)),
         }
     }
 
-    /// The widgets inside this one, for a box or a group.
+    /// The widgets inside this one, for a box, a group or a table (its
+    /// rows).
     pub fn children(&self) -> &[Widget<M>] {
         match self {
             Widget::VBox(b) => &b.children,
             Widget::HBox(b) => &b.children,
             Widget::Group(g) => &g.children,
+            Widget::Table(t) => &t.rows,
             _ => &[],
         }
     }
@@ -181,7 +188,8 @@ into_widget!(
     Group,
     TextInput,
     ColourInput,
-    Check
+    Check,
+    Table
 );
 
 impl<M> From<Label> for Widget<M> {

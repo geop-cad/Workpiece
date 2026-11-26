@@ -25,6 +25,10 @@ pub struct ProgramStep {
     /// The steps of the part it places, for a tree node: filled while
     /// expanded. `None` for a step that places nothing.
     pub children: Option<Vec<ProgramStep>>,
+    /// The part it places, if that is a part of the workspace (not a
+    /// STEP file): its path, and whether it — or what it places, in
+    /// turn — differs from its file (or has none).
+    pub placed: Option<(String, bool)>,
     /// Whether its children show.
     pub expanded: bool,
     /// Whether it is the step being edited.
@@ -102,8 +106,16 @@ impl Tree<'_> {
                         Ok(placed) if expanded => self.steps(placed, &path),
                         _ => Vec::new(),
                     });
+                let placed = op
+                    .placed()
+                    .filter(|(placed, _)| self.workspace.parts.contains_key(*placed))
+                    .map(|(placed, _)| {
+                        let unsaved = !self.model.unsaved(placed).is_empty();
+                        (placed.to_owned(), unsaved)
+                    });
                 ProgramStep {
                     index,
+                    placed,
                     icon: Icon::of(op),
                     title: op.id().to_owned(),
                     description: describe(op),

@@ -48,7 +48,8 @@ pub struct View {
     pub timeline: Timeline,
     /// What the focused part is made of.
     pub overview: Overview,
-    /// The active part's path, and whether it differs from its file.
+    /// The active part's path, and whether it — or a part it places, in
+    /// turn — differs from its file (or has none): what saving it writes.
     pub document: Option<(String, bool)>,
     /// The popup editing a step, while one is edited.
     pub edit_dialog: Option<EditDialog>,
@@ -207,7 +208,7 @@ impl View {
             timeline: Timeline::new(model),
             overview: Overview::new(model),
             document: model.active_part.clone().map(|p| {
-                let dirty = model.is_dirty(&p);
+                let dirty = !model.unsaved(&p).is_empty();
                 (p, dirty)
             }),
             edit_dialog: EditDialog::new(model),

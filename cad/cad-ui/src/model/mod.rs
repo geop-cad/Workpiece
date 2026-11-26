@@ -125,6 +125,9 @@ pub struct Model {
     pub edit_state: Option<AnyEditState>,
     /// The edit dialog's reference field being picked, by widget path.
     pub picking: Option<Vec<usize>>,
+    /// What a row of the edit dialog under the pointer stands for: shown
+    /// in the view, over everything.
+    pub pointed: Option<workpiece_core::widgets::Pointed>,
     /// What the user selected while not editing: a set, in the order
     /// selected.
     pub selection: Vec<Candidate>,
@@ -207,6 +210,9 @@ pub struct Model {
     /// What was last found again of what steps referred to (see
     /// [`Self::notice`]).
     notice: Option<String>,
+    /// Why the placed part the pointer last tried to drag did not move
+    /// (or moves as it may not seem to), till the button goes down again.
+    unmoved: Option<String>,
     /// The plane the edited step is edited in, as the view last turned
     /// to face it.
     edit_plane: Option<DatumPlane>,
@@ -363,17 +369,14 @@ impl Model {
                 true
             }
             Message::Close => {
-                let Some(path) = self.active_part.take() else {
-                    return Ok(());
-                };
-                let placed = self
-                    .workspace
-                    .parts
-                    .values()
-                    .any(|p| p.placed_parts().contains(&path));
-                if !placed {
+                // (What is not saved of them is gone: the host asks
+                // first.)
+                for path in self.closing() {
                     self.workspace.parts.remove(&path);
                     self.saved.remove(&path);
+                }
+                if self.active_part.take().is_none() {
+                    return Ok(());
                 }
                 self.history = History::default();
                 self.finish_edit();
@@ -394,6 +397,33 @@ impl Model {
                     path == old || !self.workspace.parts.contains_key(&path),
                     "{path:?} is open already"
                 );
+                // What it places that has no file yet goes along: beside
+                // the part where it is now, as it was beside it before.
+                let mut moves = Vec::new();
+                for placed in self.needed(&old) {
+                    if placed == old || self.saved.contains_key(&placed) {
+                        continue;
+                    }
+                    let named = workpiece_part::file_set::relative_to(&old, &placed);
+                    let to = workpiece_part::file_set::beside(&path, &named);
+                    anyhow::ensure!(
+                        to == placed || !self.workspace.parts.contains_key(&to),
+                        "{placed} has no file yet and would go along to {to}, \
+                         but there is a part {to:?} already"
+                    );
+                    moves.push((placed, to));
+                }
+                for (from, to) in &moves {
+                    if from == to {
+                        continue;
+                    }
+                    if let Some(part) = self.workspace.parts.remove(from) {
+                        self.workspace.parts.insert(to.clone(), part);
+                    }
+                    for part in self.workspace.parts.values_mut() {
+                        *part = std::mem::take(part).placing_moved(from, to);
+                    }
+                }
                 let part = self.workspace.part(&old)?.clone();
                 let placed = self
                     .workspace
@@ -1079,6 +1109,10 @@ impl Model {
                 // Picking shows the datums hidden for being used.
                 true
             }
+            Message::Point(pointed) => {
+                self.pointed = pointed;
+                false
+            }
             Message::Pointer(pointer) => return self.pointer(pointer),
             Message::Camera(movement) => {
                 self.camera(movement);
@@ -1113,10 +1147,14 @@ impl Model {
         Some(locate(&self.workspace, active, &self.focus).ok()?.part)
     }
 
-    /// What the user is told of that is no error: references that were
-    /// found again under another name.
+    /// What the user is told of that is no error: why a placed part that
+    /// was dragged does not move, or references that were found again
+    /// under another name.
     pub fn notice(&self) -> Option<String> {
-        self.notice.clone()
+        self.unmoved
+            .clone()
+            .filter(|why| !why.is_empty())
+            .or_else(|| self.notice.clone())
     }
 
     /// Why what is shown could not be built, if it could not and should
@@ -1138,6 +1176,83 @@ impl Model {
     pub fn is_dirty(&self, path: &str) -> bool {
         // The cache counts: it is where the part's next build starts.
         self.saved.get(path) != self.workspace.parts.get(path)
+    }
+
+    /// The parts the part at `path` needs to be opened again: what it
+    /// places, in turn, and it — each once, a part after those it places.
+    /// (A STEP file placed is no part of the workspace: it is not among
+    /// them.)
+    pub fn needed(&self, path: &str) -> Vec<String> {
+        fn visit(model: &Model, path: &str, seen: &mut BTreeSet<String>, out: &mut Vec<String>) {
+            let Some(part) = model.workspace.parts.get(path) else {
+                return;
+            };
+            if !seen.insert(path.to_owned()) {
+                return;
+            }
+            for placed in part.placed_parts() {
+                visit(model, &placed, seen, out);
+            }
+            out.push(path.to_owned());
+        }
+        let mut out = Vec::new();
+        visit(self, path, &mut BTreeSet::new(), &mut out);
+        out
+    }
+
+    /// Of the parts the part at `path` needs, those that differ from
+    /// their files or have none: what saving it writes (with it).
+    pub fn unsaved(&self, path: &str) -> Vec<String> {
+        let mut unsaved = self.needed(path);
+        unsaved.retain(|p| self.is_dirty(p));
+        unsaved
+    }
+
+    /// Whether closing the part at `path` without saving it loses work:
+    /// it differs from its file — unless it has none and is empty, as a
+    /// new part starts.
+    pub fn would_lose(&self, path: &str) -> bool {
+        self.is_dirty(path)
+            && (self.saved.contains_key(path)
+                || self.workspace.parts.get(path) != Some(&Part::default()))
+    }
+
+    /// The parts of the workspace whose work is lost if the workspace
+    /// goes unsaved (see [`would_lose`](Self::would_lose)).
+    pub fn unsaved_all(&self) -> Vec<String> {
+        let parts = self.workspace.parts.keys();
+        parts.filter(|p| self.would_lose(p)).cloned().collect()
+    }
+
+    /// The parts of the workspace no other part places: what it is
+    /// saved by, each with what it needs.
+    pub fn tops(&self) -> Vec<String> {
+        let placed: BTreeSet<String> = self
+            .workspace
+            .parts
+            .values()
+            .flat_map(Part::placed_parts)
+            .collect();
+        let parts = self.workspace.parts.keys();
+        parts.filter(|p| !placed.contains(*p)).cloned().collect()
+    }
+
+    /// The parts that go when the active part is closed: it, and what it
+    /// needs that no other part of the workspace does.
+    pub fn closing(&self) -> Vec<String> {
+        let Some(active) = self.active_part.as_deref() else {
+            return Vec::new();
+        };
+        let mine = self.needed(active);
+        // What the other parts need, those that are left when these go.
+        let others: BTreeSet<String> = self
+            .workspace
+            .parts
+            .keys()
+            .filter(|p| !mine.contains(p))
+            .flat_map(|p| self.needed(p))
+            .collect();
+        mine.into_iter().filter(|p| !others.contains(p)).collect()
     }
 
     /// The selected references that steps of the focused part can use:
@@ -1660,6 +1775,7 @@ impl Model {
     fn finish_edit(&mut self) {
         self.editing.clear();
         self.picking = None;
+        self.pointed = None;
         self.edit_checkpoint = None;
         self.edit_untouched = false;
         self.edit_again = false;
@@ -2247,88 +2363,149 @@ impl Model {
         });
     }
 
-    /// Outlines the sketch or the body under the pointer in `scene`:
-    /// neither is one thing the scene draws, to highlight by itself.
+    /// Draws the candidate under the pointer over everything — one that
+    /// lies behind what is in front of it (cycled to with the right
+    /// button) shows through — and what the row of the dialog under the
+    /// pointer stands for (a body of the part being placed).
     fn outline_hovered(&self, scene: &mut Scene) {
-        let Some(Candidate::Reference { instance, source }) = self.viewport.hovered() else {
-            return;
-        };
-        if !instance.is_empty() {
-            return;
+        use workpiece_rasterize::palette;
+        if self.viewport.dragging.is_none()
+            && let Some(Candidate::Reference { instance, source }) = self.viewport.hovered()
+        {
+            self.overlay(scene, instance, source, palette::HANDLE_HOVER);
         }
+        if let Some(pointed) = &self.pointed {
+            self.overlay(scene, &pointed.instance, &pointed.source, palette::HOVER);
+        }
+    }
+
+    /// Draws `source` of the instance at `instance` (names from the
+    /// focused part down) over everything in `color`: a vertex as a dot,
+    /// an edge as a thick line, a face as its outline and its area
+    /// shaded, a body as all its faces so, a sketch as its curves. What
+    /// is picked in the world before the edited step is found there
+    /// first; a body that the step placing its part leaves out, in the
+    /// part built whole. (Datums show in front of everything anyway.)
+    fn overlay(&self, scene: &mut Scene, instance: &[String], source: &Source, color: [f32; 4]) {
+        use workpiece_core::world::topo::{BodyId, EdgeId, FaceId, VertexId};
         let shown = &self.viewport.shown;
-        // References are picked in the world before the edited step.
-        let world = if self.picking.is_some() {
-            &shown.before
-        } else {
-            &shown.world
+        let worlds = match self.picking.is_some() {
+            true => [&shown.before, &shown.world],
+            false => [&shown.world, &shown.before],
         };
+        // The world the instance at `instance` has, and where it is.
+        let within = |world: &std::sync::Arc<World>| {
+            let mut pose = shown.pose;
+            let mut world = world.clone();
+            for name in instance {
+                let placed = world.instances.get(name)?;
+                pose = pose * placed.pose;
+                let inner = placed.world.clone();
+                world = inner;
+            }
+            Some((world, pose))
+        };
+        let has = |world: &World| match source {
+            Source::Topology(name) => world.topo.lookup(name).is_some(),
+            Source::Profile(name) => world.profiles.contains_key(name),
+            _ => false,
+        };
+        let found = worlds
+            .iter()
+            .filter_map(|w| within(w))
+            .find(|(w, _)| has(w));
+        // A body left out of the part placed: as the part has it whole.
+        let found = found.or_else(|| {
+            let (step, _) = instance.split_last()?;
+            let (_, pose) = worlds.iter().find_map(|w| within(w))?;
+            let part = self.workspace.part(&self.focused_part()?).ok()?;
+            let (path, variant) = part.operation(step)?.placed()?;
+            let key = (path.to_owned(), variant.map(str::to_owned));
+            let whole = shown.whole.get(&key)?.clone();
+            has(&whole).then_some((whole, pose))
+        });
+        let Some((world, pose)) = found else {
+            return;
+        };
+        let at = |p: Point3| pose.transform_point(p).as_vec3();
+        let topo = &world.topo;
+        let sampled = picking::sampled(&world);
         let mut lines: Vec<Vec<Point3>> = Vec::new();
+        let mut faces: Vec<FaceId> = Vec::new();
         match source {
             Source::Profile(name) => {
                 let Some(profile) = world.profiles.get(name) else {
                     return;
                 };
-                let pose = profile.plane.pose();
+                let plane = profile.plane.pose();
                 lines.extend(profile.edges.iter().map(|e| {
                     let points = e.curve.polyline(e.t0, e.t1);
                     let place =
-                        |p: &workpiece_core::math::Point2| pose.transform_point(p.extend(0.0));
+                        |p: &workpiece_core::math::Point2| plane.transform_point(p.extend(0.0));
                     points.iter().map(place).collect()
                 }));
             }
             Source::Topology(name) => {
-                let topo = &world.topo;
-                let Some(body) = topo.resolve::<workpiece_core::world::topo::BodyId>(name) else {
-                    // An edge or a face picked in the world before the
-                    // step is drawn from there: what shows is the world
-                    // with the step, where it may be gone (an edge its
-                    // fillet took).
-                    if self.picking.is_some() {
-                        lines.extend(outline_of(world, name));
-                        self.draw_outline(
-                            scene,
-                            &lines,
-                            workpiece_rasterize::palette::HANDLE_HOVER,
-                        );
-                    }
-                    return;
-                };
-                let hide_others = Visibility {
-                    bodies: topo
-                        .bodies()
-                        .ids()
-                        .filter(|&b| b != body)
-                        .filter_map(|b| topo.name_of(b).map(str::to_owned))
-                        .collect(),
-                    ..Visibility::default()
-                };
-                let shown = workpiece_core::world::visibility::shown_topology(topo, &hide_others);
-                let of_body: BTreeSet<_> = topo
-                    .body_faces(body)
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter_map(|f| topo.face(f))
-                    .flat_map(|f| &f.loops)
-                    .filter_map(|&l| topo.loop_(l))
-                    .flat_map(|l| &l.coedges)
-                    .filter_map(|&c| match topo.coedge(c)?.kind {
-                        workpiece_core::world::topo::CoedgeKind::Edge { edge, .. } => Some(edge),
-                        _ => None,
-                    })
-                    .collect();
-                for edge in shown.edges.iter().filter(|e| of_body.contains(e)) {
-                    if let Some((edge, curve)) = topo
-                        .edge(*edge)
-                        .and_then(|e| Some((e, topo.curve(e.curve)?)))
-                    {
-                        lines.push(curve.polyline(edge.t0, edge.t1));
-                    }
+                if let Some(vertex) = topo.resolve::<VertexId>(name).and_then(|v| topo.vertex(v)) {
+                    scene.vertices.vertices.push(workpiece_rasterize::Vertex {
+                        position: at(vertex.point),
+                        size: 11.0,
+                        color,
+                        pick: None,
+                    });
+                } else if let Some(edge) = topo.resolve::<EdgeId>(name) {
+                    lines.extend(sampled.edges.get(&edge).cloned());
+                } else if let Some(face) = topo.resolve::<FaceId>(name) {
+                    faces.push(face);
+                } else if let Some(body) = topo.resolve::<BodyId>(name) {
+                    faces.extend(topo.body_faces(body).unwrap_or_default());
                 }
             }
             _ => return,
         }
-        self.draw_outline(scene, &lines, workpiece_rasterize::palette::HANDLE_HOVER);
+        // A face's outline, and its area shaded so what is behind it
+        // still shows.
+        let mut edges = BTreeSet::new();
+        for &face in &faces {
+            let Some(f) = topo.face(face) else {
+                continue;
+            };
+            for coedge in f
+                .loops
+                .iter()
+                .filter_map(|&l| topo.loop_(l))
+                .flat_map(|l| &l.coedges)
+                .filter_map(|&c| topo.coedge(c))
+            {
+                if let workpiece_core::world::topo::CoedgeKind::Edge { edge, .. } = coedge.kind {
+                    edges.insert(edge);
+                }
+            }
+            let shade = [color[0], color[1], color[2], 0.28];
+            for [a, b, c] in sampled.faces.get(&face).into_iter().flatten() {
+                let normal = (*b - *a).cross(*c - *a).normalize_or_zero();
+                let normal = pose.transform_vector(normal).as_vec3();
+                scene.front.triangles.push(workpiece_rasterize::Triangle {
+                    positions: [at(*a), at(*b), at(*c)],
+                    normals: [normal; 3],
+                    color: shade,
+                    pick: None,
+                    texture: [0.0; 2],
+                });
+            }
+        }
+        lines.extend(edges.iter().filter_map(|e| sampled.edges.get(e).cloned()));
+        // (The handles' lines and points are drawn over everything; of
+        // their triangles, those in front.)
+        for pair in lines.iter().flat_map(|points| points.windows(2)) {
+            scene.lines.lines.push(workpiece_rasterize::Line {
+                a: at(pair[0]),
+                b: at(pair[1]),
+                width: [3.2; 2],
+                color,
+                pick: None,
+            });
+        }
     }
 
     /// Draws `lines` (in the focused part's coordinates) over the scene.
@@ -2499,18 +2676,26 @@ impl Model {
                     return Ok(());
                 }
                 let hovered = self.viewport.hovered().cloned();
-                // While a step is edited, what a drag moves is the placed
-                // part under the pointer, whatever the field being picked
-                // takes (a part being placed, while what it goes onto is
-                // picked); a handle still comes first.
+                // What a drag moves: a handle; else something of a placed
+                // part — the candidate, if it is one (cycled to, it may
+                // be behind another), else the placed part in front under
+                // the pointer, whatever is edited and whatever the field
+                // being picked takes (a part being placed, while what it
+                // goes onto is picked). (A click picks; only a drag
+                // moves.)
+                self.unmoved = None;
                 let hovered = match hovered {
                     Some(handle @ Candidate::Handle { .. }) => Some(handle),
-                    other if !self.editing.is_empty() => self.placed_under_pointer().or(other),
-                    other => other,
+                    Some(placed @ Candidate::Reference { .. })
+                        if placed.instance_path().is_some() =>
+                    {
+                        Some(placed)
+                    }
+                    other => self.placed_under_pointer().or(other),
                 };
                 self.viewport.pressed = hovered.zip(self.viewport.pointer);
             }
-            Pointer::DragStart => {
+            Pointer::DragStart { outer } => {
                 // What was pressed, not what is under the pointer now: by
                 // the time a drag starts the pointer has moved, and hovering
                 // there starts again at the first candidate.
@@ -2541,10 +2726,16 @@ impl Model {
                     Some((Candidate::Reference { instance, source }, at))
                         if !instance.is_empty() =>
                     {
-                        self.viewport.moving = self.grab_part(&instance, &source, at);
-                        if let (Some(_), Some(now)) = (&self.viewport.moving, self.viewport.pointer)
-                        {
-                            return self.move_part(now);
+                        match self.grab_part(&instance, &source, at, outer) {
+                            Ok((moving, note)) => {
+                                self.viewport.moving = Some(moving);
+                                self.unmoved = note;
+                                if let Some(now) = self.viewport.pointer {
+                                    return self.move_part(now);
+                                }
+                            }
+                            // Nothing moves: the user is told why.
+                            Err(why) => self.unmoved = Some(why),
                         }
                     }
                     _ => {}
@@ -2567,57 +2758,182 @@ impl Model {
         Ok(())
     }
 
-    /// What of a placed part is under the pointer, in the world that
-    /// shows: what a drag that starts there moves.
+    /// What of a placed part is under the pointer, in front, in the
+    /// world that shows: what a drag that starts there moves. (Not what
+    /// is behind something of the part itself; datums, drawn over
+    /// everything, are looked through.)
     fn placed_under_pointer(&self) -> Option<Candidate> {
         let shown = &self.viewport.shown;
         let ray = self.ray(self.viewport.pointer?)?;
-        picking::references(&shown.world, shown.pose, &shown.visibility, &ray, &[])
+        let cut = shown.cut.as_ref();
+        picking::references(&shown.world, shown.pose, &shown.visibility, cut, &ray, &[])
             .into_iter()
-            .find(|c| matches!(c, Candidate::Reference { instance, .. } if !instance.is_empty()))
+            .find(|c| {
+                matches!(
+                    c,
+                    Candidate::Reference {
+                        source: Source::Topology(_),
+                        ..
+                    }
+                )
+            })
+            .filter(|c| c.instance_path().is_some())
     }
 
     /// What moves when the pointer drags `source` of the instance at
     /// `instance` (names from the shown world down), grabbed at `at`: the
-    /// deepest of those instances that is not fixed, in the assembly it
-    /// is placed in. A part that is fixed moves the assembly around it,
-    /// up to the first that is free; nothing, if all are fixed.
+    /// innermost of those instances that may move — not fixed, and left
+    /// free by its mates and joints to move under a pull, in the assembly
+    /// it is placed in; with `outer` (Shift held), the next that may
+    /// after it. One that may not moves the assembly around it instead,
+    /// up to the first that may (a part fastened in a sub-assembly drags
+    /// the sub-assembly). The assembly's part keeps where it went, and
+    /// that is what is undone. Nothing, if none may: why, of the
+    /// innermost, is the error — fixed, held by its mates, or driven.
+    /// What moves only turns about itself (its middle stays: a screw in
+    /// its hole, which may look as if nothing moved) comes with a note
+    /// saying so, and what Shift would move instead.
     fn grab_part(
         &self,
         instance: &[String],
         source: &Source,
         at: PointerAt,
-    ) -> Option<viewport::Moving> {
+        outer: bool,
+    ) -> Result<(viewport::Moving, Option<String>), String> {
         let shown = &self.viewport.shown;
-        let ray = picking::place(&self.ray(at)?, shown.pose.inverse())?;
-        let hit = picking::hit_point(&shown.world, &ray, instance, source)?;
+        let ray = self
+            .ray(at)
+            .and_then(|ray| picking::place(&ray, shown.pose.inverse()));
+        let hit = ray
+            .and_then(|ray| picking::hit_point(&shown.world, &ray, instance, source))
+            .ok_or_else(String::new)?;
         // The worlds down the path, and where each is in the view.
         let mut worlds: Vec<&World> = vec![&shown.world];
         let mut poses = vec![shown.pose];
         for name in instance {
-            let placed = worlds.last()?.instances.get(name)?;
-            poses.push(*poses.last()? * placed.pose);
+            let placed = worlds
+                .last()
+                .and_then(|w| w.instances.get(name))
+                .ok_or_else(String::new)?;
+            poses.push(poses[poses.len() - 1] * placed.pose);
             worlds.push(&placed.world);
         }
-        let grabbed = poses.last()?.transform_point(hit);
-        let level = (1..=instance.len())
-            .rev()
-            .find(|&d| !worlds[d - 1].instances[&instance[d - 1]].fixed)?;
-        let active = self.active_part.as_deref()?;
+        let grabbed = poses[poses.len() - 1].transform_point(hit);
+        let active = self.active_part.as_deref().ok_or_else(String::new)?;
+        // A pull of some ten pixels, across the view.
+        let step = self.pixel(grabbed) * 10.0;
+        let across = [
+            self.viewport.camera.right().as_dvec3(),
+            self.viewport.camera.up().as_dvec3(),
+        ];
+        // How each level moves under the pull: not at all, only turning
+        // about itself, or away.
+        #[derive(Clone, Copy, PartialEq)]
+        enum Moves {
+            Not,
+            Turns,
+            Away,
+        }
+        let mut why = None;
+        let mut levels = Vec::new();
+        for level in (1..=instance.len()).rev() {
+            let (within, name) = (worlds[level - 1], &instance[level - 1]);
+            let said = instance[..level].join(" › ");
+            let placed = &within.instances[name];
+            if placed.fixed {
+                why.get_or_insert(format!("{said} is fixed: it stays where it is put"));
+                levels.push((level, Moves::Not));
+                continue;
+            }
+            // In the assembly's own coordinates: the point held, and the
+            // part's middle.
+            let back = poses[level - 1].inverse();
+            let local = poses[level].inverse().transform_point(grabbed);
+            let middle = placed
+                .world
+                .extent()
+                .map_or(local, |(lo, hi)| (lo + hi) / 2.0);
+            let mut moves = Moves::Not;
+            for d in &across {
+                let drag = workpiece_ops_instances::assembly::Drag {
+                    instance: name.clone(),
+                    local,
+                    target: back.transform_point(grabbed + *d * step),
+                };
+                let solved = workpiece_ops_instances::assembly::solve(within, Some(&drag));
+                let Some(pose) = solved.poses.get(name) else {
+                    continue;
+                };
+                let off = |p: Point3| {
+                    pose.transform_point(p)
+                        .distance(placed.pose.transform_point(p))
+                };
+                if off(middle) > step * 0.05 {
+                    moves = Moves::Away;
+                    break;
+                }
+                if off(local) > step * 0.05 {
+                    moves = Moves::Turns;
+                }
+            }
+            if moves != Moves::Away {
+                let driven = within.joints.iter().any(|j| {
+                    let pinned = |l: Option<(f64, f64)>| l.is_some_and(|(lo, hi)| lo == hi);
+                    [&j.a.instance, &j.b.instance]
+                        .into_iter()
+                        .any(|i| i.as_deref() == Some(name.as_str()))
+                        && (pinned(j.limits.angle) || pinned(j.limits.distance))
+                });
+                why.get_or_insert(match (moves, driven) {
+                    (_, true) => format!("{said} is driven: a Drive step holds its joint"),
+                    (Moves::Turns, false) => {
+                        format!("{said} is held by its mates: it only turns about itself")
+                    }
+                    _ => format!("{said} is held by its mates: they leave it nothing to move"),
+                });
+            }
+            levels.push((level, moves));
+        }
+        // The innermost that moves; with `outer`, the one after it.
+        let mut movable = levels.iter().filter(|(_, m)| *m != Moves::Not);
+        if outer {
+            movable.next();
+        }
+        let Some(&(level, moves)) = movable.next() else {
+            return Err(why.unwrap_or_default());
+        };
+        // Turning about itself may show nothing (a round screw): what
+        // else moves is said.
+        let note = match (moves, movable.next()) {
+            (Moves::Turns, Some(&(up, _))) => Some(format!(
+                "{} only turns about itself; Shift+drag moves {}",
+                instance[..level].join(" › "),
+                instance[..up].join(" › ")
+            )),
+            (Moves::Turns, None) => why.clone(),
+            _ => None,
+        };
         let mut path = self.focus.clone();
         path.extend_from_slice(&instance[..level - 1]);
-        let part = locate(&self.workspace, active, &path).ok()?.part;
+        let located = locate(&self.workspace, active, &path).map_err(|e| format!("{e:#}"))?;
         // Only a part of this project keeps where its instances are.
-        self.workspace
-            .parts
-            .contains_key(&part)
-            .then(|| viewport::Moving {
-                part,
+        if !self.workspace.parts.contains_key(&located.part) {
+            return Err(format!(
+                "{} is in {}, which is not a part of this project",
+                instance[..level].join(" › "),
+                located.part
+            ));
+        }
+        Ok((
+            viewport::Moving {
+                part: located.part,
                 within: instance[..level - 1].to_vec(),
                 instance: instance[level - 1].clone(),
                 local: poses[level].inverse().transform_point(grabbed),
                 grabbed,
-            })
+            },
+            note,
+        ))
     }
 
     /// Moves the grabbed part to the pointer at `at`: solves the joints
@@ -2642,21 +2958,22 @@ impl Model {
         let Some(t) = ray.intersect_plane(moving.grabbed, normal) else {
             return Ok(());
         };
-        let mut world: &World = &shown.world;
+        let mut world: std::sync::Arc<World> = shown.world.clone();
         let mut pose = shown.pose;
         for name in &moving.within {
             let Some(placed) = world.instances.get(name) else {
                 return Ok(());
             };
             pose = pose * placed.pose;
-            world = &placed.world;
+            let inner = placed.world.clone();
+            world = inner;
         }
         let drag = workpiece_ops_instances::assembly::Drag {
             instance: moving.instance.clone(),
             local: moving.local,
             target: pose.inverse().transform_point(ray.at(t)),
         };
-        let solved = workpiece_ops_instances::assembly::solve(world, Some(&drag));
+        let solved = workpiece_ops_instances::assembly::solve(&world, Some(&drag));
         if solved.poses.is_empty() {
             return Ok(());
         }
@@ -2668,7 +2985,7 @@ impl Model {
                 .iter()
                 .map(|(name, pose)| (name.clone(), *pose))
                 .collect();
-            workpiece_ops_instances::assembly::keep(&mut part.cache, &put);
+            workpiece_ops_instances::assembly::keep(&mut part.cache, &world, &put);
             Ok(())
         })?;
         // At once: every step and every scene is kept, only where the
@@ -2702,6 +3019,7 @@ impl Model {
                         &shown.before,
                         shown.pose,
                         &shown.visibility,
+                        shown.cut.as_ref(),
                         &ray,
                         &with_planes(&input.kinds()),
                     ),
@@ -2715,6 +3033,7 @@ impl Model {
                             &shown.world,
                             shown.pose,
                             &shown.visibility,
+                            shown.cut.as_ref(),
                             &ray,
                             &[],
                         );
@@ -2729,6 +3048,7 @@ impl Model {
                         &shown.before,
                         shown.pose,
                         &shown.visibility,
+                        shown.cut.as_ref(),
                         &ray,
                         &with_planes(&list.kinds),
                     ),
@@ -2768,9 +3088,14 @@ impl Model {
                 let pixel = |at| self.pixel(at);
                 picking::handles(&session.visualization.handles, shown.pose, &ray, &pixel)
             }
-            (None, _) => {
-                picking::references(&shown.world, shown.pose, &shown.visibility, &ray, &[])
-            }
+            (None, _) => picking::references(
+                &shown.world,
+                shown.pose,
+                &shown.visibility,
+                shown.cut.as_ref(),
+                &ray,
+                &[],
+            ),
         };
         self.viewport.candidate = 0;
         self.viewport.candidates = candidates;

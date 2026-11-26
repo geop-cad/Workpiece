@@ -1285,7 +1285,8 @@ class Part:
         "Fastened" with the two origins puts it where it was modelled. Without mates it is fixed
         where it is put (`at=(x, y, z)`, `euler=(x, y, z)` degrees about the fixed x, y, z axes,
         in turn, say where its origin goes); fixed=False leaves it free to drag, fixed=True keeps
-        a mated part where it is (its mates then move what they join to it). bodies=[names] brings
+        it where it is put even with mates (they are kept, but hold nothing while it is fixed —
+        as the app's "Fixed" does). bodies=[names] brings
         only those of its bodies — not for parts you model: each item of a parts list is a
         standalone part (see README). Returns the step's id, which also names the placed part
         (`placed(id, ...)`, `anchor(..., instance=id)`, `report.placed_part(id)`); its joints are

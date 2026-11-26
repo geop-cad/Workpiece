@@ -144,9 +144,19 @@ impl FileDialog {
                     output.state.store(ui.ctx(), output.response.id);
                 }
                 let field = output.response;
+                // (Enter does what the button does, when it can.)
+                let chosen = self.chosen();
+                let can = match self.purpose {
+                    Purpose::NewPart => !workpiece_core::files::exists(&chosen),
+                    Purpose::Open | Purpose::Field(_) => {
+                        self.files.contains(&chosen) || workpiece_core::files::exists(&chosen)
+                    }
+                    Purpose::SaveAs | Purpose::Export => true,
+                };
                 if field.lost_focus()
                     && ui.input(|i| i.key_pressed(egui::Key::Enter))
                     && !self.name.trim().is_empty()
+                    && can
                 {
                     result = Some(Some(self.chosen()));
                 }
@@ -154,12 +164,14 @@ impl FileDialog {
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 let chosen = self.chosen();
-                let exists = if self.purpose == Purpose::Export {
+                let exists = if matches!(self.purpose, Purpose::Export | Purpose::NewPart) {
                     workpiece_core::files::exists(&chosen)
                 } else {
                     self.files.contains(&chosen)
                 };
-                let ok = !self.name.trim().is_empty() && (saving || exists);
+                // (A new part is a new file: it never replaces one.)
+                let new = self.purpose == Purpose::NewPart;
+                let ok = !self.name.trim().is_empty() && (saving || exists) && !(new && exists);
                 let label = match self.purpose {
                     Purpose::NewPart => "Create",
                     Purpose::Export => "Export",
@@ -175,7 +187,9 @@ impl FileDialog {
                 if ui.button("Cancel").clicked() {
                     result = Some(None);
                 }
-                if saving && exists {
+                if new && exists {
+                    ui.colored_label(color::ERROR, "there is a file of that name already");
+                } else if saving && exists {
                     ui.colored_label(color::ERROR, "replaces the file");
                 }
             });

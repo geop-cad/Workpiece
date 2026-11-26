@@ -1,5 +1,7 @@
 /target
 playground
+# The owner's own projects, kept out of the repository
+/projects/
 
 # Python
 __pycache__/

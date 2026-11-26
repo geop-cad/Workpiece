@@ -1277,7 +1277,7 @@ fn said(
         drawings.push(one);
     }
     if placed_any {
-        files::write(path, part.to_text()?)?;
+        files::write(path, part.to_file(path)?)?;
     }
     let mut all = json!({ "part": path, "failed_steps": failed, "steps": steps, "lint": lint, "drawings": drawings });
     if let Some(world) = &last {
@@ -1297,6 +1297,12 @@ fn said(
             workpiece_core::Pose::IDENTITY,
             &mut placed,
         );
+        // (Each file named as the file reported on would name it.)
+        for entry in &mut placed {
+            if let Some(file) = entry["file"].as_str().filter(|f| !f.is_empty()) {
+                entry["file"] = workpiece_part::file_set::relative_to(path, file).into();
+            }
+        }
         let mut parts = Vec::new();
         let (volume, mass, material, density) = weighed(world, &workspace.library, cubic);
         if volume > 0.0 {
@@ -1432,36 +1438,13 @@ fn library_in(dir: &std::path::Path) -> anyhow::Result<workpiece_part::Library> 
 }
 
 /// A workspace of `part`, at `path`, and of every part it places (and
-/// they place), each read from its file in the folder `part` is in;
-/// with that folder's materials.
+/// they place), each read from its file beside the file that places it
+/// (see [`workpiece_part::file_set`]); with the materials of the folder
+/// `part` is in. `part` names what it places as its file does.
 fn workspace_of(path: &str, part: Part) -> anyhow::Result<Workspace> {
-    let dir = folder_of(path);
-    let mut parts = BTreeMap::from([(path.to_owned(), part)]);
-    let mut wanted: Vec<String> = vec![path.to_owned()];
-    while let Some(next) = wanted.pop() {
-        let placed: Vec<String> = parts[&next]
-            .program
-            .iter()
-            .filter_map(|op| op.placed().map(|(placed, _)| placed.to_owned()))
-            .collect();
-        for placed in placed {
-            if parts.contains_key(&placed) || workpiece_part::is_step(&placed) {
-                continue;
-            }
-            let file = dir.join(&placed);
-            let text = files::read_to_string(&file.to_string_lossy()).with_context(|| {
-                format!(
-                    "{next} places {placed}, which is no file beside it ({})",
-                    file.display()
-                )
-            })?;
-            let read = Part::from_text(&text).with_context(|| format!("reading {placed}"))?;
-            parts.insert(placed.clone(), read);
-            wanted.push(placed);
-        }
-    }
+    let parts = workpiece_part::file_set::read_placed(path, Some(part.read_at(path)), &|_| false)?;
     let mut workspace = Workspace::new(parts);
-    workspace.library = library_in(&dir)?;
+    workspace.library = library_in(&folder_of(path))?;
     Ok(workspace)
 }
 

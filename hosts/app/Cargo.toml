@@ -55,6 +55,10 @@ web-time = "1.1.0"
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 eframe = { workspace = true, features = ["default_fonts"] }
 
+# (The tests read what the app saves as the command line does.)
+[dev-dependencies]
+workpiece-make.workspace = true
+
 # In the browser (see `src/web.rs`): the page, its files and its storage.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 serde.workspace = true

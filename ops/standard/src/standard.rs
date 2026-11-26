@@ -660,9 +660,9 @@ impl Operation for StandardPart {
         filter: &Filter,
     ) -> EditVisualization<Edit<StandardPartArgs, Filter>> {
         // The catalogue, searched and filtered; then how it is held: its
-        // mates, the first at its seat; where it is from the part's cache
-        // while no mate holds it, and dragged in the view — as for any
-        // part that is placed.
+        // mates, the first at its seat; or, fixed, where it is (from the
+        // part's cache, and a gizmo there) — as for any part that is
+        // placed.
         let mut all: Vec<Widget<Edit<StandardPartArgs, Filter>>> = filter_fields(filter)
             .into_iter()
             .map(|field| field.map(Edit::state))
@@ -678,8 +678,9 @@ impl Operation for StandardPart {
                 })
             }));
         }
-        all.extend(placing::pose_field(&self.id, context, &self.args.hold));
-        EditVisualization::new(workpiece_core::widgets::VBox::new(all), Default::default())
+        let (pose, gizmo) = placing::placement(&self.id, context, &self.args.hold);
+        all.extend(pose);
+        EditVisualization::new(workpiece_core::widgets::VBox::new(all), gizmo)
     }
 
     fn summary(&self) -> String {

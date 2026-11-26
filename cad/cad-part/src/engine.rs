@@ -216,6 +216,20 @@ fn hash(of: impl Hash) -> Key {
     hasher.finish()
 }
 
+/// What `cache` has of the steps of `part` that are settled after its
+/// last step (where what it places is, which joints were made), as
+/// text: what a build of the part keeps them by besides its steps.
+fn settled(part: &Part, cache: &Cache) -> String {
+    let mut entries = String::new();
+    for op in &part.program {
+        if op.settles() {
+            let of: Vec<(&str, &[f64])> = cache.of(op.id()).collect();
+            entries.push_str(&format!("{}{of:?}", op.id()));
+        }
+    }
+    entries
+}
+
 /// What a file is, as far as can be told without reading it.
 fn file_stamp(path: &str) -> Key {
     workpiece_core::files::stamp(path).unwrap_or(0)
@@ -247,6 +261,9 @@ impl Run {
         let key = keys
             .last()
             .map_or_else(|| hash(("empty", path, format!("{parameters:?}"))), |k| k.1);
+        // With where what it places is: a drag inside it changes only
+        // that, and what places it shows it moved.
+        let key = hash((key, settled(&part, &part.cache)));
         self.keys.insert(name, key);
         Ok(key)
     }
@@ -418,16 +435,8 @@ impl Run {
         // Kept under the steps and what the part's cache has of where
         // its instances are: a drag changes only that.
         let part = self.resolve(path)?.into_owned();
-        let settled_from = |cache: &Cache| {
-            let mut entries = String::new();
-            for op in &part.program {
-                if op.settles() {
-                    let of: Vec<(&str, &[f64])> = cache.of(op.id()).collect();
-                    entries.push_str(&format!("{}{of:?}", op.id()));
-                }
-            }
-            hash(("settled", steps.world.stamp, entries))
-        };
+        let settled_from =
+            |cache: &Cache| hash(("settled", steps.world.stamp, settled(&part, cache)));
         let key = settled_from(&part.cache);
         if let Some(built) = self.kept(key) {
             return Ok(built);
@@ -1618,7 +1627,7 @@ mod tests {
         // The part moved by a drag: only its place in the cache changes.
         let moved = Pose::from_translation(workpiece_core::math::Point3::new(5.0, 0.0, 0.0));
         let put = BTreeMap::from([("a0".to_owned(), moved)]);
-        workpiece_ops_instances::assembly::keep(&mut ws.part_mut("all")?.cache, &put);
+        workpiece_ops_instances::assembly::keep(&mut ws.part_mut("all")?.cache, &first.world, &put);
         let second = build(&engine, &ws, "all")?;
         assert_eq!(second.world.instances["a0"].pose, moved);
         assert_eq!(second.world.instances["b0"].pose, Pose::IDENTITY);

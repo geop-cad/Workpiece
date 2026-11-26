@@ -302,7 +302,9 @@ impl ViewportPanel {
             out.push(Message::Pointer(Pointer::Press));
         }
         if response.drag_started_by(egui::PointerButton::Primary) {
-            out.push(Message::Pointer(Pointer::DragStart));
+            // With Shift, what a placed part is in moves, not the part.
+            let outer = ui.input(|i| i.modifiers.shift);
+            out.push(Message::Pointer(Pointer::DragStart { outer }));
         }
         if response.drag_stopped_by(egui::PointerButton::Primary) {
             out.push(Message::Pointer(Pointer::DragEnd));

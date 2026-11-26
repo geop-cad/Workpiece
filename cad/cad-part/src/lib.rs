@@ -4,6 +4,7 @@
 mod any_operation;
 mod effect;
 pub mod engine;
+pub mod file_set;
 mod material;
 pub use material::{LIBRARY_FILE, Library, Material, Texture};
 mod naming;

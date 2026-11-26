@@ -10,8 +10,8 @@ use super::tip;
 use crate::icons;
 use crate::theme::color;
 
-/// The least width of the popup, in points.
-const DIALOG_WIDTH: f32 = 260.0;
+/// The width of the popup, in points.
+const DIALOG_WIDTH: f32 = 280.0;
 
 /// Draws `dialog` at the top right of `area`, below the orientation cube.
 /// A click on a file field asks for a file dialog for it: its widget path
@@ -60,6 +60,8 @@ pub fn show(
             picking: dialog.picking.as_deref(),
             out: &mut *out,
             choose_file: &mut *choose_file,
+            pointed: None,
+            cell: false,
         };
         // A dialog longer than the window has room for (a part placed
         // by several mates) scrolls, its buttons below staying in view.
@@ -68,6 +70,11 @@ pub fn show(
             .max_height(room)
             .auto_shrink([false, true])
             .show(ui, |ui| fields.widget(ui, dialog.fields(), &mut Vec::new()));
+        // What a row under the pointer stands for shows in the view.
+        let pointed = fields.pointed.take();
+        if pointed != dialog.pointed {
+            out.push(Message::Point(pointed));
+        }
         if let Some(error) = &dialog.error {
             ui.add_space(4.0);
             ui.colored_label(color::ERROR, error);
@@ -119,6 +126,8 @@ pub fn inspector(
             picking: None,
             out: &mut *out,
             choose_file: &mut *choose_file,
+            pointed: None,
+            cell: false,
         };
         // (Its own widget paths, apart from the ribbon's.)
         let mut path = vec![usize::MAX];
@@ -165,6 +174,12 @@ struct Fields<'a> {
     picking: Option<&'a [usize]>,
     out: &'a mut Vec<Message>,
     choose_file: &'a mut Option<Vec<usize>>,
+    /// What the row of a table under the pointer stands for in the
+    /// view, as it is found while the fields are drawn.
+    pointed: Option<workpiece_core::widgets::Pointed>,
+    /// Whether what is drawn is a cell of a table: no caption (the
+    /// column's heading says it), as narrow as the column.
+    cell: bool,
 }
 
 impl Fields<'_> {
@@ -329,6 +344,7 @@ impl Fields<'_> {
                     self.tolerance(ui, input);
                 });
             }
+            Widget::Choice(choice) if self.cell => self.cell_choice(ui, choice),
             Widget::Choice(choice) => {
                 // The options as buttons in one rounded track, the
                 // chosen one raised; options that cannot be chosen are
@@ -488,7 +504,7 @@ impl Fields<'_> {
                         for axis in ["X", "Y", "Z"] {
                             let header =
                                 egui::Label::new(egui::RichText::new(axis).color(color::TEXT_WEAK));
-                            ui.add_sized([64.0, 16.0], header);
+                            ui.add_sized([56.0, 16.0], header);
                         }
                         ui.end_row();
                         let rows: [(&str, [f64; 3], f64, &str); 2] = [
@@ -504,7 +520,7 @@ impl Fields<'_> {
                                     .speed(speed)
                                     .max_decimals(if row == 0 { 4 } else { 2 })
                                     .suffix(suffix);
-                                let response = ui.add_sized([64.0, 20.0], field);
+                                let response = ui.add_sized([56.0, 20.0], field);
                                 if response.changed() {
                                     let message = if row == 0 {
                                         input.set_position(axis, v)
@@ -593,12 +609,20 @@ impl Fields<'_> {
                 });
             }
             Widget::ConnectorInput(input) => {
+                let cell = self.cell;
                 ui.horizontal(|ui| {
-                    caption(ui, &input.label, Some("f-frame"));
+                    if !cell {
+                        caption(ui, &input.label, Some("f-frame"));
+                    }
                     let active = self.picking == Some(path.as_slice());
                     let text = match (&input.value, active) {
+                        (_, true) if cell => egui::RichText::new("Point…").color(color::ACCENT),
                         (_, true) => egui::RichText::new("Point at a part…").color(color::ACCENT),
+                        (Some(on), false) if cell => egui::RichText::new(brief(on)).size(12.0),
                         (Some(on), false) => egui::RichText::new(on),
+                        (None, false) if cell => {
+                            egui::RichText::new("Pick").color(color::TEXT_WEAK)
+                        }
                         (None, false) => {
                             egui::RichText::new("Pick a connector").color(color::TEXT_WEAK)
                         }
@@ -618,10 +642,23 @@ impl Fields<'_> {
                     };
                     // (Cut short, with room left for a button beside it:
                     // the one that turns it over.)
+                    let room = if cell {
+                        // (As wide as the cell but for the button that
+                        // turns it over, so the column lines up.)
+                        let room =
+                            ui.available_width() - CELL_FLIP - 2.0 * ui.spacing().item_spacing.x;
+                        egui::vec2(room.max(24.0), CELL_HEIGHT - 4.0)
+                    } else {
+                        egui::vec2((ui.available_width() - 34.0).max(60.0), 0.0)
+                    };
                     let response = ui
                         .scope(|ui| {
-                            ui.set_max_width((ui.available_width() - 34.0).max(60.0));
-                            ui.add(button.truncate())
+                            ui.set_max_width(room.x);
+                            if cell {
+                                ui.add_sized(room, button.truncate())
+                            } else {
+                                ui.add(button.truncate())
+                            }
                         })
                         .inner;
                     if response.on_hover_text(hint).clicked() {
@@ -732,6 +769,36 @@ impl Fields<'_> {
                     }
                 });
             }
+            Widget::Check(check) if self.cell => {
+                let mut on = check.value;
+                ui.horizontal(|ui| {
+                    ui.spacing_mut().item_spacing.x = 4.0;
+                    // (Its box shows when it is off too.)
+                    let stroke = egui::Stroke::new(1.0, color::TEXT_WEAK);
+                    let visuals = &mut ui.visuals_mut().widgets;
+                    for state in [&mut visuals.inactive, &mut visuals.hovered] {
+                        state.bg_stroke = stroke;
+                    }
+                    let response = ui
+                        .add_enabled(
+                            check.disabled.is_none(),
+                            egui::Checkbox::without_text(&mut on),
+                        )
+                        .on_hover_text(&check.hint)
+                        .on_disabled_hover_text(check.disabled.clone().unwrap_or_default());
+                    let text = egui::RichText::new(&check.label).color(if check.value {
+                        color::TEXT
+                    } else {
+                        color::TEXT_WEAK
+                    });
+                    ui.add(egui::Label::new(text).truncate())
+                        .on_hover_text(&check.label);
+                    if response.changed() {
+                        self.out.extend(check.toggle());
+                        self.out.push(Message::EndEdit);
+                    }
+                });
+            }
             Widget::Check(check) => {
                 let mut on = check.value;
                 let hint = match &check.hotkey {
@@ -775,6 +842,7 @@ impl Fields<'_> {
                     }
                 });
             }
+            Widget::Table(table) => self.table(ui, table, path),
             Widget::VBox(b) => {
                 ui.vertical(|ui| self.children(ui, &b.children, path));
             }
@@ -1010,6 +1078,214 @@ impl Fields<'_> {
         }
     }
 
+    /// `table` (at `path`): its headings, then its rows in a box that
+    /// scrolls past as many as it shows. Narrow columns (buttons, a
+    /// drop-down of pictures) are as wide as those; the others share
+    /// the rest. A row with more than its cells opens by the arrow at
+    /// its end, the rest under it. A row under the pointer is shaded,
+    /// and what it stands for shows in the view.
+    fn table(
+        &mut self,
+        ui: &mut egui::Ui,
+        table: &workpiece_core::widgets::Table<Message>,
+        path: &mut Vec<usize>,
+    ) {
+        let columns = table.columns.len();
+        let rows: Vec<&[Widget<Message>]> = table.rows.iter().map(Widget::children).collect();
+        let more = rows.iter().any(|cells| cells.len() > columns);
+        let gap = 4.0;
+        // Each column as wide as its first row's cell needs, if that is
+        // narrow; the wide ones share what is left.
+        let narrow = |w: &Widget<Message>| match w {
+            Widget::ToolButton(_) => Some(CELL_TOOL),
+            Widget::Choice(_) => Some(CELL_CHOICE),
+            _ => None,
+        };
+        let first = rows.first().copied().unwrap_or_default();
+        let fixed: Vec<Option<f32>> = (0..columns)
+            .map(|k| first.get(k).and_then(narrow))
+            .collect();
+        let width = ui.available_width() - 2.0;
+        let opener = if more { CELL_OPENER + gap } else { 0.0 };
+        let taken: f32 = fixed.iter().flatten().sum::<f32>()
+            + gap * columns.saturating_sub(1) as f32
+            + opener
+            + SCROLL_ROOM;
+        let wide = fixed.iter().filter(|f| f.is_none()).count().max(1);
+        let share = ((width - taken) / wide as f32).max(40.0);
+        let widths: Vec<f32> = fixed.iter().map(|f| f.unwrap_or(share)).collect();
+        egui::Frame::new()
+            .stroke(egui::Stroke::new(1.0, color::BORDER))
+            .fill(color::PANEL)
+            .corner_radius(6)
+            .inner_margin(egui::Margin::symmetric(4, 3))
+            .show(ui, |ui| {
+                ui.set_width(width);
+                ui.spacing_mut().item_spacing = egui::vec2(gap, 0.0);
+                // The headings, over their columns, as the cells start.
+                let head = egui::Rect::from_min_size(ui.cursor().min, egui::vec2(width, 16.0));
+                let mut x = head.left() + CELL_PAD;
+                for (heading, w) in table.columns.iter().zip(&widths) {
+                    ui.painter().text(
+                        egui::pos2(x, head.center().y),
+                        egui::Align2::LEFT_CENTER,
+                        heading,
+                        egui::FontId::proportional(11.0),
+                        color::TEXT_WEAK,
+                    );
+                    x += w + gap;
+                }
+                ui.advance_cursor_after_rect(head);
+                ui.painter().hline(
+                    head.x_range(),
+                    head.bottom() + 1.0,
+                    egui::Stroke::new(1.0, color::BORDER),
+                );
+                ui.add_space(3.0);
+                if rows.is_empty() {
+                    ui.weak("none");
+                    return;
+                }
+                let height = CELL_HEIGHT * table.shown as f32;
+                egui::ScrollArea::vertical()
+                    .id_salt(("table", path.clone()))
+                    .max_height(height)
+                    .auto_shrink([false, true])
+                    .show(ui, |ui| {
+                        let was = self.cell;
+                        self.cell = true;
+                        for (r, cells) in rows.iter().enumerate() {
+                            path.push(r);
+                            self.table_row(ui, table, r, cells, &widths, path);
+                            path.pop();
+                        }
+                        self.cell = was;
+                    });
+            });
+    }
+
+    /// The row `r` of `table`: `cells`, each in its column of `widths`
+    /// (and no wider), and what it has besides under it while it is
+    /// open.
+    fn table_row(
+        &mut self,
+        ui: &mut egui::Ui,
+        table: &workpiece_core::widgets::Table<Message>,
+        r: usize,
+        cells: &[Widget<Message>],
+        widths: &[f32],
+        path: &mut Vec<usize>,
+    ) {
+        let columns = widths.len();
+        let gap = ui.spacing().item_spacing.x;
+        let open_id = ui.id().with(("open", path.clone()));
+        let open = ui.data(|d| d.get_temp::<bool>(open_id)).unwrap_or(false);
+        // (Shaded under the pointer: drawn behind what is laid out.)
+        let shade = ui.painter().add(egui::Shape::Noop);
+        let top = ui.cursor().top();
+        let row = egui::Rect::from_min_size(
+            ui.cursor().min,
+            egui::vec2(ui.available_width(), CELL_HEIGHT),
+        );
+        let mut x = row.left();
+        for (k, cell) in cells.iter().take(columns).enumerate() {
+            let rect = egui::Rect::from_min_size(
+                egui::pos2(x, row.top()),
+                egui::vec2(widths[k], CELL_HEIGHT),
+            );
+            x += widths[k] + gap;
+            let layout = egui::Layout::left_to_right(egui::Align::Center);
+            let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect).layout(layout));
+            child.set_clip_rect(rect.intersect(ui.clip_rect()));
+            child.spacing_mut().item_spacing.x = 2.0;
+            child.spacing_mut().button_padding = egui::vec2(3.0, 1.0);
+            path.push(k);
+            match cell {
+                Widget::ToolButton(tool) => self.small_tool(&mut child, tool),
+                other => self.widget(&mut child, other, path),
+            }
+            path.pop();
+        }
+        if cells.len() > columns {
+            let rect = egui::Rect::from_min_size(
+                egui::pos2(x, row.top()),
+                egui::vec2(CELL_OPENER, CELL_HEIGHT),
+            );
+            let arrow = if open { "⏷" } else { "⏵" };
+            let text = egui::RichText::new(arrow).color(color::TEXT_WEAK);
+            let hint = if open {
+                "Fewer"
+            } else {
+                "More: how far off it is held, and what it lets go"
+            };
+            let button = egui::Button::new(text).frame(false);
+            if ui.put(rect, button).on_hover_text(hint).clicked() {
+                ui.data_mut(|d| d.insert_temp(open_id, !open));
+            }
+        }
+        ui.advance_cursor_after_rect(row);
+        if open && cells.len() > columns {
+            let was = self.cell;
+            self.cell = false;
+            egui::Frame::new()
+                .inner_margin(egui::Margin {
+                    left: 10,
+                    right: 0,
+                    top: 2,
+                    bottom: 4,
+                })
+                .show(ui, |ui| {
+                    ui.spacing_mut().item_spacing.y = 4.0;
+                    for (k, cell) in cells.iter().enumerate().skip(columns) {
+                        path.push(k);
+                        self.widget(ui, cell, path);
+                        path.pop();
+                    }
+                });
+            self.cell = was;
+        }
+        let rect = egui::Rect::from_x_y_ranges(row.x_range(), top..=ui.cursor().top());
+        if ui.rect_contains_pointer(rect) {
+            ui.painter()
+                .set(shade, egui::Shape::rect_filled(rect, 4.0, color::HOVER));
+            if let Some(pointed) = table.pointed.get(r).cloned().flatten() {
+                self.pointed = Some(pointed);
+            }
+        }
+    }
+
+    /// A choice in a cell of a table: a drop-down showing the chosen
+    /// option's picture (its name when it has none), the options with
+    /// their names in its list.
+    fn cell_choice(
+        &mut self,
+        ui: &mut egui::Ui,
+        choice: &workpiece_core::widgets::Choice<Message>,
+    ) {
+        let selected = choice
+            .options
+            .get(choice.selected)
+            .cloned()
+            .unwrap_or_default();
+        let icon = choice.icons.get(choice.selected).copied().flatten();
+        let arrow = egui::RichText::new("⏷").size(9.0).color(color::TEXT_WEAK);
+        let button = match icon {
+            Some(icon) => {
+                let image = icons::widget(icons::named(icon), 16.0, color::TEXT);
+                egui::Button::image_and_text(image, arrow)
+            }
+            None => egui::Button::new(egui::RichText::new(selected.clone())).truncate(),
+        }
+        .fill(color::HOVER)
+        .stroke(egui::Stroke::new(1.0, color::BORDER))
+        .min_size(egui::vec2(CELL_CHOICE, CELL_HEIGHT - 2.0));
+        let shown = egui::containers::menu::MenuButton::from_button(button)
+            .ui(ui, |ui| self.listed(ui, choice));
+        shown
+            .0
+            .on_hover_text(format!("{}: {selected}", choice.label));
+    }
+
     /// A tool as a small icon button; its name, hotkey and what it does
     /// show when the pointer rests on it.
     fn small_tool(&mut self, ui: &mut egui::Ui, tool: &ToolButton<Message>) {
@@ -1019,10 +1295,18 @@ impl Fields<'_> {
             color::TEXT
         };
         let image = icons::widget(icons::named(tool.icon), 14.0, tint);
-        let button = egui::Button::image(image)
-            .selected(tool.active)
-            .fill(color::HOVER)
-            .stroke(egui::Stroke::new(1.0, color::BORDER));
+        let button = egui::Button::image(image).selected(tool.active);
+        // (In a table, a picture alone but while it is on: rows of
+        // buttons in boxes are heavy.)
+        let button = if self.cell {
+            button
+                .frame_when_inactive(tool.active)
+                .min_size(egui::vec2(CELL_FLIP, CELL_TOOL - 4.0))
+        } else {
+            button
+                .fill(color::HOVER)
+                .stroke(egui::Stroke::new(1.0, color::BORDER))
+        };
         let response = ui
             .add_enabled(tool.enabled(), button)
             .on_hover_text(tip(&tool.label, Some(tool.hotkey), &tool.hint))
@@ -1042,8 +1326,39 @@ impl Fields<'_> {
     }
 }
 
+/// The height of a row of a table, in points.
+const CELL_HEIGHT: f32 = 22.0;
+/// The width of a column of buttons in a table, of a drop-down of
+/// pictures, and of the arrow that opens a row, in points.
+const CELL_TOOL: f32 = 22.0;
+const CELL_CHOICE: f32 = 42.0;
+const CELL_OPENER: f32 = 12.0;
+/// The width of a button in a cell beside a field (the one that turns a
+/// reference over), in points.
+const CELL_FLIP: f32 = 16.0;
+/// Room kept for a table's scroll bar, in points.
+const SCROLL_ROOM: f32 = 8.0;
+/// How far in from its column a cell's text starts, in points.
+const CELL_PAD: f32 = 4.0;
+
 /// How many options with pictures show side by side; more are a list.
 const PICTURED: usize = 6;
+
+/// What a connector is on, said short for a cell of a table: of a placed
+/// part, the part and the last of its name ("housing: end" for
+/// "housing: block/end (middle)"); of the part itself, the last two
+/// ("block/end"). (Said whole when the pointer rests on it.)
+fn brief(said: &str) -> String {
+    let said = said.split(" (").next().unwrap_or(said);
+    let last = |name: &str, n: usize| {
+        let pieces: Vec<&str> = name.rsplit('/').take(n).collect();
+        pieces.into_iter().rev().collect::<Vec<_>>().join("/")
+    };
+    match said.split_once(": ") {
+        Some((part, name)) => format!("{part}: {}", last(name, 1)),
+        None => last(said, 2),
+    }
+}
 
 /// A field's caption: its icon, if it has one, and its name, in the
 /// weak text colour.
@@ -1153,6 +1468,8 @@ pub fn show_groups(
                 picking: dialog.picking.as_deref(),
                 out: &mut *out,
                 choose_file: &mut *choose_file,
+                pointed: None,
+                cell: false,
             };
             ui.horizontal_top(|ui| {
                 ui.set_min_height(RIBBON_HEIGHT);

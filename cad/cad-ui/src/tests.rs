@@ -368,21 +368,42 @@ fn a_placed_part_brings_the_bodies_ticked() -> anyhow::Result<()> {
     };
     assert_eq!(bodies(&m), ["a", "b"]);
     let whole = m.viewport.shown.world.instances["p"].world.stamp;
-    // Its dialog ticks each of them; the one left out stays behind.
+    // Its dialog has a table of them, each ticked; the one left out
+    // stays behind.
     m.update(Message::Edit(vec!["p".into()]))?;
-    let dialog = View::new(&m).edit_dialog.context("no dialog")?;
-    let Widget::VBox(fields) = dialog.fields() else {
-        anyhow::bail!("expected fields");
+    let row = |m: &Model, name: &str, k: usize| -> Option<Message> {
+        let dialog = View::new(m).edit_dialog?;
+        let mut found = None;
+        dialog.fields().visit(&mut |w| {
+            if let Widget::Table(table) = w {
+                for row in &table.rows {
+                    let cells = row.children();
+                    if matches!(cells.first(), Some(Widget::Check(c)) if c.label == name) {
+                        found = match &cells[k] {
+                            Widget::Check(c) => c.toggle(),
+                            Widget::ToolButton(t) => t.click(),
+                            _ => None,
+                        };
+                    }
+                }
+            }
+        });
+        found
     };
-    let tick = |name: &str| {
-        fields.children.iter().find_map(|w| match w {
-            Widget::Choice(c) if c.label == name => Some(c),
-            _ => None,
-        })
-    };
-    let b = tick("b").context("a tick for b")?;
-    assert_eq!(b.selected, 0);
-    m.update(b.set(1).context("left out")?)?;
+    m.update(row(&m, "b", 0).context("a tick for b")?)?;
+    // A row under the pointer shows its body over everything, the one
+    // left out too (as the part has it whole).
+    let quiet = m.handle_scene().lines.lines.len();
+    m.update(Message::Point(Some(workpiece_core::widgets::Pointed {
+        instance: vec!["p".into()],
+        source: Source::Topology("b".into()),
+    })))?;
+    assert!(
+        m.handle_scene().lines.lines.len() >= quiet + 12,
+        "b's edges"
+    );
+    assert!(!m.handle_scene().front.triangles.is_empty(), "b's faces");
+    m.update(Message::Point(None))?;
     m.update(Message::FinishEdit)?;
     let Some(AddPart { args, .. }) = m.workspace.parts["bolt"].program[0].downcast_ref::<AddPart>()
     else {
@@ -399,6 +420,15 @@ fn a_placed_part_brings_the_bodies_ticked() -> anyhow::Result<()> {
         Ok(workpiece_boolean::measure(&workpiece_boolean::read(topo, body)?).volume)
     };
     assert!((volume(&m)? - 1.0).abs() < 1e-9);
+    // Solo: b alone; solo again, both.
+    m.update(Message::Edit(vec!["p".into()]))?;
+    m.update(row(&m, "b", 1).context("b's solo")?)?;
+    assert_eq!(bodies(&m), ["b"]);
+    m.update(row(&m, "b", 1).context("b's solo")?)?;
+    assert_eq!(bodies(&m), ["a", "b"]);
+    m.update(row(&m, "b", 0).context("a tick for b")?)?;
+    m.update(Message::FinishEdit)?;
+    assert_eq!(bodies(&m), ["a"]);
     // (Not drawn as the whole part is: it is another world.)
     assert_ne!(m.viewport.shown.world.instances["p"].world.stamp, whole);
     // The part it is of still builds it: changed there, it is changed
@@ -510,19 +540,25 @@ fn files_load_save_and_close() -> anyhow::Result<()> {
     assert!(m.is_dirty("bolt.wpc"));
     m.update(Message::Saved("bolt.wpc".into()))?;
     assert!(!m.is_dirty("bolt.wpc"));
-    // Saving as another file; then closing drops it but keeps the nut
-    // only while something places it.
+    // Saving as another file; then closing drops it, and the nut that
+    // only it placed.
     m.update(Message::SaveAs("bolt2.wpc".into()))?;
     assert!(m.is_dirty("bolt2.wpc"), "never written");
     assert!(!m.workspace.parts.contains_key("bolt.wpc"));
+    assert_eq!(m.closing(), ["nut.wpc", "bolt2.wpc"]);
     m.update(Message::Close)?;
     assert_eq!(m.active_part, None);
+    assert!(m.workspace.parts.is_empty());
+    m.update(Message::Load {
+        parts: BTreeMap::from([("nut.wpc".into(), Part::default())]),
+        open: None,
+    })?;
     m.update(Message::New("new.wpc".into()))?;
     assert_eq!(m.active_part.as_deref(), Some("new.wpc"));
     assert!(m.is_dirty("new.wpc"), "never saved");
     assert!(m.update(Message::New("new.wpc".into())).is_err());
+    assert!(!m.would_lose("new.wpc"), "empty, as it started");
     m.update(Message::Close)?;
-    assert!(!m.workspace.parts.contains_key("bolt2.wpc"));
     assert!(m.workspace.parts.contains_key("nut.wpc"));
     // Recent files, the latest first: a new part, never written, is
     // none; one saved or opened is.
@@ -531,6 +567,74 @@ fn files_load_save_and_close() -> anyhow::Result<()> {
     assert_eq!(m.settings.recent, ["nut.wpc", "bolt.wpc"]);
     m.update(Message::Open("nut.wpc".into()))?;
     assert_eq!(m.settings.recent, ["nut.wpc", "bolt.wpc"], "once each");
+    Ok(())
+}
+
+#[test]
+fn an_assembly_saved_opens_again_with_the_parts_made_in_it() -> anyhow::Result<()> {
+    use workpiece_part::file_set;
+    let mut m = Model::default();
+    let top = "robot/top.wpc".to_owned();
+    m.update(Message::New(top.clone()))?;
+    m.update(Message::Saved(top.clone()))?;
+    // A new part made in it (the host writes its file first: it is
+    // saved), and in that one another, in a folder of its own.
+    for new in ["robot/gearbox.wpc", "robot/screws/screw.wpc"] {
+        m.update(Message::NewPartHere(Some(new.into())))?;
+        m.update(Message::Saved(new.into()))?;
+    }
+    assert_eq!(m.focused_part().as_deref(), Some("robot/screws/screw.wpc"));
+    m.update(Message::AddOperation {
+        part: "robot/screws/screw.wpc".into(),
+        op: frame("g", 1.0),
+    })?;
+    m.update(Message::FinishEdit)?;
+    // What is not saved shows: on the part worked on, and on each step
+    // that places a part not saved as it is (or that places one).
+    let view = View::new(&m);
+    assert_eq!(view.document, Some((top.clone(), true)));
+    assert_eq!(
+        view.timeline.steps[0].placed,
+        Some(("robot/gearbox.wpc".to_owned(), true))
+    );
+    assert!(m.would_lose("robot/screws/screw.wpc"));
+    assert_eq!(m.unsaved_all().len(), 3);
+    // Saving the top writes what it needs, a part after what it places.
+    let unsaved = m.unsaved(&top);
+    assert_eq!(
+        unsaved,
+        [
+            "robot/screws/screw.wpc",
+            "robot/gearbox.wpc",
+            "robot/top.wpc"
+        ]
+    );
+    let mut disk = BTreeMap::new();
+    for path in &unsaved {
+        disk.insert(path.clone(), m.workspace.part(path)?.to_file(path)?);
+        m.update(Message::Saved(path.clone()))?;
+    }
+    assert!(m.unsaved_all().is_empty());
+    assert_eq!(View::new(&m).document, Some((top.clone(), false)));
+    // Each file names what it places beside itself.
+    assert!(disk["robot/top.wpc"].contains("\"gearbox.wpc\""));
+    assert!(disk["robot/gearbox.wpc"].contains("\"screws/screw.wpc\""));
+    // Read from the files alone, it is as it was.
+    let mut read = BTreeMap::new();
+    let mut todo = vec![top.clone()];
+    while let Some(path) = todo.pop() {
+        let part = Part::from_file(&path, &disk[&path])?;
+        todo.extend(part.placed_parts());
+        read.insert(path, part);
+    }
+    assert_eq!(read, m.workspace.parts);
+    let again = Workspace::new(read).build(&top)?;
+    let screw = &again.instances["gearbox"].world.instances["screw"].world;
+    assert!(screw.datums.contains_key("g"), "{:?}", screw.datums.keys());
+    assert_eq!(
+        file_set::relative_to(&top, "robot/screws/screw.wpc"),
+        "screws/screw.wpc"
+    );
     Ok(())
 }
 
@@ -685,7 +789,7 @@ fn dragging_a_handle_edits_the_step() -> anyhow::Result<()> {
     };
     assert_eq!(m.viewport.hovered(), Some(&z));
     m.update(Message::Pointer(Pointer::Press))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     hover(&mut m, Vec3::new(0.0, 0.0, 1.0))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     let Some(AddBox { args, .. }) = m.workspace.parts["bolt"].program[0].downcast_ref::<AddBox>()
@@ -787,7 +891,7 @@ fn a_drag_grabs_what_was_pressed() -> anyhow::Result<()> {
     // The drag only starts once the pointer has moved (here onto the x
     // arrow), but grabs the center, and moves from where it was pressed.
     hover(&mut m, Vec3::new(0.3, 0.0, 0.0))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     assert_eq!(m.viewport.dragging, Some(free));
     hover(&mut m, Vec3::new(0.3, 0.0, 0.5))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
@@ -996,7 +1100,7 @@ fn a_hole_goes_where_its_face_is_clicked_and_is_then_placed() -> anyhow::Result<
     assert_eq!(m.viewport.hovered(), Some(&knob));
     let to = Point3::new(-0.1, -0.2, 0.5);
     m.update(Message::Pointer(Pointer::Press))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     hover(&mut m, Vec3::new(0.05, 0.0, 0.5))?;
     hover(&mut m, to.as_vec3())?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
@@ -1083,7 +1187,7 @@ fn handles_drag_while_picking() -> anyhow::Result<()> {
     m.update(Message::Pointer(Pointer::Click { add: false }))?;
     m.update(Message::Pointer(Pointer::Press))?;
     hover(&mut m, Vec3::new(0.0, 0.0, 2.0))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     hover(&mut m, Vec3::new(-0.5, -0.5, 2.5))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     let Some(op) =
@@ -1289,7 +1393,7 @@ fn the_canvas_takes_the_pointer_and_hotkeys_choose_tools() -> anyhow::Result<()>
     hover(&mut m, Vec3::new(1.5, 1.0, 0.0))?;
     m.update(Message::Pointer(Pointer::Press))?;
     hover(&mut m, Vec3::new(1.6, 1.1, 0.0))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     hover(&mut m, Vec3::new(2.0, 1.5, 0.0))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     let moved = |m: &Model, x: f64, y: f64| {
@@ -1830,7 +1934,7 @@ fn sweeps_pick_sketches_and_bodies_and_drag_their_distance() -> anyhow::Result<(
     };
     assert_eq!(m.viewport.hovered(), Some(&arrow));
     m.update(Message::Pointer(Pointer::Press))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     hover(&mut m, Vec3::new(1.0, 0.75, 2.0))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     let distance = extrude(&m).distance.value;
@@ -1838,7 +1942,7 @@ fn sweeps_pick_sketches_and_bodies_and_drag_their_distance() -> anyhow::Result<(
     // Dragged through the sketch, it turns around.
     hover(&mut m, Vec3::new(1.0, 0.75, 2.0))?;
     m.update(Message::Pointer(Pointer::Press))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     hover(&mut m, Vec3::new(1.0, 0.75, -0.5))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     let args = extrude(&m);
@@ -2016,7 +2120,7 @@ fn parts_are_dragged_as_far_as_their_joints_let_them() -> anyhow::Result<()> {
     };
     assert_eq!(instance, &["arm".to_owned()]);
     m.update(Message::Pointer(Pointer::Press))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     assert!(m.viewport.moving.is_some());
     for step in 1..=20 {
         let at = grab.lerp(to, f64::from(step) / 20.0);
@@ -2163,7 +2267,7 @@ fn a_drag_moves_the_first_part_up_that_is_not_fixed() -> anyhow::Result<()> {
     let start = |m: &mut Model| -> anyhow::Result<()> {
         hover(m, grab.as_vec3())?;
         m.update(Message::Pointer(Pointer::Press))?;
-        m.update(Message::Pointer(Pointer::DragStart))
+        m.update(Message::Pointer(Pointer::DragStart { outer: false }))
     };
     // The arm is free in its own assembly: that is where it moves.
     start(&mut m)?;
@@ -2402,7 +2506,7 @@ fn parts_are_dragged_while_they_are_placed_and_fixed_ones_stay() -> anyhow::Resu
     let drag = |m: &mut Model, from: Point3, to: Point3| -> anyhow::Result<()> {
         hover(m, from.as_vec3())?;
         m.update(Message::Pointer(Pointer::Press))?;
-        m.update(Message::Pointer(Pointer::DragStart))?;
+        m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
         for step in 1..=10 {
             hover(m, from.lerp(to, f64::from(step) / 10.0).as_vec3())?;
         }
@@ -3564,7 +3668,7 @@ fn meshes_are_edited_by_their_faces_edges_and_points() -> anyhow::Result<()> {
         Some(Candidate::Handle { .. })
     ));
     m.update(Message::Pointer(Pointer::Press))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     hover(&mut m, at + Vec3::Z * 0.7)?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     let (moved, _) = mesh(&m);
@@ -3585,7 +3689,7 @@ fn meshes_are_edited_by_their_faces_edges_and_points() -> anyhow::Result<()> {
         position: [9.0, 9.0],
         size: SIZE,
     }))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     m.update(Message::Pointer(Pointer::Moved {
         position: [SIZE[0] - 5.0, SIZE[1] - 5.0],
         size: SIZE,
@@ -3632,7 +3736,7 @@ fn a_mesh_is_stretched_by_its_arrows_and_cut_by_a_loop() -> anyhow::Result<()> {
     };
     assert_eq!(name, "scale-0");
     m.update(Message::Pointer(Pointer::Press))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     hover(&mut m, Vec3::new(-2.0 * reach, 0.0, 1.0))?;
     m.update(Message::Pointer(Pointer::DragEnd))?;
     let (args, state) = mesh(&m);
@@ -4352,7 +4456,7 @@ fn drag_point(
 ) -> anyhow::Result<Option<workpiece_core::handles::Snap>> {
     hover(m, from)?;
     m.update(Message::Pointer(Pointer::Press))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     hover(m, to)?;
     let snapped = m.viewport.snapped;
     m.update(Message::Pointer(Pointer::DragEnd))?;
@@ -4409,7 +4513,7 @@ fn a_dragged_point_snaps_to_points_middles_and_the_grid() -> anyhow::Result<()> 
         })
     ));
     m.update(Message::Pointer(Pointer::Press))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     hover(&mut m, arrow + Vec3::Z * 0.37)?;
     let snapped = m.viewport.snapped;
     m.update(Message::Pointer(Pointer::DragEnd))?;
@@ -4461,7 +4565,7 @@ fn the_gizmo_scales_all_at_once_by_its_outer_ring() -> anyhow::Result<()> {
         })
     ));
     m.update(Message::Pointer(Pointer::Press))?;
-    m.update(Message::Pointer(Pointer::DragStart))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer: false }))?;
     m.update(Message::Pointer(at(ring * 1.5)))?;
     let factor = m.viewport.gizmo_drag.map(|d| d.factor);
     m.update(Message::Pointer(Pointer::DragEnd))?;
@@ -4516,5 +4620,126 @@ fn a_subd_line_is_a_curve_later_steps_take() -> anyhow::Result<()> {
     let topo = &b.world.topo;
     let wall = topo.body_called("wall").expect("the swept surface");
     assert!(!topo.body_faces(wall).unwrap_or_default().is_empty());
+    Ok(())
+}
+
+/// `hinged.wpc` with its arm held by a revolute mate of the step that
+/// places it (as a standard part's screw is), not by a joint step;
+/// `top.wpc` places it, free, and is open.
+fn mated_in_a_sub_assembly() -> anyhow::Result<Model> {
+    use workpiece_core::world::JointKind;
+    use workpiece_ops_instances::Anchor;
+    use workpiece_ops_instances::connector::Snap;
+    let mut m = hinged()?;
+    m.update(Message::RemoveOperation(vec!["hinge".into()]))?;
+    let origin = |instance: Vec<String>| Anchor {
+        instance,
+        source: Source::Datum(workpiece_core::world::ORIGIN.into()),
+        snap: Snap::Datum,
+    };
+    let part = m.workspace.part_mut("hinged.wpc")?;
+    let Some(add) = part.program[1].downcast_mut::<AddPart>() else {
+        anyhow::bail!("expected the arm's step");
+    };
+    add.args.hold = workpiece_ops_instances::Hold::joint(
+        JointKind::Revolute,
+        origin(vec!["base".into()]),
+        origin(Vec::new()),
+    );
+    m.update(Message::Load {
+        parts: BTreeMap::from([(
+            "top.wpc".to_owned(),
+            Part::new(vec![place("sub", "hinged.wpc"), frame("f", 0.0)]),
+        )]),
+        open: Some("top.wpc".into()),
+    })?;
+    m.update(Message::Tick(1.0))?;
+    Ok(m)
+}
+
+/// Drags from `from` to `to` with the left button.
+fn drag(m: &mut Model, from: Point3, to: Point3) -> anyhow::Result<()> {
+    drag_with(m, from, to, false)
+}
+
+/// Drags from `from` to `to` with the left button, `outer` with Shift.
+fn drag_with(m: &mut Model, from: Point3, to: Point3, outer: bool) -> anyhow::Result<()> {
+    hover(m, from.as_vec3())?;
+    m.update(Message::Pointer(Pointer::Press))?;
+    m.update(Message::Pointer(Pointer::DragStart { outer }))?;
+    for step in 1..=10 {
+        hover(m, from.lerp(to, f64::from(step) / 10.0).as_vec3())?;
+    }
+    m.update(Message::Pointer(Pointer::DragEnd))
+}
+
+#[test]
+fn a_part_held_by_its_mate_in_a_sub_assembly_turns_where_it_is_dragged() -> anyhow::Result<()> {
+    let mut m = mated_in_a_sub_assembly()?;
+    let arm = |m: &Model| m.viewport.shown.world.instances["sub"].world.instances["arm"].pose;
+    assert_eq!(arm(&m), Pose::IDENTITY);
+    // Nothing edited: the arm turns about its mate, in the assembly that
+    // places it, and shows so in the one that is open.
+    drag(
+        &mut m,
+        Point3::new(2.7, 0.0, 0.3),
+        Point3::new(0.0, 2.7, 0.3),
+    )?;
+    let turned = arm(&m).axis(Axis::X);
+    assert!(turned.y > 0.5, "the arm did not turn: {turned}");
+    assert!(arm(&m).translation().length() < 1e-6);
+    // Where it went is kept by the part that places it, with its joint
+    // made: built again, it stays there.
+    m.update(Message::Open("hinged.wpc".into()))?;
+    let there = m.viewport.shown.world.instances["arm"].pose.axis(Axis::X);
+    assert!(there.abs_diff_eq(turned, 1e-6), "{there} {turned}");
+    m.update(Message::Open("top.wpc".into()))?;
+    assert!(arm(&m).axis(Axis::X).abs_diff_eq(turned, 1e-6));
+    // While another step is edited, it drags as well.
+    m.update(Message::Edit(vec!["f".into()]))?;
+    assert_eq!(m.editing, ["f"]);
+    let from = turned * 2.7 + Point3::new(0.0, 0.0, 0.3);
+    drag(&mut m, from, Point3::new(-2.7, 0.0, 0.3))?;
+    let again = arm(&m).axis(Axis::X);
+    assert!(again.dot(turned) < 0.99, "the arm did not turn on: {again}");
+    assert_eq!(m.editing, ["f"]);
+    // It turns about itself (its middle stays): the user is told that
+    // Shift moves what it is in, and with Shift that moves.
+    let said = View::new(&m).viewport.notice.unwrap_or_default();
+    assert!(said.contains("Shift"), "{said}");
+    let from = again * 2.7 + Point3::new(0.0, 0.0, 0.3);
+    drag_with(&mut m, from, from + Point3::new(0.0, 0.0, 1.0), true)?;
+    let sub = m.viewport.shown.world.instances["sub"].pose;
+    assert!(sub.translation().length() > 0.3, "{sub:?}");
+    assert!(arm(&m).axis(Axis::X).abs_diff_eq(again, 1e-6));
+    Ok(())
+}
+
+#[test]
+fn a_part_its_mates_hold_drags_its_assembly_and_a_fixed_one_says_so() -> anyhow::Result<()> {
+    use workpiece_core::world::JointKind;
+    let mut m = mated_in_a_sub_assembly()?;
+    // Fastened: the arm has nothing to move, so its sub-assembly moves
+    // as a whole.
+    let part = m.workspace.part_mut("hinged.wpc")?;
+    if let Some(add) = part.program[1].downcast_mut::<AddPart>() {
+        add.args.hold.mates[0].kind = JointKind::Fastened;
+    }
+    m.update(Message::Open("top.wpc".into()))?;
+    let grab = Point3::new(2.7, 0.0, 0.3);
+    drag(&mut m, grab, grab + Point3::new(0.0, 1.0, 0.0))?;
+    let sub = m.viewport.shown.world.instances["sub"].pose;
+    assert!(sub.translation().length() > 0.5, "{sub:?}");
+    m.update(Message::Undo)?;
+    // The sub-assembly fixed too: nothing moves, and the user is told why.
+    let part = m.workspace.part_mut("top.wpc")?;
+    if let Some(add) = part.program[0].downcast_mut::<AddPart>() {
+        add.args.hold = workpiece_ops_instances::Hold::fixed();
+    }
+    m.update(Message::Open("top.wpc".into()))?;
+    drag(&mut m, grab, grab + Point3::new(0.0, 1.0, 0.0))?;
+    assert_eq!(m.viewport.shown.world.instances["sub"].pose, Pose::IDENTITY);
+    let said = View::new(&m).viewport.notice.unwrap_or_default();
+    assert!(said.contains("held by its mates"), "{said}");
     Ok(())
 }

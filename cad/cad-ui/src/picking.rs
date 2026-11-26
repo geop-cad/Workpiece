@@ -2,13 +2,25 @@
 //! is edited, as its handles), from the world and the handles themselves,
 //! not from what is drawn.
 //!
-//! Candidates come in this order, and by distance along the ray within
-//! each class:
+//! What is drawn in front of everything comes first: the edited step's
+//! handles, datum frames (and other datums and sketches while a field
+//! takes them), by class and then by distance along the ray:
 //!
 //! 1. the centers of datum frames and gizmos (to drag freely),
 //! 2. axes (frame and datum axes, gizmo and handle arrows),
-//! 3. planes and rings (datum planes, frames' inset planes, gizmo rings),
-//! 4. vertices, 5. edges, 6. faces.
+//! 3. planes and rings (datum planes, frames' inset planes, gizmo rings).
+//!
+//! Everything else comes by depth: what is in front wins, so an edge or
+//! a vertex behind a face comes after that face. Only of candidates at
+//! about the same depth — within [`DEPTH_SLACK`] pick radii (at that
+//! depth) of the nearest of them — does the class decide: 4. vertices,
+//! then 5. edges, then 6. faces (and bodies by their faces after them).
+//! An edge of the face under the pointer, within the pick radius, so
+//! still comes before the face; an edge on the outline of a part, with
+//! nothing in front of it, comes first.
+//!
+//! What a section cuts away is not there to pick: a hit there does not
+//! count, and what is behind it shows.
 //!
 //! Sketches and bodies are candidates only for a field that takes them:
 //! a sketch by its curves (as an edge) or inside one of its areas (as a
@@ -25,7 +37,7 @@ use workpiece_core::handles::{GizmoPart, Handle};
 use workpiece_core::math::{Axis, Point2, Point3};
 use workpiece_core::world::topo::EntityId;
 use workpiece_core::world::visibility::shown_topology;
-use workpiece_core::world::{Datum, Visibility, World};
+use workpiece_core::world::{Cutting, Datum, Visibility, World};
 use workpiece_core::{Pose, Ray, ReferenceKind, Source};
 use workpiece_rasterize::Pick;
 use workpiece_rasterize::tessellate;
@@ -58,6 +70,16 @@ pub enum Candidate {
     },
 }
 
+impl Candidate {
+    /// The instances a reference is in, if it is of a placed part.
+    pub fn instance_path(&self) -> Option<&[String]> {
+        match self {
+            Candidate::Reference { instance, .. } if !instance.is_empty() => Some(instance),
+            _ => None,
+        }
+    }
+}
+
 impl From<&Candidate> for Pick {
     fn from(c: &Candidate) -> Self {
         match c {
@@ -88,25 +110,69 @@ const FACE: u8 = 5;
 /// both, so that pointing at a part gives one of its faces first.
 const BODY: u8 = 6;
 
+/// How much farther along the ray than the nearest of them candidates
+/// still count as at the same depth, in pick radii at that depth (the
+/// pick radius is [`PICK_RADIUS_PX`](crate::model::camera::PICK_RADIUS_PX)
+/// pixels): an edge of a face seen at a slant, within the pick radius of
+/// where the ray meets the face, lies up to a radius over the tangent
+/// of the slant behind it — at twice the radius, faces leaning up to
+/// some 60° from facing the eye.
+pub const DEPTH_SLACK: f64 = 2.0;
+
+/// Where a candidate was hit: whether it is drawn in front of
+/// everything, its class, and its distance along the ray.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Hit {
+    front: bool,
+    class: u8,
+    t: f64,
+}
+
 /// Collects hits, keeping each candidate's best (class, distance).
 #[derive(Default)]
-struct Hits(HashMap<Candidate, (u8, f64)>);
+struct Hits(HashMap<Candidate, Hit>);
 
 impl Hits {
-    fn add(&mut self, candidate: impl FnOnce() -> Candidate, class: u8, t: Option<f64>) {
+    fn add(
+        &mut self,
+        candidate: impl FnOnce() -> Candidate,
+        front: bool,
+        class: u8,
+        t: Option<f64>,
+    ) {
         let Some(t) = t else {
             return;
         };
-        let best = self.0.entry(candidate()).or_insert((class, t));
-        if (class, t) < *best {
-            *best = (class, t);
+        let hit = Hit { front, class, t };
+        let best = self.0.entry(candidate()).or_insert(hit);
+        if (class, t) < (best.class, best.t) {
+            *best = hit;
         }
     }
 
-    fn sorted(self) -> Vec<Candidate> {
-        let mut hits: Vec<_> = self.0.into_iter().collect();
-        hits.sort_by(|a, b| a.1.0.cmp(&b.1.0).then(a.1.1.total_cmp(&b.1.1)));
-        hits.into_iter().map(|(c, _)| c).collect()
+    /// The candidates in picking order (see the module's documentation),
+    /// for the pick radius of `ray`.
+    fn sorted(self, ray: &Ray) -> Vec<Candidate> {
+        let by_class = |a: &(Candidate, Hit), b: &(Candidate, Hit)| {
+            a.1.class.cmp(&b.1.class).then(a.1.t.total_cmp(&b.1.t))
+        };
+        let (mut front, mut deep): (Vec<_>, Vec<_>) =
+            self.0.into_iter().partition(|(_, hit)| hit.front);
+        front.sort_by(by_class);
+        deep.sort_by(|a, b| a.1.t.total_cmp(&b.1.t));
+        // Runs of about the same depth, each in class order.
+        let mut start = 0;
+        while start < deep.len() {
+            let t = deep[start].1.t;
+            let reach = t + DEPTH_SLACK * ray.radius_at(t);
+            let end = deep[start..]
+                .iter()
+                .position(|(_, hit)| hit.t > reach)
+                .map_or(deep.len(), |k| start + k);
+            deep[start..end].sort_by(by_class);
+            start = end;
+        }
+        front.into_iter().chain(deep).map(|(c, _)| c).collect()
     }
 }
 
@@ -116,13 +182,15 @@ fn hit_quad(ray: &Ray, [a, b, c, d]: [Point3; 4]) -> Option<f64> {
 }
 
 /// The references in `world` (placed by `pose`, showing what `visibility`
-/// does not hide) that `ray` hits and that resolve to one of `accepted`
+/// does not hide, and cut open by `cut`, in the world's coordinates, if
+/// it is shown so) that `ray` hits and that resolve to one of `accepted`
 /// (any reference if `accepted` is empty), in candidate order. Something
 /// of a placed part counts as what it is seen as where the part is.
 pub fn references(
     world: &World,
     pose: Pose,
     visibility: &Visibility,
+    cut: Option<&Cutting>,
     ray: &Ray,
     accepted: &[ReferenceKind],
 ) -> Vec<Candidate> {
@@ -131,12 +199,12 @@ pub fn references(
     let Some(local) = place(ray, pose.inverse()) else {
         return Vec::new();
     };
-    collect(&mut hits, world, &local, visibility, &mut Vec::new());
+    collect(&mut hits, world, &local, visibility, cut, &mut Vec::new());
     if accepted.contains(&ReferenceKind::Profile) {
         profiles(&mut hits, world, &local, visibility);
     }
     if accepted.contains(&ReferenceKind::Body) {
-        bodies(&mut hits, world, &local, visibility);
+        bodies(&mut hits, world, &local, visibility, cut);
     }
     let accepts = |c: &Candidate| match c {
         Candidate::Reference { instance, source } => {
@@ -147,7 +215,7 @@ pub fn references(
         }
         Candidate::Handle { .. } | Candidate::Joint { .. } => false,
     };
-    hits.sorted().into_iter().filter(accepts).collect()
+    hits.sorted(&local).into_iter().filter(accepts).collect()
 }
 
 /// Where `ray` meets `source` of the instance at `instance` (names from
@@ -217,7 +285,8 @@ fn profiles(hits: &mut Hits, world: &World, ray: &Ray, visibility: &Visibility) 
                 ray.hit_segment(place(p[0]), place(p[1]))
             })
             .min_by(f64::total_cmp);
-        hits.add(candidate, SKETCH, on_curve);
+        let front = visibility.sketches_in_front;
+        hits.add(candidate, front, SKETCH, on_curve);
         // Inside an area: inside an odd number of the outlines' turns.
         let plane = &profile.plane;
         let inside = ray
@@ -242,7 +311,7 @@ fn profiles(hits: &mut Hits, world: &World, ray: &Ray, visibility: &Visibility) 
                     within(&region.outer) && !region.holes.iter().any(within)
                 })
             });
-        hits.add(candidate, SKETCH, inside);
+        hits.add(candidate, front, SKETCH, inside);
     }
 }
 
@@ -264,12 +333,12 @@ fn contains(ring: &[Point2], p: Point2) -> bool {
 /// pointing at a part does not sample its faces again with every move
 /// of the pointer.
 #[derive(Default)]
-struct Sampled {
-    edges: HashMap<workpiece_core::world::topo::EdgeId, Vec<Point3>>,
-    faces: HashMap<workpiece_core::world::topo::FaceId, Vec<[Point3; 3]>>,
+pub(crate) struct Sampled {
+    pub(crate) edges: HashMap<workpiece_core::world::topo::EdgeId, Vec<Point3>>,
+    pub(crate) faces: HashMap<workpiece_core::world::topo::FaceId, Vec<[Point3; 3]>>,
 }
 
-fn sampled(world: &World) -> std::sync::Arc<Sampled> {
+pub(crate) fn sampled(world: &World) -> std::sync::Arc<Sampled> {
     use std::sync::{Arc, Mutex};
     static KEPT: Mutex<Vec<(u64, Arc<Sampled>)>> = Mutex::new(Vec::new());
     let make = || {
@@ -307,8 +376,15 @@ fn sampled(world: &World) -> std::sync::Arc<Sampled> {
     made
 }
 
-/// The shown, named bodies of `world` that `ray` hits, by their faces.
-fn bodies(hits: &mut Hits, world: &World, ray: &Ray, visibility: &Visibility) {
+/// The shown, named bodies of `world` that `ray` hits, by their faces
+/// (where `cut` leaves them).
+fn bodies(
+    hits: &mut Hits,
+    world: &World,
+    ray: &Ray,
+    visibility: &Visibility,
+    cut: Option<&Cutting>,
+) {
     let topo = &world.topo;
     let sampled = sampled(world);
     for body in topo.bodies().ids() {
@@ -325,12 +401,13 @@ fn bodies(hits: &mut Hits, world: &World, ray: &Ray, visibility: &Visibility) {
             .filter_map(|face| sampled.faces.get(&face))
             .flatten()
             .filter_map(|[a, b, c]| ray.hit_triangle(*a, *b, *c))
+            .filter(|&t| kept(ray, cut, t))
             .min_by(f64::total_cmp);
         let candidate = || Candidate::Reference {
             instance: Vec::new(),
             source: Source::Topology(name.to_owned()),
         };
-        hits.add(candidate, BODY, t);
+        hits.add(candidate, false, BODY, t);
     }
 }
 
@@ -343,11 +420,20 @@ pub(crate) fn place(ray: &Ray, pose: Pose) -> Option<Ray> {
     )
 }
 
+/// Whether the point `t` along `ray` is there to pick: not cut away by
+/// `cut`.
+fn kept(ray: &Ray, cut: Option<&Cutting>, t: f64) -> bool {
+    cut.is_none_or(|cut| !cut.takes_away(ray.at(t)))
+}
+
+/// Collects what `ray` hits of `world` (cut open by `cut`, in its
+/// coordinates), and of what it places, into `hits`.
 fn collect(
     hits: &mut Hits,
     world: &World,
     ray: &Ray,
     visibility: &Visibility,
+    cut: Option<&Cutting>,
     instance: &mut Vec<String>,
 ) {
     let reference = |source: Source| {
@@ -355,12 +441,15 @@ fn collect(
         move || Candidate::Reference { instance, source }
     };
     let size = visibility.datum_size.unwrap_or_else(|| world.datum_size());
+    // (Frames are drawn in front of everything; other datums while a
+    // field takes them.)
+    let datums_front = visibility.datums_in_front;
     for (name, datum) in world.shown_datums(visibility) {
         let datum_ref = || reference(Source::Datum(name.clone()));
         match datum {
             Datum::Frame(frame) => {
                 let o = frame.origin();
-                hits.add(datum_ref(), CENTER, ray.hit_point(o));
+                hits.add(datum_ref(), true, CENTER, ray.hit_point(o));
                 for axis in Axis::ALL {
                     let axis_ref = || {
                         reference(Source::FrameAxis {
@@ -369,7 +458,7 @@ fn collect(
                         })
                     };
                     let end = o + frame.direction(axis) * (FRAME_SIZE * size);
-                    hits.add(axis_ref(), AXIS, ray.hit_segment(o, end));
+                    hits.add(axis_ref(), true, AXIS, ray.hit_segment(o, end));
                     let u = frame.direction(axis.next()) * (FRAME_SIZE * size);
                     let v = frame.direction(axis.next().next()) * (FRAME_SIZE * size);
                     let (lo, hi) = INSET;
@@ -379,12 +468,13 @@ fn collect(
                         o + u * hi + v * hi,
                         o + u * lo + v * hi,
                     ];
-                    hits.add(axis_ref(), PLANE, hit_quad(ray, corners));
+                    hits.add(axis_ref(), true, PLANE, hit_quad(ray, corners));
                 }
             }
             Datum::Axis(axis) => {
                 let (o, d) = (axis.origin(), axis.direction() * (AXIS_SIZE * size));
-                hits.add(datum_ref(), AXIS, ray.hit_segment(o - d, o + d));
+                let t = ray.hit_segment(o - d, o + d);
+                hits.add(datum_ref(), datums_front, AXIS, t);
             }
             Datum::Plane(plane) => {
                 let (o, x, y) = (
@@ -392,11 +482,8 @@ fn collect(
                     plane.x_dir() * (PLANE_SIZE * size),
                     plane.y_dir() * (PLANE_SIZE * size),
                 );
-                hits.add(
-                    datum_ref(),
-                    PLANE,
-                    hit_quad(ray, [o - x - y, o + x - y, o + x + y, o - x + y]),
-                );
+                let t = hit_quad(ray, [o - x - y, o + x - y, o + x + y, o - x + y]);
+                hits.add(datum_ref(), datums_front, PLANE, t);
             }
         }
     }
@@ -410,7 +497,8 @@ fn collect(
     };
     for &id in &shown.vertices {
         if let (Some(candidate), Some(v)) = (named(id.into()), topo.vertex(id)) {
-            hits.add(candidate, VERTEX, ray.hit_point(v.point));
+            let t = ray.hit_point(v.point).filter(|&t| kept(ray, cut, t));
+            hits.add(candidate, false, VERTEX, t);
         }
     }
     for &id in &shown.edges {
@@ -420,8 +508,9 @@ fn collect(
         let t = points
             .windows(2)
             .filter_map(|p| ray.hit_segment(p[0], p[1]))
+            .filter(|&t| kept(ray, cut, t))
             .min_by(f64::total_cmp);
-        hits.add(candidate, EDGE, t);
+        hits.add(candidate, false, EDGE, t);
     }
     for &id in &shown.faces {
         let (Some(candidate), Some(triangles)) = (named(id.into()), sampled.faces.get(&id)) else {
@@ -430,14 +519,27 @@ fn collect(
         let t = triangles
             .iter()
             .filter_map(|[a, b, c]| ray.hit_triangle(*a, *b, *c))
+            .filter(|&t| kept(ray, cut, t))
             .min_by(f64::total_cmp);
-        hits.add(candidate, FACE, t);
+        hits.add(candidate, false, FACE, t);
     }
 
     for (name, inst) in world.shown_instances(visibility) {
         let Some(inner) = place(ray, inst.pose.inverse()) else {
             continue;
         };
+        // Cut as it is drawn: in its own coordinates, unless the cut
+        // leaves it whole (a screw, not sectioned).
+        let cut = cut.and_then(|cut| {
+            let back = inst.pose.inverse();
+            let inner = Cutting {
+                origin: back.transform_point(cut.origin),
+                x: back.transform_vector(cut.x),
+                y: back.transform_vector(cut.y),
+                ..cut.clone()
+            };
+            (!workpiece_shape::cut::left_whole(&inst.world, &inner)).then_some(inner)
+        });
         instance.push(name.clone());
         // Of a placed part, what shows: its bodies.
         collect(
@@ -445,6 +547,7 @@ fn collect(
             &inst.world,
             &inner,
             &Visibility::placed(&inst.world, &workpiece_core::world::Shades::new()),
+            cut.as_ref(),
             instance,
         );
         instance.pop();
@@ -487,10 +590,11 @@ pub fn handles<M: 'static>(
                     radius,
                 } => (PLANE, ray.hit_circle(center, normal, radius)),
             };
-            hits.add(candidate, class, t);
+            // (Handles are drawn in front of everything.)
+            hits.add(candidate, true, class, t);
         }
     }
-    hits.sorted()
+    hits.sorted(&ray)
 }
 
 #[cfg(test)]
@@ -538,7 +642,7 @@ mod tests {
         // Straight down through the origin: the origin frame's center
         // first, then its z axis, then (the plane it shows is seen
         // edge-on) the top and bottom faces, nearest first.
-        let hits = references(&world, Pose::IDENTITY, &all, &down(0.0, 0.0), &[]);
+        let hits = references(&world, Pose::IDENTITY, &all, None, &down(0.0, 0.0), &[]);
         assert_eq!(hits[0], reference(Source::Datum("origin".into())));
         assert!(matches!(
             &hits[1],
@@ -554,7 +658,7 @@ mod tests {
         assert_eq!(faces, [&topology("box/top"), &topology("box/bottom")]);
         // On the top's edge at x = 0.5 (and off the frame): the edge
         // before the face.
-        let hits = references(&world, Pose::IDENTITY, &all, &down(0.5, -0.3), &[]);
+        let hits = references(&world, Pose::IDENTITY, &all, None, &down(0.5, -0.3), &[]);
         assert!(
             matches!(&hits[0], Candidate::Reference { source: Source::Topology(n), .. } if n.starts_with("box/edge"))
         );
@@ -574,6 +678,7 @@ mod tests {
             &world,
             Pose::IDENTITY,
             &all,
+            None,
             &down(0.3, 0.3),
             &[ReferenceKind::Plane],
         );
@@ -598,7 +703,80 @@ mod tests {
             bodies: ["box".to_owned()].into(),
             ..Visibility::default()
         };
-        assert!(references(&world, Pose::IDENTITY, &hidden, &down(0.3, 0.3), &[]).is_empty());
+        assert!(references(&world, Pose::IDENTITY, &hidden, None, &down(0.3, 0.3), &[]).is_empty());
+        Ok(())
+    }
+
+    /// Whether `c` is an edge (or else a vertex) of `world`.
+    fn is(world: &World, c: &Candidate, edge: bool) -> bool {
+        use workpiece_core::world::topo::{EdgeId, VertexId};
+        let Candidate::Reference {
+            source: Source::Topology(name),
+            ..
+        } = c
+        else {
+            return false;
+        };
+        match edge {
+            true => world.topo.resolve::<EdgeId>(name).is_some(),
+            false => world.topo.resolve::<VertexId>(name).is_some(),
+        }
+    }
+
+    #[test]
+    fn what_is_in_front_wins_and_at_one_depth_vertex_edge_face() -> anyhow::Result<()> {
+        let world = boxed()?;
+        let (lo, hi) = world.extent().expect("the box");
+        // (Its frame hidden: it is drawn in front of everything and
+        // comes first anyway.)
+        let bare = Visibility {
+            datums: ["origin".to_owned()].into(),
+            ..Visibility::ALL
+        };
+        let ortho = Projection::Orthographic { radius: 0.02 };
+        // Slanted, through the middle of the top to its far bottom edge:
+        // that edge is behind the top, and comes after it.
+        let edge = Point3::new(hi.x, (lo.y + hi.y) / 2.0, lo.z);
+        let along = Point3::new(1.0, 0.0, -2.0).normalize();
+        let top = edge - along * ((hi.z - lo.z) * 5.0f64.sqrt() / 2.0);
+        let ray = Ray::new(top - along * 10.0, along, ortho).expect("ray");
+        let hits = references(&world, Pose::IDENTITY, &bare, None, &ray, &[]);
+        assert_eq!(hits[0], topology("box/top"), "{hits:?}");
+        let hidden = hits.iter().position(|c| is(&world, c, true));
+        assert!(hidden.is_some_and(|k| k > 0), "{hits:?}");
+        // Straight down, just inside the top's edge (within the pick
+        // radius): the edge, then the top it bounds.
+        let hits = references(
+            &world,
+            Pose::IDENTITY,
+            &bare,
+            None,
+            &down(hi.x - 0.01, 0.0),
+            &[],
+        );
+        assert!(is(&world, &hits[0], true), "{hits:?}");
+        assert_eq!(hits[1], topology("box/top"));
+        // At a corner of the top: the vertex, then its two edges.
+        let corner = down(hi.x - 0.01, hi.y - 0.01);
+        let hits = references(&world, Pose::IDENTITY, &bare, None, &corner, &[]);
+        assert!(is(&world, &hits[0], false), "{hits:?}");
+        assert!(
+            is(&world, &hits[1], true) && is(&world, &hits[2], true),
+            "{hits:?}"
+        );
+        // Cut open across its middle, the top half away: the top is not
+        // there to pick, nor what is cut away of its sides.
+        let middle = (lo + hi) / 2.0;
+        let cut = Cutting::plane(middle, Point3::Z);
+        let hits = references(
+            &world,
+            Pose::IDENTITY,
+            &bare,
+            Some(&cut),
+            &down(0.0, 0.0),
+            &[],
+        );
+        assert_eq!(hits, [topology("box/bottom")]);
         Ok(())
     }
 }

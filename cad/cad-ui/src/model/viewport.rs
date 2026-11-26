@@ -31,6 +31,9 @@ pub struct Shown {
     pub world: Arc<World>,
     /// What of it is hidden.
     pub visibility: Visibility,
+    /// What it is shown cut open by, in its own coordinates: what that
+    /// takes away is not picked either.
+    pub cut: Option<workpiece_core::world::Cutting>,
     /// Where the focused part sits in the active part.
     pub pose: Pose,
     /// Why something could not be built.
@@ -44,6 +47,9 @@ pub struct Shown {
     /// The bodies of each part the focused part places, by its path
     /// and variant: what a dialog offers to take along of it.
     pub placed: std::collections::BTreeMap<(String, Option<String>), Vec<String>>,
+    /// The same parts, each built whole: what is shown of a body of one
+    /// that the step placing it leaves out.
+    pub whole: std::collections::BTreeMap<(String, Option<String>), Arc<World>>,
 }
 
 /// Where the pointer is in the viewport.
@@ -225,6 +231,7 @@ pub(crate) fn shown(
     // The bodies of the parts it places, each built whole (as its
     // build placed it, so kept already).
     let mut placed = std::collections::BTreeMap::new();
+    let mut whole = std::collections::BTreeMap::new();
     for (path, variant) in program.iter().filter_map(|op| op.placed()) {
         let key = (path.to_owned(), variant.map(str::to_owned));
         if placed.contains_key(&key) {
@@ -233,7 +240,8 @@ pub(crate) fn shown(
         if let Ok(built) = engine.build(workspace, path, variant, &|_| true, cancel) {
             let topo = &built.world.topo;
             let names = topo.bodies().iter().filter_map(|(id, _)| topo.name_of(id));
-            placed.insert(key, names.map(str::to_owned).collect());
+            placed.insert(key.clone(), names.map(str::to_owned).collect());
+            whole.insert(key, built.world);
         }
     }
 
@@ -250,6 +258,11 @@ pub(crate) fn shown(
         },
         None => display.clone(),
     };
+    let named = display
+        .cut
+        .as_ref()
+        .and_then(|name| after.sections.get(name));
+    let cut = display.plane.as_ref().or(named).cloned();
     let scene = scenes.draw(
         &display.of(&after),
         located.pose,
@@ -263,6 +276,7 @@ pub(crate) fn shown(
         before,
         world: after,
         visibility,
+        cut,
         pose: located.pose,
         error: (!errors.is_empty()).then(|| errors.join("\n")),
         // A variant's solution is not the part's.
@@ -271,5 +285,6 @@ pub(crate) fn shown(
             .filter(|_| variant.is_none()),
         repaired,
         placed,
+        whole,
     }
 }

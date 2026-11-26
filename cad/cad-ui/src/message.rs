@@ -276,6 +276,9 @@ pub enum Message {
     /// this widget path (child indices from the dialog's root), or stop
     /// picking.
     Pick(Option<Vec<usize>>),
+    /// Show this in the view, highlighted over everything (what a row of
+    /// the edit dialog's table under the pointer stands for), or nothing.
+    Point(Option<workpiece_core::widgets::Pointed>),
     /// Something happened to the pointer over the viewport.
     Pointer(Pointer),
     /// Move the camera.
@@ -380,8 +383,13 @@ pub enum Pointer {
     /// drag starting from here grabs.
     Press,
     /// A left drag starts (the pointer has moved a little since the
-    /// press): on a handle pressed, it grabs it.
-    DragStart,
+    /// press): on a handle pressed, it grabs it; on a placed part, it
+    /// moves it as far as it may — with `outer` (Shift held), the
+    /// assembly it is in instead.
+    DragStart {
+        /// Move what the grabbed part is in, not the part.
+        outer: bool,
+    },
     /// The left drag ends.
     DragEnd,
 }

@@ -135,4 +135,37 @@ impl Cutting {
         self.path.reverse();
         self
     }
+
+    /// Whether the cut takes the point `p` away: `p` is to the left of
+    /// the piece of the line it is beside — the first and the last
+    /// running on past the line's ends, unless the cut is `bounded`,
+    /// which takes away only what is beside a piece.
+    pub fn takes_away(&self, p: Point3) -> bool {
+        let d = p - self.origin;
+        let q = Point2::new(d.dot(self.x), d.dot(self.y));
+        let pieces = self.path.len().saturating_sub(1);
+        let beside = |k: usize, w: &[Point2]| {
+            let along = w[1] - w[0];
+            let s = (q - w[0]).dot(along) / along.length_squared().max(1e-300);
+            let (lo, hi) = match self.bounded {
+                true => (0.0, 1.0),
+                false => (
+                    if k == 0 { f64::NEG_INFINITY } else { 0.0 },
+                    if k + 1 == pieces { f64::INFINITY } else { 1.0 },
+                ),
+            };
+            let off = (w[0] + along * s.clamp(lo, hi)).distance(q);
+            let left = along.normalize_or_zero().perp_dot(q - w[0]);
+            ((lo..=hi).contains(&s), off, left)
+        };
+        let pieces = self.path.windows(2).enumerate().map(|(k, w)| beside(k, w));
+        if self.bounded {
+            return pieces
+                .filter(|(within, ..)| *within)
+                .any(|(_, _, left)| left > 0.0);
+        }
+        pieces
+            .min_by(|a, b| a.1.total_cmp(&b.1))
+            .is_some_and(|(_, _, left)| left > 0.0)
+    }
 }

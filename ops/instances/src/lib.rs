@@ -133,6 +133,8 @@ macro_rules! icons {
 
 /// The icons of the options of these operations' choices.
 const OPTION_ICONS: &[(&str, &str)] = icons!(
+    "body-all",
+    "body-solo",
     "constraint-fixed",
     "constraint-free",
     "mate-add",

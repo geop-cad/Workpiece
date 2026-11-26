@@ -238,8 +238,24 @@ fn row(
             egui::FontId::proportional(13.5),
             dim(color::TEXT),
         );
+        // A placed part not saved as it is: a dot, as the title has.
+        let mut after = title.right();
+        if let Some((_, true)) = &step.placed {
+            let dot = painter.text(
+                egui::pos2(after + 5.0, center_y),
+                egui::Align2::LEFT_CENTER,
+                "•",
+                egui::FontId::proportional(15.0),
+                color::ACCENT,
+            );
+            after = dot.right();
+            let hint = ui.interact(dot, response.id.with("unsaved"), egui::Sense::hover());
+            hint.on_hover_text(
+                "Not saved as it is: File → Save writes it, with the part worked on",
+            );
+        }
         painter.text(
-            egui::pos2(title.right() + 8.0, center_y),
+            egui::pos2(after + 8.0, center_y),
             egui::Align2::LEFT_CENTER,
             &step.description,
             egui::FontId::proportional(12.0),
@@ -291,6 +307,27 @@ fn row(
         }
         if focus.on_hover_text("Focus this part").clicked() {
             out.push(Message::Focus(step.path.clone()));
+        }
+        right -= 22.0;
+    }
+    // And opened on its own: worked on, saved, saved as like any part
+    // (what is open stays, File → Open goes back to it).
+    if let Some((file, _)) = &step.placed {
+        let button =
+            egui::Rect::from_center_size(egui::pos2(right, center_y), egui::vec2(20.0, 20.0));
+        let open = ui.interact(button, response.id.with("open"), egui::Sense::click());
+        if over {
+            let tint = match open.hovered() {
+                true => color::ACCENT,
+                false => color::TEXT_WEAK,
+            };
+            icons::widget(icons::FOLDER, 16.0, tint).paint_at(ui, button.shrink(2.0));
+        }
+        if open
+            .on_hover_text(format!("Open {file} on its own"))
+            .clicked()
+        {
+            out.push(Message::Open(file.clone()));
         }
     }
     if response.double_clicked() {
