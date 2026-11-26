@@ -36,7 +36,10 @@ import { fileURLToPath } from "node:url";
 
 const LONGEST = 500;
 const SLOW = 100;
-const SLOW_SHARE = 0.1;
+// The share of the time the page's thread may be held by long tasks (over 50 ms each). Frames
+// are printed but not judged: a CI runner draws WebGL in software, some 130 ms a frame with
+// its thread free, while a build per move held the thread nearly all of the time.
+const HELD_SHARE = 0.25;
 const ANSWER = 2000;
 
 const arg = (name, fallback) => {
@@ -155,9 +158,10 @@ async function since(from) {
     median: gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)] ?? 0,
     slow: gaps.filter((g) => g > SLOW).length / Math.max(1, gaps.length),
     longest: Math.max(0, ...long.map(([, d]) => d)),
+    held: long.reduce((sum, [, d]) => sum + d, 0) / Math.max(1, (await evaluate("performance.now()")) - from),
   };
 }
-const said = (s) => `${s.frames} frames, median ${s.median.toFixed(0)} ms, ${(s.slow * 100).toFixed(0)} % over ${SLOW} ms, longest hold ${s.longest.toFixed(0)} ms`;
+const said = (s) => `${s.frames} frames, median ${s.median.toFixed(0)} ms, ${(s.slow * 100).toFixed(0)} % over ${SLOW} ms, longest hold ${s.longest.toFixed(0)} ms, held ${(s.held * 100).toFixed(0)} % of the time`;
 
 /** Opens `query` and waits until it is built and shows its notes. */
 async function open(query) {
@@ -212,7 +216,7 @@ async function drag(what, name) {
   if (!now || Math.hypot(now.x - note.x, now.y - note.y) < 20) fail(`${what}: ${name} is not where it was dropped (it was at ${note.x},${note.y}; now ${now?.x},${now?.y})`);
   for (const [when, s] of [["while dragging", during], ["after the drop", after]]) {
     if (s.longest > LONGEST) fail(`${what}: ${when}, the page's thread was held ${s.longest.toFixed(0)} ms at once (at most ${LONGEST})`);
-    if (s.slow > SLOW_SHARE) fail(`${what}: ${when}, ${(s.slow * 100).toFixed(0)} % of the frames took over ${SLOW} ms (at most ${SLOW_SHARE * 100} %)`);
+    if (s.held > HELD_SHARE) fail(`${what}: ${when}, the page's thread was held ${(s.held * 100).toFixed(0)} % of the time (at most ${HELD_SHARE * 100} %)`);
   }
   if (slowest > ANSWER) fail(`${what}: a pointer move waited ${slowest} ms to be taken (at most ${ANSWER})`);
 }
