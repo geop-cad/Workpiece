@@ -83,10 +83,11 @@ fn main() -> anyhow::Result<()> {
     }
     let mut viewport = egui::ViewportBuilder::default()
         .with_title("Workpiece")
-        // (As large as the screen; where nothing makes it so, small
-        // enough to fit on most: what is at its right edge — the
-        // dialogs — on the screen.)
-        .with_inner_size([1280.0, 800.0])
+        // (As large as the screen; where nothing makes it so, wide
+        // enough for every ribbon to show all its tools — the mesh
+        // editor's is the widest, about 1580 — and still within a
+        // 1920 × 1080 screen.)
+        .with_inner_size([1680.0, 1000.0])
         .with_maximized(true);
     if let Some(icon) = icon() {
         viewport = viewport.with_icon(icon);
