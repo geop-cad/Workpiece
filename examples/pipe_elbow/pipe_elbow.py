@@ -10,16 +10,16 @@ try:
     import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from workpiece import Part, axis, datum, view, section_view, topo
+from workpiece import Part, axis, datum, view, section_view, topo, note
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "pipe_elbow.wpc")
 p = Part(material="Stainless steel", title="ELBOW 90° DN50", file="pipe_elbow.wpc")
 
 # The section: a Ø60 / Ø50 ring on the origin, square to z.
-sec = p.sketch("XY", id="section", on_drawing=False)    # (its sizes are measured on the tube in the section)
+sec = p.sketch("XY", id="section", on_drawing=False)  # (the tube's Ø60 is a note: no view shows the outer circle true)
 sec.diameter(sec.circle(sec.origin, 30, "outside"), 60)
-sec.diameter(sec.circle(sec.origin, 25, "inside"), 50)
+sec.diameter(sec.circle(sec.origin, 25, "inside"), 50, show_in="bottom", at=(-32, -10), on_drawing=True)
 
 # The path, on ZX (u = z, v = x): a quarter circle of R100 from the origin, leaving it along z and
 # arriving along x; its centre on the v axis.
@@ -70,18 +70,19 @@ p.feature_mirror([flange_rim] + holes, datum("bisector"), id="flange2")
 for helper in ("end_plane", "bisector", "flange2"):
     p.on_sheet(helper, on_drawing=False)
 # (The tube's outside and inside: the faces the section's outer and inner circles swept.)
-p.dimension("pipe/l1/run0/side/e1", kind="Diameter", show_in="secA", id="outside", at=(-8, 38))
-p.dimension("pipe/run0/side/e1", kind="Diameter", show_in="secA", id="inside", at=(8, 8))
 p.on_sheet("bend", at=(10, -42))
+p.on_sheet("bolt/callout", count=4)
 # Tolerances (a cast fitting, its flange faces and bolt holes finished): the faces seal against the
 # mating flange (flat) and the bolt circle (± on its diameter, below).
 rep = p.build(OUT)
 face_a = "flange2/flange/end"
-p.geometric_tolerance("Flatness", 0.1, on=topo(face_a), show_in="secA", at=(23, -108))
+p.geometric_tolerance("Flatness", 0.1, on=topo(face_a), show_in="secA", at=(68, -108), to=(68, -88))
+p.geometric_tolerance("Flatness", 0.1, on=topo("flange2/flange/end#2"), show_in="secA", at=(-110, 76), to=(-88.5, 76))
 p.op("Section", id="A", along="Plane", plane=axis("Y"), offset=0.0)
 p.drawing(views=[view("bottom", "Bottom", (170, 125)), section_view("secA", "A", (410, 270), of="bottom"),
                  view("iso", "IsometricFrontLeft", (165, 335))],
-          scale=(1, 1), format="A2", id="drawing", general_tolerance="ISO 8062-3 DCTG 10")
+          scale=(1, 1), format="A2", id="drawing", general_tolerance="ISO 8062-3 DCTG 10",
+          notes=[note("bottom", (-102, 60), "BOTH FLANGES"), note("bottom", (110, 50), "TUBE Ø60 × 5")])
 rep = p.build(OUT, render=True, pictures=True, picture=os.path.join(HERE, "render.png"))
 rep.show()
 

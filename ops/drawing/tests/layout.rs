@@ -106,6 +106,7 @@ fn lay(b: &Standalone, sheet: &Sheet) -> Laid {
         properties: &properties,
         parts: &Default::default(),
         densities: &Default::default(),
+        sheet: [1, 1],
     };
     lay_out(sheet, &subject, &Kept::default(), None)
 }
@@ -310,6 +311,7 @@ fn a_length_with_one_end_out_of_a_detail_is_a_half_dimension() -> anyhow::Result
         properties: &properties,
         parts: &Default::default(),
         densities: &Default::default(),
+        sheet: [1, 1],
     };
     let wanted = [Wanted {
         note: "wide".into(),
@@ -435,6 +437,7 @@ fn two_radii_about_one_middle_each_have_a_leader_of_their_own() -> anyhow::Resul
         properties: &properties,
         parts: &Default::default(),
         densities: &Default::default(),
+        sheet: [1, 1],
     };
     let wanted: Vec<Wanted> = ["inner", "outer"]
         .iter()
@@ -564,6 +567,7 @@ fn a_note_put_by_itself_keeps_clear_of_another_view() -> anyhow::Result<()> {
         properties: &properties,
         parts: &Default::default(),
         densities: &Default::default(),
+        sheet: [1, 1],
     };
     let wanted = [Wanted {
         note: "wide".into(),
@@ -1020,6 +1024,7 @@ fn an_assembly_s_parts_list_counts_its_parts_and_balloons_point_at_them() -> any
             properties: &properties,
             parts: &names,
             densities: &densities,
+            sheet: [1, 1],
         };
         lay_out(sheet, &subject, &Kept::default(), None)
     };
@@ -1839,6 +1844,19 @@ fn title_blocks_say_the_title_the_kind_and_the_mass_of_what_is_placed_too() -> a
         cell.value.clone()
     };
     let densities = std::collections::BTreeMap::from([("Steel".to_owned(), 7850.0)]);
+    let on_sheet = |b: &Standalone, sheet_of: [usize; 2]| {
+        let subject = Subject {
+            world: &b.world,
+            unit: workpiece_core::Unit::default(),
+            material: b.world.material.clone(),
+            name: "blocks",
+            properties: &Default::default(),
+            parts: &Default::default(),
+            densities: &densities,
+            sheet: sheet_of,
+        };
+        lay_out(&sheet(vec![], vec![]), &subject, &Kept::default(), None)
+    };
     let lay_with = |b: &Standalone, properties: &std::collections::BTreeMap<String, String>| {
         let subject = Subject {
             world: &b.world,
@@ -1848,6 +1866,7 @@ fn title_blocks_say_the_title_the_kind_and_the_mass_of_what_is_placed_too() -> a
             properties,
             parts: &Default::default(),
             densities: &densities,
+            sheet: [1, 1],
         };
         lay_out(&sheet(vec![], vec![]), &subject, &Kept::default(), None)
     };
@@ -1859,6 +1878,20 @@ fn title_blocks_say_the_title_the_kind_and_the_mass_of_what_is_placed_too() -> a
     assert_eq!(cell(&laid, "Title"), "blocks");
     assert_eq!(cell(&laid, "Material"), "Steel");
     assert_eq!(cell(&laid, "Document type"), "Part drawing");
+    assert_eq!(cell(&laid, "Sheet"), "1/1");
+    // The second of two sheets says so; and a flat pattern laid out
+    // beside the part (the small block, with its bend lines) is not of
+    // its mass: each sheet says the part's, 0.5 g.
+    let mut flat = blocks(10.0)?;
+    flat.world.material = Some("Steel".into());
+    let bend = workpiece_core::world::DatumAxis::new(Point3::new(10.0, 0.0, 0.0), Point3::Y)?;
+    flat.world.datums.insert(
+        "small/bend1".into(),
+        workpiece_core::world::Datum::Axis(bend),
+    );
+    let second = on_sheet(&flat, [2, 2]);
+    assert_eq!(cell(&second, "Sheet"), "2/2");
+    assert_eq!(cell(&second, "Mass"), "0.5 g");
     // Its own title over its name.
     let titled = std::collections::BTreeMap::from([("Title".to_owned(), "TWO BLOCKS".to_owned())]);
     assert_eq!(cell(&lay_with(&part, &titled), "Title"), "TWO BLOCKS");

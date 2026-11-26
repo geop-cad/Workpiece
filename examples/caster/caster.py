@@ -11,7 +11,7 @@ try:
     import workpiece
 except ImportError:  # a source checkout: the package's sources
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
-from workpiece import Part, anchor, mate, axis, note, topo, view, projected, section_view
+from workpiece import Part, anchor, mate, axis, note, topo, view, projected, section_view, balloon
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 at = lambda name: os.path.join(HERE, name)
@@ -35,7 +35,7 @@ a = fork.sketch("ZX", id="axle_hole", show_in="front")
 c = a.point(20, 0, "c")
 a.point_on(c, "u")
 a.distance_u(a.origin, c, 20, tol=0.1)   # axle height: centres the wheel on the king pin
-a.diameter(a.circle(c, 4, "hole"), 8, tol="H7", show_in="right")   # axle bore H7: the pin runs in it (H7/f7, as in the wheel)
+a.diameter(a.circle(c, 4, "hole"), 8, tol="N7", show_in="right")   # axle bore N7 / pin h6: the pin is pressed in (transition fit), the head holds it
 fork.cut(a, through=True, symmetric=True, id="axle")
 rep = fork.build(at("fork.wpc"))
 top = rep.faces(where=lambda f: f["flat"] and f["normal"][2] > 0.99)[0]
@@ -45,7 +45,8 @@ fork.hole(k, 10, next=True, id="king")
 fork.on_sheet("block", at=(-52, 5))
 fork.drawing(views=[view("front", "Front", (90, 130)), projected("top", "front", "Above", 95),
                     projected("right", "front", "Right", 110), view("iso", "Isometric", (330, 210))],
-             scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 2768-m")
+             scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 2768-m",
+             notes=[note(None, (0, 0), "2×", dimension="axle_hole/d11")])
 
 # --- The wheel: Ø75 × 30, its axis along y. The hub (Ø40, a Ø8 bore) and the tyre (Ø40 to Ø75, its
 # outer edges rounded R6) are two bodies; the tyre is rubber.
@@ -59,7 +60,7 @@ for u, v in ((p0, p1), (p1, p2), (p2, p3), (p3, p0)):
 h.horizontal(p0, p1); h.vertical(p1, p2); h.horizontal(p2, p3); h.vertical(p3, p0)
 h.symmetric(p0, p1, "v")
 h.distance_u(p0, p1, 30, id="width", at=(0, -90))   # (under the section: clear of its A-A caption)
-h.diameter_about(p0, ax, 8, tol="H7", at=(-35, 0))   # hub bore: runs on the f7 axle pin (clearance fit, the wheel turns)
+h.diameter_about(p0, ax, 8, tol="F8", at=(-35, 0))   # hub bore F8 / pin h6: a running fit, the wheel turns on the axle
 h.diameter_about(p3, ax, 40)
 wheel.revolve(h, combine="NewBody", id="hub")
 t = wheel.sketch("YZ", id="tyre_profile", show_in="secW")
@@ -79,8 +80,9 @@ wheel.fillet(wrep.edges(where=lambda e: not e["straight"] and e["name"].startswi
                         and abs(e["middle"][0]) + abs(e["middle"][2]) > 30), 6, id="tyre_round")
 wheel.op("Appearance", id="rubber", of=[topo("tyre")], material="Rubber")
 wheel.op("Section", id="W", along="Plane", plane=axis("X"), offset=0.0)
-wheel.drawing(views=[view("right", "Right", (100, 165)), section_view("secW", "W", (250, 165), of="right"),
-                     view("iso", "Isometric", (350, 225), scale=(1, 1))], scale=(2, 1), format="A3", id="drawing")
+wheel.drawing(views=[view("right", "Right", (118, 165)), section_view("secW", "W", (265, 165), of="right"),
+                     view("iso", "Isometric", (362, 225), scale=(1, 1))], scale=(2, 1), format="A3", id="drawing",
+             notes=[note("secW", (0, -102), "HUB ALUMINIUM, TYRE RUBBER")])
 
 # --- The axle pin: Ø8 × 56 under a Ø14 × 4 head.
 # (A pin is drawn whole where a section runs along it: not sectioned.)
@@ -94,10 +96,13 @@ for i in range(6):
     (pp.vertical if i % 2 == 0 else pp.horizontal)(pts[i], pts[(i + 1) % 6])
 pp.coincident(pts[0], pp.origin)
 pp.diameter_about(pts[1], pax, 14)
-pp.diameter_about(pts[3], pax, 8, tol="f7", at=(22, 0))   # shaft f7: runs in the H7 wheel bore, the fork's H7 holes
+pp.diameter_about(pts[3], pax, 8, tol="h6", at=(22, 0))   # shaft h6: tight in the fork's N7 holes, running in the wheel's F8 bore
 pp.distance_u(pts[1], pts[2], 4)
 pp.distance_u(pts[0], pts[5], 60)
 pin.revolve(pp, combine="NewBody", id="pin")
+prep0 = pin.build(at("pin.wpc"))
+shaft = prep0.faces(where=lambda f: not f["flat"] and abs(f["middle"][1]) > 1 and f["area"] > 1000)
+pin.surface_texture("Ra 0,8", on=topo(shaft[0]), show_in="front", at=(38, 14))   # axle: runs in the wheel bore
 pin.drawing(views=[view("front", "Front", (150, 170)), view("iso", "Isometric", (320, 220))],
             scale=(2, 1), format="A3", id="drawing")
 
@@ -115,8 +120,8 @@ asm.add_part(wheel, id="wheel", mates=[mate(anchor(topo(circle(frep, -22, 4)), "
 asm.op("Section", id="A", along="Plane", plane=axis("X"), offset=0.0)
 asm.drawing(views=[view("right", "Right", (90, 175)), section_view("secA", "A", (215, 175), of="right"),
                    view("iso", "Isometric", (335, 215))], scale=(1, 1), format="A3", id="drawing",
-            parts_list=True, balloons="auto",
-            notes=[note("secA", (0, -52), "AXLE FIT: Ø8 H7/f7")])
+            parts_list=True, balloons=[balloon("pin", "secA", (50, 12), to=(31, -4.6)), "auto"],
+            notes=[note("secA", (0, -52), "AXLE Ø8 h6: PRESSED IN FORK N7, WHEEL RUNS F8")])
 rep = asm.build(at("caster.wpc"), pictures=True, render=True, picture=at("render.png"))
 for f, r in asm.reports.items():
     r.show()

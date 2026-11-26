@@ -46,7 +46,7 @@ def blade_section(id, offset, length, pitch):
     mid = s.point(0, 15, "mid")
     s.midpoint(mid, s.line(c0, c1, "chord", construction=True))
     s.point_on(mid, "v")
-    s.distance_v(s.origin, mid, 15)
+    s.distance_v(s.origin, mid, 15, on_drawing=False)   # 
     s.angle("u", "chord", pitch, at=AT)
     return s
 
@@ -64,12 +64,13 @@ p.feature_pattern([side], 5, about=axis("Z"), id="blades")
 p.on_sheet("root", on_drawing=False)
 bore = rep.faces(where=lambda f: not f["flat"] and f["name"].startswith("hub/") and abs(f["middle"][2] - 15) < 1
                  and abs(f["middle"][0]) + abs(f["middle"][1]) < 5)[0]
-p.dimension(bore, kind="Diameter", show_in="top", id="bore", at=(-32, -36), tol="H7")   # H7: locating fit on the motor shaft
+p.dimension(bore, kind="Diameter", show_in="top", id="bore", at=(-33, -43), tol=(0.1, 0))   # moulded bore for the motor shaft: +0,1/0 (plastic, ISO 20457), not a ground fit
 p.on_sheet("root_plane", on_drawing=False)
 p.op("Section", id="T", along="Plane", plane=axis("X"), offset=80.0)
 p.drawing(views=[view("top", "Top", (125, 190)), projected("front", "top", "Below", 125),
-                 section_view("sec_tip", "T", (300, 110), of="top", letter="A", cut_only=True, scale=(2, 1)),
-                 view("iso", "Isometric", (320, 225), scale=(1, 2))], scale=(1, 1), format="A3", id="drawing",
-          notes=[note("front", (-5, -40), "BLADE ROOT AT 20 FROM THE AXIS: CHORD 26 + R1,5 ENDS, PITCH 40°")])
+                 section_view("sec_tip", "T", (300, 110), of="top", letter="A", cut_only=True, scale=(2, 1), caption_at=(0, -36)),
+                 view("iso", "Isometric", (320, 225), scale=(1, 2))], scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 20457 TG 6",
+          notes=[note("front", (-5, -40), "BLADE ROOT AT 20 FROM THE AXIS: CHORD 26 + R1,5 ENDS, PITCH 40°"),
+                 note("front", (-5, -48), "BLADE MIDDLE 15 ABOVE THE HUB BASE")])
 rep = p.build(OUT, render=True, pictures=True, picture=os.path.join(HERE, "render.png"))
 rep.show()

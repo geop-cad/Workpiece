@@ -33,6 +33,10 @@ pub enum Tolerance {
     /// For reference only: the value is written in brackets, `(60)`,
     /// and nothing is held to it — it follows from other dimensions.
     Reference,
+    /// Theoretically exact (ISO 1101, TED): the value is written in a
+    /// box, `[88]`, and held by no tolerance of its own — the geometric
+    /// tolerance that refers to it (a position, a profile) holds it.
+    Exact,
 }
 
 /// What a dimension measures, where it is in the model.
@@ -366,6 +370,8 @@ pub struct FeatureAxis {
     pub axis: Point3,
     /// The feature's radius.
     pub radius: f64,
+    /// How long it is along its axis, about `centre`.
+    pub length: f64,
 }
 
 impl FeatureAxis {
@@ -376,17 +382,20 @@ impl FeatureAxis {
             centre: pose.transform_point(self.centre),
             axis: pose.transform_vector(self.axis),
             radius: self.radius,
+            length: self.length,
         }
     }
 
     /// Whether the diameter `centre`, `axis`, `radius` measures this
-    /// feature: the same radius about the same line.
+    /// feature: the same radius about the same line, measured where the
+    /// feature is along it (not at another seat as large on the shaft).
     #[must_use]
     pub fn sized_by(&self, centre: Point3, axis: Point3, radius: f64) -> bool {
-        let tol = 1e-6 * (1.0 + self.radius);
+        let tol = 1e-6 * (1.0 + self.radius + self.length);
         (radius - self.radius).abs() <= tol
             && axis.cross(self.axis).length() <= 1e-6
             && (centre - self.centre).cross(self.axis).length() <= tol
+            && (centre - self.centre).dot(self.axis).abs() <= self.length / 2.0 + tol
     }
 }
 
@@ -726,7 +735,7 @@ impl Tolerance {
     /// where the general tolerance applies.
     pub fn suffix(&self, size: f64, unit: &str) -> String {
         match self {
-            Tolerance::General | Tolerance::Reference => String::new(),
+            Tolerance::General | Tolerance::Reference | Tolerance::Exact => String::new(),
             Tolerance::Symmetric(t) => format!(" ±{}{unit}", number(t.abs())),
             Tolerance::Deviations { upper, lower } => {
                 let [u, l] = deviations(*upper, *lower, unit);
@@ -786,7 +795,9 @@ impl Tolerance {
             Tolerance::Deviations { upper, lower } | Tolerance::Limits { upper, lower } => {
                 (*upper, *lower)
             }
-            Tolerance::General | Tolerance::Fit(_) | Tolerance::Reference => return kind.clone(),
+            Tolerance::General | Tolerance::Fit(_) | Tolerance::Reference | Tolerance::Exact => {
+                return kind.clone();
+            }
         };
         match kind {
             Tolerance::Symmetric(_) => Tolerance::Symmetric(upper.abs().max(lower.abs())),
@@ -883,6 +894,7 @@ impl Annotation {
                 );
                 match tolerance {
                     Tolerance::Reference => format!("({said})"),
+                    Tolerance::Exact => format!("[{said}]"),
                     _ => said,
                 }
             }

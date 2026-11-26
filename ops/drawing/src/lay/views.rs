@@ -1440,10 +1440,29 @@ fn see(
         }
     }
     whole.retain(|w| w.3 >= std::f64::consts::TAU * (1.0 - 1e-6));
+    // Of a section (ISO 128-3), the centre lines of what the cut shows:
+    // a circle seen square on where it is in view (a bore cut across, a
+    // hole seen beyond the cut), not one hidden in the material behind;
+    // an axis seen from the side where the cut runs along it (a bore cut
+    // along), not that of a hole the cut misses — that would run across
+    // the hatching.
+    let in_view = |at: Point3, axis: Point3, radius: f64| {
+        let side = axis.any_orthonormal_vector();
+        let other = axis.cross(side);
+        (0..8).any(|k| {
+            let a = std::f64::consts::TAU * f64::from(k) / 8.0;
+            let p = at + (side * a.cos() + other * a.sin()) * radius + towards * (reach * 4e-3);
+            let q = square(flat(p));
+            !hidden(&grid[q.0 * SQUARES + q.1], p, towards, reach * 2e-3)
+        })
+    };
     let mut along: Vec<(Point3, Point3, f64, f64)> = Vec::new();
     for (at, axis, radius, _) in &whole {
         let facing = axis.dot(towards).abs();
         if facing > 1.0 - 1e-9 {
+            if cut.is_some() && !in_view(*at, *axis, *radius) {
+                continue;
+            }
             let at = flat(*at);
             let known = seen
                 .rounds
@@ -1477,6 +1496,30 @@ fn see(
     // (Each as long as what is round about it reaches: a bore whose far
     // end runs into another has a circle only at its mouth — its axis
     // all along it, not only along the countersink there.)
+    if let Some(cut) = cut {
+        // (A bore the cut runs along is cut in half: no whole circle of
+        // it is left to tell it by. What is round of the model uncut.)
+        for r in super::lines::rounds(uncut).iter() {
+            if r.axis.dot(towards).abs() > 1e-9 {
+                continue;
+            }
+            let axis = if r.axis.dot(right + up * 0.5 + towards * 0.25) < 0.0 {
+                -r.axis
+            } else {
+                r.axis
+            };
+            let foot = r.foot - axis * (r.foot - middle).dot(axis);
+            if !along
+                .iter()
+                .any(|a| a.1.cross(axis).length() <= 1e-9 && a.0.distance(foot) <= reach * 1e-7)
+                && on_cut(cut, r.foot + r.axis * r.from, reach * 1e-6)
+                && on_cut(cut, r.foot + r.axis * r.to, reach * 1e-6)
+            {
+                let s = (r.foot - middle).dot(axis);
+                along.push((foot, axis, s, s));
+            }
+        }
+    }
     if !along.is_empty() {
         let rounds = super::lines::rounds(uncut);
         for (foot, axis, from, to) in &mut along {
@@ -1494,6 +1537,12 @@ fn see(
                 }
             }
         }
+    }
+    if let Some(cut) = cut {
+        along.retain(|(foot, axis, from, to)| {
+            on_cut(cut, *foot + *axis * *from, reach * 1e-6)
+                && on_cut(cut, *foot + *axis * *to, reach * 1e-6)
+        });
     }
     for (foot, axis, from, to) in along {
         if to - from > reach * 1e-7 {
@@ -1765,6 +1814,22 @@ fn nearly_edge_on(run: &[Point3], towards: Point3, reach: f64) -> bool {
             (lo.min(s), hi.max(s))
         });
     hi - lo > reach * 1e-6
+}
+
+/// Whether `p` lies in what `cut` cuts along: on a piece of its line (in
+/// its plane), seen along the plane's normal — the first and the last
+/// piece on past their ends, unless the cut stops there.
+fn on_cut(cut: &Cutting, p: Point3, near: f64) -> bool {
+    let d = p - cut.origin;
+    let p = Point2::new(d.dot(cut.x), d.dot(cut.y));
+    let pieces = cut.path.len() - 1;
+    cut.path.windows(2).enumerate().any(|(k, w)| {
+        let along = (w[1] - w[0]).normalize_or_zero();
+        let s = (p - w[0]).dot(along);
+        (p - w[0]).perp_dot(along).abs() <= near
+            && ((k == 0 && !cut.bounded) || s >= -near)
+            && ((k + 1 == pieces && !cut.bounded) || s <= w[0].distance(w[1]) + near)
+    })
 }
 
 /// `world` with only what `names` names: its bodies by their names, the

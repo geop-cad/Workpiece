@@ -111,7 +111,7 @@
                   4.0
                 ],
                 "tolerance": {
-                  "Fit": "f7"
+                  "Fit": "h6"
                 },
                 "value": 8.0
               },
@@ -410,6 +410,18 @@
           "target": null
         },
         "id": "pin"
+      }
+    },
+    {
+      "SurfaceTexture": {
+        "args": {
+          "feature": {
+            "Topology": "pin/side/e16"
+          },
+          "removal": "Required",
+          "text": "Ra 0,8"
+        },
+        "id": "surfacetexture1"
       }
     },
     {
@@ -743,6 +755,14 @@
                 30.999100371972816
               ],
               "note": "pin_profile/d31",
+              "view": "front"
+            },
+            {
+              "at": [
+                38.0,
+                14.0
+              ],
+              "note": "surfacetexture1",
               "view": "front"
             }
           ],

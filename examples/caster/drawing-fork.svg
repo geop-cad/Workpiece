@@ -87,7 +87,7 @@
 <text transform="translate(397.200 279.200) rotate(-0.000) translate(0 1.800)" font-family="Helvetica, Arial, sans-serif" font-size="2.507" text-anchor="start">Sheet</text>
 <text transform="translate(398.000 285.200) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="start">1/1</text>
 <text transform="translate(54.000 172.369) rotate(-90.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">20 ±0,1</text>
-<text transform="translate(219.358 192.314) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">Ø8 H7</text>
+<text transform="translate(219.358 192.314) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">Ø8 N7</text>
 <text transform="translate(37.000 162.000) rotate(-90.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">70</text>
 <text transform="translate(58.211 122.135) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">R10</text>
 <text transform="translate(54.000 72.000) rotate(-90.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">60</text>
@@ -96,4 +96,5 @@
 <text transform="translate(113.129 29.532) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="start">10</text>
 <text transform="translate(118.550 29.532) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="start"></text>
 <text transform="translate(77.355 211.000) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">3</text>
+<text transform="translate(230.680 188.814) rotate(-0.000) translate(0 3.500)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">2×</text>
 </svg>

@@ -368,7 +368,7 @@
                   3.2
                 ],
                 "tolerance": {
-                  "Fit": "H7"
+                  "Fit": "N7"
                 },
                 "value": 8.0
               },
@@ -1105,6 +1105,18 @@
                 }
               },
               "style": "HiddenRemoved"
+            }
+          ],
+          "words": [
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "axle_hole/d11",
+              "height": 3.5,
+              "text": "2×",
+              "view": null
             }
           ]
         },

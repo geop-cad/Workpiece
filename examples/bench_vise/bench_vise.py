@@ -43,9 +43,9 @@ def profile(part, id, corners, show_in):
 # a Ø13 bore for the screw through the jaw, 31 up.
 body = Part(material="Cast iron", title="VISE BODY", file="body.wpc")
 s, q = profile(body, "body_profile", [(0, 0), (0, 140), (12, 140), (12, 18), (50, 18), (50, 0)], None)
-s.distance_v(q[0], q[1], 140)
+s.distance_v(q[0], q[1], 140, show_in="left", at=(0, 42))  # (on the L-shaped side view: the true shape)
 s.distance_u(q[1], q[2], 12, show_in="left")  # the base's thickness, where it is seen in profile
-s.distance_v(q[5], q[4], 18)
+s.distance_v(q[5], q[4], 18, show_in="left", at=(-52, 33))
 s.distance_u(q[0], q[5], 50)
 body.extrude(s, 60, symmetric=True, combine="NewBody", id="body")
 brep = body.build(at("body.wpc"))
@@ -54,17 +54,18 @@ b = body.sketch(topo(outside), id="bore_place", show_in="left")
 dot = b.dot(0, 31, "c")
 b.point_on(dot, "v")
 b.distance_v(b.origin, dot, 31, tol=0.1)  # the screw's axis height: 12 base + 19 in the jaw
-body.hole(b, 13, next=True, tol="H12", id="bore")  # clearance for the M12 screw: a loose H12 bore
+body.hole(b, 12, next=True, kind="Tapped", size="M12", id="bore")  # the screw runs in an M12 thread in the fixed jaw
 brep = body.build(at("body.wpc"))
 bottom = brep.faces(where=lambda f: f["flat"] and f["normal"][2] < -0.99)[0]
 slide = brep.faces(where=lambda f: f["flat"] and f["normal"][2] > 0.99 and abs(f["middle"][2] - 12) < 1e-6)[0]
 guide = brep.faces(where=lambda f: f["flat"] and f["normal"][0] > 0.99 and abs(f["middle"][0] - 18) < 1e-6)[0]
 body.datum_feature("A", on=topo(bottom), show_in="left", at=(0, -40))                 # the base's underside, on the bench
 body.geometric_tolerance("Parallelism", 0.05, on=topo(slide), datums=["A"], show_in="left", at=(35, 2))   # the jaw slides on it
-body.geometric_tolerance("Perpendicularity", 0.05, on=topo(guide), datums=["A"], show_in="left", at=(-22, 8))  # the jaw's back face rests against it
-body.on_sheet("bore/callout", at=(-45, 38))
-body.drawing(views=[view("front", "Front", (230, 100)), projected("top", "front", "Above", 107),
-                    projected("left", "front", "Left", 120), view("iso", "Isometric", (345, 215), scale=(1, 2))],
+body.geometric_tolerance("Perpendicularity", 0.05, on=topo(guide), datums=["A"], show_in="left", at=(-22, 15), to=(-52, 15))  # the jaw's back face rests against it
+body.on_sheet("bore/callout", at=(0, 47))
+body.on_sheet("body/distance", at=(0, -38))
+body.drawing(views=[view("front", "Front", (255, 140)), projected("left", "front", "Left", 125),
+                    view("iso", "Isometric", (340, 225), scale=(1, 2))],
              scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 8062-3 DCTG 9")  # a casting; the bore is toleranced
 
 # --- The moving jaw: 18 thick, 60 wide, 38 high; a Ø12 seat 8 deep for the screw's tip on its back,
@@ -79,8 +80,8 @@ back = jrep.faces(where=lambda f: f["flat"] and f["normal"][0] < -0.99)[0]
 k = jaw.sketch(topo(back), id="seat_place", show_in="back")
 dot = k.dot(0, 19, "c")
 k.point_on(dot, "v")
-k.distance_v(k.origin, dot, 19, tol=0.1)  # the screw's axis height above the jaw's foot (body: 12 + 19 = 31)
-jaw.hole(k, 12, depth=8, point=180, id="seat")
+k.distance_v(k.origin, dot, 19, tol=0.1, at=(42, -10))  # the screw's axis height above the jaw's foot (body: 12 + 19 = 31)
+jaw.hole(k, 12.5, depth=8, point=180, tol="H11", id="seat")  # the screw tip (Ø12) turns in it with play
 jrep = jaw.build(at("jaw.wpc"))
 foot = jrep.faces(where=lambda f: f["flat"] and f["normal"][2] < -0.99)[0]
 rest = jrep.faces(where=lambda f: f["flat"] and f["normal"][0] < -0.99 and abs(f["middle"][0]) < 1e-6)[0]
@@ -104,8 +105,9 @@ for i in range(6):
 t.coincident(pts[0], t.origin)
 t.diameter_about(pts[1], axis_line, 24)
 t.diameter_about(pts[3], axis_line, 12, on_drawing=False)  # (the thread's callout says M12)
-t.distance_u(pts[1], pts[2], 12, at=(-22, 49))
-t.distance_u(pts[0], pts[5], 122)
+t.distance_u(pts[1], pts[2], 12, at=(-22, 55))
+t.distance_u(pts[3], pts[4], 110, at=(22, -10))   # the thread's length: a real dimension
+t.distance_u(pts[0], pts[5], 122, reference=True, at=(30, 0))
 screw.revolve(t, combine="NewBody", id="screw")
 srep = screw.build(at("screw.wpc"))
 shank = srep.faces(where=lambda f: f["surface"] == "cylinder" and f["middle"][0] > 20)[0]
@@ -114,7 +116,6 @@ screw.on_sheet("thread/callout", show_in="top", at=(-42, -30))
 srep = screw.build(at("screw.wpc"))
 under = srep.faces(where=lambda f: f["flat"] and abs(f["middle"][0] - 12) < 1e-6)[0]
 end = srep.faces(where=lambda f: f["flat"] and abs(f["middle"][0] - 122) < 1e-6)[0]
-screw.dimension(topo(under), topo(end), reference=True, show_in="top", at=(22, -10))  # the thread's length
 screw.drawing(views=[view("top", "Top", (160, 170)), view("iso", "Isometric", (330, 230))],
               scale=(1, 1), format="A3", id="drawing")
 
@@ -137,9 +138,9 @@ def vise(open_at: float, drawing: bool) -> Part:
         asm.op("Section", id="A", along="Plane", plane=axis("Y"), offset=0.0)
         asm.drawing(views=[section_view("secA", "A", (160, 185), of="top", caption_at=(0, -32), scale=(1, 1)),
                            view("top", "Top", (300, 150), scale=(1, 2), caption_at=(32, -40)),
-                           view("iso", "Isometric", (360, 235), scale=(1, 2))],
+                           view("iso", "Isometric", (360, 247), scale=(1, 2))],
                     scale=(1, 1), format="A3", id="drawing", parts_list=True,
-                    balloons=[balloon("body", "secA", (-70, -40), to=(-70, -19)), balloon("jaw", "secA", (-30, 62), to=(-26, 30)),
+                    balloons=[balloon("body", "secA", (-70, -40), to=(-70, -19)), balloon("jaw", "secA", (-30, 62), to=(-26, 18)),
                               balloon("screw", "secA", (62, 42), to=(62, 8))])
     return asm
 

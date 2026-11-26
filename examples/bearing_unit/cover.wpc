@@ -177,7 +177,7 @@
                   0.0,
                   44.0
                 ],
-                "tolerance": "General",
+                "tolerance": "Exact",
                 "value": 88.0
               },
               "kind": {
@@ -402,21 +402,10 @@
       }
     },
     {
-      "DatumFeature": {
-        "args": {
-          "feature": {
-            "Topology": "cover/side/e7"
-          },
-          "letter": "B"
-        },
-        "id": "datumfeature2"
-      }
-    },
-    {
       "GeometricTolerance": {
         "args": {
           "characteristic": "Position",
-          "datums": "A B",
+          "datums": "A",
           "diametral": true,
           "feature": {
             "Topology": "screw_hole/side/e1"
@@ -792,18 +781,14 @@
             },
             {
               "at": [
-                0.0,
-                5.996787042760019
-              ],
-              "note": "datumfeature2",
-              "view": "secA"
-            },
-            {
-              "at": [
                 30.0,
-                12.0
+                30.0
               ],
               "note": "geometrictolerance1",
+              "to": [
+                4.0,
+                30.0
+              ],
               "view": "secA"
             },
             {
@@ -824,8 +809,8 @@
             },
             {
               "at": [
-                33.65605363209693,
-                77.65284067485692
+                -34.0,
+                58.0
               ],
               "note": "screw_hole/callout",
               "view": "left"

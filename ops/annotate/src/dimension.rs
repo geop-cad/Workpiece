@@ -193,6 +193,15 @@ fn thing(world: &World, source: &Source) -> anyhow::Result<Thing> {
     if let Ok(point) = Position::resolve(world, source) {
         return Ok(Thing::Point(point.0));
     }
+    // (A datum's name said as a face's: a flat pattern's bend line
+    // `flat/bend1` is a datum axis.)
+    if let Source::Topology(name) = source
+        && world.datums.contains_key(name.as_str())
+    {
+        anyhow::bail!(
+            "{name} is no face or edge of the model but a datum (a bend line of a flat pattern, a plane,              an axis): name it as one, datum(\"{name}\") in a script"
+        );
+    }
     anyhow::bail!(
         "{} is no flat face, straight edge or point to measure from",
         source.described()
@@ -1194,6 +1203,7 @@ pub(crate) fn tolerance_fields(
         Tolerance::Limits { .. } => 3,
         Tolerance::Fit(_) => 4,
         Tolerance::Reference => 5,
+        Tolerance::Exact => 6,
     };
     let options = [
         "General",
@@ -1202,6 +1212,7 @@ pub(crate) fn tolerance_fields(
         "Limits of size",
         "Fit (ISO 286)",
         "Reference (in brackets)",
+        "Theoretically exact (boxed)",
     ]
     .map(str::to_owned)
     .to_vec();
@@ -1220,6 +1231,7 @@ pub(crate) fn tolerance_fields(
                 },
                 4 => Tolerance::Fit("H7".to_owned()),
                 5 => Tolerance::Reference,
+                6 => Tolerance::Exact,
                 _ => Tolerance::General,
             }))
         }
@@ -1232,6 +1244,7 @@ pub(crate) fn tolerance_fields(
             "tol-limits",
             "tol-fit",
             "tol-reference",
+            "tol-exact",
         ]
         .map(Some)
         .to_vec(),
@@ -1239,7 +1252,7 @@ pub(crate) fn tolerance_fields(
     .drop_down();
     let mut fields: Vec<Widget<DimensionArgs>> = vec![kind.into()];
     match args.tolerance.clone() {
-        Tolerance::General | Tolerance::Reference => {}
+        Tolerance::General | Tolerance::Reference | Tolerance::Exact => {}
         Tolerance::Symmetric(t) => {
             let with = with.clone();
             fields.push(

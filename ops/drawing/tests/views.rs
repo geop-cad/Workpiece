@@ -70,6 +70,7 @@ fn a_view_shows_the_bodies_it_names_and_a_section_only_its_cut() -> anyhow::Resu
             properties: &properties,
             parts: &Default::default(),
             densities: &Default::default(),
+            sheet: [1, 1],
         };
         let laid = lay_out(&sheet, &subject, &Kept::default(), None);
         assert!(laid.problems.is_empty(), "{:?}", laid.problems);
@@ -136,6 +137,7 @@ fn laid(b: &Standalone, views: Vec<SheetView>, notes: Vec<PlacedNote>) -> Laid {
         properties: &properties,
         parts: &Default::default(),
         densities: &Default::default(),
+        sheet: [1, 1],
     };
     lay_out(&sheet, &subject, &Kept::default(), None)
 }

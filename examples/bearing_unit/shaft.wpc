@@ -118,7 +118,7 @@
                 "driven": false,
                 "formula": null,
                 "label": [
-                  0.0,
+                  49.0,
                   10.0
                 ],
                 "tolerance": {
@@ -129,7 +129,7 @@
               "kind": {
                 "PointLine": {
                   "line": 23,
-                  "point": 8
+                  "point": 9
                 }
               }
             },
@@ -530,6 +530,31 @@
       }
     },
     {
+      "DatumFeature": {
+        "args": {
+          "feature": {
+            "Topology": "shaft/side/e16"
+          },
+          "letter": "A"
+        },
+        "id": "datumfeature1"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "CircularRunout",
+          "datums": "A",
+          "diametral": false,
+          "feature": {
+            "Topology": "shaft/side/e20"
+          },
+          "value": 0.02
+        },
+        "id": "geometrictolerance1"
+      }
+    },
+    {
       "Drawing": {
         "args": {
           "block": [
@@ -833,7 +858,27 @@
             {
               "at": [
                 -81.0,
-                0.0
+                -27.0
+              ],
+              "note": "datumfeature1",
+              "view": "front"
+            },
+            {
+              "at": [
+                80.0,
+                -27.0
+              ],
+              "note": "geometrictolerance1",
+              "to": [
+                70.0,
+                -19.0
+              ],
+              "view": "front"
+            },
+            {
+              "at": [
+                -81.0,
+                30.0
               ],
               "note": "shaft_profile/d35",
               "view": "front"
@@ -841,7 +886,7 @@
             {
               "at": [
                 0.0,
-                0.0
+                12.0
               ],
               "note": "shaft_profile/d36",
               "view": "front"
@@ -865,7 +910,7 @@
             {
               "at": [
                 -5.684341886080802e-14,
-                -36.00167073776478
+                -43.00167073776478
               ],
               "note": "shaft_profile/d39",
               "view": "front"
@@ -925,11 +970,11 @@
           "words": [
             {
               "at": [
-                140.0,
-                22.0
+                146.0,
+                28.0
               ],
               "height": 3.5,
-              "text": "1×45°",
+              "text": "2× 1×45°",
               "to": [
                 [
                   0.0,
@@ -938,6 +983,16 @@
                 ]
               ],
               "view": "front"
+            },
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "shaft_profile/d35",
+              "height": 3.5,
+              "text": "2×",
+              "view": null
             }
           ]
         },

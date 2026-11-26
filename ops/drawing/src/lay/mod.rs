@@ -622,6 +622,9 @@ pub struct Subject<'a> {
     /// How dense the materials are, by name, in kilograms a cubic metre:
     /// what a parts list with a density column says.
     pub densities: &'a BTreeMap<String, f64>,
+    /// Which of the part's sheets this is, and how many it has (its
+    /// drawing steps, in order): `[1, 2]` is written `1/2`.
+    pub sheet: [usize; 2],
 }
 
 /// What views show of worlds, kept while the world and the view are the

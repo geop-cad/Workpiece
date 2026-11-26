@@ -179,6 +179,7 @@
                   60.0,
                   23.5
                 ],
+                "name": "seat",
                 "tolerance": {
                   "Fit": "H7"
                 },
@@ -259,6 +260,7 @@
                   7.0,
                   23.5
                 ],
+                "name": "depth1",
                 "tolerance": "General",
                 "value": 14.0
               },
@@ -279,6 +281,7 @@
                   53.0,
                   23.5
                 ],
+                "name": "depth2",
                 "tolerance": "General",
                 "value": 14.0
               },
@@ -641,7 +644,7 @@
                   0.0,
                   44.0
                 ],
-                "tolerance": "General",
+                "tolerance": "Exact",
                 "value": 88.0
               },
               "kind": {
@@ -1238,42 +1241,54 @@
           "notes": [
             {
               "at": [
-                -40.0,
-                -17.0
+                -44.0,
+                -42.0
               ],
               "note": "datumfeature1",
+              "to": [
+                -30.0,
+                -40.0
+              ],
               "view": "secA"
             },
             {
               "at": [
-                -4.0,
-                11.0
+                50.0,
+                52.0
               ],
               "note": "datumfeature2",
               "view": "secA"
             },
             {
               "at": [
-                -52.0,
-                11.0
+                -44.0,
+                40.0
               ],
               "note": "geometrictolerance1",
+              "to": [
+                -30.0,
+                40.0
+              ],
               "view": "secA"
             },
             {
               "at": [
-                0.0,
-                -11.0
+                58.0,
+                -52.0
               ],
               "note": "geometrictolerance2",
               "view": "secA"
             },
             {
               "at": [
-                14.60910319066548,
-                75.32610993758041
+                -62.0,
+                32.0
               ],
               "note": "geometrictolerance3",
+              "to": [
+                -44.0,
+                0.0
+              ],
               "view": "left"
             },
             {
@@ -1294,15 +1309,7 @@
             },
             {
               "at": [
-                50.0,
-                0.0
-              ],
-              "note": "housing_profile/d43",
-              "view": "secA"
-            },
-            {
-              "at": [
-                40.00000000000003,
+                68.0,
                 -0.0032129572399810513
               ],
               "note": "housing_profile/d44",
@@ -1327,9 +1334,25 @@
             {
               "at": [
                 -23.0,
-                -60.0
+                10.0
               ],
-              "note": "housing_profile/d47",
+              "note": "housing_profile/depth1",
+              "view": "secA"
+            },
+            {
+              "at": [
+                23.0,
+                -10.0
+              ],
+              "note": "housing_profile/depth2",
+              "view": "secA"
+            },
+            {
+              "at": [
+                50.0,
+                0.0
+              ],
+              "note": "housing_profile/seat",
               "view": "secA"
             },
             {
@@ -1371,7 +1394,7 @@
           "views": [
             {
               "at": [
-                85.0,
+                100.0,
                 165.0
               ],
               "id": "left",
@@ -1384,7 +1407,7 @@
             },
             {
               "at": [
-                205.0,
+                225.0,
                 165.0
               ],
               "caption_at": [
@@ -1418,6 +1441,18 @@
                 2
               ],
               "style": "HiddenRemoved"
+            }
+          ],
+          "words": [
+            {
+              "at": [
+                0.0,
+                0.0
+              ],
+              "dimension": "housing_profile/seat",
+              "height": 3.5,
+              "text": "2×",
+              "view": null
             }
           ]
         },

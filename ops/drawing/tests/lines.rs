@@ -63,6 +63,7 @@ fn lay(b: &Standalone, sheet: &Sheet, missing: bool) -> Laid {
         properties: &properties,
         parts: &Default::default(),
         densities: &Default::default(),
+        sheet: [1, 1],
     };
     lay_out(sheet, &subject, &Kept::default(), missing.then_some(None))
 }
@@ -380,5 +381,80 @@ fn a_plane_of_symmetry_is_drawn_with_its_words_where_asked() -> anyhow::Result<(
     // By itself: at one of those ends.
     let free = at(None);
     assert!(free.distance(start) < 1e-9 || free.distance(end) < 1e-9);
+    Ok(())
+}
+
+#[test]
+fn a_section_has_the_centre_lines_of_the_bores_it_cuts_and_none_of_those_it_misses()
+-> anyhow::Result<()> {
+    // The block (4 × 4 × 2 about the origin) drilled through at (1, 1),
+    // Ø0,5, and at (−1, −1), Ø1; cut along y = 1, looked at from +y:
+    // the cut runs along the small bore and misses the large one, which
+    // lies in the material behind.
+    let mut b = Standalone::new();
+    base(&mut b)?;
+    let mut points = Sketch::new("points");
+    points.args.plane = Some(xy());
+    let p = points.args.add_point(Point2::new(1.0, 1.0));
+    points.args.add(Shape::Point(p));
+    points.apply(&mut b)?;
+    let mut other = Sketch::new("other");
+    other.args.plane = Some(xy());
+    let p = other.args.add_point(Point2::new(-1.0, -1.0));
+    other.args.add(Shape::Point(p));
+    other.apply(&mut b)?;
+    for (id, sketch, diameter) in [("small", "points", 0.5), ("large", "other", 1.0)] {
+        Hole {
+            id: id.into(),
+            args: HoleArgs {
+                place: workpiece_ops_features::HolePlace::Sketch,
+                sketch: Some(Source::Profile(sketch.into()).into()),
+                diameter: Measure::new(diameter),
+                extent: workpiece_ops_sweep::Extent::ThroughAll,
+                ..HoleArgs::default()
+            },
+        }
+        .apply(&mut b)?;
+    }
+    b.world.sections.insert(
+        "mid".into(),
+        workpiece_core::world::Cutting::plane(Point3::new(0.0, 1.0, 0.0), Point3::Y),
+    );
+    let mut view = top();
+    view.kind = ViewKind::Section {
+        of: None,
+        section: "mid".into(),
+        letter: "A".into(),
+        turn: 0.0,
+    };
+    let sheet = Sheet {
+        views: vec![view],
+        scale: [10, 1],
+        centres: Centres::All,
+        ..Sheet::default()
+    };
+    let laid = lay(&b, &sheet, false);
+    // The centre lines along z (up the sheet) in the view (about
+    // (150, 150), 40 × 20 at 10:1): one, at the middle of the small
+    // bore's two walls, which the cut shows 5 mm apart.
+    let in_view = |p: Point2| (p - Point2::new(150.0, 150.0)).abs().max_element() < 30.0;
+    let mut chains: Vec<f64> = laid
+        .strokes
+        .iter()
+        .filter(|s| s.pen == Pen::Chain && (s.a.x - s.b.x).abs() < 1e-6 && in_view(s.a))
+        .map(|s| s.a.x)
+        .collect();
+    chains.sort_by(f64::total_cmp);
+    chains.dedup_by(|a, b| (*a - *b).abs() < 0.05);
+    assert_eq!(chains.len(), 1, "{chains:?}");
+    let walls = |x: f64| {
+        laid.strokes
+            .iter()
+            .any(|s| s.pen == Pen::Wide && (s.a.x - x).abs() < 0.05 && (s.b.x - x).abs() < 0.05)
+    };
+    assert!(
+        walls(chains[0] - 2.5) && walls(chains[0] + 2.5),
+        "{chains:?}"
+    );
     Ok(())
 }

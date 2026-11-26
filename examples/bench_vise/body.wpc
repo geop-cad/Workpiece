@@ -526,11 +526,11 @@
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
-          "class": "H12",
+          "class": null,
           "clearance": "Medium",
           "deburr": "None",
           "depth": 10.0,
-          "diameter": 13.0,
+          "diameter": 12.0,
           "extent": "ToNext",
           "face": null,
           "fine": null,
@@ -544,7 +544,7 @@
           "head_offset": 0.0,
           "head_up_to": null,
           "hexagon": false,
-          "kind": "Simple",
+          "kind": "Tapped",
           "modelled": false,
           "offset": 0.0,
           "pitch": 1.0,
@@ -553,7 +553,7 @@
           "radius": 10.0,
           "second": null,
           "second_offset": 10.0,
-          "size": null,
+          "size": "M12",
           "sketch": {
             "Profile": "bore_place"
           },
@@ -909,18 +909,18 @@
             {
               "at": [
                 0.0,
-                -35.0
+                -38.0
               ],
               "note": "body/distance",
               "view": "front"
             },
             {
               "at": [
-                47.0,
-                0.0
+                0.0,
+                42.0
               ],
               "note": "body_profile/d26",
-              "view": "top"
+              "view": "left"
             },
             {
               "at": [
@@ -932,11 +932,11 @@
             },
             {
               "at": [
-                40.0,
-                61.0
+                -52.0,
+                33.0
               ],
               "note": "body_profile/d28",
-              "view": "top"
+              "view": "left"
             },
             {
               "at": [
@@ -948,8 +948,8 @@
             },
             {
               "at": [
-                -45.0,
-                38.0
+                0.0,
+                47.0
               ],
               "note": "bore/callout",
               "view": "front"
@@ -981,9 +981,13 @@
             {
               "at": [
                 -22.0,
-                8.0
+                15.0
               ],
               "note": "geometrictolerance2",
+              "to": [
+                -52.0,
+                15.0
+              ],
               "view": "left"
             }
           ],
@@ -1009,8 +1013,8 @@
           "views": [
             {
               "at": [
-                230.0,
-                100.0
+                255.0,
+                140.0
               ],
               "id": "front",
               "kind": {
@@ -1022,22 +1026,8 @@
             },
             {
               "at": [
-                230.0,
-                207.0
-              ],
-              "id": "top",
-              "kind": {
-                "Projected": {
-                  "beside": "Above",
-                  "of": "front"
-                }
-              },
-              "style": "HiddenRemoved"
-            },
-            {
-              "at": [
-                110.0,
-                100.0
+                130.0,
+                140.0
               ],
               "id": "left",
               "kind": {
@@ -1050,8 +1040,8 @@
             },
             {
               "at": [
-                345.0,
-                215.0
+                340.0,
+                225.0
               ],
               "id": "iso",
               "kind": {

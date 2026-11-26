@@ -856,46 +856,6 @@
       }
     },
     {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Diameter",
-          "of": [
-            {
-              "Topology": "pipe/l1/run0/side/e1"
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "outside"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Diameter",
-          "of": [
-            {
-              "Topology": "pipe/run0/side/e1"
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "General"
-        },
-        "id": "inside"
-      }
-    },
-    {
       "GeometricTolerance": {
         "args": {
           "characteristic": "Flatness",
@@ -907,6 +867,20 @@
           "value": 0.1
         },
         "id": "geometrictolerance1"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Flatness",
+          "datums": "",
+          "diametral": false,
+          "feature": {
+            "Topology": "flange2/flange/end#2"
+          },
+          "value": 0.1
+        },
+        "id": "geometrictolerance2"
       }
     },
     {
@@ -1245,9 +1219,10 @@
             },
             {
               "at": [
-                -94.1568542494924,
-                70.65267740508042
+                -96.31235050313853,
+                40.27588346940644
               ],
+              "count": 4,
               "note": "bolt/callout",
               "view": "bottom"
             },
@@ -1285,27 +1260,35 @@
             },
             {
               "at": [
-                23.0,
+                68.0,
                 -108.0
               ],
               "note": "geometrictolerance1",
+              "to": [
+                68.0,
+                -88.0
+              ],
               "view": "secA"
             },
             {
               "at": [
-                8.0,
-                8.0
+                -110.0,
+                76.0
               ],
-              "note": "inside",
+              "note": "geometrictolerance2",
+              "to": [
+                -88.5,
+                76.0
+              ],
               "view": "secA"
             },
             {
               "at": [
-                -8.0,
-                38.0
+                -32.0,
+                -10.0
               ],
-              "note": "outside",
-              "view": "secA"
+              "note": "section/d10",
+              "view": "bottom"
             }
           ],
           "numbers": {
@@ -1369,6 +1352,26 @@
                 }
               },
               "style": "HiddenRemoved"
+            }
+          ],
+          "words": [
+            {
+              "at": [
+                -102.0,
+                60.0
+              ],
+              "height": 3.5,
+              "text": "BOTH FLANGES",
+              "view": "bottom"
+            },
+            {
+              "at": [
+                110.0,
+                50.0
+              ],
+              "height": 3.5,
+              "text": "TUBE Ø60 × 5",
+              "view": "bottom"
             }
           ]
         },

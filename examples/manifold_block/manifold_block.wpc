@@ -849,17 +849,17 @@
                 "driven": false,
                 "formula": null,
                 "label": [
-                  8.0,
-                  15.0
+                  0.0,
+                  30.0
                 ],
                 "tolerance": {
                   "Symmetric": 0.1
                 },
-                "value": 16.0
+                "value": 32.0
               },
               "kind": {
                 "DistanceAlong": {
-                  "a": 1,
+                  "a": 8,
                   "axis": "U",
                   "b": 7
                 }
@@ -871,17 +871,17 @@
                 "driven": false,
                 "formula": null,
                 "label": [
-                  8.0,
-                  15.0
+                  16.0,
+                  0.0
                 ],
                 "tolerance": {
                   "Symmetric": 0.1
                 },
-                "value": 30.0
+                "value": 60.0
               },
               "kind": {
                 "DistanceAlong": {
-                  "a": 1,
+                  "a": 10,
                   "axis": "V",
                   "b": 7
                 }
@@ -1499,8 +1499,8 @@
             },
             {
               "at": [
-                56.95433637710096,
-                -8.045868912971898
+                62.0,
+                -38.0
               ],
               "note": "B/callout",
               "view": "secB"
@@ -1555,8 +1555,8 @@
             },
             {
               "at": [
-                55.0,
-                -12.5
+                -58.0,
+                -20.0
               ],
               "note": "port_a/d10",
               "view": "front"
@@ -1653,7 +1653,7 @@
             },
             {
               "at": [
-                225.0,
+                236.0,
                 220.0
               ],
               "id": "front",

@@ -283,25 +283,29 @@ pub fn mass_text(kg: f64, unweighed: usize, bodies: usize, unit: Unit) -> String
     }
 }
 
-/// `world` with only the bodies and placed parts `names` names (by
-/// their names; a placed part's as `part`).
-fn shown_only(world: &World, names: &[&String]) -> World {
-    let mut only = world.clone();
-    let others: Vec<_> = only
+/// `world` but for its flat patterns: the bodies an Unfold step laid
+/// flat, told by their bend lines (`flat/bend1`, … of the body `flat`).
+/// The same sheet as the part, they are no more of its mass.
+fn without_flat_patterns(world: &World) -> std::borrow::Cow<'_, World> {
+    let flat: Vec<_> = world
         .topo
         .bodies()
         .ids()
         .filter(|b| {
-            only.topo
+            world
+                .topo
                 .name_of(*b)
-                .is_none_or(|name| !names.iter().any(|n| *n == name))
+                .is_some_and(|name| world.datums.contains_key(format!("{name}/bend1").as_str()))
         })
         .collect();
-    for body in others {
-        workpiece_boolean::remove(&mut only.topo, body);
+    if flat.is_empty() {
+        return std::borrow::Cow::Borrowed(world);
     }
-    only.instances.retain(|name, _| names.contains(&name));
-    only
+    let mut part = world.clone();
+    for body in flat {
+        workpiece_boolean::remove(&mut part.topo, body);
+    }
+    std::borrow::Cow::Owned(part)
 }
 
 /// How many solid bodies `world` and the parts placed in it have.
@@ -317,6 +321,30 @@ pub fn solid_bodies(world: &World) -> usize {
         .values()
         .map(|i| solid_bodies(&i.world))
         .sum::<usize>()
+}
+
+/// Whether the sheet gives a size its general tolerance would hold of:
+/// a dimension of its own, or one said of the model with no tolerance
+/// of its own (nor in brackets, nor theoretically exact), or a hole's
+/// callout with none. An assembly's sheet with only balloons — or a
+/// sheet whose every size is toleranced — says no general tolerance.
+fn general_applies(sheet: &Sheet, world: &World) -> bool {
+    use workpiece_core::world::annotation::{Callout, Note, Tolerance};
+    !sheet.own.is_empty()
+        || sheet
+            .notes
+            .iter()
+            .any(|n| match world.said(&n.note).as_deref() {
+                Some(said) => match &said.note {
+                    Note::Dimension { tolerance, .. } => *tolerance == Tolerance::General,
+                    Note::Hole { lines, .. } => !lines
+                        .iter()
+                        .flatten()
+                        .any(|c| matches!(c, Callout::Tolerance { .. })),
+                    _ => false,
+                },
+                None => false,
+            })
 }
 
 /// What `cell` of the title block of `sheet` says of `subject`: a
@@ -336,9 +364,13 @@ fn said(cell: &Cell, sheet: &Sheet, subject: &Subject<'_>) -> String {
         Content::Property(name) => match name.as_str() {
             "Scale" => scale_text(sheet.scale),
             "Format" => sheet.format.label().to_owned(),
-            "Sheet" => "1/1".to_owned(),
+            "Sheet" => format!("{}/{}", subject.sheet[0], subject.sheet[1]),
             "Projection" => String::new(),
-            "General tolerances" => sheet.general_tolerance.clone().unwrap_or_default(),
+            "General tolerances" => sheet
+                .general_tolerance
+                .clone()
+                .filter(|_| general_applies(sheet, subject.world))
+                .unwrap_or_default(),
             "Title" => given("Title")
                 .or_else(|| given("Name"))
                 .unwrap_or_else(|| subject.name.to_owned()),
@@ -347,16 +379,13 @@ fn said(cell: &Cell, sheet: &Sheet, subject: &Subject<'_>) -> String {
                 .or_else(|| subject.material.clone())
                 .unwrap_or_default(),
             "Mass" => given("Mass").unwrap_or_else(|| {
-                // (Of what the sheet shows, where each of its views
-                // says which bodies or parts it shows: a flat pattern's
-                // sheet weighs the flat pattern.)
-                let shown: Vec<&String> = sheet.views.iter().flat_map(|v| &v.bodies).collect();
-                let only = (!sheet.views.is_empty()
-                    && sheet.views.iter().all(|v| !v.bodies.is_empty()))
-                .then(|| shown_only(subject.world, &shown));
-                let world = only.as_ref().unwrap_or(subject.world);
-                let w = weight(world, subject.unit, subject.densities);
-                mass_text(w.kg, w.unweighed.len(), solid_bodies(world), subject.unit)
+                // (The part's, the same on each of its sheets: of what
+                // is placed in it too, not of a flat pattern laid out
+                // beside it — a flat pattern's sheet says what the part
+                // weighs.)
+                let part = without_flat_patterns(subject.world);
+                let w = weight(&part, subject.unit, subject.densities);
+                mass_text(w.kg, w.unweighed.len(), solid_bodies(&part), subject.unit)
             }),
             "Document type" => given("Document type").unwrap_or_else(|| {
                 match subject.world.instances.is_empty() {

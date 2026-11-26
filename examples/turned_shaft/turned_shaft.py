@@ -31,8 +31,8 @@ s.coincident(pts[0], s.origin)
 # The threaded end's Ø16 is kept off the sheet: the thread's callout says M16 there.
 # Fits (ISO 286): k6 on both bearing seats and the coupling seat, the hub seat under the key (a light press).
 fits = {3: "k6", 7: "k6", 9: "k6", 11: "k6"}
-for i, dia, x in ((1, 16, -140), (3, 20, -95), (5, 26, -60), (7, 22, -20), (9, 20, 90), (11, 16, 135)):
-    s.diameter_about(pts[i], ax, dia, at=(x, 0), on_drawing=i != 1, **({"tol": fits[i]} if i in fits else {}))
+for i, dia, x, y in ((1, 16, -140, 0), (3, 20, -95, 22), (5, 26, -60, 22), (7, 22, -38, 22), (9, 20, 90, 22), (11, 16, 135, 22)):
+    s.diameter_about(pts[i], ax, dia, at=(x, y), on_drawing=i != 1, **({"tol": fits[i]} if i in fits else {}))
 for i, length in ((1, 20), (3, 25), (5, 10), (7, 60), (9, 20), (11, 25)):
     s.distance_u(pts[i], pts[i + 1], length)
 p.revolve(s, combine="NewBody", id="shaft")
@@ -77,13 +77,17 @@ p.on_sheet("keyway_floor", on_drawing=False)
 p.on_sheet("end_chamfers", on_drawing=False)
 end_faces = rep.faces(where=lambda f: f["flat"] and abs(f["normal"][1]) > 0.99 and min(abs(f["middle"][1]), abs(f["middle"][1] - 160)) < 1e-6)
 p.dimension(*end_faces, show_in="top", reference=True, id="overall", at=(0, 56))
-p.dimension(key_floor, bottom, far=True, show_in="secB", id="key_depth", at=(-32, 0))
-p.on_sheet("thread/callout", show_in="front", at=(-100, -58))
+p.dimension(key_floor, bottom, far=True, show_in="secB", id="key_depth", at=(-32, 0), tol=(0, -0.1))  # floor depth, 0/-0,1
+# Run-out of the hub seat to the left bearing seat (datum axis A).
+seatA = rep.faces(where=lambda f: not f["flat"] and 20 < f["middle"][1] < 45 and f["name"].startswith("shaft"))[0]
+p.datum_feature("A", on=topo(seatA), show_in="front", at=(-125, -48), to=(-95, -20))
+p.geometric_tolerance("CircularRunout", 0.02, on=topo(bottom), datums=["A"], show_in="front", at=(-30, -48))
+p.on_sheet("thread/callout", show_in="front", at=(-100, -36))
 p.op("Section", id="B", along="Plane", plane=axis("Y"), offset=85.0)
-p.drawing(views=[view("front", "Front", (180, 115)), projected("top", "front", "Above", 85),
-                 section_view("secB", "B", (380, 205), of="front", letter="B")],
+p.drawing(views=[view("front", "Front", (190, 115)), projected("top", "front", "Above", 85),
+                 section_view("secB", "B", (200, 38), of="front", letter="B", cut_only=True)],
           scale=(2, 1), format="A3", id="drawing",
-          notes=[note("front", (-136, -48), "1×45°", to=(0, 0.5, -7.5)),
-                 note("front", (150, -50), "1×45°", to=(0, 159.5, -7.5))])
+          notes=[note("front", (-148, -36), "1×45°", to=(0, 0.5, -7.5)),
+                 note("front", (150, -36), "1×45°", to=(0, 159.5, -7.5))])
 rep = p.build(OUT, render=True, pictures=True, picture=os.path.join(HERE, "render.png"))
 rep.show()

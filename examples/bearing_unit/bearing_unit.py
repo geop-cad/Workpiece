@@ -40,19 +40,19 @@ s.point_on(q[0], "v")
 s.horizontal(q[0], q[5])                  # both seats alike
 s.diameter_about(q[1], ax, 100, show_in="left", at=(-42, -50))
 s.diameter_about(q[3], ax, 80, at=(62, 0))
-s.diameter_about(q[5], ax, 47, tol="H7", at=(50, 0))  # bearing seats: H7 locates the 6204's outer ring
+s.diameter_about(q[5], ax, 47, tol="H7", at=(50, 0), id="seat")  # both bearing seats: H7 locates the 6204's outer ring
 s.diameter_about(q[7], ax, 36)
 s.distance_u(q[1], q[2], 12)
 s.distance_u(q[0], q[5], 60)
-s.distance_u(q[9], q[0], 14, at=(-23, -60))
-s.distance_u(q[6], q[5], 14, on_drawing=False)  # (the other seat: the same 14)
+s.distance_u(q[9], q[0], 14, at=(-23, 10), id="depth1")  # seat depth, drawn inside the opening (clear of the wall)
+s.distance_u(q[6], q[5], 14, at=(23, -10), id="depth2")  # (the other seat: the same 14)
 housing.revolve(s, combine="NewBody", id="housing")
 hrep = housing.build(os.path.join(HERE, "housing.wpc"))
 front = hrep.faces(where=lambda f: f["normal"][1] < -0.99 and abs(f["middle"][1]) < 1e-6)[0]
 t = housing.sketch(topo(front), id="tap_place", show_in="left")
 dot = t.dot(0, 44, "tap")
 t.point_on(dot, "v")
-t.diameter_about(dot, "u", 88)            # on the Ø88 pitch circle
+t.diameter_about(dot, "u", 88, tol="exact")            # on the Ø88 pitch circle
 housing.hole(t, 5, depth=10, thread_depth=7.5, kind="Tapped", size="M5", id="tap")  # drilled 10, threaded 1.5 × d
 hrep = housing.build(os.path.join(HERE, "housing.wpc"))
 housing.on_sheet("tap/callout", at=(-28, 62))
@@ -63,15 +63,16 @@ seat_face = hrep.faces(where=lambda f: f["surface"] == "cylinder" and abs(f["mid
 seat_face2 = hrep.faces(where=lambda f: f["surface"] == "cylinder" and abs(f["middle"][1] - 53) < 1e-6 and abs(f["middle"][2]) > 20)[0]
 flange = hrep.faces(where=lambda f: f["flat"] and f["normal"][1] < -0.99 and abs(f["middle"][1]) < 1e-6)[0]
 tap_hole = hrep.faces(where=lambda f: f["name"].startswith("tap/") and not f["flat"] and f["surface"] == "cylinder")[0]
-housing.datum_feature("A", on=topo(flange), show_in="secA", at=(-40, -17))      # the face the cover seats on
-housing.geometric_tolerance("Flatness", 0.05, on=topo(flange), show_in="secA", at=(-52, 11))  # it seals against the cover
-housing.datum_feature("B", on=topo(seat_face), show_in="secA", at=(-4, 11))   # the bearing seats' axis
-housing.geometric_tolerance("Perpendicularity", 0.05, on=topo(seat_face2), datums=["A"], diametral=True, show_in="secA", at=(0, -11))  # shaft runs true to the face
-housing.geometric_tolerance("Position", 0.2, on=topo(tap_hole), datums=["A", "B"], diametral=True, show_in="left")  # the cover screws locate on the pitch circle
+housing.datum_feature("A", on=topo(flange), show_in="secA", at=(-44, -42), to=(-30, -40))      # the face the cover seats on
+housing.geometric_tolerance("Flatness", 0.05, on=topo(flange), show_in="secA", at=(-44, 40), to=(-30, 40))  # it seals against the cover
+housing.datum_feature("B", on=topo(seat_face), show_in="secA", at=(50, 52))   # the bearing seats' axis
+housing.geometric_tolerance("Perpendicularity", 0.05, on=topo(seat_face2), datums=["A"], diametral=True, show_in="secA", at=(58, -52))  # shaft runs true to the face
+housing.geometric_tolerance("Position", 0.2, on=topo(tap_hole), datums=["A", "B"], diametral=True, show_in="left", at=(-62, 32), to=(-44, 0))  # the cover screws locate on the pitch circle
 housing.op("Section", id="HA", along="Plane", plane=axis("X"), offset=0.0)
-housing.drawing(views=[view("left", "Left", (85, 165)),
-                       section_view("secA", "HA", (205, 165), of="left", caption_at=(0, -68)),
+housing.drawing(views=[view("left", "Left", (100, 165)),
+                       section_view("secA", "HA", (225, 165), of="left", caption_at=(0, -68)),
                        view("iso", "IsometricFrontLeft", (360, 205), scale=(1, 2))], scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 8062-3 DCTG 9",  # a casting; its seats are toleranced
+                notes=[note(None, (0, 0), "2×", dimension="housing_profile/seat")],
                 centre_lines=["all", ("pitch", "taps"), {"of": "origin/y", "view": "secA"}])
 
 # --- The shaft: Ø20, a Ø26 collar between the bearings, chamfered ends.
@@ -83,8 +84,8 @@ for i in range(8):
     (s.vertical if i % 2 == 0 else s.horizontal)(q[i], q[(i + 1) % 8])
 s.coincident(q[0], s.origin)
 s.horizontal(q[1], q[6])                  # both journals alike
-s.diameter_about(q[1], ax, 20, at=(-81, 0), tol="k6")  # bearing journals: k6 press-fits the inner rings
-s.diameter_about(q[3], ax, 26, at=(0, 0))
+s.diameter_about(q[2], ax, 20, at=(-81, 30), tol="k6")  # bearing journals: k6 press-fits the inner rings
+s.diameter_about(q[3], ax, 26, at=(0, 12))
 s.distance_u(q[1], q[2], 49, at=(-81, 44))
 s.distance_u(q[3], q[4], 32, tol=0.1, at=(0, 44))  # the collar between the bearings
 s.distance_u(q[0], q[7], 130)
@@ -93,8 +94,14 @@ srep = shaft.build(os.path.join(HERE, "shaft.wpc"))
 shaft.chamfer(srep.edges(where=lambda e: not e["straight"] and min(abs(e["middle"][1]), abs(e["middle"][1] - 130)) < 1e-6), 1,
               id="ends")
 shaft.on_sheet("ends", on_drawing=False)
+srep = shaft.build(os.path.join(HERE, "shaft.wpc"))
+journal1 = srep.faces(where=lambda f: f["surface"] == "cylinder" and abs(f["middle"][1] - 24.5) < 1.5 and f["middle"][1] < 30)[0]
+journal2 = srep.faces(where=lambda f: f["surface"] == "cylinder" and f["middle"][1] > 100)[0]
+shaft.datum_feature("A", on=topo(journal1), show_in="front", at=(-81, -27))   # the journals share one axis: the first one is the datum
+shaft.geometric_tolerance("CircularRunout", 0.02, on=topo(journal2), datums=["A"], show_in="front", at=(80, -27), to=(70, -19))  # the second runs true to it
 shaft.drawing(views=[view("front", "Front", (160, 160)), view("iso", "Isometric", (330, 235), scale=(1, 1))],
-              scale=(2, 1), format="A3", id="drawing", notes=[note("front", (140, 22), "1×45°", to=(0, 129.5, 9.5))])
+              scale=(2, 1), format="A3", id="drawing", notes=[note("front", (146, 28), "2× 1×45°", to=(0, 129.5, 9.5)),
+                                                note(None, (0, 0), "2×", dimension="shaft_profile/d35")])
 
 # --- The cover: Ø100 × 8 with a Ø24 opening for the shaft, four Ø5,5 holes on the Ø88 pitch circle.
 cover = Part(material="Aluminium", title="COVER", file="cover.wpc")
@@ -109,7 +116,7 @@ outer = crep.faces(where=lambda f: f["normal"][1] < -0.99)[0]
 h = cover.sketch(topo(outer), id="hole_place", show_in="left")
 hd = h.dot(0, 44, "h")
 h.point_on(hd, "v")
-h.diameter_about(hd, "u", 88)
+h.diameter_about(hd, "u", 88, tol="exact")
 cover.hole(h, 5.5, id="screw_hole")
 crep = cover.build(os.path.join(HERE, "cover.wpc"))
 cover.feature_pattern([crep.faces(where=lambda f: f["name"].startswith("screw_hole/") and not f["flat"])[0]], 4,
@@ -119,9 +126,9 @@ seat_side = crep.faces(where=lambda f: f["flat"] and f["normal"][1] > 0.99 and a
 opening_face = crep.faces(where=lambda f: f["surface"] == "cylinder" and abs(f["middle"][2]) > 10 and abs(f["middle"][2]) < 13)[0]
 screw_hole_face = crep.faces(where=lambda f: f["name"].startswith("screw_hole/") and not f["flat"] and f["surface"] == "cylinder")[0]
 cover.datum_feature("A", on=topo(seat_side), show_in="secA", at=(22, -16))      # the face on the housing's flange
-cover.geometric_tolerance("Flatness", 0.05, on=topo(seat_side), show_in="secA", at=(30, 12))  # it seals against the housing
-cover.datum_feature("B", on=topo(opening_face), show_in="secA")   # the opening centres the holes
-cover.geometric_tolerance("Position", 0.3, on=topo(screw_hole_face), datums=["A", "B"], diametral=True, show_in="left")  # clearance holes over the M5 taps
+cover.geometric_tolerance("Flatness", 0.05, on=topo(seat_side), show_in="secA", at=(30, 30), to=(4, 30))  # it seals against the housing
+cover.geometric_tolerance("Position", 0.3, on=topo(screw_hole_face), datums=["A"], diametral=True, show_in="left")  # the four clearance holes over the M5 taps, from the seat face only (the opening locates nothing)
+cover.on_sheet("screw_hole/callout", at=(-34, 58))
 cover.op("Section", id="CA", along="Plane", plane=axis("X"), offset=0.0)
 cover.drawing(views=[view("left", "Left", (90, 165)),
                      section_view("secA", "CA", (190, 165), of="left", caption_at=(0, -70)),
@@ -182,8 +189,8 @@ asm.drawing(views=[view("left", "Left", (80, 175)), section_view("secA", "A", (2
             centre_lines=["all", {"of": "origin/y", "view": "secA"}],
             notes=[note(None, (100, 62), "FITS  Ø47 H7 HOUSING SEAT / BEARING OUTER RING (LOCATING)"),
                    note(None, (100, 55), "          Ø20 k6 SHAFT JOURNAL / BEARING INNER RING (LIGHT PRESS)")],
-            balloons=[balloon("screw", "secA", (-62, 64)), balloon("bearing1", "secA", (-20, 64)),
-                      balloon("housing", "secA", (5, 64)), balloon("shaft", "secA", (-52, 40), to=(-52, 5)),
+            balloons=[balloon("screw", "secA", (-62, 62), to=(-41, 44)), balloon("bearing2", "secA", (44, 34), to=(26, 21)),
+                      balloon("housing", "secA", (12, 56), to=(12, 34)), balloon("shaft", "secA", (-52, 40), to=(-52, 5)),
                       balloon("cover", "secA", (-60, -35), to=(-34, -30))])
 rep = asm.build(os.path.join(HERE, "bearing_unit.wpc"), render=True, pictures=True,
                 picture=os.path.join(HERE, "render.png"))

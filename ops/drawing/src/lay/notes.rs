@@ -262,7 +262,9 @@ impl Frame for Placed<'_> {
         let whole = self.seen.rounds.iter().any(|(at, radius)| {
             self.sheet(*at).distance(c) <= near && (radius * self.scale - r).abs() <= near
         });
-        if whole {
+        // (Not one hidden, all or in part, behind what is nearer — a
+        // tube behind its flange: of that, what is drawn.)
+        if whole && self.hidden_arc(c, r, way).is_none() {
             return Some(want);
         }
         // Else the short pieces of drawn arcs about `c` as large (an
@@ -403,17 +405,20 @@ impl Drawn {
     }
 }
 
-/// A diameter drawn from the side as a length, in a view: what a datum
-/// or a geometric tolerance of that round feature's axis attaches to
-/// (ISO 1101, ISO 5459: on the extension of its dimension line).
+/// A diameter drawn in a view — from the side as a length, or square on
+/// across its circle: what a datum or a geometric tolerance of that
+/// round feature's axis attaches to (ISO 1101, ISO 5459: on the
+/// extension of its dimension line).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct SizeLine {
     /// The round feature: a point of its axis, the axis, its radius.
     pub(crate) centre: Point3,
     pub(crate) axis: Point3,
     pub(crate) radius: f64,
-    /// Its dimension line as drawn.
-    pub(crate) linear: super::LaidLinear,
+    /// Its dimension line, from end to end: between the extension lines
+    /// of a length; across the circle, through its middle, of one seen
+    /// square on.
+    pub(crate) line: [Point2; 2],
     /// The box of its text.
     pub(crate) text: [Point2; 2],
 }
@@ -449,7 +454,7 @@ fn feature_tip(
     let at = (rect[0] + rect[1]) / 2.0;
     let wanted = attach.to.unwrap_or(at);
     if let Some(of) = axis {
-        if let Some(found) = on_size_line(of, &attach.sizes, at) {
+        if let Some(found) = on_size_line(of, &attach.sizes, wanted) {
             return found;
         }
         if of.axis.dot(placed.towards()).abs() > 1.0 - 1e-6 {
@@ -559,7 +564,7 @@ fn on_size_line(
     let size = sizes
         .iter()
         .find(|s| of.sized_by(s.centre, s.axis, s.radius))?;
-    let [a, b] = size.linear.line;
+    let [a, b] = size.line;
     let text = (size.text[0] + size.text[1]) / 2.0;
     (0..2)
         .filter_map(|k| {
@@ -1016,6 +1021,7 @@ fn said(value: f64, prefix: &str, unit: &str, tolerance: &Tolerance) -> Said {
         over: None,
         after: String::new(),
         high: lettering(),
+        boxed: false,
     };
     match tolerance {
         Tolerance::Deviations { upper, lower } => Said {
@@ -1023,6 +1029,7 @@ fn said(value: f64, prefix: &str, unit: &str, tolerance: &Tolerance) -> Said {
             over: Some(deviations(*upper, *lower, unit)),
             after: String::new(),
             high: lettering() * 0.7,
+            boxed: false,
         },
         // The two limits of size, the upper over the lower, as high as
         // any value.
@@ -1033,10 +1040,16 @@ fn said(value: f64, prefix: &str, unit: &str, tolerance: &Tolerance) -> Said {
                 over: Some([format!("{u}{unit}"), format!("{l}{unit}")]),
                 after: String::new(),
                 high: lettering(),
+                boxed: false,
             }
         }
         // For reference: in brackets.
         Tolerance::Reference => plain(format!("({base})")),
+        // Theoretically exact (ISO 1101): in a box.
+        Tolerance::Exact => Said {
+            boxed: true,
+            ..plain(base)
+        },
         // A tolerance class after the size; with its deviations, where
         // the sheet says, small in brackets after it.
         Tolerance::Fit(class) => match tolerance.fit_deviations(value) {
@@ -1045,6 +1058,7 @@ fn said(value: f64, prefix: &str, unit: &str, tolerance: &Tolerance) -> Said {
                 over: Some(over),
                 after: ")".to_owned(),
                 high: lettering() * 0.7,
+                boxed: false,
             },
             None => plain(format!("{base} {class}")),
         },
@@ -1060,6 +1074,8 @@ struct Said {
     over: Option<[String; 2]>,
     after: String,
     high: f64,
+    /// Whether it is written in a box: a theoretically exact size.
+    boxed: bool,
 }
 
 impl Said {
@@ -1068,7 +1084,11 @@ impl Said {
         let over = self.over.as_ref().map_or(0.0, |o| {
             width(&o[0], self.high).max(width(&o[1], self.high))
         });
-        width(&self.text, lettering()) + over + width(&self.after, lettering()) + 2.0
+        width(&self.text, lettering())
+            + over
+            + width(&self.after, lettering())
+            + 2.0
+            + if self.boxed { 1.6 } else { 0.0 }
     }
 }
 
@@ -1076,7 +1096,31 @@ impl Said {
 /// deviations if it has them. Gives its box.
 fn dimension_text(laid: &mut Laid, at: Point2, along: Point2, said: &Said) -> [Point2; 2] {
     let Some([upper, lower]) = &said.over else {
-        return text_along(laid, at, along, &said.text, lettering());
+        let rect = text_along(laid, at, along, &said.text, lettering());
+        if said.boxed {
+            // (The box about the text, along its line, a little clear
+            // of it all round: what is written is the box's.)
+            let mut along = along.normalize_or(Point2::X);
+            if along.x < -1e-9 || (along.x.abs() <= 1e-9 && along.y < 0.0) {
+                along = -along;
+            }
+            let up = along.perp();
+            let half = width(&said.text, lettering()) / 2.0 + 0.8;
+            let (foot, top) = (at + up * (OFF - 0.8), at + up * (OFF + lettering() + 0.8));
+            let corners = [
+                foot - along * half,
+                foot + along * half,
+                top + along * half,
+                top - along * half,
+            ];
+            for k in 0..4 {
+                laid.line(corners[k], corners[(k + 1) % 4], Pen::Narrow);
+            }
+            let lo = corners.iter().fold(rect[0], |m, p| m.min(*p));
+            let hi = corners.iter().fold(rect[1], |m, p| m.max(*p));
+            return [lo, hi];
+        }
+        return rect;
     };
     // The value, and after it the deviations, 0.7 as high, one over
     // the other.
@@ -1211,13 +1255,32 @@ fn linear(
                 arrows[0].0 - room / 2.0 - 0.5,
                 arrows[1].1 + room / 2.0 + 0.5,
             );
-            if between >= room && !on_arrow((lo + hi) / 2.0) {
-                (lo + hi) / 2.0
-            } else if (st - before).abs() < (st - after).abs() {
-                before
+            // (Moved off the arrow as little as it takes: in from it
+            // where there is room between them — not to the middle,
+            // where a diameter's text would stand on the axis — else
+            // past it.)
+            let (first, last) = (
+                arrows[0].1 + room / 2.0 + 0.5,
+                arrows[1].0 - room / 2.0 - 0.5,
+            );
+            // (Between the arrows where it is put between them and fits;
+            // past one only where it is put past it, or does not fit.)
+            let fits = inside && between >= room + 1.0;
+            let mut places = if fits && st >= lo && st <= hi {
+                vec![]
             } else {
-                after
+                // (Of two as near, past the second end, as before.)
+                vec![after, before]
+            };
+            if fits {
+                places.extend([first, last]);
+            } else if between >= room && !on_arrow((lo + hi) / 2.0) {
+                places.push((lo + hi) / 2.0);
             }
+            places
+                .into_iter()
+                .min_by(|x, y| (x - st).abs().total_cmp(&(y - st).abs()))
+                .unwrap_or(st)
         } else {
             st
         }
@@ -2033,7 +2096,14 @@ pub(crate) fn draw_note(
                 let r = radius * scale;
                 let text = said(*value, "Ø", "", tolerance);
                 if square_on(*axis, towards) {
-                    Some(round_dimension(laid, placed, c, r, at, &text, true, None))
+                    // (A round the view hides and does not draw — a tube
+                    // behind its flange: its arrows point at nothing.)
+                    let wanted = (at - c).normalize_or(Point2::X);
+                    let unseen = placed.on_arc(c, r, wanted).is_none()
+                        && placed.on_arc(c, r, -wanted).is_none()
+                        && placed.hidden_arc(c, r, wanted).is_some();
+                    let drawn = round_dimension(laid, placed, c, r, at, &text, true, None);
+                    Some(Drawn { unseen, ..drawn })
                 } else {
                     // From the side: across it, as a length (a half
                     // dimension where one side is not shown: across
@@ -2701,12 +2771,9 @@ pub(crate) fn draw(
         {
             tips.push((placed.view.id.clone(), *tip));
         }
-        if let (
-            Some(Drawn {
-                linear: Some(linear),
-                text,
-                ..
-            }),
+        // (A diameter, or a hole's callout to its rim seen as a circle:
+        // what a tolerance of the round's axis stands in line with.)
+        let sized = match &note.note {
             workpiece_core::world::Note::Dimension {
                 measured:
                     workpiece_core::world::Measured::Diameter {
@@ -2715,19 +2782,45 @@ pub(crate) fn draw(
                         radius,
                     },
                 ..
-            },
-        ) = (&drawn, &note.note)
-        {
-            sizes.push((
-                placed.view.id.clone(),
-                SizeLine {
-                    centre: *centre,
-                    axis: *axis,
-                    radius: *radius,
-                    linear: *linear,
-                    text: *text,
-                },
-            ));
+            } => Some((*centre, *axis, *radius)),
+            workpiece_core::world::Note::Hole {
+                centre,
+                axis,
+                radius,
+                outside: false,
+                ..
+            } if square_on(*axis, placed.towards()) => Some((*centre, *axis, *radius)),
+            _ => None,
+        };
+        if let (Some(drawn), Some((centre, axis, radius))) = (&drawn, sized) {
+            // (Seen square on, its line across the circle through the
+            // middle, from the arrow on it: where the leader from the
+            // text runs on through the middle to the other side.)
+            let (c, r) = (placed.place(centre), radius * placed.scale);
+            let line = match (drawn.linear, drawn.leader) {
+                (Some(linear), _) => Some(linear.line),
+                (None, Some((a, b))) => {
+                    let tip = if (a.distance(c) - r).abs() <= (b.distance(c) - r).abs() {
+                        a
+                    } else {
+                        b
+                    };
+                    ((tip.distance(c) - r).abs() <= r * 1e-3 + 1e-6).then(|| [c * 2.0 - tip, tip])
+                }
+                (None, None) => None,
+            };
+            if let Some(line) = line {
+                sizes.push((
+                    placed.view.id.clone(),
+                    SizeLine {
+                        centre,
+                        axis,
+                        radius,
+                        line,
+                        text: drawn.text,
+                    },
+                ));
+            }
         }
         values.push((
             placed_note.note.as_str(),

@@ -32,9 +32,9 @@ h.point_on(a, "u")
 h.horizontal(a, b); h.vertical(b, c); h.horizontal(c, d); h.vertical(d, e); h.horizontal(e, g); h.vertical(g, a)
 h.diameter_about(a, ax, 35, at=(0, -12))
 h.diameter_about(b, ax, 70)
-h.diameter_about(d, ax, 52, at=(0, 13), tol="H7")   # H7: bearing outer ring sits in it, sliding fit
+h.diameter_about(d, ax, 52, tol="H7", on_drawing=False)  # (said in the plan, where its leader can stand clear)   # H7: bearing outer ring sits in it, sliding fit
 h.distance_v(b, c, 45)
-h.distance_v(e, d, 15)
+h.distance_v(e, d, 15, at=(17, 12))
 p.revolve(h, combine="NewBody", id="hub")
 rep = p.build(OUT)
 
@@ -65,11 +65,16 @@ seat = rep.edges(where=lambda e: not e["straight"] and abs(e["middle"][2] - 45) 
                  and abs(abs(e["middle"][0]) + abs(e["middle"][1]) - 26) < 1)
 p.chamfer(seat, 1, id="seat_chamfer")
 
-# One counterbored hole for an M8 cap screw on the diagonal, then four about the axis.
+# One counterbored hole for an M8 cap screw (15 from two flange edges: no dimension crosses the cutting line), then four about the axis.
 s = p.sketch(topo("flange/end"), id="hole_place", show_in="top")
+
+side = rep.edges(where=lambda e: e["straight"] and abs(e["middle"][2] - 14) < 1e-6 and abs(e["middle"][1] - 55) < 1e-6 and abs(e["from"][1] - e["to"][1]) < 1e-6)[0]
+s.project("edge", side)
+side2 = rep.edges(where=lambda e: e["straight"] and abs(e["middle"][2] - 14) < 1e-6 and abs(e["middle"][0] - 55) < 1e-6 and abs(e["from"][0] - e["to"][0]) < 1e-6)[0]
+s.project("edge2", side2)
 dot = s.dot(40, 40, "dot")
-s.distance_u(s.origin, dot, 40, tol=0.2)
-s.distance_v(s.origin, dot, 40, tol=0.2)
+s.point_line(dot, "edge2", 15, tol=0.2, at=(62, -47))
+s.point_line(dot, "edge", 15, tol=0.2, at=(47, -63))   # from the flange edge: clear of the section's cutting line
 p.hole(s, 9, kind="Counterbore", head=14, head_depth=8.6, id="bolt")
 rep = p.build(OUT)
 wall = rep.faces(where=lambda f: f["name"].startswith("bolt/") and not f["flat"])[0]
@@ -80,14 +85,23 @@ p.feature_pattern([wall], 4, about=axis("Z"), id="bolts")
 rep = p.build(OUT)
 under = rep.faces(where=lambda f: f["flat"] and f["normal"][2] < -0.99 and abs(f["middle"][2]) < 1e-6)[0]
 p.datum_feature("A", on=topo(under), show_in="secA", at=(-14, -32))
-p.geometric_tolerance("Flatness", 0.05, on=topo(under), show_in="secA", at=(20, -32))
+p.geometric_tolerance("Flatness", 0.05, on=topo(under), show_in="secA", at=(48, -32), to=(48, -22))
+
+# The seat's axis stands square to the mounting face (the bearing must not tilt): Ø0,05 to A; the
+# seat is ground-fine (Ra 1,6), the other faces stay cast.
+seat_wall = rep.faces(where=lambda f: f["name"].startswith("hub/side") and not f["flat"]
+                      and abs((f["middle"][0] ** 2 + f["middle"][1] ** 2) ** 0.5 - 26) < 0.5)[0]
+p.dimension(seat_wall, kind="Diameter", show_in="top", id="seat_d", at=(-6, -49.5), tol="H7")
+p.geometric_tolerance("Perpendicularity", 0.05, on=topo(seat_wall), datums=["A"], diametral=True, show_in="top", at=(0, 49))
+p.surface_texture("Ra 1,6", on=topo(seat_wall), show_in="secA", at=(-10, 11))
 
 # The sheet: the plan with the holes, a full section through the axis in line under it, a pictorial.
 p.on_sheet("seat_chamfer", on_drawing=False)
 p.on_sheet("root", at=(-62, 12))
+p.on_sheet("bolt/callout", at=(80, -22))
 p.op("Section", id="A", along="Plane", plane=axis("X"), offset=0.0)
 p.drawing(views=[view("top", "Top", (115, 205)), section_view("secA", "A", (115, 85), of="top"),
-                 view("iso", "Isometric", (315, 190))], scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 8062-3 DCTG 9",
+                 view("iso", "Isometric", (315, 190))], scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 8062-3 DCTG 9", surface_texture="Ra 12,5",
           centre_lines=["all", {"of": "origin/z", "view": "secA"}],
           notes=[note("secA", (52, 34), "1×45°", to=(0, 26.5, 44.5))])
 rep = p.build(OUT, render=True, pictures=True, picture=os.path.join(HERE, "render.png"))

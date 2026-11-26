@@ -29,6 +29,7 @@ pub(crate) fn axis_of(
         centre: round.origin + round.axis * middle,
         axis: round.axis,
         radius: round.radius.abs(),
+        length: (round.reach.1 - round.reach.0).abs(),
     })
 }
 
@@ -177,6 +178,7 @@ const OPTION_ICONS: &[(&str, &str)] = icons!(
     "gdt-symmetry",
     "gdt-total-runout",
     "tol-deviations",
+    "tol-exact",
     "tol-fit",
     "tol-general",
     "tol-limits",

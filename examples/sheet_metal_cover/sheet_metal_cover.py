@@ -30,7 +30,7 @@ r = s.rect("b", -LENGTH / 2, -WIDTH / 2, LENGTH, WIDTH)
 s.symmetric(r.points[0], r.points[1], "v")
 s.symmetric(r.points[1], r.points[2], "u")
 s.distance_u(r.points[0], r.points[1], LENGTH)
-s.distance_v(r.points[1], r.points[2], WIDTH)
+s.distance_v(r.points[1], r.points[2], WIDTH, on_drawing=False)   # (107 over the bends says it)
 p.extrude(s, THICKNESS, combine="NewBody", id="base")
 
 # One vent slot across the middle, SLOT_INSET from the left end, then a row of SLOTS along x.
@@ -56,9 +56,8 @@ corner = [(1, 1), (-1, 1), (-1, -1), (1, -1)]
 dots = [h.dot(sx * (LENGTH / 2 - HOLE_INSET), sy * (WIDTH / 2 - HOLE_INSET), f"h{i}") for i, (sx, sy) in enumerate(corner)]
 h.symmetric(dots[0], dots[1], "v"); h.symmetric(dots[1], dots[2], "u"); h.symmetric(dots[2], dots[3], "v")
 h.project("end", top_edge(x=LENGTH / 2))
-h.project("side", top_edge(y=WIDTH / 2))
 h.point_line(dots[0], "end", HOLE_INSET, tol=0.2, id="inset_x", at=(60, -88))   # locating holes: inset +-0,2 (mounting pitch)
-h.point_line(dots[0], "side", HOLE_INSET, tol=0.2)
+h.distance_v(dots[3], dots[0], WIDTH - 2 * HOLE_INSET, tol=0.2, at=(0, -92))   # pitch across: +-0,2 as the inset
 p.hole(h, HOLE, id="mount")
 
 # The flanges, bent up along both long edges, and a lip bent inwards at the top of each.
@@ -80,14 +79,15 @@ for k in (1, 2):
 rep = p.build(OUT)
 face = lambda name: rep.faces(where=lambda f: f["name"] == name)[0]
 p.dimension("base/start/e11", "lip1/side/e2", show_in="front", id="overall_height", at=(-76, 0))
-p.dimension("side1/side/e2", "side2/side/e2", show_in="front", id="overall_width")
+p.dimension("side1/side/e2", "side2/side/e2", show_in="front", id="overall_width", at=(0, -33))
 p.dimension("lip2/side/e3", "side2/side/e2", show_in="front", id="lip_width")
 p.dimension("side2/side/e5", kind="Radius", show_in="front", id="bend")
 p.on_sheet("base", show_in="front")
 p.on_sheet("mount/callout", at=(78, -50))
-p.on_sheet("vent/d25", at=(-14, 40))
+p.on_sheet("vent/d25", on_drawing=False)      # (the slot width goes into the note)
 p.drawing(views=[view("top", "Top", (125, 190)), projected("front", "top", "Below", 140),
-                 view("iso", "Isometric", (320, 200), scale=(1, 2))], scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 2768-m")
+                 view("iso", "Isometric", (320, 200), scale=(1, 2))], scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 2768-m",
+                 notes=[note("top", (92, 8), f"{SLOTS}× SLOT {SLOT_WIDTH:g} × {SLOT_LENGTH:g}, PITCH {SLOT_PITCH:g}".replace(".", ","))])
 
 # The flat pattern: the sheet laid out in the base's plane, a body of its own, on a sheet of its own
 # with its developed width; then taken away again, so that the part weighs as the cover alone.
@@ -96,6 +96,11 @@ rep = p.build(OUT)
 flat = next(b for b in rep.raw["bodies"] if b["name"] == "flat")
 long_sides = [f["name"] for f in flat["faces"] if abs(f["normal"][1]) > 0.99 and abs(f["middle"][1]) > WIDTH / 2 + HEIGHT]
 p.dimension(*long_sides, show_in="top", id="developed", decimals=1, at=(0, 112))
+# (The bend lines of an Unfold are no geometry to dimension; their places from the middle go in a note.)
+K = 0.44
+half_bend = 3.14159265 * (BEND_RADIUS + K * THICKNESS) / 4          # half the developed length of a 90 degree bend
+b1 = WIDTH / 2 + half_bend                                           # the bend lines of the flat, from its middle
+b4 = b1 + HEIGHT + 2 * half_bend                                     # (the flange's length, bend to bend)
 for done in ("overall_height", "overall_width", "lip_width", "bend", "base", "vent", "vents", "holes", "mount"):
     p.on_sheet(done, on_drawing=False)
 # Its bend lines (the Unfold step's `flat/bend1`, ...), each said how it is bent.
@@ -104,7 +109,9 @@ bends = [{"of": f"flat/bend{k}", "view": "top", "label": f"UP 90° R{BEND_RADIUS
          for k, at in ((1, "start"), (2, "end"), (3, "start"), (4, "end"))]
 p.drawing(views=[view("top", "Top", (150, 165), bodies=["flat"])], scale=(1, 1), format="A3", id="flat_pattern", general_tolerance="ISO 2768-m",
           centre_lines=["all"] + bends,
-          notes=[note("top", (0, -125), f"FLAT PATTERN  K = 0,44  SHEET {THICKNESS:g} THICK".replace(".", ","))])
+          notes=[note("top", (-30, -124), f"FLAT PATTERN  K = 0,44  SHEET {THICKNESS:g} THICK".replace(".", ",")),
+                 note("top", (-30, -102), f"BEND LINES {b1:.1f} AND {b4:.1f} EACH SIDE OF THE MIDDLE".replace(".", ",")),
+                 note("top", (-30, -113), "HOLES AND SLOTS AS SHEET 1")])
 p.op("DeleteBody", id="flat_gone", bodies=[topo("flat")])
 
 rep = p.build(OUT, render=True, pictures=True, picture=os.path.join(HERE, "render.png"))

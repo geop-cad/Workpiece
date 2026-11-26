@@ -96,6 +96,7 @@ fn subject(b: &Standalone) -> Subject<'_> {
         properties: Box::leak(Box::default()),
         parts: Box::leak(Box::default()),
         densities: Box::leak(Box::default()),
+        sheet: [1, 1],
     }
 }
 
@@ -300,20 +301,33 @@ fn a_tolerance_frame_has_its_compartments_and_its_datum_a_triangle() -> anyhow::
 }
 
 #[test]
-fn the_general_tolerance_is_the_sheets() -> anyhow::Result<()> {
-    let b = block()?;
-    let cell = |laid: &Laid| {
-        laid.cells
+fn the_general_tolerance_is_the_sheets_where_a_size_has_none_of_its_own() -> anyhow::Result<()> {
+    let mut b = block()?;
+    say(&mut b, "fit", length(Tolerance::Fit("h7".into())));
+    say(&mut b, "free", along(Point3::X, Tolerance::General));
+    let cell = |b: &Standalone, s: &Sheet| {
+        lay(b, s)
+            .cells
             .iter()
             .find(|c| c.label == "General tolerances")
             .map(|c| c.value.clone())
     };
+    // (No size on the sheet, as an assembly's with balloons only; or
+    // each with a tolerance of its own: none said.)
     let mut s = sheet(vec![front([150.0, 150.0])], vec![]);
-    assert_eq!(cell(&lay(&b, &s)).as_deref(), Some("ISO 2768-mK"));
+    assert_eq!(cell(&b, &s).as_deref(), Some(""));
+    s.notes.push(note("fit", "front", [0.0, 20.0]));
+    assert_eq!(cell(&b, &s).as_deref(), Some(""));
+    let mut top = front([150.0, 60.0]);
+    top.id = "top".into();
+    top.kind = ViewKind::Base { side: Side::Top };
+    s.views.push(top);
+    s.notes.push(note("free", "top", [0.0, 20.0]));
+    assert_eq!(cell(&b, &s).as_deref(), Some("ISO 2768-mK"));
     s.general_tolerance = Some("ISO 8062-3 DCTG 9".into());
-    assert_eq!(cell(&lay(&b, &s)).as_deref(), Some("ISO 8062-3 DCTG 9"));
+    assert_eq!(cell(&b, &s).as_deref(), Some("ISO 8062-3 DCTG 9"));
     s.general_tolerance = None;
-    assert_eq!(cell(&lay(&b, &s)).as_deref(), Some(""));
+    assert_eq!(cell(&b, &s).as_deref(), Some(""));
     Ok(())
 }
 
@@ -429,6 +443,7 @@ fn a_tolerance_of_an_axis_points_at_its_diameters_dimension_line() -> anyhow::Re
         centre: Point3::ZERO,
         axis: Point3::Z,
         radius: 1.8,
+        length: 4.0,
     };
     say(
         &mut b,

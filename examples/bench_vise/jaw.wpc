@@ -422,11 +422,11 @@
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
-          "class": null,
+          "class": "H11",
           "clearance": "Medium",
           "deburr": "None",
           "depth": 8.0,
-          "diameter": 12.0,
+          "diameter": 12.5,
           "extent": "Distance",
           "face": null,
           "fine": null,
@@ -822,7 +822,7 @@
             },
             {
               "at": [
-                77.0,
+                70.0,
                 0.0
               ],
               "note": "jaw_profile/d21",
@@ -838,8 +838,8 @@
             },
             {
               "at": [
-                70.0,
-                -19.0
+                42.0,
+                -10.0
               ],
               "note": "seat_place/d10",
               "view": "back"

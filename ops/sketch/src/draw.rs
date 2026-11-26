@@ -66,6 +66,7 @@ pub(crate) fn dimension_text(constraint: &Constraint) -> (String, String, String
     workpiece_core::world::annotation::written(point, || match &d.tolerance {
         DimTolerance::General => {}
         DimTolerance::Reference => text = format!("({text})"),
+        DimTolerance::Exact => text = format!("[{text}]"),
         DimTolerance::Deviations { upper: u, lower: l } => {
             [upper, lower] = workpiece_core::world::annotation::deviations(*u, *l, unit);
         }

@@ -146,6 +146,26 @@
                 "driven": false,
                 "formula": null,
                 "label": [
+                  67.0,
+                  6.0
+                ],
+                "tolerance": "General",
+                "value": 110.0
+              },
+              "kind": {
+                "DistanceAlong": {
+                  "a": 10,
+                  "axis": "U",
+                  "b": 11
+                }
+              }
+            },
+            "32": {
+              "dimension": {
+                "diameter": false,
+                "driven": true,
+                "formula": null,
+                "label": [
                   61.0,
                   0.0
                 ],
@@ -303,7 +323,7 @@
               "tolerance": 1e-7
             }
           },
-          "next": 31,
+          "next": 32,
           "plane": {
             "FrameAxis": {
               "axis": "Z",
@@ -423,29 +443,6 @@
           "pitch": 1.0
         },
         "id": "thread"
-      }
-    },
-    {
-      "Dimension": {
-        "args": {
-          "bend": "Own",
-          "centres": false,
-          "far": false,
-          "kind": "Auto",
-          "of": [
-            {
-              "Topology": "screw/side/e15"
-            },
-            {
-              "Topology": "screw/side/e17"
-            }
-          ],
-          "plain": false,
-          "same_side": false,
-          "supplement": false,
-          "tolerance": "Reference"
-        },
-        "id": "dimension1"
       }
     },
     {
@@ -751,14 +748,6 @@
           "notes": [
             {
               "at": [
-                22.0,
-                -10.0
-              ],
-              "note": "dimension1",
-              "view": "top"
-            },
-            {
-              "at": [
                 -0.0007711097375988629,
                 71.0
               ],
@@ -768,17 +757,25 @@
             {
               "at": [
                 -22.0,
-                49.0
+                55.0
               ],
               "note": "screw_profile/d30",
               "view": "top"
             },
             {
               "at": [
-                28.9992288902624,
-                0.0
+                22.0,
+                -10.0
               ],
               "note": "screw_profile/d31",
+              "view": "top"
+            },
+            {
+              "at": [
+                30.0,
+                0.0
+              ],
+              "note": "screw_profile/d32",
               "view": "top"
             },
             {

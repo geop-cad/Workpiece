@@ -416,6 +416,7 @@ One way everywhere: `tol=` on a sketch dimension (`s.distance`, `s.diameter`, `s
 | `limits(0.021, 0)` | the two limits of size stacked: `20,021` over `20,000` |
 | `"H7"`, `"N9"` (a hole, upper case), `"k6"`, `"f7"` (a shaft, lower case) | `Ø20 H7`; with `p.drawing(..., fits="deviations")` `Ø20 H7 (+0,021/0)` |
 | `reference=True` (instead of `tol=`) | `(60)` |
+| `"exact"` | `88` in a box: theoretically exact (ISO 1101), held only by the geometric tolerance that refers to it — a hole pattern's pitch circle or spacing under a `"Position"` |
 
 A fit's limits come from the ISO 286 tables (`workpiece_core::world::fits`): holes D E F G H J
 (J6 to J8 only) JS K M N P R S, shafts d e f g h js k m n p r s (r and s by the finer size ranges
@@ -429,6 +430,7 @@ s.distance(a, b, 6, tol=(0, -0.03))             # key width 6 with 0 over −0,0
 s.distance_u(c, d, 40, tol=0.05)                # 40 ±0,05
 p.dimension("seat", tol="k6", show_in="front")  # Ø20 k6 of a turned face
 p.hole(s, 8, tol="H7")                          # Ø8 H7 (a bore's fit: not class=)
+s.diameter(pitch, 88, tol="exact")              # Ø88 boxed: the holes' position is toleranced
 p.datum_feature("A", on=topo("base"), show_in="front", at=(0, -40))
 p.geometric_tolerance("Flatness", 0.05, on=topo("base"), show_in="front")
 p.geometric_tolerance("Perpendicularity", 0.02, on=topo("bore"), datums=["A"], diametral=True)
@@ -450,11 +452,19 @@ always (ISO 5459), a tolerance for position and concentricity, and straightness,
 perpendicularity, angularity with `diametral=True` (ISO 1101 derived feature). Its leader ends on
 the extension of that face's diameter dimension line, in line with the dimension's arrow, where
 the view shows that diameter (put a `p.dimension(face, kind="Diameter")` or a sketch diameter in
-the same view); where the view looks along the axis, on its circle (of a pattern's holes, the
-nearest to the frame), the square or frame put off the circle by itself. A datum letter is a capital, never I, O or Q;
+the same view, measured on that face: a diameter as large on another seat of the shaft is not
+it) — seen from the side or, where the view looks along the axis, across its circle (a hole's
+callout to its rim too): the arrow on the other side of the circle, in line with the dimension's
+line through the middle; `to=` picks the end of that line. Without such a dimension in the
+view, where the view looks along the axis, on its circle (of a pattern's holes, the nearest to
+the frame), the square or frame put off the circle by itself. A datum letter is a capital, never I, O or Q;
 a characteristic of form (straightness, flatness, roundness, cylindricity) takes no datum, the
 others need the datums named before them. The title block's "General tolerances" cell says the
-sheet's `general_tolerance=` (default "ISO 2768-mK"; the app: the sheet's properties).
+sheet's `general_tolerance=` (default "ISO 2768-mK"; the app: the sheet's properties) where the
+sheet gives a size it holds of — a dimension or a hole's callout with no tolerance of its own (not
+in brackets, not boxed); an assembly's sheet of balloons only, or one whose every size is
+toleranced, leaves the cell empty. Its "Sheet" cell numbers the part's drawings in order (`1/2`,
+`2/2`), and every sheet gives the part's mass (a flat pattern laid out beside it is not weighed).
 
 ### Surface texture
 

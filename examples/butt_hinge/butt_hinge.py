@@ -39,8 +39,8 @@ n = leaf.sketch("XY", id="relief", show_in="top")
 nr = n.rect("n", -6, 15, 12.5, 15)
 n.symmetric(nr.points[0], nr.points[1], "v")
 n.distance_u(n.origin, nr.points[1], 6.5, at=(-20, 55))
-n.distance_v(n.origin, nr.points[1], 15)
-n.distance_v(nr.points[1], nr.points[2], 15, tol=(0.2, 0))   # relief: the other leaf's knuckle (15) must not bind
+n.distance_v(n.origin, nr.points[1], 15, at=(-45, 68))   # (the strip before the relief, in one chain with its width)
+n.distance_v(nr.points[1], nr.points[2], 15, tol=(0.4, 0.2), at=(-15, 68))   # relief 15,2 to 15,4: the other leaf's knuckle (15 +-0,2) never binds
 leaf.cut(n, through=True, symmetric=True, id="notch")
 rep = leaf.build(at("leaf.wpc"))
 leaf.feature_pattern([rep.faces(where=lambda f: f["name"].startswith("notch/") and f["flat"] and abs(f["normal"][0]) > 0.99)[0]],
@@ -60,7 +60,9 @@ leaf.hole(h, 4.5, kind="Countersink", head=9, head_angle=90, id="screw")
 rep = leaf.build(at("leaf.wpc"))
 leaf.feature_pattern([rep.faces(where=lambda f: f["name"].startswith("screw/") and not f["flat"] and f["area"] < 60)[0]],
                      2, along=axis("Y"), spacing=30, id="screws")
-leaf.on_sheet("screws/spacing", at=(0, -30))
+leaf.on_sheet("screws/spacing", at=(0, 0))
+leaf.on_sheet("bore_section/d8", at=(46, -26))
+leaf.on_sheet("screw/callout", at=(-8, -52))
 leaf.on_sheet("knuckles", on_drawing=False)
 leaf.on_sheet("knuckle", on_drawing=False)           # (as long as the relief starts in)
 leaf.on_sheet("notches", on_drawing=False)
@@ -74,6 +76,9 @@ pin = Part(material="Steel", title="HINGE PIN", file="pin.wpc", sectioned=False)
 p = pin.sketch("ZX", id="pin_section", show_in="front")
 p.diameter(p.circle(p.origin, 2.5, "pin"), 5, tol="f7")   # running fit in the H7 knuckle bore
 pin.extrude(p, 60, combine="NewBody", id="pin")
+prep0 = pin.build(at("pin.wpc"))
+shaft = prep0.faces(where=lambda f: not f["flat"])[0]
+pin.surface_texture("Ra 0,8", on=topo(shaft), show_in="front", at=(-25, 14))   # running surface in the knuckle bores
 pin.drawing(views=[view("front", "Front", (130, 160)),
                    view("iso", "Isometric", (320, 210))], scale=(2, 1), format="A3", id="drawing")
 
@@ -95,7 +100,7 @@ asm.op("Drive", "open", joint="leaf2", at=OPEN)
 asm.drawing(views=[view("top", "Top", (110, 190)), projected("side", "top", "Right", 120),
                    view("iso", "Isometric", (335, 225), scale=(1, 1))], scale=(2, 1), format="A3", id="drawing",
             parts_list=True, balloons="auto",
-            notes=[note("top", (0, -62), "PIN IN LEAVES: Ø5 H7/f7")])
+            notes=[note("top", (12, -62), "PIN Ø5 f7 IN KNUCKLE BORES H7, PEENED OVER AT BOTH ENDS")])
 rep = asm.build(at("butt_hinge.wpc"), render=True, pictures=True, picture=at("render.png"))
 for part in asm.reports.values():
     part.show()

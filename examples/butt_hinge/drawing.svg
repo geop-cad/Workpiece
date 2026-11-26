@@ -69,7 +69,6 @@
 <text transform="translate(257.200 243.200) rotate(-0.000) translate(0 1.800)" font-family="Helvetica, Arial, sans-serif" font-size="2.507" text-anchor="start">Scale</text>
 <text transform="translate(258.000 249.200) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="start">2:1</text>
 <text transform="translate(279.200 243.200) rotate(-0.000) translate(0 1.800)" font-family="Helvetica, Arial, sans-serif" font-size="2.507" text-anchor="start">General tolerances</text>
-<text transform="translate(280.000 249.200) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="start">ISO 2768-mK</text>
 <text transform="translate(331.200 243.200) rotate(-0.000) translate(0 1.800)" font-family="Helvetica, Arial, sans-serif" font-size="2.507" text-anchor="start">Material</text>
 <text transform="translate(383.200 243.200) rotate(-0.000) translate(0 1.800)" font-family="Helvetica, Arial, sans-serif" font-size="2.507" text-anchor="start">Mass</text>
 <text transform="translate(384.000 249.200) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="start">128.1 g</text>
@@ -93,7 +92,7 @@
 <text transform="translate(397.200 279.200) rotate(-0.000) translate(0 1.800)" font-family="Helvetica, Arial, sans-serif" font-size="2.507" text-anchor="start">Sheet</text>
 <text transform="translate(398.000 285.200) rotate(-0.000) translate(0 0.000)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="start">1/1</text>
 <text transform="translate(335.000 96.040) rotate(-0.000) translate(0 3.500)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">(1:1)</text>
-<text transform="translate(110.000 167.250) rotate(-0.000) translate(0 3.500)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">PIN IN LEAVES: Ø5 H7/f7</text>
+<text transform="translate(122.000 167.250) rotate(-0.000) translate(0 3.500)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">PIN Ø5 f7 IN KNUCKLE BORES H7, PEENED OVER AT BOTH ENDS</text>
 <text transform="translate(237.000 238.500) rotate(-0.000) translate(0 1.750)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">Item</text>
 <text transform="translate(251.000 238.500) rotate(-0.000) translate(0 1.750)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="middle">Qty</text>
 <text transform="translate(259.500 238.500) rotate(-0.000) translate(0 1.750)" font-family="Helvetica, Arial, sans-serif" font-size="4.875" text-anchor="start">Name</text>

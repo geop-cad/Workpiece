@@ -26,7 +26,7 @@ s.point_on(A, "v")
 s.symmetric(A, B, "u")
 s.distance_v(A, B, 70)
 s.distance_u(B, C, 12)
-s.distance_v(F, E, 10, at=(30, 58))
+s.distance_v(F, E, 10, at=(34, 66))
 s.distance_u(A, F, 80)
 p.extrude(s, 100, symmetric=True, combine="NewBody", id="bracket")
 rep = p.build(OUT)
@@ -108,11 +108,18 @@ base_face = rep.faces(where=lambda f: f["flat"] and f["normal"][2] < -0.99 and a
 p.datum_feature("A", on=topo(base_face), show_in="front", at=(20, -45))
 p.geometric_tolerance("Flatness", 0.1, on=topo(base_face), show_in="front", at=(-30, -45))
 bore_wall = rep.faces(where=lambda f: f["name"].startswith("bore/") and not f["flat"])[0]
-p.geometric_tolerance("Parallelism", 0.1, on=topo(bore_wall), datums=["A"], diametral=True, show_in="front", at=(18, -14))
+p.geometric_tolerance("Parallelism", 0.1, on=topo(bore_wall), datums=["A"], diametral=True, show_in="front", at=(-16, -16))
+# The slot's dimensions in one aligned chain left of it, clear of the rib; its radius under its end.
+p.on_sheet("slot_outline/d25", show_in="top", at=(11, 5))
+p.on_sheet("slot_outline/d21", show_in="top", at=(11, -31))
+p.on_sheet("slot_outline/d22", show_in="top", at=(21, 9))
+p.on_sheet("bracket/distance", show_in="front", at=(0, -76))
+p.on_sheet("bore_place/d10", show_in="front", at=(27, 0))
 p.on_sheet("rib_roots", on_drawing=False)
 p.on_sheet("rib_crests", on_drawing=False)
 p.on_sheet("base_corners", at=(-50, -42))
-p.on_sheet("draft", at=(0, 70))
+p.on_sheet("draft", at=(-6, 92))
+p.on_sheet("rib/thickness", show_in="front", at=(58, 32))
 p.drawing(views=[view("front", "Front", (85, 120)), projected("top", "front", "Above", 115),
                  projected("right", "front", "Right", 120), view("iso", "Isometric", (330, 205))],
           scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 8062-3 DCTG 9",

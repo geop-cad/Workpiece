@@ -1513,6 +1513,22 @@ impl Model {
             .iter()
             .map(|m| (m.name.clone(), m.density))
             .collect();
+        // (Which of the part's sheets: its drawing steps, in order — the
+        // one edited, else the first.)
+        let drawings: Vec<&str> = part
+            .program
+            .iter()
+            .filter(|op| {
+                op.downcast_ref::<workpiece_ops_drawing::Drawing>()
+                    .is_some()
+            })
+            .map(|op| op.id())
+            .collect();
+        let edited = self.editing.last().map(String::as_str);
+        let at = drawings
+            .iter()
+            .position(|id| Some(*id) == edited)
+            .unwrap_or(0);
         let subject = workpiece_ops_drawing::lay::Subject {
             world: self.drawn(),
             unit: part.unit,
@@ -1521,6 +1537,7 @@ impl Model {
             properties: &properties,
             parts: &parts,
             densities: &densities,
+            sheet: [at + 1, drawings.len().max(1)],
         };
         Some(with(&subject))
     }

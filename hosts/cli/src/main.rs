@@ -977,6 +977,16 @@ fn said(
             .iter()
             .map(|m| (m.name.clone(), m.density))
             .collect();
+        // (Which of the part's sheets: its drawing steps, in order.)
+        let sheets = |steps: &[workpiece_part::AnyOperation]| {
+            steps
+                .iter()
+                .filter(|op| {
+                    op.downcast_ref::<workpiece_ops_drawing::Drawing>()
+                        .is_some()
+                })
+                .count()
+        };
         let subject = workpiece_ops_drawing::lay::Subject {
             world: &world,
             unit: part.unit,
@@ -985,6 +995,7 @@ fn said(
             properties: &properties,
             parts: &parts,
             densities: &densities,
+            sheet: [sheets(&part.program[..=n]), sheets(&part.program)],
         };
         let kept = workpiece_ops_drawing::lay::Kept::default();
         // What the recipe keeps off the sheet, by name.

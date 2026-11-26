@@ -35,7 +35,7 @@ front = rep.faces(where=lambda f: f["flat"] and f["normal"][0] > 0.99)[0]
 a = p.sketch(topo(front), id="port_a", show_in="front")
 ad = a.dot(0, 25, "a")
 a.point_on(ad, "v")
-a.distance_v(a.origin, ad, 25)
+a.distance_v(a.origin, ad, 25, at=(-58, -20))
 p.hole(a, 8, depth=30, kind="Counterbore", head=15, head_depth=6, point=180, id="A")
 
 # The end port B into the right end (y = 45): Ø8, countersunk Ø14 × 90°, 45 deep to P's axis.
@@ -52,8 +52,9 @@ p.hole(e, 8, depth=45, kind="Countersink", head=14, head_angle=90, point=180, id
 v = p.sketch(topo("block/end"), id="valve_holes", show_in="top")
 d1, d2, d3, d4 = v.dot(16, 30, "v1"), v.dot(-16, 30, "v2"), v.dot(-16, -30, "v3"), v.dot(16, -30, "v4")
 v.symmetric(d1, d2, "v"); v.symmetric(d2, d3, "u"); v.symmetric(d3, d4, "v")
-v.distance_u(v.origin, d1, 16, tol=0.1, at=(66, -8))
-v.distance_v(v.origin, d1, 30, tol=0.1, at=(15, -52))
+# (The pitch between the holes, not from the centre: the extension lines then keep off the cutting lines.)
+v.distance_u(d2, d1, 32, tol=0.1, at=(66, -8))
+v.distance_v(d4, d1, 60, tol=0.1, at=(15, -52))
 p.hole(v, 6, depth=12, thread_depth=9, kind="Tapped", size="M6", id="M6")
 
 # The top's outer edges chamfered.
@@ -74,13 +75,13 @@ p.on_sheet("top_chamfer", on_drawing=False)
 p.on_sheet("A/callout", show_in="secA", at=(-40, 14))
 p.on_sheet("P/callout", at=(-20, 45))
 p.on_sheet("M6/callout", at=(62, -46))
-p.on_sheet("B/callout", show_in="secB")
+p.on_sheet("B/callout", show_in="secB", at=(62, -38))
 p.op("Section", id="cut_b", along="Plane", plane=axis("X"), offset=0.0)
 p.op("Section", id="cut_a", along="Plane", plane=axis("Y"), offset=0.0)
 p.drawing(views=[view("top", "Top", (100, 220)),
                  section_view("secB", "cut_b", (100, 110), of="top", letter="B"),
                  section_view("secA", "cut_a", (215, 110), of="top", letter="A"),
-                 view("front", "Front", (225, 220)),
+                 view("front", "Front", (236, 220)),
                  view("iso", "Isometric", (345, 200))], scale=(1, 1), format="A3", id="drawing",
           # (The valve holes' centre lines only where the holes are drawn: in the plan.)
           centre_lines=["all"] + [{"of": "M6", "view": v, "hide": True} for v in ("front", "secA", "secB")],

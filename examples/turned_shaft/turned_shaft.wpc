@@ -1337,9 +1337,39 @@
           "plain": false,
           "same_side": false,
           "supplement": false,
-          "tolerance": "General"
+          "tolerance": {
+            "Deviations": {
+              "lower": -0.1,
+              "upper": 0.0
+            }
+          }
         },
         "id": "key_depth"
+      }
+    },
+    {
+      "DatumFeature": {
+        "args": {
+          "feature": {
+            "Topology": "shaft/side/e30"
+          },
+          "letter": "A"
+        },
+        "id": "datumfeature1"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "CircularRunout",
+          "datums": "A",
+          "diametral": false,
+          "feature": {
+            "Topology": "shaft/side/e34"
+          },
+          "value": 0.02
+        },
+        "id": "geometrictolerance1"
       }
     },
     {
@@ -1670,6 +1700,26 @@
             },
             {
               "at": [
+                -125.0,
+                -48.0
+              ],
+              "note": "datumfeature1",
+              "to": [
+                -95.0,
+                -20.0
+              ],
+              "view": "front"
+            },
+            {
+              "at": [
+                -30.0,
+                -48.0
+              ],
+              "note": "geometrictolerance1",
+              "view": "front"
+            },
+            {
+              "at": [
                 -32.0,
                 0.0
               ],
@@ -1711,7 +1761,7 @@
             {
               "at": [
                 -95.0,
-                0.0
+                22.0
               ],
               "note": "profile/d53",
               "view": "front"
@@ -1719,15 +1769,15 @@
             {
               "at": [
                 -60.0,
-                0.0
+                22.0
               ],
               "note": "profile/d54",
               "view": "front"
             },
             {
               "at": [
-                -20.0,
-                0.0
+                -38.0,
+                22.0
               ],
               "note": "profile/d55",
               "view": "front"
@@ -1735,7 +1785,7 @@
             {
               "at": [
                 90.0,
-                0.0
+                22.0
               ],
               "note": "profile/d56",
               "view": "front"
@@ -1743,7 +1793,7 @@
             {
               "at": [
                 135.0,
-                0.0
+                22.0
               ],
               "note": "profile/d57",
               "view": "front"
@@ -1775,7 +1825,7 @@
             {
               "at": [
                 9.999999999999886,
-                42.99832926223522
+                49.99832926223522
               ],
               "note": "profile/d61",
               "view": "front"
@@ -1783,7 +1833,7 @@
             {
               "at": [
                 89.99999999999989,
-                35.99832926223522
+                42.99832926223522
               ],
               "note": "profile/d62",
               "view": "front"
@@ -1791,7 +1841,7 @@
             {
               "at": [
                 134.9999999999999,
-                42.99832926223522
+                35.99832926223522
               ],
               "note": "profile/d63",
               "view": "front"
@@ -1799,7 +1849,7 @@
             {
               "at": [
                 -100.0,
-                -58.0
+                -36.0
               ],
               "note": "thread/callout",
               "view": "front"
@@ -1827,7 +1877,7 @@
           "views": [
             {
               "at": [
-                180.0,
+                190.0,
                 115.0
               ],
               "id": "front",
@@ -1840,7 +1890,7 @@
             },
             {
               "at": [
-                180.0,
+                190.0,
                 200.0
               ],
               "id": "top",
@@ -1854,9 +1904,10 @@
             },
             {
               "at": [
-                380.0,
-                205.0
+                200.0,
+                38.0
               ],
+              "cut_only": true,
               "id": "secB",
               "kind": {
                 "Section": {
@@ -1872,8 +1923,8 @@
           "words": [
             {
               "at": [
-                -136.0,
-                -48.0
+                -148.0,
+                -36.0
               ],
               "height": 3.5,
               "text": "1×45°",
@@ -1889,7 +1940,7 @@
             {
               "at": [
                 150.0,
-                -50.0
+                -36.0
               ],
               "height": 3.5,
               "text": "1×45°",

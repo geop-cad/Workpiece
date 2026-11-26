@@ -60,12 +60,14 @@ def _tolerance(tol) -> dict | None:
     if tol is None:
         return None
     if isinstance(tol, bool):
-        raise ValueError("tol= is ±x, (upper, lower), limits(upper, lower) or a fit class such as \"H7\"")
+        raise ValueError("tol= is ±x, (upper, lower), limits(upper, lower), a fit class such as \"H7\" or \"exact\"")
     if isinstance(tol, (int, float)):
         if tol <= 0:
             raise ValueError(f"tol={tol}: a ± tolerance is more than nothing")
         return {"Symmetric": float(tol)}
     if isinstance(tol, str):
+        if tol == "exact":
+            return "Exact"
         if not _FIT.fullmatch(tol):
             raise ValueError(f"tol={tol!r}: a fit class is its letters, upper case for a hole and lower "
                              "case for a shaft, then its grade (\"H7\", \"k6\", \"JS9\")")
@@ -78,8 +80,8 @@ def _tolerance(tol) -> dict | None:
         if upper < lower:
             raise ValueError(f"tol=({tol[0]}, {tol[1]}): (upper, lower) — the upper deviation first")
         return {"Deviations": {"upper": upper, "lower": lower}}
-    raise ValueError(f"tol={tol!r}: say ±x as a number, (upper, lower), limits(upper, lower) or a fit "
-                     "class such as \"H7\"")
+    raise ValueError(f"tol={tol!r}: say ±x as a number, (upper, lower), limits(upper, lower), a fit "
+                     "class such as \"H7\", or \"exact\" (theoretically exact: boxed)")
 
 
 def _said_tolerance(tol, reference) -> dict | str | None:

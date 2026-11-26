@@ -185,7 +185,7 @@ impl fmt::Display for Measure {
             None => write!(f, "{}", self.value)?,
         }
         match &self.tolerance {
-            Tolerance::General | Tolerance::Reference => Ok(()),
+            Tolerance::General | Tolerance::Reference | Tolerance::Exact => Ok(()),
             Tolerance::Symmetric(by) => write!(f, " ±{}", plain(*by)),
             Tolerance::Deviations { upper, lower } | Tolerance::Limits { upper, lower } => {
                 let signed = |x: f64| match x < 0.0 {

@@ -92,6 +92,7 @@ fn laid(b: &Standalone) -> Laid {
         properties: &properties,
         parts: &Default::default(),
         densities: &Default::default(),
+        sheet: [1, 1],
     };
     lay_out(&sheet, &subject, &Kept::default(), None)
 }

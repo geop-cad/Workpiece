@@ -837,52 +837,77 @@
       "Sketch": {
         "args": {
           "constraints": {
-            "10": {
+            "15": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
                 "formula": null,
                 "label": [
-                  20.0,
-                  20.0
+                  40.0,
+                  40.0
                 ],
                 "tolerance": {
                   "Symmetric": 0.2
                 },
-                "value": 40.0
+                "value": 15.0
               },
               "kind": {
-                "DistanceAlong": {
-                  "a": 1,
-                  "axis": "V",
-                  "b": 7
+                "PointLine": {
+                  "line": 12,
+                  "point": 13
                 }
               }
             },
-            "9": {
+            "16": {
               "dimension": {
                 "diameter": false,
                 "driven": false,
                 "formula": null,
                 "label": [
-                  20.0,
-                  20.0
+                  40.0,
+                  40.0
                 ],
                 "tolerance": {
                   "Symmetric": 0.2
                 },
-                "value": 40.0
+                "value": 15.0
               },
               "kind": {
-                "DistanceAlong": {
-                  "a": 1,
-                  "axis": "U",
-                  "b": 7
+                "PointLine": {
+                  "line": 9,
+                  "point": 13
                 }
               }
             }
           },
           "entities": {
+            "12": {
+              "auto": false,
+              "axis": null,
+              "construction": true,
+              "projected": {
+                "Topology": "flange/end/e14"
+              },
+              "section": false,
+              "shape": {
+                "Line": [
+                  10,
+                  11
+                ]
+              },
+              "tolerance": 1.015556349186104e-7
+            },
+            "14": {
+              "auto": false,
+              "axis": null,
+              "construction": false,
+              "projected": null,
+              "section": false,
+              "shape": {
+                "Point": 13
+              },
+              "tolerance": 1e-7
+            },
             "2": {
               "auto": false,
               "axis": null,
@@ -922,19 +947,24 @@
               },
               "tolerance": 1e-7
             },
-            "8": {
+            "9": {
               "auto": false,
               "axis": null,
-              "construction": false,
-              "projected": null,
+              "construction": true,
+              "projected": {
+                "Topology": "flange/end/e15"
+              },
               "section": false,
               "shape": {
-                "Point": 7
+                "Line": [
+                  7,
+                  8
+                ]
               },
-              "tolerance": 1e-7
+              "tolerance": 1.015556349186104e-7
             }
           },
-          "next": 10,
+          "next": 16,
           "plane": {
             "Topology": "flange/end"
           },
@@ -945,6 +975,30 @@
                 0.0
               ],
               "fixed": true,
+              "tolerance": 1e-7
+            },
+            "10": {
+              "at": [
+                55.0,
+                -43.0
+              ],
+              "fixed": true,
+              "tolerance": 1.015556349186104e-7
+            },
+            "11": {
+              "at": [
+                55.0,
+                42.99999999999999
+              ],
+              "fixed": true,
+              "tolerance": 1.015556349186104e-7
+            },
+            "13": {
+              "at": [
+                40.0,
+                40.0
+              ],
+              "fixed": false,
               "tolerance": 1e-7
             },
             "3": {
@@ -965,11 +1019,19 @@
             },
             "7": {
               "at": [
-                40.0,
-                40.0
+                43.0,
+                55.0
               ],
-              "fixed": false,
-              "tolerance": 1e-7
+              "fixed": true,
+              "tolerance": 1.015556349186104e-7
+            },
+            "8": {
+              "at": [
+                -42.99999999999999,
+                55.0
+              ],
+              "fixed": true,
+              "tolerance": 1.015556349186104e-7
             }
           }
         },
@@ -1084,6 +1146,54 @@
           "value": 0.05
         },
         "id": "geometrictolerance1"
+      }
+    },
+    {
+      "Dimension": {
+        "args": {
+          "bend": "Own",
+          "centres": false,
+          "far": false,
+          "kind": "Diameter",
+          "of": [
+            {
+              "Topology": "hub/side/e16"
+            }
+          ],
+          "plain": false,
+          "same_side": false,
+          "supplement": false,
+          "tolerance": {
+            "Fit": "H7"
+          }
+        },
+        "id": "seat_d"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Perpendicularity",
+          "datums": "A",
+          "diametral": true,
+          "feature": {
+            "Topology": "hub/side/e16"
+          },
+          "value": 0.05
+        },
+        "id": "geometrictolerance2"
+      }
+    },
+    {
+      "SurfaceTexture": {
+        "args": {
+          "feature": {
+            "Topology": "hub/side/e16"
+          },
+          "removal": "Required",
+          "text": "Ra 1,6"
+        },
+        "id": "surfacetexture1"
       }
     },
     {
@@ -1414,8 +1524,8 @@
           "notes": [
             {
               "at": [
-                65.31670269233459,
-                -51.80537234466888
+                80.0,
+                -22.0
               ],
               "note": "bolt/callout",
               "view": "top"
@@ -1462,26 +1572,38 @@
             },
             {
               "at": [
-                20.0,
+                48.0,
                 -32.0
               ],
               "note": "geometrictolerance1",
+              "to": [
+                48.0,
+                -22.0
+              ],
               "view": "secA"
             },
             {
               "at": [
-                20.0,
-                -65.0
+                0.0,
+                49.0
               ],
-              "note": "hole_place/d10",
+              "note": "geometrictolerance2",
               "view": "top"
             },
             {
               "at": [
-                72.0,
-                -20.0
+                62.0,
+                -47.0
               ],
-              "note": "hole_place/d9",
+              "note": "hole_place/d15",
+              "view": "top"
+            },
+            {
+              "at": [
+                47.0,
+                -63.0
+              ],
+              "note": "hole_place/d16",
               "view": "top"
             },
             {
@@ -1502,15 +1624,7 @@
             },
             {
               "at": [
-                0.0,
-                13.0
-              ],
-              "note": "hub_profile/d30",
-              "view": "secA"
-            },
-            {
-              "at": [
-                72.0,
+                65.0,
                 -2.842170943040401e-14
               ],
               "note": "hub_profile/d31",
@@ -1518,8 +1632,8 @@
             },
             {
               "at": [
-                65.0,
-                14.999999999999972
+                17.0,
+                12.0
               ],
               "note": "hub_profile/d32",
               "view": "secA"
@@ -1530,6 +1644,22 @@
                 12.0
               ],
               "note": "root/radius",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -6.0,
+                -49.5
+              ],
+              "note": "seat_d",
+              "view": "top"
+            },
+            {
+              "at": [
+                -10.0,
+                11.0
+              ],
+              "note": "surfacetexture1",
               "view": "secA"
             }
           ],
@@ -1549,6 +1679,7 @@
             "gap": 1.0,
             "pitch": 8.0
           },
+          "surface_texture": "Ra 12,5",
           "tangent_edges": "Thin",
           "template": "ISO A3",
           "upright": false,

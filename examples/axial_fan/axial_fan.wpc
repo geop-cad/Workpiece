@@ -1169,7 +1169,10 @@
           "same_side": false,
           "supplement": false,
           "tolerance": {
-            "Fit": "H7"
+            "Deviations": {
+              "lower": 0.0,
+              "upper": 0.1
+            }
           }
         },
         "id": "bore"
@@ -1490,13 +1493,13 @@
             "wide": null
           },
           "format": "A3",
-          "general_tolerance": "ISO 2768-mK",
+          "general_tolerance": "ISO 20457 TG 6",
           "name": "drawing",
           "notes": [
             {
               "at": [
-                -32.0,
-                -36.0
+                -33.0,
+                -43.0
               ],
               "note": "bore",
               "view": "top"
@@ -1527,26 +1530,18 @@
             },
             {
               "at": [
-                -16.67885655829599,
-                41.281618597436534
+                -14.056610404383548,
+                34.79133161546946
               ],
               "note": "tip/d23",
               "view": "sec_tip"
             },
             {
               "at": [
-                -46.07786950162716,
-                -40.10799955477552
+                -45.43200887376986,
+                -18.355723077387324
               ],
               "note": "tip/d24",
-              "view": "sec_tip"
-            },
-            {
-              "at": [
-                -44.52417727360921,
-                -15.0
-              ],
-              "note": "tip/d28",
               "view": "sec_tip"
             },
             {
@@ -1618,6 +1613,10 @@
                 300.0,
                 110.0
               ],
+              "caption_at": [
+                0.0,
+                -36.0
+              ],
               "cut_only": true,
               "id": "sec_tip",
               "kind": {
@@ -1660,6 +1659,15 @@
               ],
               "height": 3.5,
               "text": "BLADE ROOT AT 20 FROM THE AXIS: CHORD 26 + R1,5 ENDS, PITCH 40°",
+              "view": "front"
+            },
+            {
+              "at": [
+                -5.0,
+                -48.0
+              ],
+              "height": 3.5,
+              "text": "BLADE MIDDLE 15 ABOVE THE HUB BASE",
               "view": "front"
             }
           ]

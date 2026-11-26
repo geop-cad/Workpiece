@@ -203,6 +203,7 @@ impl Fields<'_> {
                 },
             ),
             ("Fit (ISO 286)", Tolerance::Fit("H7".to_owned())),
+            ("Theoretically exact (boxed)", Tolerance::Exact),
         ];
         let same =
             |a: &Tolerance, b: &Tolerance| std::mem::discriminant(a) == std::mem::discriminant(b);

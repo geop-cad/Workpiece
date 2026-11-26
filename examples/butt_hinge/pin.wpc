@@ -137,6 +137,18 @@
       }
     },
     {
+      "SurfaceTexture": {
+        "args": {
+          "feature": {
+            "Topology": "pin/side/e7"
+          },
+          "removal": "Required",
+          "text": "Ra 0,8"
+        },
+        "id": "surfacetexture1"
+      }
+    },
+    {
       "Drawing": {
         "args": {
           "block": [
@@ -440,7 +452,7 @@
             {
               "at": [
                 0.0,
-                14.999678704275993
+                28.999678704275993
               ],
               "note": "pin/distance",
               "view": "front"
@@ -451,6 +463,14 @@
                 -0.00032129572400663164
               ],
               "note": "pin_section/d8",
+              "view": "front"
+            },
+            {
+              "at": [
+                -25.0,
+                14.0
+              ],
+              "note": "surfacetexture1",
               "view": "front"
             }
           ],
