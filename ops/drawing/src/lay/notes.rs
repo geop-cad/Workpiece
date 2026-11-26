@@ -2091,6 +2091,7 @@ pub(crate) fn draw_note(
                 centre,
                 axis,
                 radius,
+                ..
             } => {
                 let c = placed.place(*centre);
                 let r = radius * scale;
@@ -2380,17 +2381,22 @@ pub(crate) fn draw_note(
             ..
         } => {
             let c = placed.place(*centre);
-            // (Its rims: the bore's, and a counterbore's — the leader
-            // ends on one the view draws, the bore's first.)
+            // (Its rims: a counterbore's or a countersink's, where it
+            // is entered, and the bore's — the leader ends on one the
+            // view draws, the outermost first: ISO 129-1, the callout of
+            // a hole with a head points at the head's rim.)
             let head = lines.iter().find_map(|line| {
-                let k = line.iter().position(|p| *p == Callout::Counterbore)?;
+                let k = line
+                    .iter()
+                    .position(|p| matches!(p, Callout::Counterbore | Callout::Countersink))?;
                 line[k..].iter().find_map(|p| match p {
                     Callout::Number(d) => Some(d / 2.0),
                     _ => None,
                 })
             });
-            let radii: Vec<f64> = std::iter::once(*radius)
-                .chain(head)
+            let radii: Vec<f64> = head
+                .into_iter()
+                .chain(std::iter::once(*radius))
                 .map(|r| r * scale)
                 .collect();
             let tip = if square_on(*axis, towards) {
@@ -2780,6 +2786,7 @@ pub(crate) fn draw(
                         centre,
                         axis,
                         radius,
+                        ..
                     },
                 ..
             } => Some((*centre, *axis, *radius)),
@@ -3630,6 +3637,7 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
                     centre,
                     axis,
                     radius,
+                    ..
                 }
                 | Measured::Radius {
                     centre,
@@ -3899,7 +3907,8 @@ fn leader_across(placed: &Placed<'_>, lines: &[(Point2, Point2)], a: Point2, b: 
 pub mod on_model {
     use super::{Frame, Laid, draw_note, width};
     use workpiece_core::math::{Point2, Point3, from_angle};
-    use workpiece_core::world::{Annotation, Measured, Note};
+    use workpiece_core::world::annotation::rim;
+    use workpiece_core::world::{Annotation, Callout, Measured, Note, Tolerance, Topo};
 
     /// A line of lettering on the model.
     #[derive(Debug, Clone, PartialEq)]
@@ -3954,6 +3963,15 @@ pub mod on_model {
         }
     }
 
+    /// How far a dimension's plane may be turned from who looks at it
+    /// before it is seen edge on and not shown: the cosine of the angle
+    /// between its normal and the line of sight (some 80°).
+    const EDGE_ON: f64 = 0.17;
+
+    /// How far off what it is from an extension line starts, in
+    /// millimetres of lettering.
+    const GAP: f64 = 1.0;
+
     /// `v` without what of it is along `n`.
     fn without(v: Point3, n: Point3) -> Point3 {
         v - n * v.dot(n)
@@ -4003,16 +4021,34 @@ pub mod on_model {
 
     /// `note` with its text at `at`, as it is drawn on the model for
     /// who sees `right` to the right and `up` up, one millimetre of a
-    /// drawing's lettering being `per_mm` of the model's lengths.
+    /// drawing's lettering being `per_mm` of the model's lengths; the
+    /// model as `topo` has it, for what a leader ends on.
     pub fn on_model(
         note: &Annotation,
         at: Point3,
         right: Point3,
         up: Point3,
         per_mm: f64,
+        topo: &Topo,
     ) -> Option<OnModel> {
+        if per_mm <= 0.0 {
+            return None;
+        }
+        if let Some(led) = on_a_leader(note, at, right, up, topo) {
+            return Some(led_to(&led, at, right, up, per_mm));
+        }
+        let rimmed = on_the_rim(note, at, right, up);
+        let note = rimmed.as_ref().unwrap_or(note);
         let n = normal(note, at, right, up);
-        if n == Point3::ZERO || per_mm <= 0.0 {
+        if n == Point3::ZERO {
+            return None;
+        }
+        // A dimension that lies in a plane seen (nearly) edge on is not
+        // shown (ISO 16792: it is read in its annotation plane, which is
+        // then a line): turned so far, its lines fall on one another and
+        // its text on what is round it.
+        let edge_on = right.cross(up).normalize_or_zero().dot(n).abs() < EDGE_ON;
+        if edge_on && matches!(note.note, Note::Dimension { .. }) {
             return None;
         }
         // (A frame's plane goes through the face it points at: its
@@ -4041,17 +4077,31 @@ pub mod on_model {
         };
         let plane = Plane { at, x, y, per_mm };
         let mut laid = Laid::default();
+        // (Its extension lines start a little off what they are from,
+        // as a drawing's off the outline.)
         let drawn = draw_note(
             &mut laid,
             note,
             &plane,
             Point2::ZERO,
-            [0.0; 2],
+            [GAP; 2],
             &super::Attach::default(),
         )?;
-        let back = |p: Point2| at + (x * p.x + y * p.y) * per_mm;
+        Some(shown(&laid, &drawn, &|p| plane.back(p)))
+    }
+
+    impl Plane {
+        /// The point of the plane `p` (in millimetres of lettering) is.
+        fn back(&self, p: Point2) -> Point3 {
+            self.at + (self.x * p.x + self.y * p.y) * self.per_mm
+        }
+    }
+
+    /// What `laid` has of a note drawn as `drawn`, each point of it
+    /// where `back` puts it on the model.
+    fn shown(laid: &Laid, drawn: &super::Drawn, back: &dyn Fn(Point2) -> Point3) -> OnModel {
         let [lo, hi] = drawn.text;
-        Some(OnModel {
+        OnModel {
             strokes: laid
                 .strokes
                 .iter()
@@ -4066,11 +4116,14 @@ pub mod on_model {
                     let size = Point2::new(width(&t.text, t.height), t.height);
                     let off = (Point2::new(0.5, 0.5) - Point2::from_array(t.anchor)) * size;
                     let middle = t.at + along * off.x + along.perp() * off.y;
+                    // (Its way, as `back` takes the plane: of two points
+                    // as far apart as it is high.)
+                    let ahead = back(middle + along * t.height) - back(middle);
                     Lettering {
                         at: back(middle),
-                        along: (x * along.x + y * along.y).normalize_or_zero(),
+                        along: ahead.normalize_or_zero(),
                         text: t.text.clone(),
-                        height: t.height * per_mm,
+                        height: ahead.length(),
                     }
                 })
                 .collect(),
@@ -4080,6 +4133,289 @@ pub mod on_model {
                 back(hi),
                 back(Point2::new(lo.x, hi.y)),
             ],
+        }
+    }
+
+    /// A note on a leader to something round: where on the model its
+    /// arrowhead touches it, and the lines of its text.
+    struct Led {
+        tip: Point3,
+        lines: Vec<Vec<Callout>>,
+    }
+
+    /// Of a hole's callout (ISO 129-1, ISO 6410-2) and of the diameter
+    /// of a face of the model, how it stands on its leader with its
+    /// text at `at`, for who sees `right` and `up`. Of a hole, a bore:
+    /// its arrow on the rim (see [`rim`]) — where it is entered from;
+    /// of a plain hole through, from whichever side its text is — at
+    /// the point of the rim in line with the middle of it and the text,
+    /// as seen (the leader points at the middle, ISO 129-1); of a
+    /// shaft, a rod's thread: on its side, across from the text. Nothing
+    /// of anything else.
+    fn on_a_leader(
+        note: &Annotation,
+        at: Point3,
+        right: Point3,
+        up: Point3,
+        topo: &Topo,
+    ) -> Option<Led> {
+        let (x, y) = (right.try_normalize()?, up.try_normalize()?);
+        match &note.note {
+            Note::Hole {
+                centre,
+                axis,
+                radius,
+                lines,
+                outside,
+                faces,
+            } => {
+                let rims = rim(topo, faces);
+                let tip = if *outside {
+                    on_side(&rims, *centre, *axis, *radius, at)
+                } else {
+                    // (A head — a counterbore, a countersink — is what
+                    // the hole is entered by: its rim, the outermost.)
+                    let head = lines.iter().find_map(|line| {
+                        let k = line.iter().position(|p| {
+                            matches!(p, Callout::Counterbore | Callout::Countersink)
+                        })?;
+                        line[k..].iter().find_map(|p| match p {
+                            Callout::Number(d) => Some(d / 2.0),
+                            _ => None,
+                        })
+                    });
+                    let rims = if rims.is_empty() {
+                        vec![circle(*centre, *axis, head.unwrap_or(*radius))]
+                    } else {
+                        rims
+                    };
+                    let (ring, middle) = entered(rims, *centre, *axis, at, head.is_none())?;
+                    toward(&ring, middle, at, x, y)?
+                };
+                Some(Led {
+                    tip,
+                    lines: lines.clone(),
+                })
+            }
+            Note::Dimension {
+                measured:
+                    Measured::Diameter {
+                        centre,
+                        axis,
+                        radius,
+                        faces,
+                        hole,
+                    },
+                value,
+                tolerance,
+                ..
+            } if *axis != Point3::ZERO => {
+                let rims = rim(topo, faces);
+                if rims.is_empty() {
+                    return None;
+                }
+                let tip = if *hole {
+                    let (ring, middle) = entered(rims, *centre, *axis, at, true)?;
+                    toward(&ring, middle, at, x, y)?
+                } else {
+                    on_side(&rims, *centre, *axis, *radius, at)
+                };
+                let size = vec![
+                    Callout::Text("Ø".into()),
+                    Callout::Number(*value),
+                    Callout::Tolerance {
+                        tolerance: tolerance.clone(),
+                        size: *value,
+                    },
+                ];
+                let line = match tolerance {
+                    Tolerance::Reference | Tolerance::Exact => {
+                        let (open, close) = match tolerance {
+                            Tolerance::Reference => ("(", ")"),
+                            _ => ("[", "]"),
+                        };
+                        std::iter::once(Callout::Text(open.into()))
+                            .chain(size)
+                            .chain([Callout::Text(close.into())])
+                            .collect()
+                    }
+                    _ => size,
+                };
+                Some(Led {
+                    tip,
+                    lines: vec![line],
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// Of a datum or a geometric tolerance of the axis of a round
+    /// feature (a bore, a shaft), it as it points at the feature on the
+    /// model with its frame at `at`: its leader ends on the rim of the
+    /// feature — at its end nearer the frame, at the point in line with
+    /// the middle and the frame as seen — square to it, as the leader of
+    /// the feature's size does (ISO 1101: in line with the size's
+    /// dimension line; on the model there is no other). Nothing of
+    /// anything else.
+    fn on_the_rim(note: &Annotation, at: Point3, right: Point3, up: Point3) -> Option<Annotation> {
+        let (Note::Datum { axis, .. } | Note::Geometric { axis, .. }) = &note.note else {
+            return None;
+        };
+        let of = (*axis)?;
+        let (x, y) = (right.try_normalize()?, up.try_normalize()?);
+        let along = (at - of.centre).dot(of.axis);
+        let end = if along >= 0.0 { 1.0 } else { -1.0 };
+        let middle = of.centre + of.axis * (end * of.length / 2.0);
+        let tip = toward(&circle(middle, of.axis, of.radius), middle, at, x, y)?;
+        let out = (tip - middle).try_normalize()?;
+        let mut said = note.clone();
+        match &mut said.note {
+            Note::Datum {
+                on, out: way, axis, ..
+            }
+            | Note::Geometric {
+                on, out: way, axis, ..
+            } => {
+                *on = tip;
+                *way = out;
+                *axis = None;
+            }
+            _ => return None,
+        }
+        Some(said)
+    }
+
+    /// A circle about `axis` through `centre`, `radius` large, as points
+    /// round it.
+    fn circle(centre: Point3, axis: Point3, radius: f64) -> Vec<Point3> {
+        let u = axis.any_orthonormal_vector();
+        let v = axis.cross(u);
+        (0..=64)
+            .map(|k| {
+                let a = std::f64::consts::TAU * f64::from(k) / 64.0;
+                centre + (u * libm::cos(a) + v * libm::sin(a)) * radius
+            })
+            .collect()
+    }
+
+    /// Of the rims of a hole about `axis` from `centre` (into it), the
+    /// one its leader ends on, all its points, with the middle of it on
+    /// the axis: where it is entered — or, where `either` (a plain hole
+    /// through, a bore), of where it is entered and where it comes out
+    /// the one nearer the text at `at` along the axis (the leader does
+    /// not run through the part to the far one).
+    fn entered(
+        rims: Vec<Vec<Point3>>,
+        centre: Point3,
+        axis: Point3,
+        at: Point3,
+        either: bool,
+    ) -> Option<(Vec<Point3>, Point3)> {
+        let depth = |p: Point3| (p - centre).dot(axis);
+        let deep =
+            |e: &Vec<Point3>| e.iter().map(|p| depth(*p)).sum::<f64>() / e.len().max(1) as f64;
+        let (lo, hi) = rims
+            .iter()
+            .map(deep)
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), d| {
+                (a.min(d), b.max(d))
+            });
+        if !lo.is_finite() {
+            return None;
+        }
+        let half = (lo + hi) / 2.0;
+        let mouth = hi - lo < 1e-6 * (1.0 + hi.abs() + lo.abs())
+            || !either
+            || (depth(at) - lo).abs() <= (depth(at) - hi).abs();
+        let ring: Vec<Point3> = rims
+            .into_iter()
+            .filter(|e| (deep(e) <= half) == mouth || hi - lo < 1e-6 * (1.0 + hi.abs()))
+            .flatten()
+            .collect();
+        let middle = ring.iter().map(|p| depth(*p)).sum::<f64>() / ring.len().max(1) as f64;
+        Some((ring, centre + axis * middle))
+    }
+
+    /// The point of `ring` (about `middle`) that, as seen with `x` to
+    /// the right and `y` up, is in line with its middle and the text at
+    /// `at`: where a leader from the text that points at the middle
+    /// touches it (ISO 129-1) — the outermost such, seen edge on.
+    fn toward(ring: &[Point3], middle: Point3, at: Point3, x: Point3, y: Point3) -> Option<Point3> {
+        let flat = |p: Point3| Point2::new(p.dot(x), p.dot(y));
+        let c = flat(middle);
+        let reach = ring
+            .iter()
+            .map(|p| flat(*p).distance(c))
+            .fold(0.0, f64::max)
+            .max(1e-300);
+        match (flat(at) - c).try_normalize() {
+            Some(way) => ring.iter().copied().max_by(|p, q| {
+                let score = |p: &Point3| {
+                    let d = flat(*p) - c;
+                    d.normalize_or_zero().dot(way) + 1e-3 * d.length() / reach
+                };
+                score(p).total_cmp(&score(q))
+            }),
+            None => ring
+                .iter()
+                .copied()
+                .min_by(|p, q| p.distance(at).total_cmp(&q.distance(at))),
+        }
+    }
+
+    /// Of a shaft about `axis` through `centre`, `radius` large, whose
+    /// face ends where `rims` are: the point of its side across from
+    /// the text at `at`, as far along it as the text (within it).
+    fn on_side(
+        rims: &[Vec<Point3>],
+        centre: Point3,
+        axis: Point3,
+        radius: f64,
+        at: Point3,
+    ) -> Point3 {
+        let depth = |p: Point3| (p - centre).dot(axis);
+        let (lo, hi) = rims
+            .iter()
+            .flatten()
+            .map(|p| depth(*p))
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), d| {
+                (a.min(d), b.max(d))
+            });
+        let along = if lo.is_finite() {
+            let inset = (hi - lo) * 0.1;
+            depth(at).clamp(lo + inset, (hi - inset).max(lo + inset))
+        } else {
+            0.0
+        };
+        let out = without(at - centre, axis)
+            .try_normalize()
+            .unwrap_or_else(|| axis.any_orthonormal_vector());
+        centre + axis * along + out * radius
+    }
+
+    /// `led`, its text at `at`, drawn upright in the plane through it
+    /// square to the line of sight (ISO 16792: a leader's text faces
+    /// who reads it), as a drawing's callout (ISO 129-1): the text on a
+    /// shoulder, the leader from there to its arrowhead — which is put
+    /// on the model itself, where it touches what it points at.
+    fn led_to(led: &Led, at: Point3, right: Point3, up: Point3, per_mm: f64) -> OnModel {
+        let (x, y) = (right.normalize_or_zero(), up.normalize_or_zero());
+        let plane = Plane { at, x, y, per_mm };
+        let tip = plane.place(led.tip);
+        let mut laid = Laid::default();
+        let drawn = super::callout(&mut laid, tip, Point2::ZERO, &led.lines);
+        // (What is at the tip — the arrowhead, the leader's end — goes
+        // from the plane on along the line of sight to the model: seen,
+        // just where it was.)
+        let lift = led.tip - plane.back(tip);
+        let reach = super::ARROW * 1.5;
+        shown(&laid, &drawn, &|p| {
+            if p.distance(tip) <= reach {
+                plane.back(p) + lift
+            } else {
+                plane.back(p)
+            }
         })
     }
 }

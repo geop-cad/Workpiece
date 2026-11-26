@@ -7,11 +7,16 @@
 //!   exported is also handed over as a download. Nothing is uploaded.
 //! - `?open=<url or name>` fetches a part file (and the parts it places,
 //!   relative to it) from the site, a name being looked up in the
-//!   examples' `index.json`; `?tab=drawing` then opens its drawing.
+//!   examples' `index.json`; `?tab=drawing` then opens its drawing, and
+//!   `?tab=<a ribbon's tab>` (`annotate`, `assembly`…) shows that tab.
 //! - with no part open, a start screen lists the examples.
 //! - `?assistant=1` opens the assistant's panel ([`crate::assistant`]).
 //! - the settings are kept in the page's local storage.
-//! - there are no threads: parts build on the page's one thread.
+//! - the build engine's threads are Web Workers ([`threads`]): each runs
+//!   this same program on the page's memory, so the engine, its pool and
+//!   what a build hands back are the desktop's. That needs a page that is
+//!   cross-origin isolated (`website/_headers`); where it is not, parts
+//!   build on the page's one thread, as they are asked for.
 //!
 //! Work that finishes later (a fetch, reading a picked file) leaves an
 //! [`Event`] here that the next frame takes.
@@ -45,8 +50,8 @@ saving or exporting downloads the file.";
 /// What happened on the page since the last frame.
 enum Event {
     /// These files are in memory now: open the part at `path` (and,
-    /// with `drawing`, its first drawing).
-    Open { path: String, drawing: bool },
+    /// with `tab`, its first drawing or that tab of the ribbon).
+    Open { path: String, tab: Option<String> },
     /// The examples' index was read.
     Examples(Vec<Example>),
     /// The thumbnail of the example with this name: width, height, RGBA.
@@ -97,10 +102,10 @@ struct Page {
     thumbnails: std::collections::BTreeMap<String, Option<egui::TextureHandle>>,
     /// Whether the examples' window is open (over a part).
     window: bool,
-    /// The part to open (with whether its drawing is to be), and whether
-    /// a frame saying so was drawn: it builds as it opens, which keeps
-    /// the page busy.
-    opening: Option<(String, bool, bool)>,
+    /// The part to open (with the tab, or its drawing, to show), and whether
+    /// a frame saying so was drawn: where parts build on the page's
+    /// thread, it builds as it opens, which keeps the page busy.
+    opening: Option<(String, Option<String>, bool)>,
     /// When the page started, and whether the first frame was drawn.
     started: f64,
     drawn: bool,
@@ -224,8 +229,7 @@ pub fn start() {
             crate::assistant::toggle();
         }
         if let Some(open) = query("open") {
-            let drawing = query("tab").is_some_and(|t| t.eq_ignore_ascii_case("drawing"));
-            spawn_local(open_named(open, drawing));
+            spawn_local(open_named(open, query("tab")));
         }
     });
 }
@@ -293,27 +297,110 @@ async fn emoji_font((name, scale): (&'static str, f32)) {
 /// A panic ends the application in a browser (there is no unwinding
 /// on `wasm32-unknown-unknown` with the standard library as shipped, so
 /// a step that breaks cannot be caught as a failed step): the page says
-/// so, with what broke, in place of a frozen canvas.
+/// so, with what broke, in place of a frozen canvas. (A panic on one of
+/// the build threads, which have no page, is kept for the page to say:
+/// see [`spawn`].)
 fn guard_panics() {
     let theirs = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         theirs(info);
-        if let Some(element) = window()
-            .document()
-            .and_then(|d| d.get_element_by_id("crashed"))
-        {
-            let said = element.query_selector("pre").ok().flatten();
-            if let Some(said) = said {
-                said.set_text_content(Some(&info.to_string()));
-            }
-            let _ = element.set_attribute("style", "display: flex");
+        match web_sys::window() {
+            Some(_) => crashed(&info.to_string()),
+            None => *workpiece_part::pool::lock(&BROKE) = Some(info.to_string()),
         }
     }));
 }
 
+/// What broke on a build thread, for the page to say.
+static BROKE: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+/// Covers the page with what broke.
+fn crashed(said: &str) {
+    if let Some(element) = window()
+        .document()
+        .and_then(|d| d.get_element_by_id("crashed"))
+    {
+        if let Some(pre) = element.query_selector("pre").ok().flatten() {
+            pre.set_text_content(Some(said));
+        }
+        let _ = element.set_attribute("style", "display: flex");
+    }
+}
+
+/// The script a build thread runs (`website/app/thread.js`, beside the
+/// page): it starts this program on the memory it is given and runs
+/// [`thread`].
+const THREAD_SCRIPT: &str = "thread.js";
+
+thread_local! {
+    /// The build threads' workers, held while the page is.
+    static WORKERS: RefCell<Vec<web_sys::Worker>> = const { RefCell::new(Vec::new()) };
+}
+
+/// How many threads the build engine has beside the page's: all but one
+/// of the computer's (at least two, so that a build that is no longer
+/// wanted, which runs on to its next step, holds up none that is), where
+/// the page can share its memory with workers — it is cross-origin
+/// isolated, and the program was built with atomics (`build.sh`).
+/// `None` where it cannot: parts build on the page's thread.
+pub fn threads() -> Option<usize> {
+    let isolated = js_sys::Reflect::get(&js_sys::global(), &"crossOriginIsolated".into())
+        .ok()
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if !(cfg!(target_feature = "atomics") && isolated) {
+        log("Workpiece: not cross-origin isolated: parts build on the page's thread");
+        return None;
+    }
+    workpiece_part::pool::set_spawner(spawn);
+    let cores = window().navigator().hardware_concurrency() as usize;
+    let threads = cores.saturating_sub(1).clamp(2, 8);
+    log(&format!(
+        "Workpiece: parts build on {threads} threads beside the page"
+    ));
+    Some(threads)
+}
+
+/// Starts a build thread: a Web Worker that runs `work` on this
+/// program's memory.
+fn spawn(work: Box<dyn FnOnce() + Send>) -> Result<(), String> {
+    let options = web_sys::WorkerOptions::new();
+    options.set_type(web_sys::WorkerType::Module);
+    options.set_name("workpiece-build");
+    let worker =
+        web_sys::Worker::new_with_options(THREAD_SCRIPT, &options).map_err(|e| js_text(&e))?;
+    // (It says something only when it broke.)
+    let broke = Closure::<dyn FnMut(web_sys::MessageEvent)>::new(|event: web_sys::MessageEvent| {
+        let kept = workpiece_part::pool::lock(&BROKE).take();
+        crashed(&kept.unwrap_or_else(|| js_text(&event.data())));
+    });
+    worker.set_onmessage(Some(broke.as_ref().unchecked_ref()));
+    broke.forget();
+    let work = Box::into_raw(Box::new(work)) as usize as u32;
+    let message = js_sys::Array::of3(
+        &wasm_bindgen::module(),
+        &wasm_bindgen::memory(),
+        &JsValue::from(work),
+    );
+    worker.post_message(&message).map_err(|e| js_text(&e))?;
+    WORKERS.with_borrow_mut(|w| w.push(worker));
+    Ok(())
+}
+
+/// What a build thread runs, once its worker has started this program on
+/// the page's memory: the work [`spawn`] was given.
+#[wasm_bindgen(js_name = workpieceThread)]
+#[allow(unsafe_code)]
+pub fn thread(work: u32) {
+    // SAFETY: `work` is what `spawn` made with `Box::into_raw`, handed
+    // to this one worker, which runs it once.
+    let work = unsafe { Box::from_raw(work as usize as *mut Box<dyn FnOnce() + Send>) };
+    work();
+}
+
 /// What a link (or the start screen) asks for: a part file's URL, or the
 /// name of an example.
-async fn open_named(open: String, drawing: bool) {
+async fn open_named(open: String, tab: Option<String>) {
     let url = if open.contains('/') || open.contains('.') {
         open.clone()
     } else {
@@ -334,7 +421,7 @@ async fn open_named(open: String, drawing: bool) {
                 "Workpiece: fetched {url} in {:.0} ms",
                 now() - asked
             ));
-            send(Event::Open { path, drawing });
+            send(Event::Open { path, tab });
         }
         Err(e) => send(Event::Failed(e)),
     }
@@ -498,7 +585,7 @@ async fn read_picked(list: web_sys::FileList, folder: bool) {
     match top {
         Some((path, _)) => send(Event::Open {
             path: path.clone(),
-            drawing: false,
+            tab: None,
         }),
         None if !others.is_empty() => send(Event::Failed(format!(
             "{} {} in memory now: a STEP, IGES, STL or 3MF file is placed into a part \
@@ -605,9 +692,37 @@ fn open_drawing(model: &mut workpiece_ui::Model) -> anyhow::Result<()> {
     }
 }
 
+thread_local! {
+    /// What the last frame showed, for tests in a browser ([`state`]):
+    /// whether a build ran beside the page, and where each note's text
+    /// that can be dragged was (on the model, or on the drawing sheet).
+    static SEEN: RefCell<(bool, Vec<(String, egui::Pos2)>)> = RefCell::default();
+}
+
+/// The text of the note `name` showed at `at` (in CSS pixels).
+pub fn seen(name: &str, at: egui::Pos2) {
+    SEEN.with_borrow_mut(|s| s.1.push((name.to_owned(), at)));
+}
+
+/// What the last frame showed, as JSON, for tests that drive the page
+/// (`website/app/drag.mjs`): `{"building": bool, "notes": [{"name",
+/// "x", "y"}]}`.
+#[wasm_bindgen(js_name = workpieceSeen)]
+pub fn state() -> String {
+    SEEN.with_borrow(|(building, notes)| {
+        let notes: Vec<serde_json::Value> = notes
+            .iter()
+            .map(|(name, at)| serde_json::json!({ "name": name, "x": at.x, "y": at.y }))
+            .collect();
+        serde_json::json!({ "building": building, "notes": notes }).to_string()
+    })
+}
+
 impl crate::App {
     /// Takes what happened on the page since the last frame.
     pub(crate) fn web_frame(&mut self, ctx: &egui::Context) {
+        let building = self.model.is_building();
+        SEEN.with_borrow_mut(|s| *s = (building, Vec::new()));
         if !page(|p| std::mem::replace(&mut p.drawn, true)) {
             let started = page(|p| p.started);
             log(&format!(
@@ -617,7 +732,7 @@ impl crate::App {
         }
         for event in page(|p| std::mem::take(&mut p.events)) {
             match event {
-                Event::Open { path, drawing } => page(|p| p.opening = Some((path, drawing, false))),
+                Event::Open { path, tab } => page(|p| p.opening = Some((path, tab, false))),
                 Event::Examples(list) => page(|p| p.examples = Some(list)),
                 Event::Thumbnail(name, pixels) => {
                     let texture = pixels.map(|(w, h, rgba)| {
@@ -634,23 +749,36 @@ impl crate::App {
             }
         }
         match page(|p| p.opening.take()) {
-            Some((path, drawing, true)) => {
+            Some((path, tab, true)) => {
                 let asked = now();
                 let opened = self.file(crate::FileAction::Open(path.clone()));
                 log(&format!(
-                    "Workpiece: opened and built {path} in {:.0} ms",
-                    now() - asked
+                    "Workpiece: opened {path} in {:.0} ms{}",
+                    now() - asked,
+                    match self.model.is_building() {
+                        true => " (building beside the page)",
+                        false => ", built",
+                    }
                 ));
-                let opened = opened.and_then(|()| match drawing {
-                    true => open_drawing(&mut self.model),
-                    false => Ok(()),
+                let opened = opened.and_then(|()| match tab {
+                    Some(tab) if tab.eq_ignore_ascii_case("drawing") => {
+                        open_drawing(&mut self.model)
+                    }
+                    Some(tab) => match workpiece_ui::Tab::ALL
+                        .into_iter()
+                        .find(|t| t.label().eq_ignore_ascii_case(&tab))
+                    {
+                        Some(tab) => self.model.update(Message::SetTab(tab)),
+                        None => anyhow::bail!("there is no tab {tab:?}"),
+                    },
+                    None => Ok(()),
                 });
                 if let Err(e) = opened {
                     self.error = Some(format!("{e:#}"));
                 }
                 page(|p| p.window = false);
             }
-            Some((path, drawing, false)) => {
+            Some((path, tab, false)) => {
                 egui::Area::new(egui::Id::new("opening"))
                     .anchor(egui::Align2::CENTER_CENTER, egui::Vec2::ZERO)
                     .order(egui::Order::Foreground)
@@ -662,7 +790,7 @@ impl crate::App {
                             });
                         });
                     });
-                page(|p| p.opening = Some((path, drawing, true)));
+                page(|p| p.opening = Some((path, tab, true)));
                 ctx.request_repaint();
             }
             None => {}
@@ -762,7 +890,7 @@ fn examples_grid(ui: &mut egui::Ui) {
                     "example_opened",
                     serde_json::json!({ "example": example.name }),
                 );
-                spawn_local(open_named(example.file.clone(), false));
+                spawn_local(open_named(example.file.clone(), None));
             }
             if !ui.is_rect_visible(rect) {
                 continue;

@@ -15,7 +15,14 @@
 #
 # The program's two files are named by their contents (workpiece-<hash>.js,
 # workpiece_bg-<hash>.wasm), so a browser keeps them for good (_headers);
-# index.html and the assistant's worker are written with those names.
+# index.html, thread.js and the assistant's worker are written with those names.
+#
+# The program is built with atomics and a shared memory: the build engine's threads are Web
+# Workers that run it on the page's memory (thread.js, hosts/app/src/web.rs). The standard
+# library is built for that from its sources (rust-src of the toolchain: rustup component add
+# rust-src), with RUSTC_BOOTSTRAP for -Z build-std on a stable toolchain. Threads need a page
+# that is cross-origin isolated (the headers in website/_headers); without, it builds on the
+# page's thread.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
@@ -53,7 +60,14 @@ if [ -z "$OPT" ]; then
 fi
 
 cd "$REPO"
-cargo build --profile web --target wasm32-unknown-unknown -p workpiece-app
+# (Up to 2 GiB of memory: a shared memory is declared with its largest size, which a phone's
+# browser must be able to set aside.)
+# (The linker is told to share the memory, take it from who starts the program, and export
+# what wasm-bindgen sets each thread's own statics up with.)
+LINK="--shared-memory --import-memory --max-memory=2147483648 --export=__wasm_init_tls --export=__tls_size --export=__tls_align --export=__tls_base"
+RUSTC_BOOTSTRAP=1 \
+  CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUSTFLAGS="-C target-feature=+atomics,+bulk-memory,+mutable-globals $(for a in $LINK; do printf ' -C link-arg=%s' "$a"; done)" \
+  cargo build --profile web --target wasm32-unknown-unknown -p workpiece-app -Z build-std=std,panic_abort
 WASM=${CARGO_TARGET_DIR:-$REPO/target}/wasm32-unknown-unknown/web/workpiece-app.wasm
 
 rm -rf "$OUT"
@@ -64,6 +78,7 @@ mkdir -p "$OUT"
 # those Rust's wasm32 target uses by default.)
 "$OPT" -O3 --strip-producers --enable-bulk-memory --enable-nontrapping-float-to-int \
   --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue \
+  --enable-threads \
   "$OUT/workpiece_bg.wasm" -o "$OUT/workpiece_bg.wasm.opt"
 mv "$OUT/workpiece_bg.wasm.opt" "$OUT/workpiece_bg.wasm"
 cp "$REPO/hosts/app/assets/workpiece.png" "$OUT/"
@@ -100,8 +115,9 @@ PY
 "$HERE/vendor.sh" "$OUT"
 
 # The names by contents: the wasm's first, which its loader names, then the loader's, which
-# the page and the assistant's worker name. The page is given the wasm's size too (for its
-# progress bar: what is served is compressed, so the download's own length is not it).
+# the page, the build threads' script and the assistant's worker name. The page is given the
+# wasm's size too (for its progress bar: what is served is compressed, so the download's own
+# length is not it).
 python3 - "$OUT" "$HERE/index.html" <<'PY'
 import hashlib, os, sys
 out, page = sys.argv[1:]
@@ -132,6 +148,10 @@ if "%WORKPIECE" in html:
     sys.exit("build.sh: index.html has a name build.sh does not fill in")
 with open(path("index.html"), "w") as f:
     f.write(html)
+with open(os.path.join(os.path.dirname(page), "thread.js")) as f:
+    text = f.read()
+with open(path("thread.js"), "w") as f:
+    f.write(replace(text, '"./workpiece.js"', f'"./{js}"', "thread.js"))
 worker = path("assistant/worker.js")
 with open(worker) as f:
     text = f.read()

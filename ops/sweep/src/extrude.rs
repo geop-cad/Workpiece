@@ -309,7 +309,9 @@ impl Operation for Extrude {
         };
         let to_plane = match to_plane {
             Some(plane) => {
-                let from = frame.place(ui::middle(&profile, &args.areas));
+                // (From a point of the outline: its extension lines start
+                // on the edges of the ends, not in the air.)
+                let from = frame.place(ui::on_outline(&profile, &args.areas));
                 let across = frame.normal().dot(plane.normal());
                 anyhow::ensure!(
                     across.abs() > 1e-9,
@@ -364,7 +366,9 @@ impl Operation for Extrude {
         // How far it is swept is a size of the model.
         if matches!(args.extent, Extent::Distance | Extent::Symmetric) {
             use workpiece_core::world::{Annotation, Measured};
-            let from = frame.place(ui::middle(&profile, &args.areas));
+            // (From a point of the outline: its extension lines start
+            // on the edges of the ends, not in the air.)
+            let from = frame.place(ui::on_outline(&profile, &args.areas));
             let measured = Measured::Length {
                 from: from + frame.normal() * range.0,
                 to: from + frame.normal() * range.1,

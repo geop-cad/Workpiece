@@ -210,6 +210,25 @@ pub struct Model {
     /// The plane the edited step is edited in, as the view last turned
     /// to face it.
     edit_plane: Option<DatumPlane>,
+    /// The text of a sketch's dimension that is dragged, shown where the
+    /// pointer has it (see [`HeldNote`]).
+    pub(crate) held_note: Option<HeldNote>,
+}
+
+/// The text of a sketch's dimension that is being dragged: where it
+/// stands is the sketch's, and moving it builds the sketch and every step
+/// after it again, which takes long. So while it is dragged it only
+/// shows where the pointer has it; once dropped, the sketch takes it and
+/// is built again — once — and it shows there until that build does.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct HeldNote {
+    /// The annotation's name.
+    pub(crate) name: String,
+    /// Where its text stands, in the focused part's coordinates, in its
+    /// sketch's plane.
+    pub(crate) at: workpiece_core::math::Point3,
+    /// Whether it was dropped, and the sketch has it.
+    pub(crate) dropped: bool,
 }
 
 /// What a picture is traced from, kept by what tells it from another.
@@ -510,6 +529,17 @@ impl Model {
                     } else {
                         at
                     };
+                    // While it is dragged it is only shown there: the
+                    // sketch, and every step after it, is built again
+                    // once, when it is dropped.
+                    self.held_note = Some(HeldNote {
+                        name,
+                        at,
+                        dropped: settled,
+                    });
+                    if !settled {
+                        return Ok(());
+                    }
                     let label = workpiece_core::math::Point2::new(
                         (at - of.origin).dot(of.x),
                         (at - of.origin).dot(of.y),
@@ -529,15 +559,22 @@ impl Model {
                         dimension.label = label;
                         Ok(())
                     })?;
-                    if settled {
-                        self.history.seal();
-                    }
-                    // (The sketch is built again, its dimension there.)
+                    self.history.seal();
+                    // (The sketch is built again, its dimension there;
+                    // till that shows, it is shown where it was dropped.)
                     true
                 } else {
+                    // (Kept as far from what it is about as it is put.)
+                    let from = self
+                        .viewport
+                        .shown
+                        .world
+                        .annotations
+                        .get(&name)
+                        .map_or(workpiece_core::math::Point3::ZERO, |note| note.origin());
                     self.change(Some(key), |ws| {
                         let places = &mut ws.part_mut(&part)?.note_places;
-                        places.insert(name, at.to_array());
+                        places.insert(name, (at - from).to_array());
                         Ok(())
                     })?;
                     if settled {
@@ -1846,6 +1883,10 @@ impl Model {
         }
         self.viewport.shown = shown;
         self.viewport.candidates.clear();
+        // (A dimension dropped shows where the build put it now.)
+        if self.held_note.as_ref().is_some_and(|h| h.dropped) {
+            self.held_note = None;
+        }
         self.face_edit_plane();
     }
 

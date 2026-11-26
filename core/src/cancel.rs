@@ -79,9 +79,14 @@ impl Cancel {
 /// Stops the work this thread is doing, if it was cancelled: unwinds to
 /// where it was [started](Cancel::run). Costs a few nanoseconds; to be
 /// passed in every loop that can run for long.
+///
+/// Where a panic cannot unwind (a browser's build, which aborts) it
+/// stops nothing: unwinding would end the thread. There the work is
+/// stopped where it looks at [`Cancel::is_cancelled`] itself — between
+/// a part's steps — and what it makes is not wanted.
 pub fn checkpoint() {
     let cancelled = CURRENT.with_borrow(|c| c.as_ref().is_some_and(Cancel::is_cancelled));
-    if cancelled {
+    if cancelled && cfg!(panic = "unwind") {
         resume_unwind(Box::new(Cancelled));
     }
 }

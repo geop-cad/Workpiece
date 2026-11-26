@@ -212,6 +212,7 @@ impl Operation for Thread {
                         said.designation
                     ))]],
                     outside: !hole,
+                    faces: vec![picked.to_owned()],
                 },
             };
             return Ok(workpiece_core::Made {

@@ -167,55 +167,44 @@ impl Viewport {
                     })
                 });
                 let notes = v.shown.world.annotations.iter();
-                notes
+                let notes = notes
                     .filter(|_| annotating && !sketching)
                     .filter_map(|(name, note)| {
-                        let at = places
-                            .and_then(|p| p.get(name))
-                            .map_or(note.at, |at| workpiece_core::math::Point3::from_array(*at));
-                        // (A drawing's lettering, 3.5 millimetres high,
-                        // is twelve pixels high here.)
-                        let pixel = model.pixel(pose.transform_point(at));
+                        // (Stood elsewhere, it is kept as far from what
+                        // it is about as it was put: it goes with that.)
+                        let at = places.and_then(|p| p.get(name)).map_or(note.at, |off| {
+                            note.origin() + workpiece_core::math::Point3::from_array(*off)
+                        });
                         // A sketch's dimension is laid out by the
                         // sketch, in the sketch's plane, as it is in the
                         // sketch: nothing is chosen from the view but
                         // its size and the way it turns in the plane.
+                        // (One whose text is dragged stands where the
+                        // pointer has it, till its sketch is built so.)
                         if let Some(of) = &note.sketch {
+                            let held = model.held_note.as_ref().filter(|h| h.name == *name);
+                            let moved = held.map(|held| workpiece_core::world::Annotation {
+                                at: held.at,
+                                ..note.clone()
+                            });
+                            let note = moved.as_ref().unwrap_or(note);
+                            let pixel = model.pixel(pose.transform_point(note.at));
                             return sketch_note(name, note, of, pixel, right, up, &place);
                         }
-                        let per_mm = pixel * NOTE_PIXELS;
-                        let drawn = workpiece_ops_drawing::lay::on_model::on_model(
-                            note, at, right, up, per_mm,
-                        )
-                        .unwrap_or_default();
-                        Some(NoteShown {
-                            name: name.clone(),
-                            at: place(at),
-                            text: note.text(),
-                            movable: true,
-                            strokes: drawn
-                                .strokes
-                                .iter()
-                                .map(|(a, b)| (place(*a), place(*b)))
-                                .collect(),
-                            fills: drawn.fills.iter().map(|f| f.map(place)).collect(),
-                            texts: drawn
-                                .texts
-                                .iter()
-                                .map(|t| NoteText {
-                                    at: place(t.at),
-                                    towards: place(t.at + t.along * t.height),
-                                    text: t.text.clone(),
-                                    upper: String::new(),
-                                    lower: String::new(),
-                                    height: (t.height / pixel) as f32,
-                                })
-                                .collect(),
-                            grip: drawn.grip.map(place),
-                        })
+                        Some(super::spread::on_the_model(
+                            model,
+                            v,
+                            (name, note),
+                            at,
+                            right,
+                            up,
+                        ))
                     })
-                    .chain(masses(model, v, right, up))
-                    .collect()
+                    .chain(masses(model, v, right, up));
+                // (Their texts apart, where there is room.)
+                let mut notes: Vec<NoteShown> = notes.collect();
+                super::spread::spread(model, v, right, up, &mut notes);
+                notes
             },
             error: model.error(),
             notice: model.notice(),
@@ -371,7 +360,7 @@ fn sketch_note(
 
 /// How many pixels a millimetre of a drawing's lettering is, where
 /// notes are drawn on the model.
-const NOTE_PIXELS: f64 = 12.0 / 3.5;
+pub(crate) const NOTE_PIXELS: f64 = 12.0 / 3.5;
 
 /// The mass properties the part's steps ask for, as they show on the
 /// model: the ellipsoid of one density that weighs and turns as the

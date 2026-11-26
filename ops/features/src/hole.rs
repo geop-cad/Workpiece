@@ -1428,6 +1428,7 @@ impl Operation for Hole {
         let mut threads = Vec::new();
         // How deep the first hole is, and its head: for the callout.
         let mut shown = None;
+        let mut walls: Vec<String> = Vec::new();
         for (k, place) in places.iter().enumerate() {
             // How deep it is where it goes through: to where it comes
             // out, if that is asked for — for a chamfer there, or for
@@ -1516,6 +1517,14 @@ impl Operation for Hole {
                 format!("{}/h{k}", self.id)
             };
             let (outline, side) = shape.walled()?;
+            if k == 0 {
+                // (The faces of the first hole's wall: its callout's
+                // leader ends where they meet the face it is entered
+                // from.)
+                walls = (0..outline.len())
+                    .map(|e| format!("{id}/side/e{e}"))
+                    .collect();
+            }
             let tool = drill(&id, *place, direction, &outline)?;
             // (The bore's wall: what the outline's side sweeps.)
             let wall = format!("{id}/side/e{side}");
@@ -1683,6 +1692,7 @@ impl Operation for Hole {
                         radius,
                         lines,
                         outside: false,
+                        faces: walls,
                     },
                 },
             ));

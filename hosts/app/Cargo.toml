@@ -78,6 +78,8 @@ web-sys = { version = "0.3.107", features = [
     "HtmlElement",
     "HtmlInputElement",
     "Location",
+    "MessageEvent",
+    "Navigator",
     "Performance",
     "Request",
     "Response",
@@ -85,6 +87,9 @@ web-sys = { version = "0.3.107", features = [
     "Url",
     "UrlSearchParams",
     "Window",
+    "Worker",
+    "WorkerOptions",
+    "WorkerType",
 ] }
 
 [target.'cfg(windows)'.build-dependencies]

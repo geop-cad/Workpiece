@@ -87,7 +87,9 @@
   <button onclick="location.reload()">Reload</button>
 </div>
 <script type="module">
-  import init from "./%WORKPIECE_JS%";
+  import init, { workpieceSeen } from "./%WORKPIECE_JS%";
+  // (What the last frame showed, for the browser tests: drag.mjs.)
+  window.workpieceSeen = () => JSON.parse(workpieceSeen());
   const say = (text) => {
     document.getElementById("loading").innerHTML = `<p>${text}</p>`;
   };

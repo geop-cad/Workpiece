@@ -65,6 +65,8 @@ pub(crate) fn annotations(
                         centre: place(foot),
                         axis: plane.x_dir() * way.x + plane.y_dir() * way.y,
                         radius: foot.distance(p),
+                        faces: Vec::new(),
+                        hole: false,
                     }
                 } else {
                     Measured::Length {
@@ -126,6 +128,8 @@ pub(crate) fn annotations(
                         centre,
                         axis,
                         radius,
+                        faces: Vec::new(),
+                        hole: false,
                     }
                 } else {
                     Measured::Radius {

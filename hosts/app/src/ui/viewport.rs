@@ -600,6 +600,11 @@ fn notes(
         if note.texts.is_empty() || corners.len() < 4 || !grip.is_finite() {
             grip = egui::Rect::from_center_size(at, egui::vec2(24.0, 14.0));
         }
+        // (Where its text is, for the browser's tests.)
+        #[cfg(target_arch = "wasm32")]
+        if note.movable {
+            crate::web::seen(&note.name, grip.center());
+        }
         let response = ui
             .interact(
                 grip,
@@ -699,6 +704,17 @@ fn notes(
             let turned = |v: egui::Vec2| egui::vec2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
             let half = galley.size() / 2.0;
             let width = galley.size().x;
+            // (On a thin halo of the canvas's colour: read as well on a
+            // dark face or across a line as on the light background.)
+            let halo = color::CANVAS;
+            for (dx, dy) in [(-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0)] {
+                let shape = egui::epaint::TextShape::new(
+                    p - turned(half) + egui::vec2(dx, dy),
+                    galley.clone(),
+                    halo,
+                );
+                painter.add(shape.with_override_text_color(halo).with_angle(angle));
+            }
             painter
                 .add(egui::epaint::TextShape::new(p - turned(half), galley, ink).with_angle(angle));
             // The deviations, small, one above the other after the

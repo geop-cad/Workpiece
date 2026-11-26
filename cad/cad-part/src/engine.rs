@@ -28,7 +28,7 @@
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, Mutex, PoisonError};
+use std::sync::{Arc, Mutex};
 
 use workpiece_core::{Builder, Cache, Parameters, World};
 
@@ -109,9 +109,7 @@ impl Default for Engine {
     }
 }
 
-fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
-}
+use crate::pool::lock;
 
 impl Engine {
     fn with(pool: Option<Pool>) -> Self {

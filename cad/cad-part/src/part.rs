@@ -62,7 +62,8 @@ pub struct Part {
     pub script: Option<String>,
     /// Where the text of what is said of the model stands on it, by the
     /// annotation's name, where the user stood it elsewhere than it
-    /// stands by itself.
+    /// stands by itself: how far from the point it is about (see
+    /// `Annotation::origin`), so that it goes along when that moves.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub note_places: std::collections::BTreeMap<String, [f64; 3]>,
     /// Where the operations start solving from: what they worked out the

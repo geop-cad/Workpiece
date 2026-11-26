@@ -100,6 +100,21 @@ impl Drawing {
     }
 }
 
+/// Locks `mutex`; in a browser by spinning, as the page's thread may
+/// not wait (the build threads hold it for a moment).
+pub(crate) fn held<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    if cfg!(target_arch = "wasm32") {
+        loop {
+            match mutex.try_lock() {
+                Ok(guard) => return guard,
+                Err(std::sync::TryLockError::Poisoned(e)) => return e.into_inner(),
+                Err(std::sync::TryLockError::WouldBlock) => std::hint::spin_loop(),
+            }
+        }
+    }
+    mutex.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
 /// The scenes kept: by what world they are of, how it is drawn and what
 /// of it is hidden.
 #[derive(Debug, Default)]
@@ -131,16 +146,17 @@ impl Scenes {
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         format!("{visibility:?}").hash(&mut hasher);
         let key = (world.stamp, style, hasher.finish());
-        let mut kept = self.kept.lock().unwrap_or_else(PoisonError::into_inner);
-        if let Some(scene) = kept.get(&key) {
+        if let Some(scene) = held(&self.kept).get(&key) {
             return scene.clone();
         }
+        // (Made without holding the others: a thread that wants another
+        // scene meanwhile — the interface's, drawing — does not wait.)
+        let scene = make();
+        let mut kept = held(&self.kept);
         if kept.len() >= KEPT {
             kept.clear();
         }
-        let scene = make();
-        kept.insert(key, scene.clone());
-        scene
+        kept.entry(key).or_insert(scene).clone()
     }
 
     /// The drawing of `world`, placed by `pose`, leaving out what

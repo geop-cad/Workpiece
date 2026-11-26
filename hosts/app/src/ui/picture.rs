@@ -130,6 +130,7 @@ fn work(lock: &Lock, ctx: &egui::Context, doing: &mut Option<(Job, Film)>, job: 
 
 /// Traces what is asked for, pass by pass, until something else is: on
 /// a thread of its own.
+#[cfg_attr(target_arch = "wasm32", allow(dead_code))]
 fn trace(lock: &Lock, ctx: &egui::Context) {
     let (shared, wake) = &**lock;
     let mut doing: Option<(Job, Film)> = None;
@@ -193,10 +194,15 @@ impl PicturePanel {
         self.lock
             .get_or_insert_with(|| {
                 let lock: Lock = Arc::default();
+                // (In a browser egui's context is the page's alone: it
+                // is traced a piece a frame there.)
+                #[cfg(not(target_arch = "wasm32"))]
                 if workpiece_core::HAS_THREADS {
                     let (theirs, ctx) = (lock.clone(), ctx.clone());
                     std::thread::spawn(move || trace(&theirs, &ctx));
                 }
+                #[cfg(target_arch = "wasm32")]
+                let _ = ctx;
                 lock
             })
             .clone()

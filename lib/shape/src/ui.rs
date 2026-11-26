@@ -56,6 +56,27 @@ pub fn flip<A: Clone + 'static>(args: &A, flip: impl Fn(&mut A) + 'static) -> Wi
 /// The middle of what is swept of `profile` (the areas `picked`, or all
 /// of it), in its plane: where the handle of a sweep starts.
 pub fn middle(profile: &Profile, picked: &[AreaPick]) -> Point2 {
+    let points = outline(profile, picked);
+    let lo = points.iter().copied().reduce(Point2::min);
+    let hi = points.iter().copied().reduce(Point2::max);
+    lo.zip(hi).map_or(Point2::ZERO, |(lo, hi)| (lo + hi) / 2.0)
+}
+
+/// The point of the outline of what `picked` takes of `profile` (all of
+/// it, if nothing is picked) nearest its [`middle`]: a point of the
+/// edge a size measured across it starts from (an extension line from
+/// there starts on the part, where the middle may be off it).
+pub fn on_outline(profile: &Profile, picked: &[AreaPick]) -> Point2 {
+    let middle = middle(profile, picked);
+    outline(profile, picked)
+        .into_iter()
+        .min_by(|a, b| a.distance(middle).total_cmp(&b.distance(middle)))
+        .unwrap_or(middle)
+}
+
+/// Points along the outline of what `picked` takes of `profile` (all of
+/// its edges and points, if nothing is picked).
+fn outline(profile: &Profile, picked: &[AreaPick]) -> Vec<Point2> {
     let regions = sweep::regions(profile, picked).unwrap_or_default();
     let mut points: Vec<Point2> = regions
         .iter()
@@ -67,9 +88,7 @@ pub fn middle(profile: &Profile, picked: &[AreaPick]) -> Point2 {
             .chain(profile.vertices.iter().map(|v| v.point))
             .collect();
     }
-    let lo = points.iter().copied().reduce(Point2::min);
-    let hi = points.iter().copied().reduce(Point2::max);
-    lo.zip(hi).map_or(Point2::ZERO, |(lo, hi)| (lo + hi) / 2.0)
+    points
 }
 
 /// The sketch's plane as a handle that picks its areas: a click in an

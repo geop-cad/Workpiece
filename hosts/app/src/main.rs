@@ -189,12 +189,19 @@ struct App {
 
 /// Has `model` build its parts beside the interface, on all but one of
 /// the machine's threads: the window stays alive while they do. (In a
-/// browser there are no threads to build on: there, parts build as they
-/// are asked for.)
+/// browser the threads are Web Workers, where the page may share its
+/// memory with them, see [`web::threads`]; where it may not, parts build
+/// as they are asked for.)
 fn threaded(model: &mut Model) {
-    if workpiece_core::HAS_THREADS {
+    #[cfg(not(target_arch = "wasm32"))]
+    let threads = workpiece_core::HAS_THREADS.then(|| {
         let threads = std::thread::available_parallelism().map_or(2, |n| n.get());
-        model.engine = workpiece_part::Engine::threaded(threads.saturating_sub(1).max(1));
+        threads.saturating_sub(1).max(1)
+    });
+    #[cfg(target_arch = "wasm32")]
+    let threads = web::threads();
+    if let Some(threads) = threads {
+        model.engine = workpiece_part::Engine::threaded(threads);
         model.background = true;
     }
 }

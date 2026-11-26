@@ -75,6 +75,15 @@ pub enum Measured {
         axis: Point3,
         /// Its radius.
         radius: f64,
+        /// The faces of the model it is the diameter of, by their names
+        /// (none where it is of no face: a sketch's circle, an edge): on
+        /// the model its leader ends on them — on a bore's rim (see
+        /// [`rim`]), on a shaft's side — wherever they are as the
+        /// model is built.
+        faces: Vec<String>,
+        /// Whether those faces are the wall of a hole, not the outside
+        /// of a shaft.
+        hole: bool,
     },
     /// The radius of something round about an axis.
     Radius {
@@ -280,6 +289,12 @@ pub enum Note {
         /// its leader ends on the rod's outline, best seen from the
         /// side.
         outside: bool,
+        /// The faces of its wall (of the first hole), by their names in
+        /// the model: on the model the leader ends on its rim, where
+        /// they meet the face it is entered from (see [`rim`]) — as the
+        /// model is built, whatever came after the hole. Of a rod's
+        /// thread, the rod's face.
+        faces: Vec<String>,
     },
     /// A dimension: what it measures, its value, its tolerance.
     Dimension {
@@ -441,10 +456,14 @@ impl Annotation {
                 centre,
                 axis,
                 radius,
+                faces,
+                hole,
             } => Measured::Diameter {
                 centre: p(*centre),
                 axis: v(*axis),
                 radius: *radius,
+                faces: faces.clone(),
+                hole: *hole,
             },
             Measured::Radius {
                 centre,
@@ -468,12 +487,14 @@ impl Annotation {
                 radius,
                 lines,
                 outside,
+                faces,
             } => Note::Hole {
                 centre: p(*centre),
                 axis: v(*axis),
                 radius: *radius,
                 lines: lines.clone(),
                 outside: *outside,
+                faces: faces.clone(),
             },
             Note::Dimension {
                 measured: m,
@@ -823,13 +844,21 @@ impl Measured {
     pub fn beside(&self, reach: f64) -> Point3 {
         match self {
             Measured::Length { from, to, .. } => {
-                let across = (*to - *from).any_orthonormal_vector();
-                (*from + *to) / 2.0 + across * (from.distance(*to) * 0.3 + 1e-9)
+                // Off its middle away from the origin — about which a
+                // part is mostly made, so mostly off the part — or,
+                // where its middle is on a line through the origin along
+                // it, any way across.
+                let middle = (*from + *to) / 2.0;
+                let along = (*to - *from).normalize_or_zero();
+                let off = middle - along * middle.dot(along);
+                let across = off.try_normalize().unwrap_or_else(|| across(along));
+                middle + across * (from.distance(*to) * 0.3 + 1e-9)
             }
             Measured::Diameter {
                 centre,
                 axis,
                 radius,
+                ..
             }
             | Measured::Radius {
                 centre,
@@ -940,6 +969,78 @@ impl Annotation {
             Note::Hole { centre, .. } => vec![*centre],
         }
     }
+}
+
+impl Annotation {
+    /// The point of the model its text is kept from where the user
+    /// stands it elsewhere: the middle of what it is about. The text
+    /// goes along when that moves (a hole placed elsewhere, a longer
+    /// part).
+    pub fn origin(&self) -> Point3 {
+        let anchors = self.anchors();
+        anchors.iter().copied().sum::<Point3>() / anchors.len().max(1) as f64
+    }
+}
+
+/// Where the faces called `faces` in `topo` meet other faces: the rims
+/// of a hole whose wall they are — where it is entered, where it comes
+/// out — or the ends of a shaft; each edge as points along it, in the
+/// model's coordinates. A piece of one of them (`name#2`, what a later
+/// step cut it into) is of it too. Nothing where none of them is in
+/// `topo` any more.
+pub fn rim(topo: &crate::world::Topo, faces: &[String]) -> Vec<Vec<Point3>> {
+    use crate::world::topo::{CoedgeKind, EdgeId, FaceId};
+    use std::collections::{BTreeMap, BTreeSet};
+    let names = topo.names();
+    let mine: BTreeSet<FaceId> = faces
+        .iter()
+        .flat_map(|name| {
+            let pieces = format!("{name}#");
+            names
+                .with_prefix(&pieces)
+                .filter_map(|(_, id)| FaceId::try_from(id).ok())
+                .chain(topo.resolve::<FaceId>(name))
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    if mine.is_empty() {
+        return Vec::new();
+    }
+    let mut face_of_loop = BTreeMap::new();
+    for (id, face) in topo.faces().iter() {
+        for l in &face.loops {
+            face_of_loop.insert(*l, id);
+        }
+    }
+    let mut faces_of_edge: BTreeMap<EdgeId, Vec<FaceId>> = BTreeMap::new();
+    for (id, l) in topo.loops().iter() {
+        let Some(face) = face_of_loop.get(&id) else {
+            continue;
+        };
+        for c in &l.coedges {
+            if let Some(CoedgeKind::Edge { edge, .. }) = topo.coedge(*c).map(|c| c.kind) {
+                faces_of_edge.entry(edge).or_default().push(*face);
+            }
+        }
+    }
+    faces_of_edge
+        .into_iter()
+        .filter(|(_, of)| {
+            of.iter().any(|f| mine.contains(f)) && of.iter().any(|f| !mine.contains(f))
+        })
+        .filter_map(|(edge, _)| {
+            let edge = topo.edge(edge)?;
+            let curve = topo.curve(edge.curve)?;
+            const STEPS: usize = 48;
+            Some(
+                (0..=STEPS)
+                    .map(|k| {
+                        curve.point_at(edge.t0 + (edge.t1 - edge.t0) * k as f64 / STEPS as f64)
+                    })
+                    .collect(),
+            )
+        })
+        .collect()
 }
 
 #[cfg(test)]

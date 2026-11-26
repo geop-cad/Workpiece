@@ -781,6 +781,14 @@ impl SheetPanel {
             out.push(Message::PreviewNotes(wanted));
         }
         paint(ui, rect, laid, &to_screen, zoom);
+        // (Where each note's text is, for the browser's tests.)
+        #[cfg(target_arch = "wasm32")]
+        for note in laid.notes.iter().filter(|n| n.preview.is_none()) {
+            if let (Placing::Note, Some(placed)) = (&note.kind, shown.sheet.notes.get(note.index)) {
+                let middle = (note.rect[0] + note.rect[1]) / 2.0;
+                crate::web::seen(&placed.note, to_screen(middle));
+            }
+        }
         let painter = ui.painter_at(rect);
         let pointer = response.hover_pos().map(to_sheet);
         let reach = f64::from(9.0 / zoom);

@@ -12,6 +12,16 @@
 /app/*.wasm
   Content-Type: application/wasm
 
+# The application is cross-origin isolated: its build threads are Web Workers that share the
+# page's memory (app/thread.js, hosts/app/src/web.rs), which a browser allows only then. Every
+# file under /app/ (the page, its workers' scripts) says so; what it loads from elsewhere must
+# allow it (Cloudflare's Turnstile, for the assistant). Without these, Chrome and Firefox still
+# run it, building on the page's one thread (Safari may not start it at all). (One rule only:
+# Pages would join two rules' values.)
+/app/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+
 # The program, named by its contents (app/build.sh): a new build is a new name, which the page
 # (revalidated, as everything else) names; the files themselves are kept for good.
 /app/workpiece-*.js

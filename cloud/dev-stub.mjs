@@ -7,7 +7,8 @@
 //   open http://127.0.0.1:8791/app/?turnstile=off
 //
 // It serves the built app at /app/ (and the rest of website/ beside it,
-// where there is any) and answers /api/agent/{session,status,turn}: any
+// where there is any), the app with the headers website/_headers gives it
+// (cross-origin isolated, for the build threads), and answers /api/agent/{session,status,turn}: any
 // token opens a session; every turn request is checked with the server's
 // own validation (lib/agent/validate.ts, the tools of tools.json) and its
 // signatures of the assistant's messages (lib/agent/signature.ts, under a
@@ -201,12 +202,15 @@ function json(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
-function file(res, path) {
+// (As website/_headers has them for /app/*.)
+const ISOLATED = { "cross-origin-opener-policy": "same-origin", "cross-origin-embedder-policy": "require-corp" };
+
+function file(res, path, extra = {}) {
   if (!existsSync(path) || !statSync(path).isFile()) {
-    res.writeHead(404, { "content-type": "text/plain" });
+    res.writeHead(404, { "content-type": "text/plain", ...extra });
     return res.end("Not found");
   }
-  res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream", "cache-control": "no-store" });
+  res.writeHead(200, { "content-type": TYPES[extname(path)] ?? "application/octet-stream", "cache-control": "no-store", ...extra });
   res.end(readFileSync(path));
 }
 
@@ -244,7 +248,7 @@ createServer(async (req, res) => {
   // The app, and the site's pages around it.
   const path = normalize(decodeURIComponent(url.pathname));
   if (path.includes("..")) return file(res, "");
-  if (path === "/app" || path === "/app/") return file(res, join(APP, "index.html"));
-  if (path.startsWith("/app/")) return file(res, join(APP, path.slice(5)));
+  if (path === "/app" || path === "/app/") return file(res, join(APP, "index.html"), ISOLATED);
+  if (path.startsWith("/app/")) return file(res, join(APP, path.slice(5)), ISOLATED);
   return file(res, join(SITE, path));
 }).listen(PORT, "127.0.0.1", () => console.log(`stub on http://127.0.0.1:${PORT}/app/?turnstile=off (app from ${APP})`));

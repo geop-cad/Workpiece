@@ -560,13 +560,13 @@ pub fn face(topo: &Topo, id: FaceId) -> Option<Arc<FaceMesh>> {
     });
     let key = made_of(topo, id)?;
     {
-        let kept = KEPT.lock().unwrap_or_else(|e| e.into_inner());
+        let kept = crate::drawing::held(&KEPT);
         if let Some(mesh) = kept.meshes.as_ref().and_then(|m| m.get(&key)) {
             return Some(mesh.clone());
         }
     }
     let mesh = Arc::new(sample(topo, id)?);
-    let mut kept = KEPT.lock().unwrap_or_else(|e| e.into_inner());
+    let mut kept = crate::drawing::held(&KEPT);
     // (No more than some tens of millions of triangles are held.)
     if kept.triangles > 40_000_000 {
         kept.meshes = None;

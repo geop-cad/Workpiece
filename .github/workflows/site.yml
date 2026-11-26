@@ -71,6 +71,8 @@ jobs:
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
+          # (The standard library is built again with atomics for the build threads: build.sh.)
+          components: rust-src
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           key: web
@@ -100,6 +102,11 @@ jobs:
       # volumes, faces and edges. One that does not stops the deploy.
       - name: The examples build in the browser as on the desktop
         run: node examples/wasm_check.mjs website/app/dist
+      # The page keeps drawing while a dimension is dragged (on the model and on a drawing
+      # sheet) and while a part builds: builds run on the build threads, not the page's
+      # (website/app/drag.mjs says what it holds the page to). About half a minute.
+      - name: The browser app stays responsive while dragging and building
+        run: node website/app/drag.mjs website/app/dist
       # The assistant's Pages Functions and budget worker (cloud/, docs/assistant.md), once there.
       - name: Check the functions in cloud/
         if: hashFiles('cloud/package-lock.json') != ''

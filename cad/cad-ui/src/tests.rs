@@ -3243,7 +3243,11 @@ fn a_drawing_shows_the_model_and_what_is_said_of_it() -> anyhow::Result<()> {
     let notes = View::new(&m).viewport.notes;
     let height = notes.iter().find(|n| n.name == "height").expect("it");
     assert_eq!(height.at, glam::Vec3::new(3.0, 0.5, 2.0));
-    assert_eq!(m.workspace.parts["bolt"].note_places["height"], to);
+    // (Kept as far from what it is about as it was put: it goes along.)
+    let from = m.viewport.shown.world.annotations["height"].origin();
+    let kept = m.workspace.parts["bolt"].note_places["height"];
+    let kept = from + workpiece_core::math::Point3::from_array(kept);
+    assert!(kept.distance(workpiece_core::math::Point3::from_array(to)) < 1e-9);
     // A drawing is a step: an A3 with the model from the front, from
     // the left and from above, framed and titled; all that is said of
     // the model is missing on it.
@@ -4214,6 +4218,64 @@ fn a_sketch_dimension_dragged_on_the_annotate_tab_moves_in_its_sketch() -> anyho
             .filter_map(|c| c.dimension.as_ref())
             .all(|d| d.label.distance(Point2::new(2.5, -2.25)) > 1e-9)
     );
+    Ok(())
+}
+
+#[test]
+fn a_sketch_dimension_being_dragged_builds_nothing_till_it_is_dropped() -> anyhow::Result<()> {
+    // Where a sketch's dimension stands is its sketch's: moving it builds
+    // the sketch and every step after it again. While it is dragged only
+    // its text moves, as the pointer has it; dropped, the part is built
+    // again, once (in the background, where builds run beside the
+    // interface): a drag never waits for builds, nor queues them.
+    let mut m = dimensioned_from([0.0, 0.0, 1.0], false)?;
+    let name = View::new(&m)
+        .viewport
+        .notes
+        .iter()
+        .find(|n| n.name.starts_with("sk/"))
+        .expect("one")
+        .name
+        .clone();
+    let (workspace, applied) = (m.workspace.clone(), m.engine.applied());
+    for k in 0..20 {
+        let x = 1.0 + 0.1 * f64::from(k);
+        m.update(Message::MoveNote {
+            name: name.clone(),
+            at: [x, -2.0, 0.0],
+            settled: false,
+        })?;
+        // (Shown where the pointer has it, at once.)
+        let notes = View::new(&m).viewport.notes;
+        let moved = notes.iter().find(|n| n.name == name).expect("it");
+        assert!(
+            moved.at.distance(glam::Vec3::new(x as f32, -2.0, 0.0)) < 1e-4,
+            "{}",
+            moved.at
+        );
+    }
+    assert_eq!(
+        m.workspace, workspace,
+        "nothing changes while it is dragged"
+    );
+    assert_eq!(
+        m.engine.applied(),
+        applied,
+        "nothing is built while it is dragged"
+    );
+    assert!(!m.is_building());
+    m.update(Message::MoveNote {
+        name: name.clone(),
+        at: [3.0, -2.0, 0.0],
+        settled: true,
+    })?;
+    assert_ne!(m.workspace, workspace);
+    let notes = View::new(&m).viewport.notes;
+    let moved = notes.iter().find(|n| n.name == name).expect("it");
+    assert!(moved.at.distance(glam::Vec3::new(3.0, -2.0, 0.0)) < 1e-4);
+    // One undo step takes it back.
+    m.update(Message::Undo)?;
+    assert_eq!(m.workspace, workspace);
     Ok(())
 }
 

@@ -269,6 +269,11 @@ struct Rounded {
     /// Of what bends two ways, the wider round: the centre, axis and
     /// radius of the circle the tighter one's middle goes around.
     bend: Option<(Point3, Point3, f64)>,
+    /// Of a cylinder, its faces (a full one may be of two halves), by
+    /// name in the world it is of.
+    faces: Vec<String>,
+    /// Whether that cylinder is a hole's wall.
+    hole: bool,
 }
 
 /// The centre and the axis of a round thing as its middle is measured
@@ -317,6 +322,11 @@ fn arc_through(at: &dyn Fn(f64) -> Point3) -> Option<(Point3, Point3, f64)> {
 fn rounded(world: &World, source: &Source) -> Option<Rounded> {
     let (world, name, pose) = within(world, source)?;
     let mut rounded = rounded_in(&world.topo, name)?;
+    // (Its faces are known by these names only in the world of the
+    // part placed, not in this one.)
+    if matches!(source, Source::Placed { .. }) {
+        rounded.faces.clear();
+    }
     // (Where the part it is of is placed.)
     rounded.centre = pose.transform_point(rounded.centre);
     rounded.axis = pose.transform_vector(rounded.axis);
@@ -343,6 +353,8 @@ fn rounded_in(topo: &Topo, name: &str) -> Option<Rounded> {
             ball: false,
             edge: true,
             bend: None,
+            faces: Vec::new(),
+            hole: false,
         });
     }
     let (solid, face) = workpiece_shape::on::face(topo, name).ok()?;
@@ -366,6 +378,10 @@ fn rounded_in(topo: &Topo, name: &str) -> Option<Rounded> {
         let long = (round.reach.1 - round.reach.0).abs();
         let whole = area >= std::f64::consts::TAU * round.radius * long * 0.99;
         let middle = (round.reach.0 + round.reach.1) / 2.0;
+        let faces = (0..solid.faces.len())
+            .filter(|&f| on_it(f).is_some())
+            .filter_map(|f| solid.faces[f].name.clone())
+            .collect();
         return Some(Rounded {
             centre: round.origin + round.axis * middle,
             axis: round.axis,
@@ -374,6 +390,8 @@ fn rounded_in(topo: &Topo, name: &str) -> Option<Rounded> {
             ball: false,
             edge: false,
             bend: None,
+            faces,
+            hole: round.hole,
         });
     }
     // Any other face: how it bends across its middle, each way.
@@ -421,6 +439,8 @@ fn rounded_in(topo: &Topo, name: &str) -> Option<Rounded> {
         ball,
         edge: false,
         bend,
+        faces: Vec::new(),
+        hole: false,
     })
 }
 
@@ -913,10 +933,14 @@ fn measured(world: &World, args: &DimensionArgs) -> anyhow::Result<(Measured, f6
                 return Ok((measured, value));
             }
             Ok(if kind == DimensionKind::Diameter {
+                // (Of a bend's round, not its own: of no face as such.)
+                let own = args.bend == Bend::Own;
                 let measured = Measured::Diameter {
                     centre,
                     axis,
                     radius,
+                    faces: if own { round.faces.clone() } else { Vec::new() },
+                    hole: own && round.hole,
                 };
                 (measured, radius * 2.0)
             } else {
@@ -1027,6 +1051,50 @@ fn measured(world: &World, args: &DimensionArgs) -> anyhow::Result<(Measured, f6
     }
 }
 
+/// Where the text of the diameter of a bore stands by itself: off the
+/// bore, past the end of it farther out of the body's middle (of two as
+/// far, the upper) — where it is drilled from, as a rule, and its
+/// leader does not run through the part to it.
+fn mouth(topo: &Topo, measured: &Measured) -> Option<Point3> {
+    let Measured::Diameter {
+        centre,
+        axis,
+        radius,
+        faces,
+        hole: true,
+    } = measured
+    else {
+        return None;
+    };
+    let rims = workpiece_core::world::annotation::rim(topo, faces);
+    let depth = |p: Point3| (p - *centre).dot(*axis);
+    let (lo, hi) = rims
+        .iter()
+        .flatten()
+        .map(|p| depth(*p))
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), d| {
+            (a.min(d), b.max(d))
+        });
+    if !lo.is_finite() {
+        return None;
+    }
+    let (count, sum) = topo
+        .vertices()
+        .iter()
+        .fold((0.0, Point3::ZERO), |(n, s), (_, v)| (n + 1.0, s + v.point));
+    let middle = sum / f64::max(count, 1.0);
+    let end = |d: f64| *centre + *axis * d;
+    // (Of two as far out — a hole through the middle — the upper.)
+    let (far_hi, far_lo) = (end(hi).distance(middle), end(lo).distance(middle));
+    let upper = if (far_hi - far_lo).abs() <= 1e-6 * (1.0 + far_hi) {
+        end(hi).z >= end(lo).z
+    } else {
+        far_hi > far_lo
+    };
+    let (d, out) = if upper { (hi, 1.0) } else { (lo, -1.0) };
+    Some(end(d) + *axis * (out * radius) + axis.any_orthonormal_vector() * (radius * 1.6))
+}
+
 impl Operation for Dimension {
     type Args = DimensionArgs;
     type EditState = ();
@@ -1066,7 +1134,7 @@ impl Operation for Dimension {
         };
         let at = match self.args.at {
             Some(at) => Point3::from_array(at),
-            None => measured.beside(reach * 0.4),
+            None => mouth(&world.topo, &measured).unwrap_or_else(|| measured.beside(reach * 0.4)),
         };
         let note = Annotation {
             sketch: None,

@@ -346,6 +346,7 @@ fn a_leader_is_kept_out_of_a_neighbouring_view() -> anyhow::Result<()> {
             radius: 0.5,
             lines: vec![vec![Callout::Text("Ø".into()), Callout::Number(1.0)]],
             outside: false,
+            faces: Vec::new(),
         },
     );
     let views = vec![
@@ -453,6 +454,8 @@ fn a_tolerance_of_an_axis_points_at_its_diameters_dimension_line() -> anyhow::Re
                 centre: of.centre,
                 axis: of.axis,
                 radius: of.radius,
+                faces: Vec::new(),
+                hole: false,
             },
             value: 3.6,
             tolerance: Tolerance::General,
