@@ -1216,7 +1216,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -1474,6 +1474,7 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "name": "drawing",
           "notes": [
             {
@@ -1486,7 +1487,7 @@
             },
             {
               "at": [
-                -63.500000000000014,
+                -70.50000000000001,
                 0.0
               ],
               "note": "base_outline/d21",
@@ -1495,7 +1496,7 @@
             {
               "at": [
                 0.0,
-                -90.00000000000001
+                -97.00000000000001
               ],
               "note": "base_outline/d22",
               "view": "top"
@@ -1519,7 +1520,7 @@
             {
               "at": [
                 40.0,
-                -97.00000000000001
+                -90.00000000000001
               ],
               "note": "holes/d25",
               "view": "top"
@@ -1527,7 +1528,7 @@
             {
               "at": [
                 45.75,
-                -33.50000000000001
+                33.5
               ],
               "note": "lip_width",
               "view": "front"
@@ -1551,7 +1552,7 @@
             {
               "at": [
                 2.842170943040401e-14,
-                -40.50000000000001
+                -33.50000000000001
               ],
               "note": "overall_width",
               "view": "front"
@@ -1566,15 +1567,15 @@
             },
             {
               "at": [
-                -28.65429120534543,
-                61.1291545714036
+                -23.792706703574396,
+                62.44226122802567
               ],
               "note": "vent/d25",
               "view": "top"
             },
             {
               "at": [
-                -70.50000000000001,
+                -63.500000000000014,
                 64.0
               ],
               "note": "vent/d29",
@@ -1625,7 +1626,7 @@
             {
               "at": [
                 125.0,
-                65.0
+                50.0
               ],
               "id": "front",
               "kind": {
@@ -1733,7 +1734,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -1991,6 +1992,7 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "lines": [
             {
               "label": "UP 90° R2",

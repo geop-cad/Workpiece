@@ -1353,6 +1353,10 @@ impl Operation for Hole {
         let args = &self.args;
         let measure = |m: &Measure, what: &str| (*builder).measure(m, what);
         let sized = args.sized(builder)?;
+        sized
+            .tolerance
+            .check(sized.nominal)
+            .map_err(|e| anyhow::anyhow!("the hole's diameter: {e}"))?;
         let (diameter, bore, pitch) = (sized.nominal, sized.bore, sized.pitch);
         let depth = measure(&args.depth, "the depth")?;
         let point = measure(&args.point, "the point's angle")?.to_radians();
@@ -1602,7 +1606,10 @@ impl Operation for Hole {
             } else {
                 first.push(text("Ø"));
                 first.push(Callout::Number(diameter));
-                first.push(text(&sized.tolerance.suffix()));
+                first.push(Callout::Tolerance {
+                    tolerance: sized.tolerance.clone(),
+                    size: diameter,
+                });
             }
             let (depth, head_depth) = shown.unwrap_or((depth, sized.head_depth));
             // A depth that is no typed number — it comes of a face — is
@@ -1823,8 +1830,12 @@ impl Operation for Hole {
                 Some(class)
                     if a.diameter.tolerance == workpiece_core::world::Tolerance::General =>
                 {
-                    let limits = norm::hole_limits(class, a.diameter.value)
-                        .map(|(upper, lower)| format!(" (+{upper:.3}/+{lower:.3})"))
+                    let limits = workpiece_core::world::fits::limits(class, a.diameter.value)
+                        .map(|(upper, lower)| {
+                            let [u, l] =
+                                workpiece_core::world::annotation::deviations(upper, lower, "");
+                            format!(" ({u}/{l})")
+                        })
                         .unwrap_or_default();
                     format!("⌀{} {class}{limits}", a.diameter)
                 }

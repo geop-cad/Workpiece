@@ -1216,7 +1216,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -1474,6 +1474,7 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "name": "drawing",
           "notes": [
             {
@@ -1502,7 +1503,7 @@
             },
             {
               "at": [
-                -70.0,
+                -98.0,
                 -4.999999484693518
               ],
               "note": "plate_outline/d20",
@@ -1542,8 +1543,8 @@
             },
             {
               "at": [
-                -63.6568542494924,
-                -47.656853734185916
+                -71.85085420213801,
+                -33.51537329947877
               ],
               "note": "screw/callout",
               "view": "top"
@@ -1558,7 +1559,7 @@
             },
             {
               "at": [
-                -77.0,
+                -70.0,
                 8.000000515306482
               ],
               "note": "screw_place/d9",

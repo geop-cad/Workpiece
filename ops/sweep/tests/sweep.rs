@@ -991,7 +991,7 @@ fn what_a_sweep_is_held_to_is_said_of_the_model_with_its_tolerance() -> anyhow::
     part.id = "part".into();
     part.args.angle = Measure::new(90.0).within(Tolerance::Symmetric(0.5));
     part.apply(&mut b)?;
-    assert_eq!(b.world.annotations["part/angle"].text(), "90° ±0,5");
+    assert_eq!(b.world.annotations["part/angle"].text(), "90° ±0,5°");
     Ok(())
 }
 

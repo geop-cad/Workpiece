@@ -84,7 +84,7 @@ p.dimension("side1/side/e2", "side2/side/e2", show_in="front", id="overall_width
 p.dimension("lip2/side/e3", "side2/side/e2", show_in="front", id="lip_width")
 p.dimension("side2/side/e5", kind="Radius", show_in="front", id="bend")
 p.on_sheet("base", show_in="front")
-p.drawing(views=[view("top", "Top", (125, 190)), projected("front", "top", "Below", 125),
+p.drawing(views=[view("top", "Top", (125, 190)), projected("front", "top", "Below", 140),
                  view("iso", "Isometric", (320, 200), scale=(1, 2))], scale=(1, 1), format="A3", id="drawing")
 
 # The flat pattern: the sheet laid out in the base's plane, a body of its own, on a sheet of its own

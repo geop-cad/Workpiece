@@ -183,6 +183,14 @@ pub enum Callout {
     Counterbore,
     /// The countersink sign (⌵).
     Countersink,
+    /// The tolerance of the size before it (` H7`, ` ±0,1`), written as
+    /// the sheet writes tolerances.
+    Tolerance {
+        /// The tolerance.
+        tolerance: Tolerance,
+        /// The nominal size it is of.
+        size: f64,
+    },
 }
 
 impl Annotation {
@@ -225,6 +233,7 @@ impl Callout {
             Callout::Depth => "↧".into(),
             Callout::Counterbore => "⌴".into(),
             Callout::Countersink => "⌵".into(),
+            Callout::Tolerance { tolerance, size } => tolerance.suffix(*size, ""),
         }
     }
 }
@@ -481,11 +490,21 @@ pub struct Numbers {
     /// needs — `.5`, `1.125`, `2.75` — `decimals` the most it has.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub trim: bool,
+    /// Whether a tolerance class is written with its deviations after it
+    /// in brackets, `⌀20 H7 (+0,021/0)`; else as the class alone.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub fit_deviations: bool,
 }
 
 thread_local! {
     static NUMBERS: std::cell::Cell<Numbers> = const {
-        std::cell::Cell::new(Numbers { decimals: None, bare: false, point: false, trim: false })
+        std::cell::Cell::new(Numbers {
+            decimals: None,
+            bare: false,
+            point: false,
+            trim: false,
+            fit_deviations: false,
+        })
     };
 }
 
@@ -545,27 +564,107 @@ pub fn number(x: f64) -> String {
     text.replace('-', "−")
 }
 
+/// How many decimals a number has as written: after its comma (or
+/// point).
+fn decimals_of(text: &str) -> usize {
+    text.rsplit_once([',', '.']).map_or(0, |(_, d)| d.len())
+}
+
+/// `text` with zeros after it to `decimals` decimals.
+fn padded(text: String, decimals: usize) -> String {
+    let had = decimals_of(&text);
+    if had >= decimals {
+        return text;
+    }
+    let comma = if numbers().point { "." } else { "," };
+    let text = if had == 0 { text + comma } else { text };
+    text + &"0".repeat(decimals - had)
+}
+
+/// Two numbers written with as many decimals as the one that has more
+/// (ISO 129-1): `10,2` and `9,9`, `20,021` and `20,000`.
+pub fn alike(a: f64, b: f64) -> [String; 2] {
+    let (a, b) = (number(a), number(b));
+    let d = decimals_of(&a).max(decimals_of(&b));
+    [padded(a, d), padded(b, d)]
+}
+
+/// An upper and a lower deviation as a drawing writes them (ISO 129-1):
+/// each with its sign and as many decimals as the other, but a deviation
+/// of nothing, which is a bare `0`; `unit` after each but that (`°`).
+pub fn deviations(upper: f64, lower: f64, unit: &str) -> [String; 2] {
+    let zero = |x: f64| number(x.abs()) == "0";
+    let [u, l] = alike(upper.abs(), lower.abs());
+    let d = match (zero(upper), zero(lower)) {
+        (true, false) => decimals_of(&l),
+        (false, true) => decimals_of(&u),
+        _ => decimals_of(&u).max(decimals_of(&l)),
+    };
+    let signed = |x: f64, text: String| match zero(x) {
+        true => "0".to_owned(),
+        false => format!(
+            "{}{}{unit}",
+            if x > 0.0 { "+" } else { "−" },
+            padded(text, d)
+        ),
+    };
+    [signed(upper, u), signed(lower, l)]
+}
+
 impl Tolerance {
-    /// What follows the value: ` ±0,1`, ` +0,2/−0,1`, ` H7`; nothing
+    /// What follows the value `size` (its `unit` after each number of
+    /// it: `°` of an angle): ` ±0,1`, ` +0,2/−0,1`, ` H7` — with the
+    /// sheet's [`Numbers::fit_deviations`] ` H7 (+0,021/0)`; nothing
     /// where the general tolerance applies.
-    pub fn suffix(&self) -> String {
-        let signed = |x: f64| {
-            if x >= 0.0 {
-                format!("+{}", number(x))
-            } else {
-                number(x)
-            }
-        };
+    pub fn suffix(&self, size: f64, unit: &str) -> String {
         match self {
             Tolerance::General | Tolerance::Reference => String::new(),
-            Tolerance::Symmetric(t) => format!(" ±{}", number(t.abs())),
+            Tolerance::Symmetric(t) => format!(" ±{}{unit}", number(t.abs())),
             Tolerance::Deviations { upper, lower } => {
-                format!(" {}/{}", signed(*upper), signed(*lower))
+                let [u, l] = deviations(*upper, *lower, unit);
+                format!(" {u}/{l}")
             }
             Tolerance::Limits { upper, lower } => {
-                format!(" ({}…{})", signed(*lower), signed(*upper))
+                let [u, l] = alike(size + upper, size + lower);
+                format!(" ({l}{unit}…{u}{unit})")
             }
-            Tolerance::Fit(class) => format!(" {class}"),
+            Tolerance::Fit(class) => match self.fit_deviations(size) {
+                Some([u, l]) => format!(" {class} ({u}/{l})"),
+                None => format!(" {class}"),
+            },
+        }
+    }
+
+    /// Of a tolerance class written with its deviations (as the sheet
+    /// says, see [`Numbers::fit_deviations`]): them, upper and lower.
+    pub fn fit_deviations(&self, size: f64) -> Option<[String; 2]> {
+        let Tolerance::Fit(class) = self else {
+            return None;
+        };
+        if !numbers().fit_deviations {
+            return None;
+        }
+        let (upper, lower) = super::fits::limits(class, size).ok()?;
+        Some(deviations(upper, lower, ""))
+    }
+
+    /// Whether it can be held to of the size `size`: a tolerance class
+    /// that ISO 286 tables for it (else why not), deviations the upper
+    /// over the lower.
+    pub fn check(&self, size: f64) -> Result<(), String> {
+        match self {
+            Tolerance::Fit(class) => super::fits::limits(class, size).map(|_| ()),
+            Tolerance::Deviations { upper, lower } | Tolerance::Limits { upper, lower }
+                if upper < lower =>
+            {
+                Err(format!(
+                    "the upper deviation {upper} is below the lower one {lower}"
+                ))
+            }
+            Tolerance::Symmetric(t) if *t <= 0.0 => {
+                Err(format!("a ± tolerance is more than nothing, not {t}"))
+            }
+            _ => Ok(()),
         }
     }
 
@@ -669,7 +768,11 @@ impl Annotation {
                     Measured::Angle { .. } => "°",
                     _ => "",
                 };
-                let said = format!("{prefix}{}{unit}{}", number(*value), tolerance.suffix());
+                let said = format!(
+                    "{prefix}{}{unit}{}",
+                    number(*value),
+                    tolerance.suffix(*value, unit)
+                );
                 match tolerance {
                     Tolerance::Reference => format!("({said})"),
                     _ => said,
@@ -732,6 +835,7 @@ mod number_tests {
             bare: true,
             point: true,
             trim: false,
+            fit_deviations: false,
         };
         let said = written(inch, || {
             [number(0.75), number(4.5), number(1.0), number(-0.5)]
@@ -757,5 +861,26 @@ mod number_tests {
             ]
         });
         assert_eq!(said, [".5", "1.125", "2.75", "3", ".123"]);
+    }
+
+    #[test]
+    fn tolerances_are_written_as_iso_129_has_them() {
+        // Deviations with as many decimals as each other; a zero bare.
+        assert_eq!(deviations(0.25, -0.1, ""), ["+0,25", "−0,10"]);
+        assert_eq!(deviations(0.021, 0.0, ""), ["+0,021", "0"]);
+        assert_eq!(deviations(0.5, -0.5, "°"), ["+0,5°", "−0,5°"]);
+        // Limits alike; an angle's ± with its degree sign.
+        assert_eq!(alike(20.021, 20.0), ["20,021", "20,000"]);
+        assert_eq!(Tolerance::Symmetric(0.5).suffix(30.0, "°"), " ±0,5°");
+        // A class alone, or with its deviations where the sheet says.
+        let fit = Tolerance::Fit("H7".into());
+        assert_eq!(fit.suffix(20.0, ""), " H7");
+        let with = Numbers {
+            fit_deviations: true,
+            ..Numbers::default()
+        };
+        assert_eq!(written(with, || fit.suffix(20.0, "")), " H7 (+0,021/0)");
+        assert!(Tolerance::Fit("H77".into()).check(20.0).is_err());
+        assert!(Tolerance::Fit("k6".into()).check(20.0).is_ok());
     }
 }

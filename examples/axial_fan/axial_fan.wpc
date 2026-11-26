@@ -1230,7 +1230,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -1488,6 +1488,7 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "name": "drawing",
           "notes": [
             {
@@ -1532,15 +1533,15 @@
             },
             {
               "at": [
-                -45.43200887376986,
-                -18.355723077387324
+                -46.07786950162716,
+                -40.10799955477552
               ],
               "note": "tip/d24",
               "view": "sec_tip"
             },
             {
               "at": [
-                -58.52417727360921,
+                -44.52417727360921,
                 -15.0
               ],
               "note": "tip/d28",

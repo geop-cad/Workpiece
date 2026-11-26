@@ -37,7 +37,7 @@ pub struct Cell {
 }
 
 /// The properties every drawing has, whatever the part's own are.
-pub const BUILT_IN: [&str; 9] = [
+pub const BUILT_IN: [&str; 10] = [
     "Name",
     "Title",
     "Document type",
@@ -47,6 +47,7 @@ pub const BUILT_IN: [&str; 9] = [
     "Format",
     "Sheet",
     "Projection",
+    "General tolerances",
 ];
 
 /// What a new drawing starts from.
@@ -105,7 +106,7 @@ pub fn iso_block() -> Vec<Cell> {
             36.0,
             45.0,
             "General tolerances",
-            text("ISO 2768-mK"),
+            property("General tolerances"),
             3.5,
         ),
         cell(

@@ -1040,6 +1040,10 @@ impl Operation for Dimension {
     fn make(&self, builder: &dyn Builder) -> anyhow::Result<workpiece_core::Made<'_>> {
         let world = builder.tracked();
         let (measured, value) = measured(world, &self.args)?;
+        self.args
+            .tolerance
+            .check(value)
+            .map_err(|e| anyhow::anyhow!("the tolerance: {e}"))?;
         // Its text stands off what it measures, by a share of how large
         // that is.
         let reach = match &measured {
@@ -1114,7 +1118,19 @@ impl Operation for Dimension {
         if of.is_empty() {
             format!("{what} of (nothing picked)")
         } else {
-            format!("{what} of {}{}", of.join(", "), a.tolerance.suffix())
+            format!(
+                "{what} of {}{}",
+                of.join(", "),
+                match &a.tolerance {
+                    // (Of no size yet: as deviations.)
+                    Tolerance::Limits { upper, lower } => Tolerance::Deviations {
+                        upper: *upper,
+                        lower: *lower,
+                    },
+                    other => other.clone(),
+                }
+                .suffix(0.0, "")
+            )
         }
     }
 }

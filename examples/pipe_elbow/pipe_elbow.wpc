@@ -950,7 +950,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -1208,6 +1208,7 @@
             "wide": null
           },
           "format": "A2",
+          "general_tolerance": "ISO 2768-mK",
           "lines": [
             {
               "of": {
@@ -1236,16 +1237,16 @@
             },
             {
               "at": [
-                43.84062043356596,
-                -67.34479727797793
+                5.403656050354812,
+                -85.2682481261002
               ],
               "note": "bolt_place/d11",
               "view": "bottom"
             },
             {
               "at": [
-                -7.653668647301799,
-                -5.026586194186251
+                -10.71513610622253,
+                2.3644500659040375
               ],
               "note": "bolt_place/d13",
               "view": "bottom"
@@ -1276,8 +1277,8 @@
             },
             {
               "at": [
-                -40.0,
-                60.0
+                -20.0,
+                80.0
               ],
               "note": "outside",
               "view": "secA"

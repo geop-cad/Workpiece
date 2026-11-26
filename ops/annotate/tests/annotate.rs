@@ -105,7 +105,7 @@ fn datums_dimensions_and_tolerances_are_said_of_the_model() -> anyhow::Result<()
         },
     )
     .apply(&mut b)?;
-    assert_eq!(b.world.annotations["corner"].text(), "90° +0,5/−0,25");
+    assert_eq!(b.world.annotations["corner"].text(), "90° +0,50°/−0,25°");
     // Asked for nothing in particular, it is what fits what is picked:
     // a distance between faces that are parallel, an angle between
     // faces that are not.
@@ -119,7 +119,7 @@ fn datums_dimensions_and_tolerances_are_said_of_the_model() -> anyhow::Result<()
         },
     )
     .apply(&mut b)?;
-    assert_eq!(b.world.annotations["picked"].text(), "2 (−0,2…+0,1)");
+    assert_eq!(b.world.annotations["picked"].text(), "2 (1,8…2,1)");
     let askew = dimension(
         "askew",
         DimensionKind::Auto,

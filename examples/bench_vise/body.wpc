@@ -604,7 +604,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -862,6 +862,7 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "name": "drawing",
           "notes": [
             {
@@ -874,7 +875,7 @@
             },
             {
               "at": [
-                -40.0,
+                -47.0,
                 0.0
               ],
               "note": "body_profile/d26",
@@ -890,7 +891,7 @@
             },
             {
               "at": [
-                -47.0,
+                -40.0,
                 61.0
               ],
               "note": "body_profile/d28",
@@ -944,7 +945,7 @@
             {
               "at": [
                 230.0,
-                110.0
+                100.0
               ],
               "id": "front",
               "kind": {
@@ -957,7 +958,7 @@
             {
               "at": [
                 230.0,
-                185.0
+                207.0
               ],
               "id": "top",
               "kind": {
@@ -971,7 +972,7 @@
             {
               "at": [
                 110.0,
-                110.0
+                100.0
               ],
               "id": "left",
               "kind": {
@@ -984,8 +985,8 @@
             },
             {
               "at": [
-                330.0,
-                215.0
+                338.0,
+                205.0
               ],
               "id": "iso",
               "kind": {

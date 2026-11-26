@@ -70,7 +70,7 @@ p.feature_mirror([flange_rim] + holes, datum("bisector"), id="flange2")
 for helper in ("end_plane", "bisector", "flange2"):
     p.on_sheet(helper, on_drawing=False)
 # (The tube's outside and inside: the faces the section's outer and inner circles swept.)
-p.dimension("pipe/l1/run0/side/e1", kind="Diameter", show_in="secA", id="outside", at=(-40, 60))
+p.dimension("pipe/l1/run0/side/e1", kind="Diameter", show_in="secA", id="outside", at=(-20, 80))
 p.dimension("pipe/run0/side/e1", kind="Diameter", show_in="secA", id="inside", at=(-20, 40))
 p.on_sheet("bend", at=(-30, -40))
 p.op("Section", id="A", along="Plane", plane=axis("Y"), offset=0.0)

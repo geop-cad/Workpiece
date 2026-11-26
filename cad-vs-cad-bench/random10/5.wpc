@@ -1338,7 +1338,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -1596,6 +1596,7 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "name": "drawing1",
           "notes": [
             {
@@ -1609,7 +1610,7 @@
             {
               "at": [
                 3.3333333333333144,
-                -75.33333333333334
+                -82.33333333333334
               ],
               "note": "arm/d18",
               "view": "front"
@@ -1673,7 +1674,7 @@
             {
               "at": [
                 -0.833333333333357,
-                -82.33333333333334
+                -75.33333333333334
               ],
               "note": "holes/d17",
               "view": "front"

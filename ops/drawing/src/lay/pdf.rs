@@ -15,8 +15,10 @@ const POINTS: f64 = 72.0 / 25.4;
 pub(crate) fn advance(c: char) -> f64 {
     match c {
         ' ' | ',' | '.' | ':' | ';' | '/' | 'i' | 'j' | 'l' | 'I' | '!' | '\'' => 278.0,
-        'f' | 't' | 'r' | '(' | ')' | '-' | '−' => 333.0,
-        '0'..='9' | '+' | '±' | '=' | '–' => 556.0,
+        'f' | 't' | 'r' | '(' | ')' | '-' => 333.0,
+        // (A minus as wide as a plus: set as the en dash, which is
+        // the nearest Helvetica has to it.)
+        '0'..='9' | '+' | '±' | '=' | '–' | '−' => 556.0,
         'm' | 'M' | 'W' => 833.0,
         'w' => 722.0,
         'Ø' | '⌀' | 'O' | 'Q' | 'G' => 778.0,
@@ -51,7 +53,7 @@ fn latin(text: &str) -> String {
             '±' => 0o261,
             '°' => 0o260,
             '–' => 0o226,
-            '−' => u32::from('-'),
+            '−' => 0o226,
             '×' => 0o327,
             '³' => 0o263,
             c if c.is_ascii() && !c.is_ascii_control() => {

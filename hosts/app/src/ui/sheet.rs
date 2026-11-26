@@ -2278,6 +2278,51 @@ impl SheetPanel {
                         "First angle is what ISO drawings use: the view from the left stands to the right",
                     );
                 ui.end_row();
+                ui.label("General tolerance");
+                ui.horizontal(|ui| {
+                    let mut text = new.general_tolerance.clone().unwrap_or_default();
+                    let edited = ui
+                        .add(egui::TextEdit::singleline(&mut text).desired_width(118.0))
+                        .on_hover_text(
+                            "What the title block says holds of every size it gives no tolerance of: ISO 2768 for machined parts, ISO 8062-3 for castings, or words of your own; empty for none",
+                        )
+                        .changed();
+                    egui::ComboBox::from_id_salt("sheet-general-tolerance")
+                        .selected_text("")
+                        .width(24.0)
+                        .show_ui(ui, |ui| {
+                            for said in workpiece_ops_drawing::sheet::GENERAL_TOLERANCES
+                                .into_iter()
+                                .chain(["None"])
+                            {
+                                if ui.selectable_label(text == said, said).clicked() {
+                                    new.general_tolerance =
+                                        (said != "None").then(|| said.to_owned());
+                                }
+                            }
+                        });
+                    if edited {
+                        // (As typed: a space at its end is kept while
+                        // more is typed.)
+                        new.general_tolerance = (!text.is_empty()).then_some(text);
+                    }
+                });
+                ui.end_row();
+                ui.label("Fits");
+                let fits = |with: bool| if with { "Class (deviations)" } else { "Class only" };
+                egui::ComboBox::from_id_salt("sheet-fits")
+                    .selected_text(fits(new.numbers.fit_deviations))
+                    .width(150.0)
+                    .show_ui(ui, |ui| {
+                        for with in [false, true] {
+                            ui.selectable_value(&mut new.numbers.fit_deviations, with, fits(with));
+                        }
+                    })
+                    .response
+                    .on_hover_text(
+                        "How a tolerance class is written: Ø20 H7, or with its ISO 286 deviations after it in brackets, Ø20 H7 (+0,021/0)",
+                    );
+                ui.end_row();
                 ui.label("Centre lines");
                 egui::ComboBox::from_id_salt("sheet-centres")
                     .selected_text(new.centres.label())

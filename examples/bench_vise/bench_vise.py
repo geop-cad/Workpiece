@@ -55,8 +55,8 @@ dot = b.dot(0, 31, "c")
 b.point_on(dot, "v")
 b.distance_v(b.origin, dot, 31)
 body.hole(b, 13, next=True, id="bore")
-body.drawing(views=[view("front", "Front", (230, 110)), projected("top", "front", "Above", 75),
-                    projected("left", "front", "Left", 120), view("iso", "Isometric", (330, 215))],
+body.drawing(views=[view("front", "Front", (230, 100)), projected("top", "front", "Above", 107),
+                    projected("left", "front", "Left", 120), view("iso", "Isometric", (338, 205))],
              scale=(1, 1), format="A3", id="drawing")
 
 # --- The moving jaw: 18 thick, 60 wide, 38 high; a Ø12 seat 8 deep for the screw's tip on its back,

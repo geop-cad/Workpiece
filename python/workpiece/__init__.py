@@ -40,6 +40,60 @@ from ._check import original  # noqa: F401  (re-exported: `from workpiece import
 from ._images import crop, tile  # noqa: F401
 
 
+# --- tolerances ------------------------------------------------------------------------------
+
+def limits(upper: float, lower: float) -> dict:
+    """A tolerance written as the two limits of size, the upper over the lower (ISO 129-1):
+    `tol=limits(0.021, 0)` on a Ø20 is drawn 20,021 over 20,000. The deviations as with
+    `tol=(upper, lower)`."""
+    upper, lower = float(upper), float(lower)
+    if upper < lower:
+        raise ValueError(f"limits(upper, lower): the upper deviation {upper} is below the lower {lower}")
+    return {"Limits": {"upper": upper, "lower": lower}}
+
+
+_FIT = re.compile(r"(?:[A-Z]{1,2}|[a-z]{1,2})[0-9]{1,2}")
+
+
+def _tolerance(tol) -> dict | None:
+    """A dimension's `tol=` as the model says it (see README "Tolerances")."""
+    if tol is None:
+        return None
+    if isinstance(tol, bool):
+        raise ValueError("tol= is ±x, (upper, lower), limits(upper, lower) or a fit class such as \"H7\"")
+    if isinstance(tol, (int, float)):
+        if tol <= 0:
+            raise ValueError(f"tol={tol}: a ± tolerance is more than nothing")
+        return {"Symmetric": float(tol)}
+    if isinstance(tol, str):
+        if not _FIT.fullmatch(tol):
+            raise ValueError(f"tol={tol!r}: a fit class is its letters, upper case for a hole and lower "
+                             "case for a shaft, then its grade (\"H7\", \"k6\", \"JS9\")")
+        return {"Fit": tol}
+    if isinstance(tol, dict) and set(tol) == {"Limits"}:
+        return tol
+    if isinstance(tol, (tuple, list)) and len(tol) == 2 and all(
+            isinstance(x, (int, float)) and not isinstance(x, bool) for x in tol):
+        upper, lower = float(tol[0]), float(tol[1])
+        if upper < lower:
+            raise ValueError(f"tol=({tol[0]}, {tol[1]}): (upper, lower) — the upper deviation first")
+        return {"Deviations": {"upper": upper, "lower": lower}}
+    raise ValueError(f"tol={tol!r}: say ±x as a number, (upper, lower), limits(upper, lower) or a fit "
+                     "class such as \"H7\"")
+
+
+def _said_tolerance(tol, reference) -> dict | str | None:
+    """`tol=` and `reference=` of one dimension, as one tolerance (both: an error)."""
+    if reference and tol is not None:
+        raise ValueError("a reference dimension (reference=True) has no tol=")
+    return "Reference" if reference else _tolerance(tol)
+
+
+_CHARACTERISTICS = ("Straightness", "Flatness", "Circularity", "Cylindricity", "LineProfile",
+                    "SurfaceProfile", "Parallelism", "Perpendicularity", "Angularity", "Position",
+                    "Concentricity", "Symmetry", "CircularRunout", "TotalRunout")
+
+
 # --- references ------------------------------------------------------------------------------
 
 def profile(sketch) -> dict:
@@ -547,10 +601,15 @@ class Sketch:
     # sketch must be constrained without it), reports what the rest leaves it to be, and is drawn
     # in brackets. A driving dimension that over-defines the sketch is reported (redundant /
     # conflicting) in the build report; the app adds such a one as a driven one.
-    def _d(self, what, show_in=None, on_drawing=None, reference=None, at=None, decimals=None, id=None):
+    # tol= gives it a tolerance (README "Tolerances"): 0.1 (±0.1), (0.2, -0.1) (deviations),
+    # limits(0.021, 0) (the limits of size), "H7" / "k6" (an ISO 286 class).
+    def _d(self, what, show_in=None, on_drawing=None, reference=None, at=None, decimals=None, id=None,
+           tol=None):
+        tolerance = _said_tolerance(tol, reference)
         how = {k: v for k, v in (("show_in", show_in), ("on_drawing", on_drawing), ("reference", reference),
                                  ("at", list(at) if at is not None else None), ("decimals", decimals),
-                                 ("id", id)) if v is not None}
+                                 ("id", id), ("tolerance", tolerance if tol is not None else None))
+               if v is not None}
         if how:
             self._dimension_options[str(len(self._constraints))] = how
         self._c(*what)
@@ -744,7 +803,7 @@ class Part:
     def hole(self, sketch=None, diameter: float = 6.0, depth: float | None = None, kind: str = "Simple",
              id: str | None = None, up_to=None, head_up_to=None, next: bool = False, on=None, at=None,
              off=None, around=None, radius: float | None = None, angle: float = 0.0,
-             thread_depth: float | None = None, thread_through: bool = False, **more) -> str:
+             thread_depth: float | None = None, thread_through: bool = False, tol=None, **more) -> str:
         """Holes, drilled into the body. Where — one of four placements:
         `sketch` (its dots, `sketch.dot(...)`: a hole at each, on the sketch's plane or on `on`);
         `on=topo(face), at=(x, y)` (a point of the face's plane, in its own x and y from its origin);
@@ -761,8 +820,18 @@ class Part:
         whole of a bore that goes through; `tap_depths("M8")` gives the rule's thread and drill
         depths, (12.0, 16.0)). `hexagon` only sizes a standard counterbore for a hexagon head;
         a hexagonal pocket is a cut of `sketch.polygon(...)`. The drawing's callout gives a depth
-        that comes of a face in brackets, as a reference."""
+        that comes of a face in brackets, as a reference. tol= the bore's tolerance, as a
+        dimension's (README "Tolerances"): `tol="H7"` gives "Ø20 H7"."""
+        if "class" in more:
+            raise ValueError("p.hole: say a bore's fit with tol=\"H7\" (README \"Tolerances\")")
         args = dict(diameter=float(diameter), kind=kind, **more)
+        tolerance = _tolerance(tol)
+        if tolerance is not None and kind == "Tapped":
+            raise ValueError("a tapped hole's thread has its own tolerance class: no tol=")
+        if tolerance is not None and "Fit" in tolerance and kind == "Simple":
+            args["class"] = tolerance["Fit"]
+        elif tolerance is not None:
+            args["diameter"] = {"value": float(diameter), "tolerance": tolerance}
         if on is not None:
             args.update(face=on)
         if sketch is not None:
@@ -925,7 +994,8 @@ class Part:
                 line_width: float | None = None, parts_list: bool = False, balloons=None,
                 lettering: float = 3.5, thru: bool | None = None, trim_zeros: bool = False,
                 aligned_leaders: bool = False, places: bool = False,
-                reference_depths: bool = False) -> str:
+                reference_depths: bool = False, general_tolerance: str | None = "ISO 2768-mK",
+                fits: str = "class") -> str:
         """A drawing sheet of the model as the steps before it leave it. `views` is a list made
         with `view(...)`, `projected(...)`, `section_view(...)` (default: front, a view to its
         right, one above it, and an isometric one). With `dimensions`, every driving dimension
@@ -973,11 +1043,18 @@ class Part:
         places=True writes how many holes alike a hole's callout is of as "(6) PLACES" on a line
         after it, as some drawings do, instead of "6×" before it (ISO 129-1). reference_depths=True
         writes a hole's depth that follows from a face (`up_to=`, `head_up_to=`) in its callout as a
-        reference, "↧(50)"; by default such a depth is left out (it is dimensioned elsewhere)."""
+        reference, "↧(50)"; by default such a depth is left out (it is dimensioned elsewhere).
+        general_tolerance: what the title block says holds where a size has no tolerance of its
+        own — "ISO 2768-mK" (default, machined), "ISO 8062-3 DCTG 9" (a casting), any words, or
+        None. fits: "class" writes a fit as "Ø20 H7", "deviations" as "Ø20 H7 (+0,021/0)", its ISO
+        286 deviations small in brackets."""
+        if fits not in ("class", "deviations"):
+            raise ValueError('fits= is "class" or "deviations"')
         inch = self.unit == "Inch"
         numbers = {"decimals": decimals if decimals is not None else (3 if inch else None),
                    "bare": (not leading_zero) if leading_zero is not None else inch,
-                   "point": (not comma) if comma is not None else inch, "trim": bool(trim_zeros)}
+                   "point": (not comma) if comma is not None else inch, "trim": bool(trim_zeros),
+                   "fit_deviations": fits == "deviations"}
         w, h = {"A4": (297, 210), "A3": (420, 297), "A2": (594, 420), "A1": (841, 594), "A0": (1189, 841)}[format]
         if upright:
             w, h = h, w
@@ -1065,13 +1142,14 @@ class Part:
             "auto_balloons": balloons == "auto" or (isinstance(balloons, list) and "auto" in balloons),
             "balloons": [b for b in (balloons if isinstance(balloons, list) else []) if b != "auto"],
             "thru": inch if thru is None else bool(thru), "aligned_leaders": bool(aligned_leaders),
-            "places": bool(places), "reference_depths": bool(reference_depths)}})
+            "places": bool(places), "reference_depths": bool(reference_depths),
+            "general_tolerance": general_tolerance}})
         return id
 
     def dimension(self, *of: str, show_in: str | None = None, id: str | None = None, kind: str = "Auto",
                   reference: bool = False, supplement: bool = False, at=None, far: bool = False,
                   centres: bool = False, same_side: bool = False, along=None, bend: str = "Own",
-                  plain: bool = False, decimals: int | None = None, **more_args) -> str:
+                  plain: bool = False, decimals: int | None = None, tol=None, **more_args) -> str:
         """A dimension on the model itself, for a number no sketch carries (an extrude's depth,
         a plane's offset, a hole's depth): between two faces or edges by name (their distance),
         or of one (an edge's length, a round face's diameter). It goes on the drawing like a
@@ -1099,20 +1177,61 @@ class Part:
         bend's, along the tube's middle), "Inside" or "Outside" (the bend's on its inside or
         outside: R6 and R12 for a Ø6 wire bent at R9). plain=True
         writes a radius as the bare number ("(3)", with reference=True). `at=(x, y)` says where
-        its text stands, in mm from its view's middle; `decimals=` how many it is written with."""
-        more = {"tolerance": "Reference"} if reference else {}
+        its text stands, in mm from its view's middle; `decimals=` how many it is written with.
+        tol= its tolerance, as a sketch dimension's (README "Tolerances")."""
+        if "tolerance" in more_args:
+            raise ValueError("p.dimension: say a tolerance with tol= (README \"Tolerances\")")
+        tolerance = _said_tolerance(tol, reference)
+        more = {"tolerance": tolerance} if tolerance is not None else {}
         more.update(more_args, far=far, centres=centres, same_side=same_side, bend=bend, plain=plain)
         if along is not None:
             more["along"] = along
         refs = [name if isinstance(name, dict) else topo(name) for name in of]
         made = self.op("Dimension", id, of=refs, kind=kind, supplement=supplement, **more)
+        self._placed_on_sheet(made, show_in, at)
+        if decimals is not None:
+            self._dimension_decimals[made] = decimals
+        return made
+
+    def _placed_on_sheet(self, made: str, show_in, at) -> str:
         if show_in:
             self._dimension_views[made] = show_in
         if at is not None:
             self._dimension_at[made] = list(at)
-        if decimals is not None:
-            self._dimension_decimals[made] = decimals
         return made
+
+    def datum_feature(self, letter: str, on, show_in: str | None = None, at=None, id: str | None = None) -> str:
+        """Names the face `on` (`topo(name)`) the datum feature `letter` (ISO 5459: "A", "B", ...;
+        never I, O, Q). The sheet draws its letter in a square on a leader that ends in a filled
+        triangle on the face's outline (or its extension line). Placed as a dimension: `show_in`
+        names the view, `at=(x, y)` where its square stands in mm from the view's middle."""
+        if not (isinstance(letter, str) and re.fullmatch(r"[A-HJ-NPR-Z]{1,2}", letter)):
+            raise ValueError(f"datum_feature({letter!r}): a datum is a capital letter or two, not I, O or Q")
+        ref = on if isinstance(on, dict) else topo(on)
+        return self._placed_on_sheet(self.op("DatumFeature", id, feature=ref, letter=letter), show_in, at)
+
+    def geometric_tolerance(self, kind: str, value: float, on, datums=(), diametral: bool = False,
+                            show_in: str | None = None, at=None, id: str | None = None) -> str:
+        """A geometric tolerance (ISO 1101) of the face `on` (`topo(name)`): kind one of
+        "Straightness", "Flatness", "Circularity", "Cylindricity", "LineProfile",
+        "SurfaceProfile" (of form: no datums), "Parallelism", "Perpendicularity", "Angularity",
+        "Position", "Concentricity", "Symmetry", "CircularRunout", "TotalRunout" (from the datums
+        `datums=["A", "B"]`, in order, each named by `datum_feature` before); `value` the zone's
+        width, `diametral=True` a round zone (Ø before it: a position of a bore's axis). The sheet
+        draws the tolerance frame — symbol, zone, datums — on a leader ending in an arrow on the
+        face's outline. Placed as a dimension: `show_in`, `at=(x, y)`."""
+        if kind not in _CHARACTERISTICS:
+            raise ValueError(f"geometric_tolerance({kind!r}): the kind is one of {', '.join(_CHARACTERISTICS)}")
+        if isinstance(datums, str):
+            datums = [datums]
+        if kind in _CHARACTERISTICS[:4] and datums:
+            raise ValueError(f"{kind} is of the face's form alone: no datums")
+        if float(value) <= 0:
+            raise ValueError("a geometric tolerance's zone is wider than nothing")
+        ref = on if isinstance(on, dict) else topo(on)
+        made = self.op("GeometricTolerance", id, feature=ref, characteristic=kind, value=float(value),
+                       diametral=bool(diametral), datums=" ".join(datums))
+        return self._placed_on_sheet(made, show_in, at)
 
     def add_part(self, part, mates=None, fixed: bool | None = None, at=None, euler=None, bodies=None,
                  variant: str | None = None, id: str | None = None) -> str:

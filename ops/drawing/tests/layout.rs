@@ -391,7 +391,7 @@ fn a_diameter_across_the_axis_of_a_half_section_has_one_arrow() -> anyhow::Resul
     section.scale = Some([5, 1]);
     let views = vec![section];
     let without = lay(&b, &sheet(views.clone(), vec![]));
-    let laid = lay(&b, &sheet(views, vec![note("across", "s", [0.0, -10.0])]));
+    let laid = lay(&b, &sheet(views, vec![note("across", "s", [0.0, -14.0])]));
     assert!(laid.problems.is_empty(), "{:?}", laid.problems);
     assert_eq!(laid.fills.len(), without.fills.len() + 1);
     let v = &laid.views[0];

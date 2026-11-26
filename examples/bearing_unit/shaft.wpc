@@ -565,7 +565,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -823,6 +823,7 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "name": "drawing",
           "notes": [
             {
@@ -844,7 +845,7 @@
             {
               "at": [
                 -81.00000000000006,
-                35.99832926223522
+                42.99832926223522
               ],
               "note": "shaft_profile/d37",
               "view": "front"
@@ -852,7 +853,7 @@
             {
               "at": [
                 -5.684341886080802e-14,
-                42.99832926223522
+                35.99832926223522
               ],
               "note": "shaft_profile/d38",
               "view": "front"

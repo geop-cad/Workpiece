@@ -79,7 +79,7 @@ b = p.sketch(topo(outside), id="bore_place", show_in="front")
 bd = b.dot(0, 55, "bore")
 b.point_on(bd, "v")
 b.distance_v(b.origin, bd, 55)
-p.hole(b, 20, id="bore", **{"class": "H7"})
+p.hole(b, 20, id="bore", tol="H7")
 
 # Fillets: R6 in the corner between wall and base, R3 where the ribs meet them, R2 on the ribs' edges.
 rep = p.build(OUT)

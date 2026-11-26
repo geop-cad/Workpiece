@@ -1,8 +1,8 @@
 //! What the standards say of threads and of the holes for screws, in
 //! millimetres: ISO metric threads (ISO 261, ISO 262), the holes screws
 //! go through (ISO 273), counterbores for their heads (DIN 974),
-//! countersinks (DIN 74, ISO 15065), and the limits of tolerance
-//! classes (ISO 286).
+//! countersinks (DIN 74, ISO 15065), and the tolerance classes a bore
+//! is offered (their limits: `workpiece_core::world::fits`).
 
 /// A thread size, and what goes with it.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -267,97 +267,6 @@ pub fn head_allowance(diameter: f64) -> f64 {
     }
 }
 
-/// The upper ends of the ranges of nominal sizes (ISO 286-1).
-const RANGES: [f64; 13] = [
-    3.0, 6.0, 10.0, 18.0, 30.0, 50.0, 80.0, 120.0, 180.0, 250.0, 315.0, 400.0, 500.0,
-];
-
-/// The standard tolerance grades IT5 to IT14 by range, in micrometres.
-const GRADES: [(u32, [f64; 13]); 10] = [
-    (
-        5,
-        [4., 5., 6., 8., 9., 11., 13., 15., 18., 20., 23., 25., 27.],
-    ),
-    (
-        6,
-        [6., 8., 9., 11., 13., 16., 19., 22., 25., 29., 32., 36., 40.],
-    ),
-    (
-        7,
-        [
-            10., 12., 15., 18., 21., 25., 30., 35., 40., 46., 52., 57., 63.,
-        ],
-    ),
-    (
-        8,
-        [
-            14., 18., 22., 27., 33., 39., 46., 54., 63., 72., 81., 89., 97.,
-        ],
-    ),
-    (
-        9,
-        [
-            25., 30., 36., 43., 52., 62., 74., 87., 100., 115., 130., 140., 155.,
-        ],
-    ),
-    (
-        10,
-        [
-            40., 48., 58., 70., 84., 100., 120., 140., 160., 185., 210., 230., 250.,
-        ],
-    ),
-    (
-        11,
-        [
-            60., 75., 90., 110., 130., 160., 190., 220., 250., 290., 320., 360., 400.,
-        ],
-    ),
-    (
-        12,
-        [
-            100., 120., 150., 180., 210., 250., 300., 350., 400., 460., 520., 570., 630.,
-        ],
-    ),
-    (
-        13,
-        [
-            140., 180., 220., 270., 330., 390., 460., 540., 630., 720., 810., 890., 970.,
-        ],
-    ),
-    (
-        14,
-        [
-            250., 300., 360., 430., 520., 620., 740., 870., 1000., 1150., 1300., 1400., 1550.,
-        ],
-    ),
-];
-
-/// The lower deviations of holes D to G by range, in micrometres.
-const HOLES: [(&str, [f64; 13]); 4] = [
-    (
-        "D",
-        [
-            20., 30., 40., 50., 65., 80., 100., 120., 145., 170., 190., 210., 230.,
-        ],
-    ),
-    (
-        "E",
-        [
-            14., 20., 25., 32., 40., 50., 60., 72., 85., 100., 110., 125., 135.,
-        ],
-    ),
-    (
-        "F",
-        [
-            6., 10., 13., 16., 20., 25., 30., 36., 43., 50., 56., 62., 68.,
-        ],
-    ),
-    (
-        "G",
-        [2., 4., 5., 6., 7., 9., 10., 12., 14., 15., 17., 18., 20.],
-    ),
-];
-
 /// The tolerance classes a bore is offered in a dialog.
 pub const CLASSES: [&str; 13] = [
     "H6", "H7", "H8", "H9", "H10", "H11", "H12", "H13", "G7", "F7", "F8", "E9", "D10",
@@ -366,27 +275,6 @@ pub const CLASSES: [&str; 13] = [
 /// The names of [`CLASSES`], for a dialog.
 pub fn class_names() -> Vec<String> {
     CLASSES.iter().map(|c| (*c).to_owned()).collect()
-}
-
-/// The upper and the lower deviation of a hole of the nominal size
-/// `diameter` in the tolerance class `class` (ISO 286): `H7`, `F8`,
-/// `JS9`; holes D to H and JS, grades 5 to 14, sizes to 500.
-pub fn hole_limits(class: &str, diameter: f64) -> Option<(f64, f64)> {
-    let letters = class.trim_end_matches(|c: char| c.is_ascii_digit());
-    let grade: u32 = class[letters.len()..].parse().ok()?;
-    let range = RANGES.iter().position(|r| diameter <= *r + 1e-9)?;
-    if diameter <= 0.0 {
-        return None;
-    }
-    let width = GRADES.iter().find(|g| g.0 == grade)?.1[range] / 1000.0;
-    match letters {
-        "H" => Some((width, 0.0)),
-        "JS" => Some((width / 2.0, -width / 2.0)),
-        _ => {
-            let lower = HOLES.iter().find(|h| h.0 == letters)?.1[range] / 1000.0;
-            Some((lower + width, lower))
-        }
-    }
 }
 
 #[cfg(test)]
@@ -407,10 +295,5 @@ mod tests {
             assert!(pair[0].clearance[1] < pair[1].clearance[1]);
             assert!(pair[1].clearance[0] > pair[1].diameter);
         }
-        // ⌀10 H7 is +0.015 / 0; ⌀20 F8 is +0.053 / +0.020.
-        assert_eq!(hole_limits("H7", 10.0), Some((0.015, 0.0)));
-        let (upper, lower) = hole_limits("F8", 20.0).expect("F8");
-        assert!((upper - 0.053).abs() < 1e-12 && (lower - 0.020).abs() < 1e-12);
-        assert_eq!(hole_limits("Q3", 10.0), None);
     }
 }

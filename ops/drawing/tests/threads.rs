@@ -269,6 +269,7 @@ fn callout(b: &Standalone) -> Vec<String> {
                     Callout::Depth => "↧".into(),
                     Callout::Counterbore => "⌴".into(),
                     Callout::Countersink => "⌵".into(),
+                    tolerance @ Callout::Tolerance { .. } => tolerance.said(),
                 })
                 .collect()
         })

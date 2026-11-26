@@ -1968,7 +1968,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -2226,6 +2226,7 @@
             "wide": null
           },
           "format": "A2",
+          "general_tolerance": "ISO 2768-mK",
           "name": "drawing1",
           "notes": [
             {
@@ -2295,7 +2296,7 @@
             {
               "at": [
                 36.499999999995794,
-                -56.5
+                -63.5
               ],
               "note": "lug_b/distance",
               "view": "front"
@@ -2303,7 +2304,7 @@
             {
               "at": [
                 49.999999999995794,
-                -63.5
+                -56.5
               ],
               "note": "lug_b_plane/distance",
               "view": "front"

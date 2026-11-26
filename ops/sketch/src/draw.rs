@@ -31,15 +31,6 @@ pub(crate) fn number(value: f64) -> String {
     }
 }
 
-/// A deviation with its sign: `+0.2`, `−0.1`, `0`.
-fn deviation(value: f64) -> String {
-    match number(value.abs()).as_str() {
-        "0" => "0".to_owned(),
-        text if value > 0.0 => format!("+{text}"),
-        text => format!("−{text}"),
-    }
-}
-
 /// The text of a dimension: its value with what kind it is (`R`, `Ø`,
 /// `°`) and its tolerance; then the upper and lower deviations, which are
 /// set small after it.
@@ -63,27 +54,31 @@ pub(crate) fn dimension_text(constraint: &Constraint) -> (String, String, String
     if d.driven {
         return (format!("({text})"), upper, lower);
     }
-    match &d.tolerance {
+    let unit = match constraint.kind {
+        Kind::Angle(..) => "°",
+        _ => "",
+    };
+    // (Written as the sketch writes its numbers: with a point.)
+    let point = workpiece_core::world::Numbers {
+        point: true,
+        ..Default::default()
+    };
+    workpiece_core::world::annotation::written(point, || match &d.tolerance {
         DimTolerance::General => {}
         DimTolerance::Reference => text = format!("({text})"),
-        DimTolerance::Symmetric(t) => text += &format!(" ±{}", number(t.abs())),
         DimTolerance::Deviations { upper: u, lower: l } => {
-            upper = deviation(*u);
-            lower = deviation(*l);
+            [upper, lower] = workpiece_core::world::annotation::deviations(*u, *l, unit);
         }
         // The limits of size, the upper over the lower, in place of
         // the value.
         DimTolerance::Limits { upper: u, lower: l } => {
-            let unit = match constraint.kind {
-                Kind::Angle(..) => "°",
-                _ => "",
-            };
             text = prefix.to_owned();
-            upper = format!("{}{unit}", number(d.value + u));
-            lower = format!("{}{unit}", number(d.value + l));
+            let [u, l] = workpiece_core::world::annotation::alike(d.value + u, d.value + l);
+            upper = format!("{u}{unit}");
+            lower = format!("{l}{unit}");
         }
-        DimTolerance::Fit(class) => text += &format!(" {class}"),
-    }
+        other => text += &other.suffix(d.value, unit),
+    });
     (text, upper, lower)
 }
 

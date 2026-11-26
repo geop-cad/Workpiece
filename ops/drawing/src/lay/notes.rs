@@ -367,12 +367,41 @@ pub(crate) struct Taken {
     pub(crate) boxes: Vec<[Point2; 2]>,
     pub(crate) leaders: Vec<(Point2, Point2)>,
     pub(crate) views: Vec<[Point2; 2]>,
+    /// The dimension lines of lengths: another along the same line
+    /// over the same stretch would be drawn over them.
+    pub(crate) lines: Vec<[Point2; 2]>,
+    /// Where on the sheet lettering may stand: within its frame, clear
+    /// of the edge (what stands out past it is brought in, onto what
+    /// is there).
+    pub(crate) within: Option<[Point2; 2]>,
+}
+
+/// Whether the dimension lines `a` and `b` run along one line (within
+/// 2 mm of it) over a common stretch: the one would be drawn over the
+/// other (a chain, end to end, is not).
+fn on_one_line(a: &[Point2; 2], b: &[Point2; 2]) -> bool {
+    let Some(way) = (a[1] - a[0]).try_normalize() else {
+        return false;
+    };
+    let Some(other) = (b[1] - b[0]).try_normalize() else {
+        return false;
+    };
+    if way.perp_dot(other).abs() > 1e-3 || (b[0] - a[0]).dot(way.perp()).abs() > 2.0 {
+        return false;
+    }
+    let span = |p: &[Point2; 2]| {
+        let (s, t) = (p[0].dot(way), p[1].dot(way));
+        (s.min(t), s.max(t))
+    };
+    let ((a0, a1), (b0, b1)) = (span(a), span(b));
+    a1.min(b1) - a0.max(b0) > 0.5
 }
 
 impl Taken {
     pub(crate) fn push(&mut self, drawn: &Drawn) {
         self.boxes.push(drawn.body);
         self.leaders.extend(drawn.leader);
+        self.lines.extend(drawn.linear.map(|l| l.line));
     }
 
     /// Whether `drawn` is in the way of what is taken: its box near a
@@ -383,15 +412,22 @@ impl Taken {
             drawn.body[1] + Point2::splat(1.0),
         ];
         self.boxes.iter().any(|other| near(&drawn.body, other, 1.5))
+            || drawn
+                .linear
+                .is_some_and(|l| self.lines.iter().any(|other| on_one_line(&l.line, other)))
             || self.leaders.iter().any(|(a, b)| crosses(*a, *b, &grown))
             || drawn
                 .leader
                 .is_some_and(|(a, b)| self.boxes.iter().any(|other| crosses(a, b, other)))
     }
 
-    /// Whether `drawn` reaches onto a view that is not its own.
+    /// Whether `drawn` reaches onto a view that is not its own, or
+    /// its text off the sheet's frame.
     fn on_a_view(&self, drawn: &Drawn) -> bool {
         self.views.iter().any(|v| near(&drawn.body, v, 1.0))
+            || self.within.is_some_and(|[lo, hi]| {
+                drawn.text[0].cmplt(lo).any() || drawn.text[1].cmpgt(hi).any()
+            })
     }
 }
 
@@ -753,51 +789,60 @@ fn text_along(laid: &mut Laid, at: Point2, along: Point2, text: &str, height: f6
 }
 
 /// What a dimension says: its value, with what it is of before it; and
-/// its deviations, to be set small after it, the upper over the lower.
+/// its deviations, to be set small after it, the upper over the lower
+/// (ISO 129-1: as many decimals as each other, a zero bare; the unit of
+/// an angle after each).
 fn said(value: f64, prefix: &str, unit: &str, tolerance: &Tolerance) -> Said {
+    use workpiece_core::world::annotation::{alike, deviations};
     let base = format!("{prefix}{}{unit}", number(value));
+    let plain = |text: String| Said {
+        text,
+        over: None,
+        after: String::new(),
+        high: lettering(),
+    };
     match tolerance {
-        Tolerance::Deviations { upper, lower } => {
-            let signed = |x: f64| match number(x.abs()).as_str() {
-                "0" => "0".to_owned(),
-                text if x > 0.0 => format!("+{text}"),
-                text => format!("−{text}"),
-            };
+        Tolerance::Deviations { upper, lower } => Said {
+            text: base,
+            over: Some(deviations(*upper, *lower, unit)),
+            after: String::new(),
+            high: lettering() * 0.7,
+        },
+        // The two limits of size, the upper over the lower, as high as
+        // any value.
+        Tolerance::Limits { upper, lower } => {
+            let [u, l] = alike(value + upper, value + lower);
             Said {
-                text: base,
-                over: Some([signed(*upper), signed(*lower)]),
-                high: lettering() * 0.7,
+                text: prefix.to_owned(),
+                over: Some([format!("{u}{unit}"), format!("{l}{unit}")]),
+                after: String::new(),
+                high: lettering(),
             }
         }
-        // The two limits of size, the upper over the lower, as high as
-        // any value (ISO 129-1).
-        Tolerance::Limits { upper, lower } => Said {
-            text: prefix.to_owned(),
-            over: Some([
-                format!("{}{unit}", number(value + upper)),
-                format!("{}{unit}", number(value + lower)),
-            ]),
-            high: lettering(),
+        // For reference: in brackets.
+        Tolerance::Reference => plain(format!("({base})")),
+        // A tolerance class after the size; with its deviations, where
+        // the sheet says, small in brackets after it.
+        Tolerance::Fit(class) => match tolerance.fit_deviations(value) {
+            Some(over) => Said {
+                text: format!("{base} {class} ("),
+                over: Some(over),
+                after: ")".to_owned(),
+                high: lettering() * 0.7,
+            },
+            None => plain(format!("{base} {class}")),
         },
-        // For reference: in brackets (ISO 129-1).
-        Tolerance::Reference => Said {
-            text: format!("({base})"),
-            over: None,
-            high: lettering(),
-        },
-        other => Said {
-            text: format!("{base}{}", other.suffix()),
-            over: None,
-            high: lettering(),
-        },
+        other => plain(format!("{base}{}", other.suffix(value, unit))),
     }
 }
 
 /// What a dimension says: its text, and what is set after it one over
-/// the other (deviations, or limits of size) and how high.
+/// the other (deviations, or limits of size) and how high, and what
+/// closes it after that (a bracket).
 struct Said {
     text: String,
     over: Option<[String; 2]>,
+    after: String,
     high: f64,
 }
 
@@ -807,7 +852,7 @@ impl Said {
         let over = self.over.as_ref().map_or(0.0, |o| {
             width(&o[0], self.high).max(width(&o[1], self.high))
         });
-        width(&self.text, lettering()) + over + 2.0
+        width(&self.text, lettering()) + over + width(&self.after, lettering()) + 2.0
     }
 }
 
@@ -827,11 +872,12 @@ fn dimension_text(laid: &mut Laid, at: Point2, along: Point2, said: &Said) -> [P
         along = -along;
     }
     let small = said.high;
-    let (w, d) = (
+    let (w, d, a) = (
         width(&said.text, lettering()),
         width(upper, small).max(width(lower, small)),
+        width(&said.after, lettering()),
     );
-    let start = at - along * ((w + d) / 2.0);
+    let start = at - along * ((w + d + a) / 2.0);
     let up = along.perp();
     let mut rect = if said.text.is_empty() {
         let foot = start + up * OFF;
@@ -857,6 +903,17 @@ fn dimension_text(laid: &mut Laid, at: Point2, along: Point2, said: &Said) -> [P
             preview: false,
         });
     }
+    if !said.after.is_empty() {
+        let after = text_along(
+            laid,
+            start + along * (w + 0.8 + d + a / 2.0),
+            along,
+            &said.after,
+            lettering(),
+        );
+        rect = [rect[0].min(after[0]), rect[1].max(after[1])];
+    }
+    let d = d + a + 0.8 * f64::from(u8::from(a > 0.0));
     for corner in [
         start + up * OFF,
         start + along * (w + d) + up * OFF,
@@ -1282,7 +1339,9 @@ fn callout(laid: &mut Laid, tip: Point2, at: Point2, lines: &[Vec<Callout>]) -> 
     let length = |line: &[Callout]| -> f64 {
         line.iter()
             .map(|piece| match piece {
-                Callout::Count(_) | Callout::Text(_) => width(&piece.said(), h),
+                Callout::Count(_) | Callout::Text(_) | Callout::Tolerance { .. } => {
+                    width(&piece.said(), h)
+                }
                 Callout::Number(x) => width(&number(*x), h),
                 _ => sign + h * 0.3,
             })
@@ -1300,7 +1359,9 @@ fn callout(laid: &mut Laid, tip: Point2, at: Point2, lines: &[Vec<Callout>]) -> 
         let mut x = x0;
         for piece in line {
             let words = match piece {
-                Callout::Count(_) | Callout::Text(_) => Some(piece.said()),
+                Callout::Count(_) | Callout::Text(_) | Callout::Tolerance { .. } => {
+                    Some(piece.said())
+                }
                 Callout::Number(n) => Some(number(*n)),
                 _ => None,
             };
@@ -1363,7 +1424,7 @@ fn callout_sign(laid: &mut Laid, of: &Callout, at: Point2, size: f64) {
             laid.line(p(0.05, 0.9), p(0.5, 0.45), pen);
             laid.line(p(0.5, 0.45), p(0.95, 0.9), pen);
         }
-        Callout::Count(_) | Callout::Text(_) | Callout::Number(_) => {}
+        Callout::Count(_) | Callout::Text(_) | Callout::Number(_) | Callout::Tolerance { .. } => {}
     }
 }
 
@@ -1478,7 +1539,7 @@ fn symbol(laid: &mut Laid, of: Characteristic, centre: Point2, size: f64) {
 /// which the view sees with the way out of the body as `out` on the
 /// sheet: seen edge on, it ends square on the outline with `end`
 /// drawn there; seen face on, in a dot on the face.
-fn leader(laid: &mut Laid, rect: [Point2; 2], on: Point2, out: Point2, triangle: bool) {
+fn leader(laid: &mut Laid, rect: [Point2; 2], on: Point2, out: Point2, triangle: bool) -> Point2 {
     let middle = (rect[0] + rect[1]) / 2.0;
     let edge_on = out.length() > 0.5;
     if !edge_on {
@@ -1501,13 +1562,37 @@ fn leader(laid: &mut Laid, rect: [Point2; 2], on: Point2, out: Point2, triangle:
             ],
             colour: [0, 0, 0],
         });
-        return;
+        return from;
     }
     let out = out.normalize();
-    // Square off the outline, as far as the frame is from it; then
-    // along to the frame.
-    let far = ((middle - on).dot(out)).max(ARROW * 2.0);
-    let knee = on + out * far;
+    // Square off the outline to the frame (or box): onto the side of it
+    // that faces the feature where the frame stands across from it,
+    // else to the height (or the width) of its middle and on to the
+    // middle of its nearer end (ISO 1101: from an end of the frame;
+    // ISO 5459: to a side of the datum's square) — never into it.
+    let upright = out.y.abs() >= out.x.abs();
+    // (In the frame's own terms: `a` along the way out, `b` across it.)
+    let ab = |p: Point2| if upright { (p.y, p.x) } else { (p.x, p.y) };
+    let point = |a: f64, b: f64| {
+        if upright {
+            Point2::new(b, a)
+        } else {
+            Point2::new(a, b)
+        }
+    };
+    let ((a0, b0), (a1, b1)) = (ab(rect[0]), ab(rect[1]));
+    let (on_a, _) = ab(on);
+    let way = if upright { out.y } else { out.x };
+    let reach = |to: f64| ((to - on_a) / way).max(ARROW * 2.0);
+    let side = if way > 0.0 { a0 } else { a1 };
+    let straight = on + out * reach(side);
+    let (knee, to) = if (b0..=b1).contains(&ab(straight).1) {
+        (straight, straight)
+    } else {
+        let knee = on + out * reach((a0 + a1) / 2.0);
+        let (ka, kb) = ab(knee);
+        (knee, point(ka, if kb < b0 { b0 } else { b1 }))
+    };
     if triangle {
         // A datum's triangle on the outline, its line from the apex.
         let h = lettering();
@@ -1521,14 +1606,10 @@ fn leader(laid: &mut Laid, rect: [Point2; 2], on: Point2, out: Point2, triangle:
         laid.line(on, knee, Pen::Narrow);
         laid.arrow(on, -out, ARROW);
     }
-    // To the nearest of the frame's sides.
-    let to = Point2::new(
-        knee.x.clamp(rect[0].x, rect[1].x),
-        knee.y.clamp(rect[0].y, rect[1].y),
-    );
     if to.distance(knee) > 1e-6 {
         laid.line(knee, to, Pen::Narrow);
     }
+    knee
 }
 
 /// A box with lines of the narrow pen.
@@ -1918,8 +1999,9 @@ pub(crate) fn draw_note(
             let rect = [at - half, at + half];
             boxed(laid, rect[0], rect[1]);
             laid.text(at, letter.clone(), lettering(), [0.5, 0.5]);
-            leader(laid, rect, placed.place(*on), placed.way(*out), true);
-            Some(Drawn::of(rect))
+            let tip = placed.place(*on);
+            let knee = leader(laid, rect, tip, placed.way(*out), true);
+            Some(Drawn::led(rect, (tip, knee)))
         }
         Note::Geometric {
             characteristic,
@@ -1956,8 +2038,9 @@ pub(crate) fn draw_note(
                 }
                 x += wide;
             }
-            leader(laid, rect, placed.place(*on), placed.way(*out), false);
-            Some(Drawn::of(rect))
+            let tip = placed.place(*on);
+            let knee = leader(laid, rect, tip, placed.way(*out), false);
+            Some(Drawn::led(rect, (tip, knee)))
         }
     }
 }
@@ -2390,6 +2473,24 @@ pub(crate) fn draw(
                         placed_note.view
                     ));
                 }
+                // (A leader that runs across another view: it reads as
+                // that view's.)
+                if let Some((a, b)) = drawn.leader {
+                    for other in frames.iter().filter(|o| o.view.id != placed.view.id) {
+                        let (lo, hi) = other.bounds();
+                        let inner = [lo + Point2::splat(1.0), hi - Point2::splat(1.0)];
+                        if inner[0].cmplt(inner[1]).all() && crosses(a, b, &inner) {
+                            laid.problems.push(format!(
+                                "the leader of {} ({}) in the view {} runs across the view {}: put its \
+                                 text on its own view's side",
+                                placed_note.note,
+                                note.text(),
+                                placed_note.view,
+                                other.view.id
+                            ));
+                        }
+                    }
+                }
                 texts.push((drawn.text, start..laid.strokes.len()));
                 taken.entry(&placed.view.id).or_default().push(&drawn);
                 on_sheet.push(&drawn);
@@ -2407,7 +2508,26 @@ pub(crate) fn draw(
         for b in &runs[k + 1..] {
             let parallel = a.3.perp_dot(b.3).abs() < 1e-6;
             let offset = if a.3.dot(b.3) > 0.0 { b.4 } else { -b.4 };
-            if a.0 != b.0 || !parallel || (a.4 - offset).abs() > 0.3 {
+            if a.0 != b.0 || !parallel {
+                continue;
+            }
+            // Two lengths side by side over a common stretch nearer than
+            // a line of lettering: the one's text is on the other's line
+            // (ISO 129-1: stacked 7 mm apart).
+            let apart = (a.4 - offset).abs();
+            if apart > 0.3 {
+                let flip = |(x, y): (f64, f64)| {
+                    if a.3.dot(b.3) > 0.0 { (x, y) } else { (-y, -x) }
+                };
+                let arrows = flip(b.6);
+                let common = a.6.1.min(arrows.1) - a.6.0.max(arrows.0);
+                if apart < lettering() + OFF + 0.5 && common > 0.5 {
+                    laid.problems.push(format!(
+                        "the dimensions {} ({}) and {} ({}) in the view {} run side by side {apart:.1} mm apart: the \
+                         one's text stands on the other's line (stack them 7 mm apart, the shorter inside)",
+                        a.1, a.2, b.1, b.2, a.0
+                    ));
+                }
                 continue;
             }
             let flip = |(x, y): (f64, f64)| {
@@ -2751,6 +2871,32 @@ pub(crate) fn draw(
         }
     }
     clear(laid, &texts);
+    // (What clearing does not break: an outline through a text.)
+    let mut said = Vec::new();
+    for n in laid
+        .notes
+        .iter()
+        .filter(|n| n.kind == super::Placing::Note && n.preview.is_none())
+    {
+        let shrunk = [
+            n.rect[0] + Point2::splat(0.5),
+            n.rect[1] - Point2::splat(0.5),
+        ];
+        if shrunk[0].cmpge(shrunk[1]).any() {
+            continue;
+        }
+        let through = laid
+            .strokes
+            .iter()
+            .any(|s| s.pen == Pen::Wide && !s.preview && crosses(s.a, s.b, &shrunk));
+        if let (true, Some(placed)) = (through, sheet.notes.get(n.index)) {
+            said.push(format!(
+                "the text of {} in the view {} stands on an outline: put it off the part",
+                placed.note, placed.view
+            ));
+        }
+    }
+    laid.problems.extend(said);
     on_sheet
 }
 
@@ -2793,6 +2939,9 @@ pub(crate) fn place_all(
     let lettering: Vec<[Point2; 2]> = scratch.texts.iter().map(text_box).collect();
     let mut taken = draw(&mut scratch, sheet, subject, frames, None);
     taken.boxes.extend(lettering);
+    // (As far in as the build brings in what stands out past the frame.)
+    let [w, h] = sheet.size();
+    taken.within = Some([Point2::splat(12.5), Point2::new(w - 12.5, h - 12.5)]);
     let gap = [sheet.spacing.gap; 2];
     let view_of = |want: &super::Wanted| -> Option<(&Placed<'_>, bool)> {
         let note = subject.world.said(&want.note)?;
@@ -2811,10 +2960,40 @@ pub(crate) fn place_all(
         Some((first, want.view.is_none()))
     };
     let mut out: Vec<Option<(String, [f64; 2], bool)>> = vec![None; wanted.len()];
-    // Those whose place is said first, then the others in turn.
+    // Those whose place is said first, then the others in turn — of
+    // the lengths among them the shorter first, nearer the outline, so
+    // that a longer one stands outside them (ISO 129-1).
+    let length = |k: usize| match subject.world.said(&wanted[k].note).as_deref() {
+        Some(Annotation {
+            note:
+                Note::Dimension {
+                    measured: Measured::Length { from, to, along },
+                    ..
+                },
+            ..
+        }) => Some(along.map_or(from.distance(*to), |a| (*to - *from).dot(a).abs())),
+        _ => None,
+    };
+    let free: Vec<usize> = (0..wanted.len())
+        .filter(|k| wanted[*k].at.is_none())
+        .collect();
+    let mut lengths: Vec<(usize, f64)> = free
+        .iter()
+        .filter_map(|k| length(*k).map(|l| (*k, l)))
+        .collect();
+    let slots: Vec<usize> = lengths.iter().map(|(k, _)| *k).collect();
+    lengths.sort_by(|a, b| a.1.total_cmp(&b.1));
+    let mut sorted = lengths.into_iter().map(|(k, _)| k);
+    let free: Vec<usize> = free
+        .into_iter()
+        .map(|k| match slots.contains(&k) {
+            true => sorted.next().unwrap_or(k),
+            false => k,
+        })
+        .collect();
     let order = (0..wanted.len())
         .filter(|k| wanted[*k].at.is_some())
-        .chain((0..wanted.len()).filter(|k| wanted[*k].at.is_none()));
+        .chain(free);
     for k in order {
         let want = &wanted[k];
         let (Some(note), Some((placed, as_asked))) =
@@ -3002,7 +3181,9 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
                 if way.y < 0.0 { -1.0 } else { 1.0 },
             )
             .normalize();
-            [0.0_f64, 20.0, -20.0, 40.0, -40.0]
+            // (Turned farther round, to the view's other sides, where
+            // those are in the way: its leader keeps off other views.)
+            [0.0_f64, 20.0, -20.0, 40.0, -40.0, 90.0, -90.0, 180.0]
                 .into_iter()
                 .map(|turn| {
                     let (sin, cos) = turn.to_radians().sin_cos();
@@ -3047,6 +3228,9 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
         }
     }
     let mut given_up = vec![false; rays.len()];
+    // (Its text keeps off the view's own lines: a stack of limits is
+    // higher than one line, a radius's text not on the round.)
+    let own_lines = drawn_lines(placed);
     for (ray, at) in tries {
         if given_up[ray] {
             continue;
@@ -3058,6 +3242,13 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
         // (Not over another view, nor past it.)
         if taken.on_a_view(&drawn) {
             given_up[ray] = true;
+            continue;
+        }
+        let shrunk = [
+            drawn.text[0] + Point2::splat(0.2),
+            drawn.text[1] - Point2::splat(0.2),
+        ];
+        if own_lines.iter().any(|(a, b)| crosses(*a, *b, &shrunk)) {
             continue;
         }
         if !taken.blocks(&drawn) {

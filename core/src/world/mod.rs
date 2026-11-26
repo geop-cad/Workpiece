@@ -4,6 +4,7 @@
 
 pub mod annotation;
 pub mod datum;
+pub mod fits;
 pub mod instance;
 pub mod joint;
 pub mod look;

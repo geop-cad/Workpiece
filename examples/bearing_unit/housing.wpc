@@ -895,7 +895,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -1153,6 +1153,7 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "lines": [
             {
               "of": {
@@ -1212,7 +1213,7 @@
             {
               "at": [
                 0.0,
-                66.99678704276002
+                73.99678704276002
               ],
               "note": "housing_profile/d46",
               "view": "secA"
@@ -1220,7 +1221,7 @@
             {
               "at": [
                 -23.0,
-                73.99678704276002
+                66.99678704276002
               ],
               "note": "housing_profile/d47",
               "view": "secA"
@@ -1235,7 +1236,7 @@
             },
             {
               "at": [
-                33.6560536320969,
+                -33.6560536320969,
                 77.65284067485692
               ],
               "note": "tap/callout",

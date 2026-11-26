@@ -364,12 +364,18 @@ impl dyn Builder + '_ {
     }
 
     /// The value of `measure` in the part being built; `what` names it in
-    /// the error if its formula cannot be valued.
+    /// the error if its formula cannot be valued, or its tolerance cannot
+    /// be held to (a tolerance class ISO 286 does not table).
     pub fn measure(&self, measure: &Measure, what: &str) -> anyhow::Result<f64> {
         use anyhow::Context;
-        measure
+        let value = measure
             .resolve(self.parameters())
-            .with_context(|| what.to_owned())
+            .with_context(|| what.to_owned())?;
+        measure
+            .tolerance
+            .check(value)
+            .map_err(|e| anyhow::anyhow!("{what}: {e}"))?;
+        Ok(value)
     }
 }
 

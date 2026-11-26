@@ -32,7 +32,7 @@ u,v = x,y on XY; y,z on YZ; z,x on ZX; coordinates are only a starting guess)
   `s.rotation_axis(point, towards)` (a centre line without end); `s.origin`, `"u"`, `"v"`
 - constraints: `coincident point_on horizontal vertical parallel perpendicular collinear tangent equal
   midpoint symmetric fix` — a human's geometric constraints, not computed coordinates
-- driving dimensions (each takes `show_in= on_drawing= reference= at=(x,y) decimals= id=`):
+- driving dimensions (each takes `show_in= on_drawing= reference= tol= at=(x,y) decimals= id=`):
   `distance_u(a,b,val)`, `distance_v`, `distance(a,b,val,far=)`, `point_line`, `radius(c,val)`,
   `diameter`, `angle(a,b,deg)`, `diameter_about(point,axis,val)`; `reference=True` is a driven `(60)`
 - target 0 degrees of freedom: `report.sketch(id)["degrees_of_freedom"]`
@@ -41,7 +41,8 @@ u,v = x,y on XY; y,z on YZ; z,x on ZX; coordinates are only a starting guess)
 `p.cut(s, d | through=True)`, `p.revolve(s, about=None|"u"|"v"|axis_name|axis("Z")|topo(edge), angle=)` (no `about`: the sketch's one rotation axis, else u; "u"/"v" draw a rotation axis along the plane's axis into the sketch; a sketch's rotation axis `ax` is the datum axis `datum(f"{s.id}/{ax}")`), `p.hole(s_with_dots, dia, depth=,
 kind="Counterbore"..)` (or placed on a face: `p.hole(None, dia, on=topo(face), at=(x, y) | off=[(ref, d), (ref, d)] | around=axis("Z"), radius=, angle=)`), `p.fillet(edges, r, tangent=True)`, `p.chamfer(edges, d, tangent=True)` (with `tangent`, the default, each edge comes with the edges that run on smoothly from it — a rounded outline's lines and arcs, both halves of a rim — worked out at build time; `tangent=False` blends only the edges named), `p.shell(open_faces, t)`,
 `p.feature_pattern([face], count, about=axis("Z") | along=axis("X"), spacing= | points=sketch | fill=topo(face), grid=)`, `p.feature_mirror([face], "Y")`,
-`p.pattern(body, ...)`, `p.mirror(body, "Y", join=)`, `p.plane("Z", 20)`, `p.dimension(ref_a, ref_b, show_in=, reference=, kind=)`,
+`p.pattern(body, ...)`, `p.mirror(body, "Y", join=)`, `p.plane("Z", 20)`, `p.dimension(ref_a, ref_b, show_in=, reference=, tol=, kind=)`,
+`p.datum_feature("A", on=topo(face))`, `p.geometric_tolerance("Position", 0.1, on=topo(face), datums=["A"], diametral=True)` (see "Tolerances"),
 `p.on_sheet(step_or_dim, show_in=, at=, on_drawing=)`, any other step `p.op("Kind", id, **args)` (`workpiece kinds`).
 `p.sweep(section, path, twist=, scale=)` (section a sketch or `topo(face)`; path a sketch or a curve body `topo(name)`),
 `p.loft([s1, s2, ...], guides=[curve, ...], start="Free|Normal|Tangent|Curvature", end=, start_face=topo(f), end_face=, surface=, start_flip=, start_magnitude=1, start_angle=0, end_…)`
@@ -393,6 +394,46 @@ and never refuses; `centres=True` also takes a bend's centre (not its tube) with
 A countersink's or counterbore's head: dimension its rim edge.
 `report.show()` prints what each dimension step measured.
 
+### Tolerances
+
+One way everywhere: `tol=` on a sketch dimension (`s.distance`, `s.diameter`, `s.radius`,
+`s.angle`, ...), on `p.dimension(...)` and on `p.hole(...)` (the bore's diameter):
+
+| `tol=` | drawn (ISO 129-1) |
+|---|---|
+| `0.1` | `25 ±0,1` (an angle: `30° ±0,5°`) |
+| `(0.2, -0.1)` (upper, lower) | `25` with `+0,20` over `−0,10` small after it: as many decimals each, a zero deviation bare `0` |
+| `limits(0.021, 0)` | the two limits of size stacked: `20,021` over `20,000` |
+| `"H7"`, `"N9"` (a hole, upper case), `"k6"`, `"f7"` (a shaft, lower case) | `Ø20 H7`; with `p.drawing(..., fits="deviations")` `Ø20 H7 (+0,021/0)` |
+| `reference=True` (instead of `tol=`) | `(60)` |
+
+A fit's limits come from the ISO 286 tables (`workpiece_core::world::fits`): holes D E F G H JS K
+M N P, shafts d e f g h js k m n p, grades 5 to 14, sizes to 500 mm. A class or size not in them
+fails the step (no guess); so do `tol=` together with `reference=True` and an upper deviation
+below the lower one.
+
+```python
+s.diameter(bore, 20, tol="H7")                  # Ø20 H7
+s.distance(a, b, 6, tol=(0, -0.03))             # key width 6 with 0 over −0,030
+s.distance_u(c, d, 40, tol=0.05)                # 40 ±0,05
+p.dimension("seat", tol="k6", show_in="front")  # Ø20 k6 of a turned face
+p.hole(s, 8, tol="H7")                          # Ø8 H7 (a bore's fit: not class=)
+p.datum_feature("A", on=topo("base"), show_in="front", at=(0, -40))
+p.geometric_tolerance("Flatness", 0.05, on=topo("base"), show_in="front")
+p.geometric_tolerance("Perpendicularity", 0.02, on=topo("bore"), datums=["A"], diametral=True)
+p.geometric_tolerance("Position", 0.1, on=topo("hole1"), datums=["A", "B"], diametral=True)
+p.drawing(..., general_tolerance="ISO 8062-3 DCTG 9")   # a casting; None: no general tolerance
+```
+
+Datum features (`p.datum_feature`, ISO 5459) draw their letter in a square on a leader ending
+in a filled triangle on the face's outline; geometric tolerances (ISO 1101) a frame of
+compartments — symbol, zone (`Ø` with `diametral=True`), datums in order — on a leader ending in
+an arrow on the face's outline. Both are placed like dimensions (`show_in=`, `at=(x, y)` in mm
+from the view's middle, or `p.on_sheet(id, ...)`). A datum letter is a capital, never I, O or Q;
+a characteristic of form (straightness, flatness, roundness, cylindricity) takes no datum, the
+others need the datums named before them. The title block's "General tolerances" cell says the
+sheet's `general_tolerance=` (default "ISO 2768-mK"; the app: the sheet's properties).
+
 ### Views of some bodies
 
 **Views of some bodies, sections of the cut only.** `view(..., bodies=["plate"])` (also
@@ -413,8 +454,15 @@ where on a face the length was taken.
 **What the build reports** (`report.drawings[0]["problems"]`): besides a dimension no view sees,
 a dimension ending on an edge its view hides (draw the view `HiddenDashed`) or on nothing it
 draws, an extension line or leader longer than 80 mm, texts written over each other, a text or a
-view on the title block, a section that could not cut a body. Read them; a sheet a draughtsman
-accepts has none.
+view on the title block, a section that could not cut a body; two parallel lengths over a common
+stretch closer than a line of lettering (stack them 7 mm apart, the shorter inside), a leader
+that runs across another view, a dimension's text on an outline, a view's caption that cannot be
+moved clear of what is drawn there. Read them; a sheet a draughtsman accepts has none.
+Placed by itself, a length goes 10 mm off the outline and 7 mm on for each next one, the shorter
+inside the longer; no text of a dimension crosses its view's lines nor stands past the sheet's
+frame; a hole's callout turns round its hole to keep its leader off other views; lines and
+hatching are broken where a dimension's text stands on them; a caption moves up to 8 mm off a
+line or text drawn over it.
 
 `p.build(path, render=True)` writes `path.views/<drawing id>.png` (also .pdf, .svg) and one
 image per view, `view-<id>.png`: look at it beside the original — same views in the same

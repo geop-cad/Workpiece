@@ -745,6 +745,23 @@ fn sketched(said: &Value, world: Option<&World>) -> anyhow::Result<(Sketch, Name
             if how["reference"].as_bool() == Some(true) {
                 args.set_driven(id, true);
             }
+            // Its tolerance (`tol=` in the recipe).
+            if let Some(said) = how.get("tolerance") {
+                let tolerance: workpiece_core::world::Tolerance =
+                    serde_json::from_value(said.clone())
+                        .with_context(|| format!("constraint {n}: {said} is no tolerance"))?;
+                anyhow::ensure!(
+                    how["reference"].as_bool() != Some(true),
+                    "constraint {n}: a reference dimension has no tolerance"
+                );
+                if let Some(d) = args
+                    .constraints
+                    .get_mut(&id)
+                    .and_then(|c| c.dimension.as_mut())
+                {
+                    d.tolerance = tolerance;
+                }
+            }
         }
     }
     args.solve();

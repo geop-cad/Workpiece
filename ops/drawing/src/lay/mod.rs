@@ -746,6 +746,7 @@ fn laid_out(
     // (What is written from here on: of the views and what stands in
     // them, not of the frame and the title block.)
     let own_texts = laid.texts.len();
+    let own_strokes = laid.strokes.len();
     // The views: each from what it sees, where it stands.
     let frames = views::frames(sheet, subject, kept, &mut laid.problems);
     for placed in &frames {
@@ -754,11 +755,101 @@ fn laid_out(
     drawn::draw(&mut laid, sheet);
     lines::draw(&mut laid, sheet, subject.world, &frames, previews);
     notes::draw(&mut laid, sheet, subject, &frames, previews);
+    clear_captions(&mut laid, own_texts, own_strokes);
     lines::labels(&mut laid);
     views::detail_letters(&mut laid, &frames);
     parts::draw(&mut laid, sheet, subject, &frames);
     overlaps(&mut laid, own_texts);
     laid
+}
+
+/// The captions of the views moved up off what is drawn over them — a
+/// dimension's text or line, a centre line run on past the view — as
+/// little as it takes (8 mm at most; one put by hand too, which is
+/// put roughly); one that cannot be is told.
+fn clear_captions(laid: &mut Laid, from_text: usize, from_stroke: usize) {
+    let [w, h] = laid.size;
+    for v in 0..laid.views.len() {
+        let Some(caption) = laid.views[v].caption else {
+            continue;
+        };
+        let Some(k) =
+            (from_text..laid.texts.len()).find(|k| notes::text_box(&laid.texts[*k]) == caption)
+        else {
+            continue;
+        };
+        let in_the_way = |laid: &Laid, lift: f64| {
+            let mut text = laid.texts[k].clone();
+            text.at.y += lift;
+            // (Clear of lines by a millimetre and a half, of texts by
+            // half of one.)
+            let quad = notes::text_corners(&text, -1.5);
+            let near = notes::text_corners(&text, -0.5);
+            let [lo, hi] = notes::text_box(&text);
+            lo.y < 10.0
+                || hi.y > h - 12.0
+                || lo.x < 10.0
+                || hi.x > w - 10.0
+                || laid.strokes[from_stroke.min(laid.strokes.len())..]
+                    .iter()
+                    .any(|s| !s.preview && inside(s.a, s.b, &quad).is_some())
+                || laid.texts[from_text.min(laid.texts.len())..]
+                    .iter()
+                    .enumerate()
+                    .any(|(j, t)| {
+                        from_text + j != k
+                            && !t.preview
+                            && !t.text.trim().is_empty()
+                            && notes::overlap(&near, &notes::text_corners(t, 0.0))
+                    })
+        };
+        if !in_the_way(laid, 0.0) {
+            continue;
+        }
+        // (Up, then down, half a millimetre at a time, 8 mm at most.)
+        let Some(lift) = (1..=16)
+            .flat_map(|n| [f64::from(n) * 0.5, -f64::from(n) * 0.5])
+            .find(|lift| !in_the_way(laid, *lift))
+        else {
+            laid.problems.push(format!(
+                "the caption \"{}\" of the view {} stands on a line or a text drawn there: move it \
+                 (caption_at=) or what is in its way",
+                laid.texts[k].text, laid.views[v].id
+            ));
+            continue;
+        };
+        laid.texts[k].at.y += lift;
+        laid.views[v].caption = Some(notes::text_box(&laid.texts[k]));
+    }
+}
+
+/// Of the line from `a` to `b`, the stretch (as parts of it, 0 to 1)
+/// within the four-cornered convex shape `quad`, if any.
+fn inside(a: Point2, b: Point2, quad: &[Point2; 4]) -> Option<(f64, f64)> {
+    let d = b - a;
+    let (mut t0, mut t1) = (0.0_f64, 1.0_f64);
+    // (Which way round its corners go.)
+    let turn = (quad[1] - quad[0]).perp_dot(quad[2] - quad[1]).signum();
+    for k in 0..4 {
+        let (p, q) = (quad[k], quad[(k + 1) % 4]);
+        let normal = (q - p).perp() * turn;
+        // (Inward: normal · (x − p) ≥ 0.)
+        let at = normal.dot(a - p);
+        let along = normal.dot(d);
+        if along.abs() < 1e-12 {
+            if at < 0.0 {
+                return None;
+            }
+        } else {
+            let t = -at / along;
+            if along > 0.0 {
+                t0 = t0.max(t);
+            } else {
+                t1 = t1.min(t);
+            }
+        }
+    }
+    (t0 < t1).then_some((t0, t1))
 }
 
 /// Tells in `laid`'s problems what is written over something else: a

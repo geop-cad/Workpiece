@@ -433,7 +433,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -691,6 +691,7 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "lines": [
             {
               "of": {
@@ -741,7 +742,7 @@
             },
             {
               "at": [
-                33.65605363209693,
+                -33.65605363209691,
                 77.65284067485692
               ],
               "note": "screw_hole/callout",

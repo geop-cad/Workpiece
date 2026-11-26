@@ -569,7 +569,29 @@ pub struct Sheet {
     /// brackets: `↧(50)`; else it leaves it out.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reference_depths: bool,
+    /// The general tolerance its title block says: what holds of every
+    /// size and form it gives no tolerance of — a class of ISO 2768
+    /// (`ISO 2768-mK`, the default) for a machined part, of ISO 8062-3
+    /// (`ISO 8062-3 DCTG 9`) for a casting, or words of its own;
+    /// nothing for none.
+    pub general_tolerance: Option<String>,
 }
+
+/// The general tolerances a sheet is offered (ISO 2768-1/-2 classes,
+/// ISO 8062-3 casting grades); it may say any other.
+pub const GENERAL_TOLERANCES: [&str; 8] = [
+    "ISO 2768-fH",
+    "ISO 2768-mK",
+    "ISO 2768-cL",
+    "ISO 2768-vL",
+    "ISO 8062-3 DCTG 8",
+    "ISO 8062-3 DCTG 9",
+    "ISO 8062-3 DCTG 10",
+    "ISO 13920-BF",
+];
+
+/// The general tolerance a sheet has where none is said.
+pub const GENERAL_TOLERANCE: &str = "ISO 2768-mK";
 
 /// A column of a parts list (ISO 7573).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -889,6 +911,7 @@ impl Default for Sheet {
             aligned_leaders: false,
             places: false,
             reference_depths: false,
+            general_tolerance: Some(GENERAL_TOLERANCE.to_owned()),
         }
     }
 }
@@ -964,6 +987,7 @@ impl Sheet {
                     bare: true,
                     point: true,
                     trim: false,
+                    fit_deviations: false,
                 },
                 _ => Default::default(),
             },

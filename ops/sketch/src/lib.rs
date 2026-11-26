@@ -346,6 +346,18 @@ impl Operation for Sketch {
                 _ => None,
             })
             .collect();
+        // (A tolerance its dimension cannot be held to — a class ISO 286
+        // does not table for its size — is an error.)
+        for (key, constraint) in &args.constraints {
+            if let Some(d) = &constraint.dimension
+                && !d.driven
+            {
+                d.tolerance.check(d.value).map_err(|e| {
+                    let name = d.name.clone().unwrap_or_else(|| format!("d{key}"));
+                    anyhow::anyhow!("the dimension {}/{name}: {e}", self.id)
+                })?;
+            }
+        }
         Ok(workpiece_core::Made {
             datums,
             // (Its dimensions are said of the model: a drawing shows

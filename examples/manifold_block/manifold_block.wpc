@@ -1187,7 +1187,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -1445,6 +1445,7 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "lines": [
             {
               "hidden": true,
@@ -1504,7 +1505,7 @@
             },
             {
               "at": [
-                -55.00000000000003,
+                -62.00000000000003,
                 0.0
               ],
               "note": "block/distance",
@@ -1521,7 +1522,7 @@
             {
               "at": [
                 0.0,
-                -54.0
+                -61.0
               ],
               "note": "block_outline/d22",
               "view": "top"
@@ -1536,7 +1537,7 @@
             },
             {
               "at": [
-                -62.00000000000003,
+                -55.00000000000003,
                 -16.0
               ],
               "note": "port_b/d10",
@@ -1553,7 +1554,7 @@
             {
               "at": [
                 15.0,
-                -61.0
+                -54.0
               ],
               "note": "valve_holes/d19",
               "view": "top"

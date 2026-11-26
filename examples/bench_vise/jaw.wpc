@@ -500,7 +500,7 @@
                 36.0
               ],
               "content": {
-                "Text": "ISO 2768-mK"
+                "Property": "General tolerances"
               },
               "height": 3.5,
               "label": "General tolerances",
@@ -758,12 +758,13 @@
             "wide": null
           },
           "format": "A3",
+          "general_tolerance": "ISO 2768-mK",
           "name": "drawing",
           "notes": [
             {
               "at": [
                 0.0,
-                48.0
+                69.0
               ],
               "note": "jaw/distance",
               "view": "front"
@@ -786,8 +787,8 @@
             },
             {
               "at": [
-                54.65685424949237,
-                54.65685424949237
+                28.652162222589993,
+                61.444760173906786
               ],
               "note": "seat/callout",
               "view": "front"

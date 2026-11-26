@@ -338,6 +338,7 @@ fn said(cell: &Cell, sheet: &Sheet, subject: &Subject<'_>) -> String {
             "Format" => sheet.format.label().to_owned(),
             "Sheet" => "1/1".to_owned(),
             "Projection" => String::new(),
+            "General tolerances" => sheet.general_tolerance.clone().unwrap_or_default(),
             "Title" => given("Title")
                 .or_else(|| given("Name"))
                 .unwrap_or_else(|| subject.name.to_owned()),
