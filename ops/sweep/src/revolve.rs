@@ -231,7 +231,7 @@ impl Operation for Revolve {
             && let Some(out_of) = (middle - foot).try_normalize()
         {
             use workpiece_core::world::{Annotation, Measured};
-            let at = |a: f64| out_of * a.cos() + turn.axis.cross(out_of) * a.sin();
+            let at = |a: f64| out_of * libm::cos(a) + turn.axis.cross(out_of) * libm::sin(a);
             let measured = Measured::Angle {
                 at: foot,
                 first: at(start),

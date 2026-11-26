@@ -1411,7 +1411,7 @@ impl Model {
             // The ring about its axis.
             let round = |k: usize| {
                 let t = std::f64::consts::TAU * k as f64 / 24.0;
-                o + (x * t.cos() + y * t.sin()) * r
+                o + (x * libm::cos(t) + y * libm::sin(t)) * r
             };
             for k in 0..24 {
                 line(round(k), round(k + 1), [width; 2]);

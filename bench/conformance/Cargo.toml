@@ -15,6 +15,7 @@ path = "src/main.rs"
 test = false
 
 [dependencies]
+libm.workspace = true
 workpiece-core.workspace = true
 workpiece-boolean.workspace = true
 workpiece-shape.workspace = true

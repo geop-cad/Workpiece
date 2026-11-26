@@ -17,6 +17,7 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 use std::sync::Arc;
+use workpiece_core::math::{from_angle, to_angle};
 
 use anyhow::Context;
 use workpiece_boolean::model::{Edge, Face, Use, Vertex, Walk};
@@ -205,8 +206,8 @@ impl File {
                     Point2::new(n[5], n[6]),
                 );
                 let radius = centre.distance(from);
-                let start = (from - centre).to_angle();
-                let mut sweep = (to - centre).to_angle() - start;
+                let start = to_angle(from - centre);
+                let mut sweep = to_angle(to - centre) - start;
                 if sweep <= 1e-12 {
                     sweep += std::f64::consts::TAU;
                 }
@@ -214,14 +215,14 @@ impl File {
                 let pieces = (sweep / std::f64::consts::FRAC_PI_2).ceil().max(1.0) as usize;
                 let step = sweep / pieces as f64;
                 let at_angle = |a: f64, far: f64| {
-                    let p = centre + Point2::from_angle(a) * far;
+                    let p = centre + from_angle(a) * far;
                     self.placed(entity, Point3::new(p.x, p.y, n[0]))
                 };
                 let (mut points, mut weights) = (vec![at_angle(start, radius)], vec![1.0]);
                 let mut knots = vec![0.0; 3];
                 for k in 0..pieces {
                     let a = start + step * k as f64;
-                    let w = (step / 2.0).cos();
+                    let w = libm::cos(step / 2.0);
                     points.extend([
                         at_angle(a + step / 2.0, radius / w),
                         at_angle(a + step, radius),
@@ -462,7 +463,7 @@ impl File {
                 // (As wide as its radius where it is placed, wider
                 // along its axis by its half angle; not past its tip.)
                 anyhow::ensure!(n.len() >= 4, "a cone cut short");
-                let (radius, lean) = (n[2] * self.scale, n[3].to_radians().tan());
+                let (radius, lean) = (n[2] * self.scale, libm::tan(n[3].to_radians()));
                 anyhow::ensure!(
                     lo.is_finite(),
                     "a cone with nothing bounding the face on it"
@@ -683,8 +684,8 @@ fn arc(
         .ceil()
         .max(1.0) as usize;
     let step = (to - from) / pieces as f64;
-    let w = (step / 2.0).cos();
-    let at = |angle: f64, far: f64| centre + (x * angle.cos() + y * angle.sin()) * far;
+    let w = libm::cos(step / 2.0);
+    let at = |angle: f64, far: f64| centre + (x * libm::cos(angle) + y * libm::sin(angle)) * far;
     let (mut points, mut weights) = (vec![at(from, radius)], vec![1.0]);
     let mut knots = vec![0.0; 3];
     for k in 0..pieces {
@@ -712,11 +713,11 @@ fn turned_about(
         .ceil()
         .max(1.0) as usize;
     let step = (to - from) / pieces as f64;
-    let w = (step / 2.0).cos();
+    let w = libm::cos(step / 2.0);
     let around = |p: Point3, angle: f64, stretch: f64| {
         let foot = origin + along * (p - origin).dot(along);
         let out = p - foot;
-        foot + (out * angle.cos() + along.cross(out) * angle.sin()) * stretch
+        foot + (out * libm::cos(angle) + along.cross(out) * libm::sin(angle)) * stretch
     };
     let count = curve.control_points().len();
     let (mut points, mut weights) = (Vec::new(), Vec::new());

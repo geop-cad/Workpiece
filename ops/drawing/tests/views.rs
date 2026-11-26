@@ -406,8 +406,8 @@ fn a_seam_on_the_outline_of_a_disc_leaves_both_its_sides_drawn() -> anyhow::Resu
         let mut b = Standalone::new();
         let turned = workpiece_core::world::DatumFrame::new(
             workpiece_core::math::Point3::ZERO,
-            workpiece_core::math::Point3::new(turn.cos(), turn.sin(), 0.0),
-            workpiece_core::math::Point3::new(-turn.sin(), turn.cos(), 0.0),
+            workpiece_core::math::Point3::new(libm::cos(turn), libm::sin(turn), 0.0),
+            workpiece_core::math::Point3::new(-libm::sin(turn), libm::cos(turn), 0.0),
         )?;
         b.world
             .datums

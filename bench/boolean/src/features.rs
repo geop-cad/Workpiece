@@ -216,7 +216,7 @@ fn run(name: &str) -> Found {
             let range = helix.domain();
             (
                 long(&[(Arc::new(helix), range)]),
-                3.0 * (TAU * 2.0).hypot(0.5),
+                3.0 * libm::hypot(TAU * 2.0, 0.5),
             )
         }
         other => anyhow::bail!("{other}: not made"),

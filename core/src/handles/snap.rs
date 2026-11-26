@@ -163,7 +163,7 @@ pub struct SnapTargets {
 pub fn grid_step(pixel: f64) -> f64 {
     const APART_PX: f64 = 14.0;
     let least = APART_PX * pixel;
-    let ten = 10f64.powf(least.log10().floor());
+    let ten = libm::pow(10f64, libm::log10(least).floor());
     [1.0, 2.0, 5.0, 10.0]
         .into_iter()
         .map(|k| k * ten)

@@ -77,7 +77,7 @@ pub fn shot(
     let fov_y = 30f32.to_radians();
     let start = Camera {
         target: (lo + hi) / 2.0,
-        distance: (hi - lo).length().max(1e-6) * 0.58 / (fov_y / 2.0).tan(),
+        distance: (hi - lo).length().max(1e-6) * 0.58 / libm::tanf(fov_y / 2.0),
         fov_y,
         orthographic: false,
         ..Camera::default()

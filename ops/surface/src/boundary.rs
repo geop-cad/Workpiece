@@ -247,7 +247,7 @@ fn across_from(solid: &Solid, face: usize, edge: usize, t: f64, side: &BoundaryS
 /// about `normal`.
 fn turned_in(square: Point3, normal: Point3, degrees: f64) -> Point3 {
     let a = degrees.to_radians();
-    square * a.cos() + normal.cross(square) * a.sin()
+    square * libm::cos(a) + normal.cross(square) * libm::sin(a)
 }
 
 /// The face a side runs on from — read with its body — and which edge
@@ -615,11 +615,7 @@ fn leaving_handle(
         let mut new = was.clone();
         let side = &mut new.sides[k];
         side.magnitude = (v.length() / reach).max(1e-3);
-        side.angle = normal
-            .cross(square)
-            .dot(v)
-            .atan2(square.dot(v))
-            .to_degrees();
+        side.angle = libm::atan2(normal.cross(square).dot(v), square.dot(v)).to_degrees();
         side.flip = false;
         new
     })?

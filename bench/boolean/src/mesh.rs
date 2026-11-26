@@ -8,6 +8,7 @@
 //! inner sides, never along an edge of the face.
 
 use std::collections::{BTreeMap, BTreeSet};
+use workpiece_core::math::angle_between;
 
 use workpiece_boolean::Solid;
 use workpiece_boolean::model::{Face, Walk};
@@ -283,7 +284,7 @@ pub fn by_face(solid: &Solid, sag: f64) -> Vec<Vec<[Point3; 3]>> {
         for pair in stops.windows(2) {
             // As many steps as the span turns, and as its bulge asks.
             let d = |f: f64| e.curve.derivative_at(pair[0] + (pair[1] - pair[0]) * f).1;
-            let turn = |x: Point3, y: Point3| x.angle_between(y);
+            let turn = |x: Point3, y: Point3| angle_between(x, y);
             let turned = turn(d(1e-3), d(0.5)) + turn(d(0.5), d(1.0 - 1e-3));
             let chord = e.point(pair[0]).distance(e.point(pair[1]));
             // (A chord of length c under an arc that turns by θ is

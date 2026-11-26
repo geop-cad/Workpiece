@@ -19,6 +19,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
+use workpiece_core::math::{rotation, rotation_z};
 
 use anyhow::{Context, ensure};
 use glam::DQuat;
@@ -266,7 +267,7 @@ pub fn cases() -> Vec<Case> {
             // A slab through its middle, turned off its axes.
             let (lo, hi) = bounds(solid);
             let (mid, size) = ((lo + hi) / 2.0, hi - lo);
-            let turn = DQuat::from_axis_angle(glam::DVec3::new(0.3, 1.0, 0.2).normalize(), 0.37);
+            let turn = rotation(glam::DVec3::new(0.3, 1.0, 0.2).normalize(), 0.37);
             let reach = size.length() * 1.5;
             let cutter =
                 Scene::new().cube(mid.into(), [reach, reach, size.min_element() * 0.31], turn)?;
@@ -282,8 +283,7 @@ pub fn cases() -> Vec<Case> {
                 mid.y - size.y * 0.007,
                 lo.z - size.z * 0.2,
             ];
-            let drill =
-                Scene::new().cylinder(base, radius, size.z * 1.4, DQuat::from_rotation_z(0.3))?;
+            let drill = Scene::new().cylinder(base, radius, size.z * 1.4, rotation_z(0.3))?;
             Ok(consistent(solid, &drill, None))
         }));
         out.push(with("with-itself", |solid| {

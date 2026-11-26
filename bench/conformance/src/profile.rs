@@ -5,6 +5,7 @@
 //! insertion, which changes no point of it).
 
 use std::f64::consts::TAU;
+use workpiece_core::math::from_angle;
 
 use serde_json::Value;
 use workpiece_core::math::Point2;
@@ -209,8 +210,8 @@ impl Segment {
                 start,
                 sweep,
             } => (
-                *center + Point2::from_angle(*start) * *radius,
-                *center + Point2::from_angle(start + sweep) * *radius,
+                *center + from_angle(*start) * *radius,
+                *center + from_angle(start + sweep) * *radius,
             ),
             Segment::Conic { a, b, .. } => (*a, *b),
             Segment::Spline(_, _, points) | Segment::Blend(points, _) => {
@@ -323,7 +324,7 @@ pub fn curves(segments: &[Segment], frame: &Frame, height: f64) -> Answer<Vec<Cu
                 start,
                 sweep,
             } => {
-                let (sin, cos) = start.sin_cos();
+                let (sin, cos) = libm::sincos(*start);
                 let out = (x * cos + y * sin) * *radius;
                 let on = (y * cos - x * sin) * *radius * sweep.signum();
                 workpiece_shape::arcs::ellipse(place(*center), out, on, sweep.abs())

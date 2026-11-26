@@ -4,6 +4,7 @@
 
 use anyhow::Context;
 use workpiece_boolean::Solid;
+use workpiece_core::math::angle_between;
 use workpiece_core::math::{Point2, Point3};
 use workpiece_core::world::topo::{Curve3, Topo};
 
@@ -577,7 +578,7 @@ pub fn along_path(
     anyhow::ensure!(whole > 0.0, "a path has some length");
     let size = whole + reach * 2.0;
     let section = |share: f64| -> Vec<(Point3, f64)> {
-        let (sin, cos) = (twist * share).sin_cos();
+        let (sin, cos) = libm::sincos(twist * share);
         let by = 1.0 + (scale - 1.0) * share;
         local
             .iter()
@@ -589,7 +590,7 @@ pub fn along_path(
     };
     if closes && path.len() == 1 {
         let [a, b] = ends(&path[0])?;
-        if a.1.angle_between(b.1) < 1e-6 {
+        if angle_between(a.1, b.1) < 1e-6 {
             let range = path[0].domain();
             return carried(
                 id,
@@ -644,12 +645,12 @@ pub fn along_path(
             let Some(other) = other else {
                 continue;
             };
-            let turn = way.angle_between(other);
+            let turn = angle_between(way, other);
             if turn < 1e-6 {
                 continue;
             }
             anyhow::ensure!(turn < 3.0, "the path turns right back on itself");
-            let further = reach * (turn / 2.0).tan() * 1.5 + size * 1e-3;
+            let further = reach * libm::tan(turn / 2.0) * 1.5 + size * 1e-3;
             let line = if leaving {
                 Curve3::line(corner, corner + way * further)?
             } else {
@@ -994,7 +995,7 @@ fn shaped(
                 .sum::<f64>()
                 / ring.len() as f64;
             let reach = reach.max(size * 1e-3);
-            let bell = |d: f64| (-(d / reach).powi(2)).exp();
+            let bell = |d: f64| libm::exp(-(d / reach).powi(2));
             for _ in 0..6 {
                 let pairs: Vec<(Point3, Point3)> = (0..guides.len())
                     .map(|g| {
@@ -1442,14 +1443,15 @@ pub fn helix(
         radius + grow * turns > 0.0,
         "the spiral shrinks to nothing before its last turn"
     );
-    let at =
-        |a: f64| foot + (e1 * a.cos() + e2 * a.sin()) * (radius + wider * a) + axis * (rise * a);
+    let at = |a: f64| {
+        foot + (e1 * libm::cos(a) + e2 * libm::sin(a)) * (radius + wider * a) + axis * (rise * a)
+    };
     let way = |a: f64| {
-        (e2 * a.cos() - e1 * a.sin()) * (radius + wider * a)
-            + (e1 * a.cos() + e2 * a.sin()) * wider
+        (e2 * libm::cos(a) - e1 * libm::sin(a)) * (radius + wider * a)
+            + (e1 * libm::cos(a) + e2 * libm::sin(a)) * wider
             + axis * rise
     };
-    let handle = 4.0 / 3.0 * (step / 4.0).tan();
+    let handle = 4.0 / 3.0 * libm::tan(step / 4.0);
     let mut points = vec![at(0.0)];
     let mut knots = vec![0.0; 4];
     for k in 0..pieces {

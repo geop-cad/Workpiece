@@ -4,6 +4,7 @@
 //! on the part.
 
 use std::collections::BTreeMap;
+use workpiece_core::math::{from_angle, to_angle};
 
 use workpiece_core::math::{Point2, Point3};
 use workpiece_core::world::World;
@@ -379,11 +380,7 @@ fn dot(laid: &mut Laid, at: Point2) {
         let a = std::f64::consts::TAU * f64::from(k) / 8.0;
         let b = std::f64::consts::TAU * f64::from(k + 1) / 8.0;
         laid.fills.push(Fill {
-            corners: [
-                at,
-                at + Point2::from_angle(a) * r,
-                at + Point2::from_angle(b) * r,
-            ],
+            corners: [at, at + from_angle(a) * r, at + from_angle(b) * r],
             colour: [0, 0, 0],
         });
     }
@@ -428,7 +425,7 @@ fn clear_spot(laid: &Laid, frame: &Placed<'_>, tip: Point2, done: &[(Point2, usi
             // (The way to the tip first, then turning off it either way.)
             let turn =
                 (k as f64 / 2.0).ceil() * 10f64.to_radians() * if k % 2 == 0 { 1.0 } else { -1.0 };
-            let way = Point2::from_angle(base.to_angle() + turn);
+            let way = from_angle(to_angle(base) + turn);
             // Out of the view's box that way.
             let tx = if way.x.abs() > 1e-9 {
                 half.x / way.x.abs()

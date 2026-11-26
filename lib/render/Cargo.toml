@@ -12,6 +12,7 @@ rust-version.workspace = true
 name = "workpiece_render"
 
 [dependencies]
+libm.workspace = true
 glam.workspace = true
 
 [lints]

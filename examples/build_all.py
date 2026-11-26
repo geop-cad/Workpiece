@@ -11,8 +11,12 @@ the script: `drawing.pdf` / `drawing.svg` (the example's main sheet: the assembl
 sheet of a part (a flat pattern), and `thumbnail.png` (the shaded
 pictorial of the main file). A clean example has every step ok, every sketch at 0 degrees of
 freedom, no lint, and drawings with no problems.
+
+What each `.wpc` file built to (steps, volumes, faces and edges of each body, drawing problems)
+is kept in `examples/built.json`: `examples/wasm_check.mjs` builds the files again in the
+browser's build of the kernel and holds it to the same (the site's CI runs it before a deploy).
 """
-import json, os, re, shutil, subprocess, sys, time
+import json, os, re, shutil, subprocess, sys, tempfile, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -46,6 +50,47 @@ def publish(name: str) -> None:
                 Image.open(thumbnail).quantize(256).save(thumbnail, optimize=True)
 
 
+BUILT = os.path.join(HERE, "built.json")
+
+
+def summary(report: dict) -> dict:
+    """What a `--report` says a file built to, as built.json keeps it (wasm_check.mjs makes
+    the same of the browser's report)."""
+    bodies = [[b["name"], len(b["faces"]), len(b["edges"])] for b in report["bodies"]]
+    for placed in report["placed"]:
+        bodies += [[f"{placed['name']}/{b['name']}", len(b["faces"]), len(b["edges"])] for b in placed["bodies"]]
+    return {
+        "steps": len(report["steps"]),
+        "failed": report["failed_steps"],
+        "volumes": {m["name"]: m["volume"] for m in report["masses"]},
+        "bodies": bodies,
+        "drawing_problems": sum(len(d["inventory"]["problems"]) for d in report["drawings"]),
+    }
+
+
+def record(name: str) -> None:
+    """Keeps in built.json what each `.wpc` file of the example builds to, by the command line."""
+    sys.path.insert(0, os.path.join(HERE, "..", "python"))
+    from workpiece._bin import command_line
+    folder = os.path.join(HERE, name)
+    files = {}
+    for file in sorted(f for f in os.listdir(folder) if f.endswith(".wpc")):
+        with tempfile.TemporaryDirectory() as scratch:
+            out = os.path.join(scratch, "report.json")
+            subprocess.run([command_line(), "report", file, "--report", out], cwd=folder,
+                           capture_output=True, check=False)
+            with open(out) as f:
+                files[file] = summary(json.load(f))
+    built = {}
+    if os.path.exists(BUILT):
+        with open(BUILT) as f:
+            built = json.load(f)
+    built[name] = files
+    with open(BUILT, "w") as f:
+        json.dump({k: built[k] for k in sorted(built)}, f, indent=1)
+        f.write("\n")
+
+
 def build(name: str) -> tuple:
     """Runs the example's script; returns whether it is clean and its line."""
     script = os.path.join(HERE, name, f"{name}.py")
@@ -71,6 +116,7 @@ def build(name: str) -> tuple:
     sheets = [l for l in out if l.startswith("drawing ")]
     problems = [l.split("; ", 1)[1] for l in sheets if not l.endswith("no problems")]
     publish(name)
+    record(name)
     clean = done.returncode == 0 and failed == 0 and free == 0 and not lint and not problems
     line = (f"{name:<22} steps {len(steps) - failed}/{len(steps)} ok, dof {free}, lint {len(lint)}, "
             f"mass {mass}, {len(sheets)} sheet(s), "

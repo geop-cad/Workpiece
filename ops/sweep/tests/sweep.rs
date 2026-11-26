@@ -1,5 +1,6 @@
 //! What the operations of this crate make.
 
+use workpiece_core::math::from_angle;
 use workpiece_core::world::AreaPick;
 use workpiece_ops_sweep::{Extent, Extrude, Rail, Revolve, Role, Section};
 use workpiece_ops_testing::*;
@@ -428,7 +429,7 @@ fn sections_loft_into_solids() -> anyhow::Result<()> {
     ])?;
     assert!(round > 3.0 * PI && round < pyramid + 4.0, "{round}");
     let five: Vec<Point2> = (0..5)
-        .map(|k| Point2::from_angle(k as f64 * PI * 0.4) * 2.0)
+        .map(|k| from_angle(k as f64 * PI * 0.4) * 2.0)
         .collect();
     let mixed = measured(&[raised(polygon(&five), 0.0)?, raised(square(1.0), 3.0)?])?;
     assert!(mixed > 12.0 && mixed < 28.0, "{mixed}");

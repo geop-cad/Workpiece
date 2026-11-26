@@ -1,4 +1,4 @@
-use glam::DQuat;
+use crate::math::rotation;
 
 use crate::math::Point3;
 use crate::ray::Ray;
@@ -43,7 +43,7 @@ impl<M: 'static> AngularHandle<M> {
 
     /// The unit direction of the current angle.
     pub fn direction(&self) -> Point3 {
-        DQuat::from_axis_angle(self.axis, self.value.to_radians()) * self.zero
+        rotation(self.axis, self.value.to_radians()) * self.zero
     }
 
     /// Turns the angle by the pointer's motion about the axis, in the
@@ -55,7 +55,7 @@ impl<M: 'static> AngularHandle<M> {
                 .map(|t| ray.at(t) - self.center)
         };
         let (v0, v1) = (arm(from)?, arm(to)?);
-        let turn = self.axis.dot(v0.cross(v1)).atan2(v0.dot(v1));
+        let turn = libm::atan2(self.axis.dot(v0.cross(v1)), v0.dot(v1));
         let value = self.value + turn.to_degrees();
         value.is_finite().then(|| (self.on_drag)(value))
     }
@@ -88,7 +88,11 @@ mod tests {
         let angle = h.drag(&down(1.0, 0.0), &down(0.0, 1.0)).unwrap();
         assert!((angle - 100.0).abs() < 1e-9);
         assert!(h.direction().abs_diff_eq(
-            Point3::new(10f64.to_radians().cos(), 10f64.to_radians().sin(), 0.0),
+            Point3::new(
+                libm::cos(10f64.to_radians()),
+                libm::sin(10f64.to_radians()),
+                0.0
+            ),
             1e-12
         ));
     }

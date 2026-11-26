@@ -40,7 +40,7 @@ impl Viewpoint {
     /// about the line it looks along.
     #[must_use]
     pub fn turned(self, angle: f64) -> Self {
-        let (s, c) = angle.sin_cos();
+        let (s, c) = libm::sincos(angle);
         Self {
             right: self.right * c + self.up * s,
             up: self.up * c - self.right * s,

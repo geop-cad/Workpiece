@@ -709,7 +709,7 @@ fn a_surface_texture_is_its_symbol_on_the_outline_and_the_sheet_says_the_others(
     let h = workpiece_ops_drawing::lay::lettering();
     let apex = Point2::new(150.0, 160.0);
     let leg = |height: f64, way: f64| {
-        let top = apex + Point2::new(way * height * 30f64.to_radians().tan(), height);
+        let top = apex + Point2::new(way * height * libm::tan(30f64.to_radians()), height);
         laid.strokes.iter().any(|s| {
             s.pen == Pen::Narrow
                 && ((s.a - apex).length() < 1e-6 && (s.b - top).length() < 1e-6

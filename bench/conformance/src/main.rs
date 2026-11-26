@@ -946,7 +946,7 @@ fn swept(cmd: &str, v: &Value) -> Answer<Solid> {
                         z * radius,
                         angle,
                     ));
-                    let (sin, cos) = angle.sin_cos();
+                    let (sin, cos) = libm::sincos(angle);
                     at = centre - x * radius * cos + z * radius * sin;
                     (x, z) = (x * cos - z * sin, z * cos + x * sin);
                 } else {
@@ -1247,7 +1247,7 @@ fn matrix(v: &Value) -> Answer<(DMat3, Point3)> {
 fn moved(solid: &Solid, v: &Value) -> Answer<Solid> {
     let (m, t) = matrix(v)?;
     let det = m.determinant();
-    let scale = det.abs().cbrt();
+    let scale = libm::cbrt(det.abs());
     Ok(solid.mapped(&|p| m * p + t, det < 0.0, scale)?)
 }
 

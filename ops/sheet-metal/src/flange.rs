@@ -5,6 +5,7 @@ use anyhow::{Context, ensure};
 use workpiece_boolean::model::Walk;
 use workpiece_boolean::{Op, Solid, combine, face_area, read};
 use workpiece_core::math::Point2;
+use workpiece_core::math::from_angle;
 use workpiece_core::world::topo::Curve3;
 use workpiece_core::{Builder, Measure, Operation};
 
@@ -76,15 +77,12 @@ fn arc(centre: Point2, radius: f64, from: f64, to: f64, sides: &mut Sides, point
     let step = (to - from) / pieces as f64;
     for k in 0..pieces {
         let a = from + step * k as f64;
-        let w = (step / 2.0).cos();
+        let w = libm::cos(step / 2.0);
         sides.push((2, vec![0.0, 0.0, 0.0, 1.0, 1.0, 1.0], 3));
         points.extend([
-            (centre + Point2::from_angle(a) * radius, 1.0),
-            (
-                centre + Point2::from_angle(a + step / 2.0) * (radius / w),
-                w,
-            ),
-            (centre + Point2::from_angle(a + step) * radius, 1.0),
+            (centre + from_angle(a) * radius, 1.0),
+            (centre + from_angle(a + step / 2.0) * (radius / w), w),
+            (centre + from_angle(a + step) * radius, 1.0),
         ]);
     }
 }
@@ -147,7 +145,7 @@ pub fn flanged(
     let centre = Point2::new(0.0, radius);
     let start = -std::f64::consts::FRAC_PI_2;
     let end = start + angle;
-    let along = Point2::from_angle(angle) * length;
+    let along = from_angle(angle) * length;
     let (mut sides, mut points): (Sides, Weighted) = (Vec::new(), Vec::new());
     let line = |a: Point2, b: Point2, sides: &mut Sides, points: &mut Weighted| {
         if a.distance(b) > 0.0 {
@@ -156,7 +154,7 @@ pub fn flanged(
         }
     };
     let outer = radius + thickness;
-    let at = |far: f64, angle: f64| centre + Point2::from_angle(angle) * far;
+    let at = |far: f64, angle: f64| centre + from_angle(angle) * far;
     line(Point2::ZERO, at(outer, start), &mut sides, &mut points);
     arc(centre, outer, start, end, &mut sides, &mut points);
     line(
@@ -342,7 +340,11 @@ pub fn unfolded(
             let r = p - origin;
             let along = axis * r.dot(axis);
             let across = r - along;
-            p = origin + along + across * angle.cos() + axis.cross(across) * angle.sin() + by;
+            p = origin
+                + along
+                + across * libm::cos(angle)
+                + axis.cross(across) * libm::sin(angle)
+                + by;
         }
         p
     };
@@ -403,13 +405,13 @@ pub fn unfolded(
             }
             // Turned back about the bend's axis until it faces as this
             // one does; then out past the edge by the bend's length.
-            let angle = here.dot(there).clamp(-1.0, 1.0).acos();
+            let angle = libm::acos(here.dot(there).clamp(-1.0, 1.0));
             let turned = |sign: f64| {
                 let along = round.axis * there.dot(round.axis);
                 let across = there - along;
                 along
-                    + across * (sign * angle).cos()
-                    + round.axis.cross(across) * (sign * angle).sin()
+                    + across * libm::cos(sign * angle)
+                    + round.axis.cross(across) * libm::sin(sign * angle)
             };
             let sign = if turned(1.0).dot(here) >= turned(-1.0).dot(here) {
                 1.0

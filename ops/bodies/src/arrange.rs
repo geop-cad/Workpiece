@@ -3,6 +3,7 @@
 
 use anyhow::{Context, ensure};
 use workpiece_boolean::{Solid, read};
+use workpiece_core::math::angle_between;
 use workpiece_core::math::{Point2, Point3};
 use workpiece_core::world::topo::{BodyId, Curve3, FaceId, Topo};
 use workpiece_core::world::{DatumAxis, DatumPlane};
@@ -34,7 +35,7 @@ fn turned(axis: &DatumAxis, angle: f64, p: Point3) -> Point3 {
     let r = p - o;
     let along = d * r.dot(d);
     let across = r - along;
-    o + along + across * angle.cos() + d.cross(across) * angle.sin()
+    o + along + across * libm::cos(angle) + d.cross(across) * libm::sin(angle)
 }
 
 /// How a body is transformed.
@@ -428,10 +429,10 @@ pub(crate) fn places(
                     let d = builder.tracked().resolve(axis)?.direction();
                     let (x, y) = (d.dot(plane.x_dir()), d.dot(plane.y_dir()));
                     ensure!(
-                        x.hypot(y) > 1e-9,
+                        libm::hypot(x, y) > 1e-9,
                         "the direction stands across the face: pick one along it"
                     );
-                    y.atan2(x)
+                    libm::atan2(y, x)
                 }
                 None => 0.0,
             };
@@ -574,10 +575,10 @@ pub fn along_curves(
             0.0
         } else {
             let (a, b) = (way.reject_from(normal), onward.reject_from(normal));
-            let angle = a.angle_between(b) * a.cross(b).dot(normal).signum();
+            let angle = angle_between(a, b) * a.cross(b).dot(normal).signum();
             if angle.is_finite() { angle } else { 0.0 }
         };
-        let (sin, cos) = angle.sin_cos();
+        let (sin, cos) = libm::sincos(angle);
         let turn =
             |v: Point3| v * cos + normal.cross(v) * sin + normal * (normal.dot(v) * (1.0 - cos));
         out.push(solid.moved(&|p| at + turn(p - origin))?);

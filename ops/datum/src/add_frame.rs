@@ -2,6 +2,7 @@
 //! moved by a pose from there.
 
 use std::collections::BTreeMap;
+use workpiece_core::math::{axis_angle, rotation};
 
 use workpiece_core::handles::Gizmo;
 use workpiece_core::widgets::{PoseInput, VBox};
@@ -223,11 +224,11 @@ fn said(id: &str, base: Pose, pose: Pose) -> Vec<(String, workpiece_core::world:
             all.push(crate::said(id, what, measured, by.abs()));
         }
     }
-    let (axis, angle) = pose.rotation().to_axis_angle();
+    let (axis, angle) = axis_angle(pose.rotation());
     if angle.abs() > 1e-9 {
         let axis = base.transform_vector(axis);
         let first = axis.any_orthonormal_vector();
-        let turned = glam::DQuat::from_axis_angle(axis, angle) * first;
+        let turned = rotation(axis, angle) * first;
         let measured = Measured::Angle {
             at: base.transform_point(moved),
             first,
@@ -346,6 +347,7 @@ fn pose_field(
 mod tests {
     use super::*;
     use workpiece_core::handles::Handle;
+    use workpiece_core::math::rotation_z;
     use workpiece_core::math::{Axis, Point3};
     use workpiece_core::world::{Datum, ORIGIN};
     use workpiece_core::{Standalone, Widget};
@@ -369,7 +371,7 @@ mod tests {
         use workpiece_core::Operation;
         let mut b = Standalone::new();
         let pose = Pose::from_rotation_translation(
-            glam::DQuat::from_rotation_z(90f64.to_radians()),
+            rotation_z(90f64.to_radians()),
             Point3::new(3.0, 0.0, -2.0),
         );
         AddFrame::at("f", pose).apply(&mut b)?;

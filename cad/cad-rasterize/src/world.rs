@@ -256,7 +256,7 @@ impl Painter<'_> {
         // it, or of its body, or of the part — in the colour it was
         // given over that.
         // (From what a screen shows to what light adds up as.)
-        let linear = |c: u8| (f32::from(c) / 255.0).powf(2.2);
+        let linear = |c: u8| libm::powf(f32::from(c) / 255.0, 2.2);
         let colour_of = |[r, g, b]: [u8; 3]| [linear(r), linear(g), linear(b), 1.0];
         let mut body_of = std::collections::BTreeMap::new();
         for (body, _) in topo.bodies().iter() {
@@ -334,7 +334,7 @@ impl Painter<'_> {
                 let angle = along * turns * std::f64::consts::TAU;
                 thread.origin
                     + thread.axis * (thread.length * along)
-                    + (e1 * angle.cos() + e2 * angle.sin()) * radius
+                    + (e1 * libm::cos(angle) + e2 * libm::sin(angle)) * radius
             };
             for k in 0..pieces {
                 self.line(at(k), at(k + 1), [1.0; 2], crate::palette::THREAD, None);

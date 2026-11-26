@@ -155,7 +155,7 @@ impl Laid {
             // (Helvetica's capitals are 0.718 of its size high.)
             let size = text.height / 0.718 * POINTS;
             let wide: f64 = text.text.chars().map(advance).sum::<f64>() / 1000.0 * size;
-            let (sin, cos) = text.angle.sin_cos();
+            let (sin, cos) = libm::sincos(text.angle);
             let (x, y) = at(text.at);
             let (dx, dy) = (
                 -text.anchor[0] * wide,

@@ -718,7 +718,7 @@ pub fn drag_gizmo(args: &MeshArgs, state: &MeshState, to: Pose) -> MeshEdit {
     let Some(shown) = pivot(args, state) else {
         return Edit::state(state.clone());
     };
-    let turned = to.rotation().angle_between(shown.rotation()) > 1e-9;
+    let turned = 2.0 * libm::acos(to.rotation().dot(shown.rotation()).abs().min(1.0)) > 1e-9;
     if turned {
         // Turned about where it is.
         let by = to * shown.inverse();

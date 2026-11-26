@@ -9,6 +9,7 @@
 
 use std::collections::BTreeMap;
 use std::f64::consts::{FRAC_PI_2, TAU};
+use workpiece_core::math::from_angle;
 
 use workpiece_core::math::{Point2, Point3};
 use workpiece_core::world::{Cutting, Thread};
@@ -219,8 +220,7 @@ pub(crate) fn draw(
             continue;
         };
         let steps = ((sweep * radius * scale / 0.25).ceil() as usize).clamp(36, 360);
-        let on =
-            |k: usize| *at + Point2::from_angle(start + sweep * k as f64 / steps as f64) * *radius;
+        let on = |k: usize| *at + from_angle(start + sweep * k as f64 / steps as f64) * *radius;
         for k in 0..steps {
             if let Some((a, b)) = clip(on(k), on(k + 1)) {
                 laid.line(sheet(a), sheet(b), pen);

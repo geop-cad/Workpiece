@@ -76,7 +76,7 @@ fn cone(p: &Piece) -> Option<(Point3, f64)> {
             }
         }
     }
-    (least > 0.05).then(|| (axis, least.clamp(-1.0, 1.0).acos()))
+    (least > 0.05).then(|| (axis, libm::acos(least.clamp(-1.0, 1.0))))
 }
 
 /// A cone that holds every normal of a patch, if a narrow one does.
@@ -87,7 +87,7 @@ fn may_align(a: &Cone, b: &Cone) -> bool {
     let (Some((na, wa)), Some((nb, wb))) = (a, b) else {
         return true;
     };
-    let between = na.dot(*nb).clamp(-1.0, 1.0).acos();
+    let between = libm::acos(na.dot(*nb).clamp(-1.0, 1.0));
     let wide = wa + wb + 1e-9;
     between <= wide || std::f64::consts::PI - between <= wide
 }

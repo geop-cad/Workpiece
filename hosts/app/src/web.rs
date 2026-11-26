@@ -104,6 +104,8 @@ struct Page {
     /// When the page started, and whether the first frame was drawn.
     started: f64,
     drawn: bool,
+    /// The emoji fonts fetched so far, in [`EMOJI_FONTS`]' order.
+    emoji: Vec<(&'static str, f32, Vec<u8>)>,
 }
 
 thread_local! {
@@ -197,10 +199,14 @@ pub fn start() {
         };
         let create = Box::new(|cc: &eframe::CreationContext<'_>| {
             page(|p| p.ctx = Some(cc.egui_ctx.clone()));
+            cc.egui_ctx.set_fonts(fonts(Vec::new()));
             crate::create(cc)
         });
         match runner.start(canvas, options, create).await {
             Ok(()) => {
+                for font in EMOJI_FONTS {
+                    spawn_local(emoji_font(font));
+                }
                 track("app_loaded", serde_json::json!({}));
                 if let Some(loading) = window()
                     .document()
@@ -222,6 +228,66 @@ pub fn start() {
             spawn_local(open_named(open, drawing));
         }
     });
+}
+
+/// The emoji fonts egui has on the desktop, fetched from the page's
+/// `fonts/` (build.sh puts them there): its name there, and how much
+/// smaller than the text they are drawn (as egui's defaults have it).
+const EMOJI_FONTS: [(&str, f32); 2] = [("NotoEmoji-Regular", 0.81), ("emoji-icon-font", 0.90)];
+
+/// egui's fonts, as on the desktop, of which the page compiles in only
+/// the text fonts (Ubuntu Light, Hack): the emoji fonts, half of the
+/// fonts' bytes, come with `emoji` (as [`EMOJI_FONTS`] names
+/// them) once fetched.
+fn fonts(emoji: Vec<(&'static str, f32, Vec<u8>)>) -> egui::FontDefinitions {
+    use egui::{FontData, FontFamily, FontTweak};
+    use std::sync::Arc;
+    let mut fonts = egui::FontDefinitions::empty();
+    fonts.font_data.insert(
+        "Hack".to_owned(),
+        Arc::new(FontData::from_static(epaint_default_fonts::HACK_REGULAR)),
+    );
+    fonts.font_data.insert(
+        "Ubuntu-Light".to_owned(),
+        Arc::new(FontData::from_static(epaint_default_fonts::UBUNTU_LIGHT)),
+    );
+    let mut proportional = vec!["Ubuntu-Light".to_owned()];
+    // (Ubuntu Light is the fallback for √ and the like.)
+    let mut monospace = vec!["Hack".to_owned(), "Ubuntu-Light".to_owned()];
+    for (name, scale, bytes) in emoji {
+        let data = FontData::from_owned(bytes).tweak(FontTweak {
+            scale,
+            ..Default::default()
+        });
+        fonts.font_data.insert(name.to_owned(), Arc::new(data));
+        proportional.push(name.to_owned());
+        monospace.push(name.to_owned());
+    }
+    fonts
+        .families
+        .insert(FontFamily::Proportional, proportional);
+    fonts.families.insert(FontFamily::Monospace, monospace);
+    fonts
+}
+
+/// Fetches one of the emoji fonts, and draws with it (and those fetched
+/// before it) from then on.
+async fn emoji_font((name, scale): (&'static str, f32)) {
+    let bytes = match fetch(&format!("fonts/{name}.ttf")).await {
+        Ok(bytes) => bytes,
+        Err(e) => return log(&format!("Workpiece: no emoji font: {e}")),
+    };
+    let (ctx, emoji) = page(|p| {
+        p.emoji.push((name, scale, bytes));
+        // (In the order egui falls back to them.)
+        p.emoji
+            .sort_by_key(|f| EMOJI_FONTS.iter().position(|e| e.0 == f.0));
+        (p.ctx.clone(), p.emoji.clone())
+    });
+    if let Some(ctx) = ctx {
+        ctx.set_fonts(fonts(emoji));
+        ctx.request_repaint();
+    }
 }
 
 /// A panic ends the application in a browser (there is no unwinding

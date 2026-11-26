@@ -376,6 +376,6 @@ fn a_cone_s_side_is_measured_against_its_base_at_its_slant() -> anyhow::Result<(
     let Note::Dimension { value, .. } = &b.world.annotations["slant"].note else {
         panic!("a dimension");
     };
-    close(*value, 2f64.atan().to_degrees(), 1e-6);
+    close(*value, libm::atan(2f64).to_degrees(), 1e-6);
     Ok(())
 }

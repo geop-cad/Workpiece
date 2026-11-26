@@ -124,7 +124,7 @@ fn cells_of(fuse: &Fuse<'_>, fid: usize) -> Result<Vec<Cell>, Refusal> {
     let work = &fuse.works[fid];
     let size = {
         let [u, v] = fuse.data[work.solid].faces[work.face].uv;
-        (u.1 - u.0).hypot(v.1 - v.0)
+        libm::hypot(u.1 - u.0, v.1 - v.0)
     };
     // A part drawn up to a pole ends somewhere along the collapsed
     // side: the walk around the pole is cut there, so that it has a
@@ -240,7 +240,7 @@ fn cells_of(fuse: &Fuse<'_>, fid: usize) -> Result<Vec<Cell>, Refusal> {
         head.extend([b, a]);
     }
     let mut dead = vec![false; halves.len()];
-    let angle = |d: Point2| d.y.atan2(d.x);
+    let angle = |d: Point2| libm::atan2(d.y, d.x);
     let loops = loop {
         let mut leaving: Vec<Vec<usize>> = vec![Vec::new(); nodes];
         for h in 0..halves.len() {
@@ -695,7 +695,7 @@ fn around(
         let reach = fuse.scale * 1e-3 / step.length().max(1e-300);
         let q = uv + into * reach;
         let leaving = face.surface.point_at(q.x, q.y) - p;
-        let angle = leaving.dot(e2).atan2(leaving.dot(e1));
+        let angle = libm::atan2(leaving.dot(e2), leaving.dot(e1));
         let out = du.cross(dv) * if face.outward != flipped { 1.0 } else { -1.0 };
         let rising = along.cross(leaving);
         faces.push((angle, -out.dot(rising) > 0.0, way, [n, l, h]));

@@ -2,6 +2,7 @@
 //! split at a point, a line run on to meet another curve.
 
 use workpiece_core::math::Point2;
+use workpiece_core::math::angle_to;
 
 use crate::model::{Id, Item, Kind, Shape, SketchArgs};
 
@@ -61,15 +62,15 @@ pub(crate) fn fillet(args: &mut SketchArgs, corner: Id, radius: f64) -> Option<V
     let legs = legs(args, corner)?;
     let c = args.at(corner);
     let (_, ways) = back(args, corner, legs, radius)?;
-    let half = ways[0].angle_to(ways[1]).abs() / 2.0;
+    let half = angle_to(ways[0], ways[1]).abs() / 2.0;
     if half <= 1e-6 || half >= std::f64::consts::FRAC_PI_2 - 1e-6 {
         return None;
     }
     // (No further back along the legs than they are long.)
-    let (reach, _) = back(args, corner, legs, radius / half.tan())?;
-    let radius = reach * half.tan();
+    let (reach, _) = back(args, corner, legs, radius / libm::tan(half))?;
+    let radius = reach * libm::tan(half);
     let middle = (ways[0] + ways[1]).try_normalize()?;
-    let centre = c + middle * (radius / half.sin());
+    let centre = c + middle * (radius / libm::sin(half));
     let ends = [c + ways[0] * reach, c + ways[1] * reach];
     let points = ends.map(|at| args.add_point(at));
     let centre = args.add_point(centre);

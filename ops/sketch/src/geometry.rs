@@ -13,7 +13,7 @@ const CIRCLE_SEGMENTS: usize = 96;
 
 /// The angle of `v`, in `[0, 2π)`.
 pub(crate) fn angle(v: Point2) -> f64 {
-    v.y.atan2(v.x).rem_euclid(TAU)
+    libm::atan2(v.y, v.x).rem_euclid(TAU)
 }
 
 /// The angle swept counter-clockwise from direction `from` to `to`, in
@@ -25,7 +25,7 @@ pub(crate) fn sweep(from: Point2, to: Point2) -> f64 {
 
 /// The unit vector at `angle`.
 pub(crate) fn unit(angle: f64) -> Point2 {
-    Point2::new(angle.cos(), angle.sin())
+    Point2::new(libm::cos(angle), libm::sin(angle))
 }
 
 /// The point of segment `a`–`b` nearest to `p`.
@@ -104,7 +104,7 @@ pub(crate) fn arc_curve(center: Point2, start: Point2, sweep: f64) -> Option<Cur
     let pieces = (sweep / FRAC_PI_2 - 1e-9).ceil().max(1.0) as usize;
     let step = sweep / pieces as f64;
     let (radius, from) = (center.distance(start), angle(start - center));
-    let corner_weight = (step / 2.0).cos();
+    let corner_weight = libm::cos(step / 2.0);
     let mut points = vec![start];
     let mut weights = vec![1.0];
     let mut knots = vec![0.0; 3];

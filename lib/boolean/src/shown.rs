@@ -453,14 +453,14 @@ impl Net<'_> {
         match laid {
             None => {
                 let (p, q) = (self.c[a].at - self.c[c].at, self.c[b].at - self.c[c].at);
-                p.cross(q).length().atan2(p.dot(q))
+                libm::atan2(p.cross(q).length(), p.dot(q))
             }
             Some(by) => {
                 let (p, q) = (
                     (self.c[a].uv - self.c[c].uv) * by,
                     (self.c[b].uv - self.c[c].uv) * by,
                 );
-                p.perp_dot(q).abs().atan2(p.dot(q))
+                libm::atan2(p.perp_dot(q).abs(), p.dot(q))
             }
         }
     }
@@ -893,7 +893,7 @@ pub fn display(solid: &Solid, tolerance: f64) -> Shown {
             let (mut least, mut most) = (f64::INFINITY, f64::NEG_INFINITY);
             for &t in &edge_stops[e] {
                 let ((n1, into, _), (n2, ..)) = (side(first, t), side(second, t));
-                let sharp = n1.cross(n2).length().atan2(n1.dot(n2));
+                let sharp = libm::atan2(n1.cross(n2).length(), n1.dot(n2));
                 let angle = if n2.dot(into) > 0.0 { -sharp } else { sharp };
                 (least, most) = (least.min(angle), most.max(angle));
             }

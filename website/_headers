@@ -2,9 +2,8 @@
 # copied to the site's root by assemble.sh. Pages already answers every file with an ETag and
 # "Cache-Control: public, max-age=0, must-revalidate", so a browser asks again on each visit and
 # gets a 304 (no download) when the file did not change. Only names that never change their
-# contents may be cached for longer; the application's files keep their names from build to build
-# (workpiece.js loads workpiece_bg.wasm by name), so they must stay revalidated: an old .wasm
-# beside a new .js would not start.
+# contents may be cached for longer. (Where two rules set the same header, Pages joins their
+# values: no two rules here may both set Cache-Control on one file.)
 
 /*
   X-Content-Type-Options: nosniff
@@ -12,7 +11,14 @@
 
 /app/*.wasm
   Content-Type: application/wasm
-  Cache-Control: public, max-age=0, must-revalidate
+
+# The program, named by its contents (app/build.sh): a new build is a new name, which the page
+# (revalidated, as everything else) names; the files themselves are kept for good.
+/app/workpiece-*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+/app/workpiece_bg-*.wasm
+  Cache-Control: public, max-age=31536000, immutable
 
 # The home page's pictures: a day-old screenshot breaks nothing.
 /assets/*

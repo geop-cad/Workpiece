@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
             let fov_y = 30f32.to_radians();
             Camera {
                 target: (lo + hi) / 2.0,
-                distance: (hi - lo).length() * 0.62 / (fov_y / 2.0).tan(),
+                distance: (hi - lo).length() * 0.62 / libm::tanf(fov_y / 2.0),
                 fov_y,
                 orthographic: false,
                 ..Camera::default()

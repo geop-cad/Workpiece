@@ -19,6 +19,7 @@
 //!   between three rounds that meet squarely, a flat for chamfers.
 
 use std::collections::BTreeSet;
+use workpiece_core::math::angle_between;
 
 use anyhow::{Context, ensure};
 use workpiece_boolean::model::Walk;
@@ -576,9 +577,9 @@ pub fn apple(
         });
     }
     // From the south, around by the east, about (ring, 0).
-    let turn = high.atan2(-ring);
+    let turn = libm::atan2(high, -ring);
     let (points, knots) = crate::arcs::arc_form(2.0 * turn);
-    let (sin, cos) = (-turn).sin_cos();
+    let (sin, cos) = libm::sincos(-turn);
     let (mut controls, weights): (Vec<Point2>, Vec<f64>) = points
         .into_iter()
         .map(|(p, w)| {
@@ -1025,7 +1026,7 @@ fn turned(
     let (Some(from), Some(to)) = (out(ca).try_normalize(), out(cb).try_normalize()) else {
         return Ok(None);
     };
-    let angle = from.angle_between(to);
+    let angle = angle_between(from, to);
     if !(1e-6..std::f64::consts::PI - 1e-6).contains(&angle) {
         return Ok(None);
     }
@@ -1044,7 +1045,7 @@ fn turned(
         let foot = turn.foot(p);
         let across = p - foot;
         let by = angle * share;
-        foot + across * by.cos() + axis.cross(across) * by.sin()
+        foot + across * libm::cos(by) + axis.cross(across) * libm::sin(by)
     };
     if (1..4).any(|k| {
         !workpiece_boolean::lies_on(
@@ -2354,8 +2355,8 @@ fn blend_found(
                         .find(|kink| kink.1.contains(&ends[end]) && !turning(kink.0))?;
                     let other = if *a == ends[end] { b } else { a };
                     let (own, their) = (-corner.away(end), -found[other.0].1.away(other.1));
-                    let half = own.angle_between(their) / 2.0;
-                    let long = (reach + margin) / half.tan().max(0.05) * 1.5 + margin * 4.0;
+                    let half = angle_between(own, their) / 2.0;
+                    let long = (reach + margin) / libm::tan(half).max(0.05) * 1.5 + margin * 4.0;
                     let across = (own - their).try_normalize()?;
                     Some((end, solid.vertices[*v].point, across, long))
                 })
@@ -2813,7 +2814,7 @@ mod tests {
                 curve: match arcs.iter().find(|a| a.0 == k) {
                     Some(&(_, centre, true)) => {
                         let (from, to) = (*point - centre, points[(k + 1) % n] - centre);
-                        let turn = (from.perp_dot(to)).atan2(from.dot(to)).rem_euclid(TAU);
+                        let turn = libm::atan2(from.perp_dot(to), from.dot(to)).rem_euclid(TAU);
                         let (form, knots) = crate::arcs::arc_form(turn);
                         let (controls, weights): (Vec<Point2>, Vec<f64>) = form
                             .into_iter()
@@ -2825,7 +2826,7 @@ mod tests {
                         // Anticlockwise from the end back to the start,
                         // turned about.
                         let (from, to) = (points[(k + 1) % n] - centre, *point - centre);
-                        let turn = (from.perp_dot(to)).atan2(from.dot(to)).rem_euclid(TAU);
+                        let turn = libm::atan2(from.perp_dot(to), from.dot(to)).rem_euclid(TAU);
                         let (form, knots) = crate::arcs::arc_form(turn);
                         let (controls, weights): (Vec<Point2>, Vec<f64>) = form
                             .into_iter()
@@ -3041,8 +3042,8 @@ mod tests {
         let made = full_round(&solid, "round", [side(1.0), side(-1.0)], top)?;
         // The circle that touches the top in its middle and both sides.
         let lean = b - t;
-        let rho = h * t / (lean.hypot(h) - lean);
-        let cut = t * rho - rho * rho * (t / rho).atan();
+        let rho = h * t / (libm::hypot(lean, h) - lean);
+        let cut = t * rho - rho * rho * libm::atan(t / rho);
         let volume = measure(&made).volume;
         let wanted = ((b + t) * h - 2.0 * cut) * long;
         assert!((volume - wanted).abs() < 1e-6, "{volume} against {wanted}");
@@ -3158,8 +3159,8 @@ mod tests {
         let solid = prism(&[p(0.0, 0.0), p(long, 0.0), p(long, thick)], h);
         let edges = edges_at(&solid, &[Point3::new(0.0, 0.0, 1.5)]);
         let made = blend_chains(&solid, "fillet", &edges, &round(r), true)?;
-        let angle = (thick / long).atan();
-        let taken = r * r * (1.0 / (angle / 2.0).tan() - (PI - angle) / 2.0) * h;
+        let angle = libm::atan(thick / long);
+        let taken = r * r * (1.0 / libm::tan(angle / 2.0) - (PI - angle) / 2.0) * h;
         let volume = measure(&made).volume;
         let wanted = long * thick / 2.0 * h - taken;
         assert!((volume - wanted).abs() < 1e-9, "{volume} against {wanted}");
@@ -3182,8 +3183,8 @@ mod tests {
         let solid = prism(&outline, tall);
         let edges = edges_at(&solid, &[Point3::new(wide / 2.0, high, 0.8)]);
         let made = blend_chains(&solid, "fillet", &edges, &round(r), true)?;
-        let turn = 2.0 * ((high - low) / (wide / 2.0)).atan();
-        let taken = r * r * ((turn / 2.0).tan() - turn / 2.0) * tall;
+        let turn = 2.0 * libm::atan((high - low) / (wide / 2.0));
+        let taken = r * r * (libm::tan(turn / 2.0) - turn / 2.0) * tall;
         let got = measure(&solid).volume - measure(&made).volume;
         assert!((got - taken).abs() < 1e-9, "{got} against {taken}");
         Ok(())
@@ -3246,7 +3247,7 @@ mod tests {
         let p = Point2::new;
         let centre = p(0.0, 155.95);
         let low = 151.8;
-        let wall = (37.5_f64).hypot(188.0 - centre.y);
+        let wall = libm::hypot(37.5_f64, 188.0 - centre.y);
         let a = p(
             centre.x + (wall * wall - (low - centre.y).powi(2)).sqrt(),
             low,
@@ -3387,7 +3388,7 @@ mod tests {
         let p = |x: f64, y: f64| Point2::new(x + shift, y + shift);
         let centre = p(0.0, 155.95);
         let low = 151.8;
-        let wall = (37.5_f64).hypot(188.0 - 155.95);
+        let wall = libm::hypot(37.5_f64, 188.0 - 155.95);
         let a = Point2::new(
             centre.x + (wall * wall - (low - 155.95_f64).powi(2)).sqrt(),
             low + shift,
@@ -3487,7 +3488,7 @@ mod tests {
         // (Over the angle the section's arc turns through: y = r - r sin a.)
         let quarter = std::f64::consts::FRAC_PI_2;
         let taken = integral(
-            &|a| end(r - r * a.sin()) * (r - r * a.cos()) * r * a.cos(),
+            &|a| end(r - r * libm::sin(a)) * (r - r * libm::cos(a)) * r * libm::cos(a),
             0.0,
             quarter,
             2000,
@@ -3508,7 +3509,7 @@ mod tests {
         let edges = edges_at(&step, &[Point3::new(5.0, w, h)]);
         let made = blend_chains(&step, "fillet", &edges, &round(r), true)?;
         let added = integral(
-            &|a| end(w - r + r * a.sin()) * (r - r * a.cos()) * r * a.cos(),
+            &|a| end(w - r + r * libm::sin(a)) * (r - r * libm::cos(a)) * r * libm::cos(a),
             0.0,
             quarter,
             2000,
@@ -3727,7 +3728,10 @@ mod tests {
     /// more).
     fn section_t(r: f64) -> f64 {
         let (ball, b) = (Point2::new(37.5, 188.0), 20.0);
-        let (wall, w) = (Point2::new(0.0, 155.95), (37.5_f64).hypot(188.0 - 155.95));
+        let (wall, w) = (
+            Point2::new(0.0, 155.95),
+            libm::hypot(37.5_f64, 188.0 - 155.95),
+        );
         // The two circles' points where a third's centre is `p` from the
         // first and `q` from the second: the one lower down.
         let meet = |p: f64, q: f64| {
@@ -3748,10 +3752,11 @@ mod tests {
         // triangle from the origin to its chord and the circle's
         // segment beyond the chord, with its sign.
         let piece = |centre: Point2, rad: f64, from: Point2, to: Point2| {
-            let turn = (from - centre)
-                .perp_dot(to - centre)
-                .atan2((from - centre).dot(to - centre));
-            from.perp_dot(to) / 2.0 + rad * rad * (turn - turn.sin()) / 2.0
+            let turn = libm::atan2(
+                (from - centre).perp_dot(to - centre),
+                (from - centre).dot(to - centre),
+            );
+            from.perp_dot(to) / 2.0 + rad * rad * (turn - libm::sin(turn)) / 2.0
         };
         (piece(ball, b, corner, a) + piece(centre, r, a, c) + piece(wall, w, c, corner)).abs()
     }
@@ -3852,8 +3857,8 @@ mod tests {
         // It adds less than a round in the slope's corner along all of
         // the foot (from root to root, 10) would: (tan(a/2) − a/2) r²
         // over 10, where the slope turns from the floor by a.
-        let a = (15.0_f64 / 20.0).atan();
-        let whole = ((a / 2.0).tan() - a / 2.0) * 4.0 * 10.0;
+        let a = libm::atan(15.0_f64 / 20.0);
+        let whole = (libm::tan(a / 2.0) - a / 2.0) * 4.0 * 10.0;
         let added = after - before;
         assert!(added > 0.3 * whole && added < whole, "{added} {whole}");
         // Mirrored, the same.

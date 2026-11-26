@@ -7,6 +7,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex, OnceLock};
+use workpiece_core::math::{angle_between, from_angle};
 
 use workpiece_core::math::{Point2, Point3};
 use workpiece_core::world::{Datum, World};
@@ -92,7 +93,7 @@ fn circle_of(run: &[Point3]) -> Option<(Point3, Point3, f64, f64)> {
     }
     let around = run
         .windows(2)
-        .map(|w| (w[0] - middle).angle_between(w[1] - middle))
+        .map(|w| angle_between(w[0] - middle, w[1] - middle))
         .sum();
     Some((middle, axis, radius, around))
 }
@@ -627,9 +628,7 @@ fn drawn(
             let c = placed.place(middle);
             let r = radius * placed.scale;
             let steps = ((r * std::f64::consts::TAU / 1.5).ceil() as usize).clamp(24, 360);
-            let at = |k: usize| {
-                c + Point2::from_angle(std::f64::consts::TAU * k as f64 / steps as f64) * r
-            };
+            let at = |k: usize| c + from_angle(std::f64::consts::TAU * k as f64 / steps as f64) * r;
             Some(Drawn {
                 pieces: (0..steps).map(|k| (at(k), at(k + 1), Pen::Chain)).collect(),
                 label: c + Point2::new(0.7, 0.7) * r,
@@ -866,7 +865,7 @@ pub(crate) fn labels(laid: &mut Laid) {
                 text: label.clone(),
                 height,
                 anchor: *anchor,
-                angle: read.y.atan2(read.x),
+                angle: libm::atan2(read.y, read.x),
                 preview: false,
             };
             let [lo, hi] = super::notes::text_box(&text);
@@ -894,7 +893,7 @@ pub(crate) fn labels(laid: &mut Laid) {
             text: label,
             height,
             anchor,
-            angle: read.y.atan2(read.x),
+            angle: libm::atan2(read.y, read.x),
             preview: false,
         });
     }

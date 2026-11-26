@@ -1,6 +1,7 @@
 //! The NURBS form of circular and elliptic arcs: what sweeping around an
 //! axis is made of.
 
+use workpiece_core::math::from_angle;
 use workpiece_core::math::{Point2, Point3};
 use workpiece_core::world::topo::Curve3;
 
@@ -13,13 +14,13 @@ pub fn arc_form(angle: f64) -> (Vec<(Point2, f64)>, Vec<f64>) {
         .ceil()
         .max(1.0) as usize;
     let step = angle / n as f64;
-    let w = (step / 2.0).cos();
+    let w = libm::cos(step / 2.0);
     let mut points = vec![(Point2::X, 1.0)];
     let mut knots = vec![0.0; 3];
     for k in 0..n {
         let (mid, end) = (step * (k as f64 + 0.5), step * (k as f64 + 1.0));
-        points.push((Point2::from_angle(mid) / w, w));
-        points.push((Point2::from_angle(end), 1.0));
+        points.push((from_angle(mid) / w, w));
+        points.push((from_angle(end), 1.0));
         let knot = (k + 1) as f64 / n as f64;
         knots.extend([knot, knot]);
     }

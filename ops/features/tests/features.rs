@@ -43,7 +43,7 @@ fn holes_are_drilled_at_the_points_of_a_sketch() -> anyhow::Result<()> {
         0.01,
     );
     // A drill's point: a cone of the bore's radius.
-    let tip = PI * 0.25 * 0.25 * 0.25 / (59.0_f64.to_radians().tan()) / 3.0;
+    let tip = PI * 0.25 * 0.25 * 0.25 / (libm::tan(59.0_f64.to_radians())) / 3.0;
     close(
         drilled(&|a| a.point = Measure::new(118.0))?,
         2.0 * (bore + tip),
@@ -159,7 +159,7 @@ fn holes_are_placed_off_planes_and_around_axes() -> anyhow::Result<()> {
         0.01,
     );
     let at = hole_at(&b);
-    close(at.x.hypot(at.y), 1.2, 1e-9);
+    close(libm::hypot(at.x, at.y), 1.2, 1e-9);
     close(at.x * at.y, 0.0, 1e-9);
     // Where the face was clicked: 1 along its plane's x, −0.5 along its y.
     let mut b = Standalone::new();
@@ -230,7 +230,7 @@ fn threads_are_cut_into_rods_and_holes() -> anyhow::Result<()> {
     // What a V groove takes from a face of this radius in a turn: its
     // triangle (less the lip beyond the face), carried around.
     let (pitch, depth) = (0.25, 0.12);
-    let tan = (PI / 6.0).tan();
+    let tan = libm::tan(PI / 6.0);
     let turn = |radius: f64, hole: bool| {
         // The triangle within the material, and how far its middle is
         // from the axis.

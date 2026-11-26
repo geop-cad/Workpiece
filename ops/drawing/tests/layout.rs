@@ -6,6 +6,7 @@
 //! curve, what overlaps told as a problem.
 
 use workpiece_core::math::Point3;
+use workpiece_core::math::angle_to;
 use workpiece_core::world::{Annotation, Cutting, Measured, Note, Tolerance};
 use workpiece_ops_drawing::Sheet;
 use workpiece_ops_drawing::lay::{Kept, Laid, Pen, Subject, Wanted, lay_out, place_all};
@@ -453,7 +454,7 @@ fn two_radii_about_one_middle_each_have_a_leader_of_their_own() -> anyhow::Resul
         .map(|p| Point2::from_array(p.as_ref().expect("placed").1).normalize())
         .collect();
     assert!(
-        ways[0].angle_to(ways[1]).abs() > 10f64.to_radians(),
+        angle_to(ways[0], ways[1]).abs() > 10f64.to_radians(),
         "{ways:?}"
     );
     Ok(())
@@ -1305,7 +1306,7 @@ fn an_angle_says_its_own_value_wherever_its_text_is_put() -> anyhow::Result<()> 
     // value is the dimension's; where the text is put moves it along
     // the arc, run on past an arm, never to the other angle).
     let mut b = blocks(10.0)?;
-    let (s, c) = 8f64.to_radians().sin_cos();
+    let (s, c) = libm::sincos(8f64.to_radians());
     let measured = Measured::Angle {
         at: Point3::new(0.0, -40.0, 0.0),
         first: Point3::new(0.0, c, s),
@@ -1364,7 +1365,7 @@ fn a_small_angle_s_text_stands_off_its_arc_past_an_arm() -> anyhow::Result<()> {
     // on the arc between its arms, 15 out: the arc is too short for it
     // (about 1 mm), so it stands past an arm, clear of both arms.
     let mut b = blocks(10.0)?;
-    let (s, c) = 2f64.to_radians().sin_cos();
+    let (s, c) = libm::sincos(2f64.to_radians());
     let measured = Measured::Angle {
         at: Point3::new(0.0, 0.0, 0.0),
         first: Point3::new(0.0, c, s),

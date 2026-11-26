@@ -18,7 +18,7 @@ pub(crate) fn smoothstep(a: f32, b: f32, x: f32) -> f32 {
 }
 
 fn hash2(x: f32, y: f32) -> f32 {
-    fract((x * 127.1 + y * 311.7).sin() * 43_758.547)
+    fract(libm::sinf(x * 127.1 + y * 311.7) * 43_758.547)
 }
 
 fn noise2(x: f32, y: f32) -> f32 {
@@ -56,7 +56,7 @@ pub(crate) fn pattern(kind: u8, x: f32, y: f32) -> f32 {
             let (fx, fy) = (fract(x * 4.0), fract(y * 4.0));
             let over = if odd(cx, cy) { 1.0 } else { 0.0 };
             let across = if over > 0.5 { fx } else { fy };
-            0.75 + 0.45 * (across * std::f32::consts::PI).sin() * (0.8 + 0.2 * over)
+            0.75 + 0.45 * libm::sinf(across * std::f32::consts::PI) * (0.8 + 0.2 * over)
         }
         4 => {
             if odd((x * 2.0).floor(), (y * 2.0).floor()) {

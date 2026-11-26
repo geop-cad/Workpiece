@@ -4,6 +4,7 @@
 //! them — and the fields that say so.
 
 use std::sync::Arc;
+use workpiece_core::math::rotation_x;
 
 use workpiece_core::hotkey::Hotkey;
 use workpiece_core::widgets::{
@@ -115,7 +116,7 @@ pub struct Mating {
 
 /// Half a turn about x: a frame turned over, its z the other way.
 fn turned_over(frame: Pose) -> Pose {
-    frame * Pose::from_rotation(glam::DQuat::from_rotation_x(std::f64::consts::PI))
+    frame * Pose::from_rotation(rotation_x(std::f64::consts::PI))
 }
 
 impl Mating {

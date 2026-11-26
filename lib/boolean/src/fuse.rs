@@ -180,7 +180,7 @@ impl Site {
             return None;
         }
         let turn = |from: Point2, to: Point2| {
-            let a = from.perp_dot(to).atan2(from.dot(to));
+            let a = libm::atan2(from.perp_dot(to), from.dot(to));
             if a < 0.0 {
                 a + std::f64::consts::TAU
             } else {

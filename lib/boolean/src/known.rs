@@ -221,7 +221,7 @@ fn cone(patches: &[Piece], size: f64) -> Option<Known> {
             }
         }
         let along = c0.distance(c1);
-        let slant = along.hypot(r1 - r0);
+        let slant = libm::hypot(along, r1 - r0);
         if slant <= near {
             return None;
         }
@@ -427,7 +427,7 @@ fn thirds() -> [f64; 3] {
 /// Three places on the circle about `centre` across `axis`.
 fn around(centre: Point3, axis: Point3, radius: f64) -> [Point3; 3] {
     let (x, y) = axis.any_orthonormal_pair();
-    thirds().map(|turn| centre + (x * turn.cos() + y * turn.sin()) * radius)
+    thirds().map(|turn| centre + (x * libm::cos(turn) + y * libm::sin(turn)) * radius)
 }
 
 /// What is known of the closed curves the two may cross in, inside
@@ -478,7 +478,7 @@ pub(crate) fn closed(a: &Known, b: &Known, at: (Point3, Point3), tol: f64) -> Cl
             };
             let (x, y) = axis.any_orthonormal_pair();
             Closed::Through(thirds().map(|turn| {
-                let from = *centre + (x * turn.cos() + y * turn.sin()) * *radius;
+                let from = *centre + (x * libm::cos(turn) + y * libm::sin(turn)) * *radius;
                 from + *axis * ((on - from).dot(*normal) / normal.dot(*axis))
             }))
         }

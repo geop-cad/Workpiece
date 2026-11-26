@@ -202,7 +202,7 @@ pub fn revolved(
     let turned = |p: Point3, a: f64| {
         let f = foot(p);
         let x = p - f;
-        f + x * a.cos() + axis.cross(x) * a.sin()
+        f + x * libm::cos(a) + axis.cross(x) * libm::sin(a)
     };
     let piece = curve.trimmed(range.0, range.1)?;
     let near = Curve3::new(

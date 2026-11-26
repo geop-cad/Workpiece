@@ -1,7 +1,7 @@
 #!/bin/sh
 # build.sh [out dir]: the application for the browser, as a static folder
-# (index.html, workpiece.js, workpiece_bg.wasm, the icon, and the
-# assistant: assistant/ with its scripts, the Python layer as
+# (index.html, the program as workpiece-<hash>.js and workpiece_bg-<hash>.wasm,
+# the icon, and the assistant: assistant/ with its scripts, the Python layer as
 # workpiece-python.zip and Pyodide, vendored by vendor.sh); by default
 # website/app/dist. Serve the folder over HTTP (a page from file:// cannot
 # load WebAssembly modules).
@@ -9,7 +9,13 @@
 # Needs: the Rust target (rustup target add wasm32-unknown-unknown) and
 # wasm-bindgen of the version Cargo.lock has
 # (cargo install wasm-bindgen-cli --version <it>; one trunk downloaded is
-# found too). wasm-opt (binaryen) makes the file smaller, if there is one.
+# found too), and wasm-opt of binaryen's release BINARYEN below (the one
+# .github/workflows/site.yml installs, so that a local build is the one
+# deployed; WASM_OPT names it if it is not on the PATH).
+#
+# The program's two files are named by their contents (workpiece-<hash>.js,
+# workpiece_bg-<hash>.wasm), so a browser keeps them for good (_headers);
+# index.html and the assistant's worker are written with those names.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
@@ -31,33 +37,50 @@ if [ -z "$BINDGEN" ]; then
   echo "build.sh: no wasm-bindgen $VERSION; install it: cargo install wasm-bindgen-cli --version $VERSION" >&2
   exit 1
 fi
+BINARYEN=131
 OPT=
-for candidate in "${WASM_OPT:-}" wasm-opt "$HOME"/.cache/trunk/wasm-opt-*/bin/wasm-opt; do
+for candidate in "${WASM_OPT:-}" wasm-opt "$HOME/.cache/trunk/wasm-opt-version_$BINARYEN/bin/wasm-opt"; do
   [ -n "$candidate" ] || continue
-  if command -v "$candidate" >/dev/null 2>&1; then
+  if command -v "$candidate" >/dev/null 2>&1 &&
+    "$candidate" --version 2>/dev/null | grep -q "^wasm-opt version $BINARYEN "; then
     OPT=$candidate
     break
   fi
 done
+if [ -z "$OPT" ]; then
+  echo "build.sh: no wasm-opt of binaryen $BINARYEN; get it from https://github.com/WebAssembly/binaryen/releases/tag/version_$BINARYEN" >&2
+  exit 1
+fi
 
 cd "$REPO"
 cargo build --profile web --target wasm32-unknown-unknown -p workpiece-app
-WASM=$REPO/target/wasm32-unknown-unknown/web/workpiece-app.wasm
+WASM=${CARGO_TARGET_DIR:-$REPO/target}/wasm32-unknown-unknown/web/workpiece-app.wasm
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
 "$BINDGEN" --target web --no-typescript --out-dir "$OUT" --out-name workpiece "$WASM"
-if [ -n "$OPT" ]; then
-  # (The features are those Rust's wasm32 target uses by default.)
-  "$OPT" -O3 --enable-bulk-memory --enable-nontrapping-float-to-int \
-    --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue \
-    "$OUT/workpiece_bg.wasm" -o "$OUT/workpiece_bg.wasm.opt"
-  mv "$OUT/workpiece_bg.wasm.opt" "$OUT/workpiece_bg.wasm"
-else
-  echo "build.sh: no wasm-opt: the file is left as wasm-bindgen wrote it" >&2
-fi
-cp "$HERE/index.html" "$OUT/"
+# -O3, not -Oz: -Oz saves 2 % of the file but nothing once it is compressed, as served.
+# Without -g it drops the names; the producers section goes too. (The features are
+# those Rust's wasm32 target uses by default.)
+"$OPT" -O3 --strip-producers --enable-bulk-memory --enable-nontrapping-float-to-int \
+  --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue \
+  "$OUT/workpiece_bg.wasm" -o "$OUT/workpiece_bg.wasm.opt"
+mv "$OUT/workpiece_bg.wasm.opt" "$OUT/workpiece_bg.wasm"
 cp "$REPO/hosts/app/assets/workpiece.png" "$OUT/"
+# The emoji fonts, which the program fetches once it is up (hosts/app/src/web.rs) rather than
+# have them in its download: those of the egui it is built with.
+mkdir -p "$OUT/fonts"
+cargo metadata --format-version 1 --locked --filter-platform wasm32-unknown-unknown |
+  python3 -c '
+import json, os, shutil, sys
+out = sys.argv[1]
+fonts = [p for p in json.load(sys.stdin)["packages"] if p["name"] == "epaint_default_fonts"]
+if len(fonts) != 1:
+    sys.exit("build.sh: not one epaint_default_fonts among the dependencies")
+folder = os.path.join(os.path.dirname(fonts[0]["manifest_path"]), "fonts")
+for name in ("NotoEmoji-Regular.ttf", "emoji-icon-font.ttf"):
+    shutil.copy(os.path.join(folder, name), os.path.join(out, name))
+' "$OUT/fonts"
 
 # The assistant, loaded once it is first opened: its scripts, the Python layer from this
 # repository's sources (python/workpiece, with agent/README.md as the README it reads its
@@ -76,12 +99,53 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
 PY
 "$HERE/vendor.sh" "$OUT"
 
+# The names by contents: the wasm's first, which its loader names, then the loader's, which
+# the page and the assistant's worker name. The page is given the wasm's size too (for its
+# progress bar: what is served is compressed, so the download's own length is not it).
+python3 - "$OUT" "$HERE/index.html" <<'PY'
+import hashlib, os, sys
+out, page = sys.argv[1:]
+def path(name):
+    return os.path.join(out, name)
+def replace(text, old, new, where):
+    if text.count(old) != 1:
+        sys.exit(f"build.sh: {where} does not name {old!r} once")
+    return text.replace(old, new)
+def named(name):
+    with open(path(name), "rb") as f:
+        digest = hashlib.sha256(f.read()).hexdigest()[:16]
+    stem, ext = os.path.splitext(name)
+    os.rename(path(name), path(f"{stem}-{digest}{ext}"))
+    return f"{stem}-{digest}{ext}"
+wasm = named("workpiece_bg.wasm")
+with open(path("workpiece.js")) as f:
+    js = f.read()
+js = replace(js, "new URL('workpiece_bg.wasm', import.meta.url)", f"new URL('{wasm}', import.meta.url)", "workpiece.js")
+with open(path("workpiece.js"), "w") as f:
+    f.write(js)
+js = named("workpiece.js")
+with open(page) as f:
+    html = f.read()
+html = html.replace("%WORKPIECE_JS%", js).replace("%WORKPIECE_WASM%", wasm)
+html = replace(html, "%WORKPIECE_WASM_BYTES%", str(os.path.getsize(path(wasm))), "index.html")
+if "%WORKPIECE" in html:
+    sys.exit("build.sh: index.html has a name build.sh does not fill in")
+with open(path("index.html"), "w") as f:
+    f.write(html)
+worker = path("assistant/worker.js")
+with open(worker) as f:
+    text = f.read()
+with open(worker, "w") as f:
+    f.write(replace(text, '"../workpiece.js"', f'"../{js}"', "assistant/worker.js"))
+PY
+
 size() { wc -c <"$1" | tr -d ' '; }
-raw=$(size "$OUT/workpiece_bg.wasm")
-gz=$(gzip -9 -c "$OUT/workpiece_bg.wasm" | wc -c | tr -d ' ')
-line="workpiece_bg.wasm: $raw bytes, $gz gzipped"
+WASM_OUT=$(ls "$OUT"/workpiece_bg-*.wasm)
+raw=$(size "$WASM_OUT")
+gz=$(gzip -9 -c "$WASM_OUT" | wc -c | tr -d ' ')
+line="$(basename "$WASM_OUT"): $raw bytes, $gz gzipped"
 if command -v brotli >/dev/null 2>&1; then
-  br=$(brotli -c -q 11 "$OUT/workpiece_bg.wasm" | wc -c | tr -d ' ')
+  br=$(brotli -c -q 11 "$WASM_OUT" | wc -c | tr -d ' ')
   line="$line, $br with brotli"
 fi
 echo "$line"

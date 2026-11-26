@@ -8,6 +8,7 @@
 //! is one region of the patch's (u, v) and never runs over its edge.
 
 use std::f64::consts::{FRAC_PI_2, TAU};
+use workpiece_core::math::from_angle;
 
 use anyhow::{Context, bail, ensure};
 use workpiece_core::math::{Point2, Point3};
@@ -44,7 +45,7 @@ impl Frame {
     pub(crate) fn around(&self, p: Point3) -> (f64, f64, f64) {
         let d = p - self.o;
         let (a, b) = (d.dot(self.x), d.dot(self.y));
-        (b.atan2(a), a.hypot(b), d.dot(self.z))
+        (libm::atan2(b, a), libm::hypot(a, b), d.dot(self.z))
     }
 }
 
@@ -53,13 +54,13 @@ impl Frame {
 pub(crate) fn arc_form(angle: f64) -> (Vec<(Point2, f64)>, Vec<f64>) {
     let n = ((angle / FRAC_PI_2) - 1e-9).ceil().max(1.0) as usize;
     let step = angle / n as f64;
-    let w = (step / 2.0).cos();
+    let w = libm::cos(step / 2.0);
     let mut points = vec![(Point2::X, 1.0)];
     let mut knots = vec![0.0; 3];
     for k in 0..n {
         let (mid, end) = (step * (k as f64 + 0.5), step * (k as f64 + 1.0));
-        points.push((Point2::from_angle(mid) / w, w));
-        points.push((Point2::from_angle(end), 1.0));
+        points.push((from_angle(mid) / w, w));
+        points.push((from_angle(end), 1.0));
         let knot = (k + 1) as f64 / n as f64;
         knots.extend([knot, knot]);
     }
@@ -98,7 +99,7 @@ impl Spindle {
     pub(crate) fn off(&self, p: Point3, inner: bool) -> f64 {
         let (_, rho, h) = self.frame.around(p);
         let centre = if inner { -self.major } else { self.major };
-        ((rho - centre).hypot(h) - self.minor).abs()
+        (libm::hypot(rho - centre, h) - self.minor).abs()
     }
 
     /// The outer part, or the inner, as what its arc sweeps. The file's
@@ -108,8 +109,8 @@ impl Spindle {
     pub(crate) fn part(&self, inner: bool) -> anyhow::Result<SurfaceKind> {
         let (f, r) = (self.frame, self.minor);
         let centre = if inner { -self.major } else { self.major };
-        let reach = (-centre / r).clamp(-1.0, 1.0).acos();
-        let (s, c) = reach.sin_cos();
+        let reach = libm::acos((-centre / r).clamp(-1.0, 1.0));
+        let (s, c) = libm::sincos(reach);
         let profile = if inner == self.inward {
             // From below around the outside to above.
             arc(
@@ -432,7 +433,7 @@ impl Patch {
         }
         if let Some((frame, major, from, over, part)) = self.tube {
             let (around, rho, h) = frame.around(p);
-            let mut phi = angle.unwrap_or_else(|| h.atan2(rho - major));
+            let mut phi = angle.unwrap_or_else(|| libm::atan2(h, rho - major));
             if angle.is_none() {
                 while phi < from - 1e-9 {
                     phi += TAU;
@@ -459,7 +460,7 @@ impl Patch {
         let at = |k: usize| lo + (hi - lo) * k as f64 / 64.0;
         let off = |t: f64| {
             let (_, r, z) = frame.around(profile.point_at(t));
-            (r - rho).hypot(z - h)
+            libm::hypot(r - rho, z - h)
         };
         let v = (0..=64)
             .map(at)
@@ -502,7 +503,7 @@ impl SurfaceKind {
             }
             SurfaceKind::Tube { frame, major, .. } => {
                 let (_, rho, h) = frame.around(p);
-                Some((h.atan2(rho - major), f64::INFINITY))
+                Some((libm::atan2(h, rho - major), f64::INFINITY))
             }
             SurfaceKind::Closed { poles, .. } => {
                 let off = poles
@@ -557,7 +558,7 @@ impl SurfaceKind {
             return None;
         };
         let (_, rho, h) = frame.around(p);
-        Some(h.atan2(rho - major))
+        Some(libm::atan2(h, rho - major))
     }
 
     /// The parameter of the profile of a turned surface nearest to `p`
@@ -583,7 +584,7 @@ impl SurfaceKind {
         // plane.)
         let flat = |q: Point3| {
             let d = q - frame.o;
-            Point2::new(d.dot(frame.x).hypot(d.dot(frame.y)), d.dot(frame.z))
+            Point2::new(libm::hypot(d.dot(frame.x), d.dot(frame.y)), d.dot(frame.z))
         };
         let off = |t: f64| flat(profile.point_at(t)).distance(Point2::new(rho, h));
         // From the nearest of a few places along it — the more, the
@@ -600,7 +601,7 @@ impl SurfaceKind {
             let (at, d) = profile.derivative_at(t);
             let e = at - frame.o;
             let (a, b) = (e.dot(frame.x), e.dot(frame.y));
-            let r = a.hypot(b);
+            let r = libm::hypot(a, b);
             if r <= 0.0 {
                 break;
             }
@@ -663,13 +664,13 @@ impl SurfaceKind {
             let (arc, knots_v) = arc_form(part.1 - part.0);
             // Backwards around the axis: the two parameters then turn
             // the way that faces out of the ring, as its own do.
-            let (sin, cos) = part.1.sin_cos();
+            let (sin, cos) = libm::sincos(part.1);
             let x = frame.x * cos + frame.y * sin;
             let y = -frame.z.cross(x);
             let mut points = Vec::with_capacity(circle.len() * arc.len());
             let mut weights = Vec::with_capacity(points.capacity());
             for (c, wc) in &circle {
-                let c = Point2::from_angle(from).rotate(*c);
+                let c = from_angle(from).rotate(*c);
                 for (d, wd) in &arc {
                     points.push(
                         frame.o
@@ -705,7 +706,7 @@ impl SurfaceKind {
                 minor,
                 ..
             } => {
-                let (s, c) = part.0.sin_cos();
+                let (s, c) = libm::sincos(part.0);
                 let out = (frame.x * c + frame.z * s) * *minor;
                 let up = (frame.z * c - frame.x * s) * *minor;
                 (
@@ -716,7 +717,7 @@ impl SurfaceKind {
             _ => bail!("not a surface around an axis"),
         };
         let (ring, knots_u) = arc_form(over);
-        let (sin, cos) = from.sin_cos();
+        let (sin, cos) = libm::sincos(from);
         let x = frame.x * cos + frame.y * sin;
         let y = frame.z.cross(x);
         let mut points = Vec::with_capacity(ring.len() * profile.control_points().len());
@@ -726,7 +727,7 @@ impl SurfaceKind {
                 // The profile's point, turned: its height stays, its
                 // distance from the axis goes around.
                 let (theta, rho, h) = frame.around(*p);
-                let (s, k) = theta.sin_cos();
+                let (s, k) = libm::sincos(theta);
                 // A profile off the frame's xz half plane starts
                 // turned by its own angle.
                 let (px, py) = (x * k + y * s, y * k - x * s);
@@ -1137,7 +1138,7 @@ impl<'a> Reader<'a> {
             }
             "CONICAL_SURFACE" => {
                 let (f, r) = (frame(1)?, length(2)?);
-                let slope = (args.real(3).context("no angle")? * self.angle).tan();
+                let slope = libm::tan(args.real(3).context("no angle")? * self.angle);
                 ensure!(slope.is_finite() && slope > 0.0, "#{id} has no opening");
                 // From the tip (kept just off it: the surface collapses
                 // there) outwards, as far as the body reaches. But a
@@ -1197,13 +1198,13 @@ impl<'a> Reader<'a> {
                     "#{id} is no ring through its axis"
                 );
                 let outer = args.flag(4).unwrap_or(true);
-                let reach = (-major / minor).acos();
+                let reach = libm::acos(-major / minor);
                 let (from, over) = if outer {
                     (-reach, 2.0 * reach)
                 } else {
                     (reach, TAU - 2.0 * reach)
                 };
-                let (s, c) = from.sin_cos();
+                let (s, c) = libm::sincos(from);
                 SurfaceKind::Turned {
                     frame: f,
                     profile: arc(
@@ -1431,7 +1432,7 @@ pub(crate) fn edge_curve(
         CurveKind::Ellipse { frame, a, b } => {
             let angle = |q: Point3| {
                 let d = q - frame.o;
-                (d.dot(frame.y) / b).atan2(d.dot(frame.x) / a)
+                libm::atan2(d.dot(frame.y) / b, d.dot(frame.x) / a)
             };
             let (start, end) = (angle(from), angle(to));
             let turn = if same { end - start } else { start - end };
@@ -1440,7 +1441,7 @@ pub(crate) fn edge_curve(
                 over = TAU;
             }
             // From the start, the way the edge runs.
-            let (s, c) = start.sin_cos();
+            let (s, c) = libm::sincos(start);
             let x = frame.x * (a * c) + frame.y * (b * s);
             let y = (frame.y * (b * c) - frame.x * (a * s)) * if same { 1.0 } else { -1.0 };
             Ok((arc(frame.o, x, y, over)?, (0.0, 1.0)))
@@ -1448,11 +1449,11 @@ pub(crate) fn edge_curve(
         // A stretch of a conic is one rational parabola: its ends, and
         // where the tangents at them meet.
         CurveKind::Hyperbola { frame, a, b } => {
-            let at = |q: Point3| ((q - frame.o).dot(frame.y) / b).asinh();
+            let at = |q: Point3| libm::asinh((q - frame.o).dot(frame.y) / b);
             let (u0, u1) = (at(from), at(to));
             ensure!(u0 != u1, "an edge of no length on a hyperbola");
-            let on = |u: f64| frame.x * (a * u.cosh()) + frame.y * (b * u.sinh());
-            let w = ((u1 - u0) / 2.0).cosh();
+            let on = |u: f64| frame.x * (a * libm::cosh(u)) + frame.y * (b * libm::sinh(u));
+            let w = libm::cosh((u1 - u0) / 2.0);
             let points = vec![
                 frame.o + on(u0),
                 frame.o + on((u0 + u1) / 2.0) / w,

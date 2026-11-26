@@ -7,6 +7,7 @@ picture (`render.png`).
 
     cargo build --release -p workpiece-cli      # the command line the scripts drive
     python3 examples/build_all.py                # rebuild all; one line each: steps, mass, drawing problems, time
+    node examples/wasm_check.mjs                 # after website/app/build.sh: they build the same in the browser
 
 | | Example | What it shows |
 |---|---|---|

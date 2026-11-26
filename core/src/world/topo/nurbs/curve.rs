@@ -108,7 +108,7 @@ impl<P: ControlPoint> NurbsCurve<P> {
             if aa <= 0.0 || bb <= 0.0 {
                 0.0
             } else {
-                (ab / (aa * bb).sqrt()).clamp(-1.0, 1.0).acos()
+                libm::acos((ab / (aa * bb).sqrt()).clamp(-1.0, 1.0))
             }
         };
         // (Half as far apart as a surface's own steps, and never fewer

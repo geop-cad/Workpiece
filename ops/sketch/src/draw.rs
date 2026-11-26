@@ -5,6 +5,7 @@
 
 use workpiece_core::handles::{CanvasShape, CanvasView, Tone};
 use workpiece_core::math::Point2;
+use workpiece_core::math::from_angle;
 
 use crate::geometry::{angle, unit};
 use crate::model::{Constraint, DimTolerance, Id, Item, Kind, Shape, SketchArgs, SketchAxis};
@@ -660,7 +661,7 @@ fn preview(pen: &mut Pen<'_>, args: &SketchArgs, state: &SketchState) {
             let reach = (to - *c).dot(across);
             let around = (0..=64)
                 .map(|k| {
-                    let (sin, cos) = (std::f64::consts::TAU * f64::from(k) / 64.0).sin_cos();
+                    let (sin, cos) = libm::sincos(std::f64::consts::TAU * f64::from(k) / 64.0);
                     *c + (*a - *c) * cos + across * (reach * sin)
                 })
                 .collect();
@@ -671,7 +672,7 @@ fn preview(pen: &mut Pen<'_>, args: &SketchArgs, state: &SketchState) {
             let n = state.sides.clamp(3, 64);
             let step = std::f64::consts::TAU / n as f64;
             let corners = (0..=n)
-                .map(|k| *c + Point2::from_angle(step * k as f64).rotate(to - *c))
+                .map(|k| *c + from_angle(step * k as f64).rotate(to - *c))
                 .collect();
             pen.line(corners, tone, CURVE, false);
             pen.line(circle(*c, c.distance(to)), tone, THIN, true);

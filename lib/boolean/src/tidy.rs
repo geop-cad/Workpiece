@@ -437,12 +437,15 @@ fn straight<P: workpiece_core::world::topo::ControlPoint>(
     if length <= within {
         return false;
     }
+    let way = (to + from * -1.0) * (1.0 / length);
     let mut before = 0.0;
     points.iter().all(|&p| {
-        // (Where along the chord it is, and how far off it.)
-        let (da, db) = (apart(p, from), apart(p, to));
-        let along = (da * da - db * db + length * length) / (2.0 * length);
-        let off = (da * da - along * along).max(0.0).sqrt();
+        // (Where along the chord it is, and how far off it: what is left
+        // of it beside the chord, not a difference of squares, whose
+        // rounding is as large as the square root of the precision.)
+        let d = p + from * -1.0;
+        let along = d.dot(way);
+        let off = apart(d, way * along);
         let onward = along >= before - within;
         before = before.max(along);
         off <= within && onward

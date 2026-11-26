@@ -337,7 +337,7 @@ impl Painter<'_> {
         let v = normal.cross(u);
         let at = |k: usize| {
             let a = std::f64::consts::TAU * k as f64 / RING_SEGMENTS as f64;
-            center + (u * a.cos() + v * a.sin()) * radius
+            center + (u * libm::cos(a) + v * libm::sin(a)) * radius
         };
         for k in 0..RING_SEGMENTS {
             self.line(at(k), at(k + 1), [RING_WIDTH; 2]);

@@ -2,6 +2,7 @@
 //! tangencies, near misses, chains and random pairs.
 
 use std::f64::consts::{FRAC_PI_2, PI, TAU};
+use workpiece_core::math::{rotation, rotation_x, rotation_y, rotation_z};
 
 use glam::DQuat;
 use workpiece_boolean::{Op, Solid, combine, measure};
@@ -90,7 +91,7 @@ fn segment(r: f64, d: f64) -> f64 {
     } else if d <= -r {
         PI * r * r
     } else {
-        r * r * (d / r).acos() - d * (r * r - d * d).sqrt()
+        r * r * libm::acos(d / r) - d * (r * r - d * d).sqrt()
     }
 }
 
@@ -98,7 +99,7 @@ fn segment(r: f64, d: f64) -> f64 {
 /// around the origin with half sizes `a`, the second with half sizes
 /// `b`, centred at `at` and turned by `angle`.
 fn rectangles(a: [f64; 2], b: [f64; 2], at: [f64; 2], angle: f64) -> f64 {
-    let (s, c) = angle.sin_cos();
+    let (s, c) = libm::sincos(angle);
     let mut polygon: Vec<[f64; 2]> = [[-1.0, -1.0], [1.0, -1.0], [1.0, 1.0], [-1.0, 1.0]]
         .iter()
         .map(|k| {
@@ -201,7 +202,7 @@ fn boxes(out: &mut Vec<Case>) {
         let build = move |s: &mut Scene| {
             Ok((
                 s.cube([0.0; 3], [2.0; 3], ID)?,
-                s.cube(at, size, DQuat::from_rotation_z(angle))?,
+                s.cube(at, size, rotation_z(angle))?,
             ))
         };
         trio(out, "box", &format!("turned-{degrees}"), build, common);
@@ -218,7 +219,7 @@ fn boxes(out: &mut Vec<Case>) {
     {
         add(out, "box", format!("tumbled-{k}"), move || {
             let mut s = Scene::new();
-            let turn = DQuat::from_axis_angle(Point3::from_array(axis).normalize(), angle);
+            let turn = rotation(Point3::from_array(axis).normalize(), angle);
             let a = s.cube([0.0; 3], [2.0; 3], ID)?;
             let b = s.cube([0.6, 0.3, 0.4], [1.5, 2.5, 1.0], turn)?;
             Ok(consistent(&a, &b, None))
@@ -323,7 +324,7 @@ fn cylinders(out: &mut Vec<Case>) {
     }
     // The cylinder's seam turned to where the plate's faces cut it.
     for degrees in [0.0_f64, 45.0, 90.0, 133.0, 180.0, 270.0] {
-        let turn = DQuat::from_rotation_z(degrees.to_radians());
+        let turn = rotation_z(degrees.to_radians());
         let build =
             move |s: &mut Scene| Ok((plate(s)?, s.cylinder([1.5, 0.0, -0.5], 1.0, 1.0, turn)?));
         trio(
@@ -337,7 +338,7 @@ fn cylinders(out: &mut Vec<Case>) {
     // A hole at a slant: an ellipse in each face.
     for degrees in [20.0_f64, 30.0, 45.0] {
         let tilt = degrees.to_radians();
-        let turn = DQuat::from_rotation_y(tilt);
+        let turn = rotation_y(tilt);
         let build = move |s: &mut Scene| {
             let axis = turn * Point3::Z;
             Ok((
@@ -350,7 +351,7 @@ fn cylinders(out: &mut Vec<Case>) {
             "cylinder",
             &format!("slant-{degrees}"),
             build,
-            PI * 0.25 * 2.0 / tilt.cos(),
+            PI * 0.25 * 2.0 / libm::cos(tilt),
         );
     }
     // Cylinder against cylinder: on one axis, side by side, and across.
@@ -378,7 +379,7 @@ fn cylinders(out: &mut Vec<Case>) {
         ))
     };
     trio(out, "cylinder", "twins", twins, lens * 4.0);
-    let across = DQuat::from_rotation_y(FRAC_PI_2);
+    let across = rotation_y(FRAC_PI_2);
     let steinmetz = move |s: &mut Scene| {
         Ok((
             s.cylinder([0.0, 0.0, -2.0], 1.0, 4.0, ID)?,
@@ -408,7 +409,7 @@ fn cylinders(out: &mut Vec<Case>) {
     {
         add(out, "cylinder", format!("skew-{k}"), move || {
             let mut s = Scene::new();
-            let turn = DQuat::from_rotation_y(angle);
+            let turn = rotation_y(angle);
             let a = s.cylinder([0.0, 0.0, -2.0], 1.0, 4.0, ID)?;
             let start = Point3::new(0.0, offset, 0.0) - turn * Point3::Z * 3.0;
             let b = s.cylinder(start.into(), 0.7, 6.0, turn)?;
@@ -429,10 +430,10 @@ fn spheres(out: &mut Vec<Case>) {
     // A ball through a plate, its poles turned every way.
     let turns = [
         ("upright", ID),
-        ("on-its-side", DQuat::from_rotation_x(FRAC_PI_2)),
+        ("on-its-side", rotation_x(FRAC_PI_2)),
         (
             "leaning",
-            DQuat::from_axis_angle(Point3::new(1.0, 2.0, 0.5).normalize(), 0.9),
+            rotation(Point3::new(1.0, 2.0, 0.5).normalize(), 0.9),
         ),
     ];
     for (name, turn) in turns {
@@ -503,7 +504,7 @@ fn spheres(out: &mut Vec<Case>) {
         let common =
             PI * (r1 + r2 - d).powi(2) * (d * d + 2.0 * d * (r1 + r2) - 3.0 * (r1 - r2).powi(2))
                 / (12.0 * d);
-        let turn = DQuat::from_rotation_y(0.7);
+        let turn = rotation_y(0.7);
         let build = move |s: &mut Scene| {
             Ok((
                 s.ball([0.0; 3], r1, ID)?,
@@ -513,12 +514,9 @@ fn spheres(out: &mut Vec<Case>) {
         trio(out, "sphere", name, build, common);
     }
     // A hole through a ball, along its poles and across them.
-    for (name, turn) in [
-        ("bored", ID),
-        ("bored-across", DQuat::from_rotation_x(FRAC_PI_2)),
-    ] {
+    for (name, turn) in [("bored", ID), ("bored-across", rotation_x(FRAC_PI_2))] {
         let r = 0.5_f64;
-        let common = ball_volume(1.5) - 4.0 / 3.0 * PI * (2.25 - r * r).powf(1.5);
+        let common = ball_volume(1.5) - 4.0 / 3.0 * PI * libm::pow(2.25 - r * r, 1.5);
         let build = move |s: &mut Scene| {
             let start = turn * Point3::Z * -3.0;
             Ok((
@@ -548,12 +546,7 @@ fn turned(out: &mut Vec<Case>) {
     let build = move |s: &mut Scene| {
         Ok((
             s.turned([0.0; 3], ID, &cone, None, None)?,
-            s.cylinder(
-                [0.0, -1.0, 0.0],
-                0.5,
-                4.0,
-                DQuat::from_rotation_x(-FRAC_PI_2),
-            )?,
+            s.cylinder([0.0, -1.0, 0.0], 0.5, 4.0, rotation_x(-FRAC_PI_2))?,
         ))
     };
     trio(
@@ -624,7 +617,7 @@ fn coincident(out: &mut Vec<Case>) {
     let build = |s: &mut Scene| {
         Ok((
             s.cube([0.0; 3], [2.0; 3], ID)?,
-            s.cube([0.0; 3], [2.0; 3], DQuat::from_rotation_z(FRAC_PI_2))?,
+            s.cube([0.0; 3], [2.0; 3], rotation_z(FRAC_PI_2))?,
         ))
     };
     trio(out, "coincident", "same-turned", build, 8.0);
@@ -636,7 +629,7 @@ fn coincident(out: &mut Vec<Case>) {
         ("rods-seams-apart", 1.0, 77.0, PI),
         ("rods-same", 0.0, 123.0, 2.0 * PI),
     ] {
-        let turn = DQuat::from_rotation_z(degrees.to_radians());
+        let turn = rotation_z(degrees.to_radians());
         let build = move |s: &mut Scene| {
             Ok((
                 s.cylinder([0.0; 3], 1.0, 2.0, ID)?,
@@ -649,15 +642,12 @@ fn coincident(out: &mut Vec<Case>) {
     let build = |s: &mut Scene| {
         Ok((
             s.cylinder([0.0, 0.0, 0.0], 2.0, 2.0, ID)?,
-            s.cylinder([0.0, 0.0, 1.0], 2.0, 3.0, DQuat::from_rotation_z(0.4))?,
+            s.cylinder([0.0, 0.0, 1.0], 2.0, 3.0, rotation_z(0.4))?,
         ))
     };
     trio(out, "coincident", "rod-longer", build, 4.0 * PI);
     // The same ball twice, the second with its poles elsewhere.
-    for (name, turn) in [
-        ("ball-same", ID),
-        ("ball-turned", DQuat::from_rotation_x(1.1)),
-    ] {
+    for (name, turn) in [("ball-same", ID), ("ball-turned", rotation_x(1.1))] {
         let build =
             move |s: &mut Scene| Ok((s.ball([0.0; 3], 1.0, ID)?, s.ball([0.0; 3], 1.0, turn)?));
         trio(out, "coincident", name, build, ball_volume(1.0));
@@ -688,7 +678,7 @@ fn tangent(out: &mut Vec<Case>) {
             Box::new(|s| {
                 Ok((
                     s.ball([0.0; 3], 1.0, ID)?,
-                    s.ball([1.2, 1.6, 0.0], 1.0, DQuat::from_rotation_y(0.5))?,
+                    s.ball([1.2, 1.6, 0.0], 1.0, rotation_y(0.5))?,
                 ))
             }),
         ),
@@ -697,12 +687,7 @@ fn tangent(out: &mut Vec<Case>) {
             Box::new(|s| {
                 Ok((
                     plate(s)?,
-                    s.cylinder(
-                        [-1.0, 0.0, 2.0],
-                        1.0,
-                        2.0,
-                        DQuat::from_rotation_y(FRAC_PI_2),
-                    )?,
+                    s.cylinder([-1.0, 0.0, 2.0], 1.0, 2.0, rotation_y(FRAC_PI_2))?,
                 ))
             }),
         ),
@@ -720,12 +705,7 @@ fn tangent(out: &mut Vec<Case>) {
             Box::new(|s| {
                 Ok((
                     s.cylinder([0.0, 0.0, -2.0], 1.0, 4.0, ID)?,
-                    s.cylinder(
-                        [-2.0, 2.0, 0.0],
-                        1.0,
-                        4.0,
-                        DQuat::from_rotation_y(FRAC_PI_2),
-                    )?,
+                    s.cylinder([-2.0, 2.0, 0.0], 1.0, 4.0, rotation_y(FRAC_PI_2))?,
                 ))
             }),
         ),
@@ -955,8 +935,7 @@ fn chains(out: &mut Vec<Case>) {
                         -4.0 + pitch * (j as f64 + 0.5),
                         -1.0,
                     ];
-                    let drill =
-                        s.cylinder(at, r, 2.0, DQuat::from_rotation_z((i * n + j) as f64))?;
+                    let drill = s.cylinder(at, r, 2.0, rotation_z((i * n + j) as f64))?;
                     body = match combine(Op::Cut, &body, &drill) {
                         Ok(o) => o.solid,
                         Err(why) => return Ok(Grade::Refused(format!("hole {i},{j}: {why}"))),
@@ -973,7 +952,7 @@ fn chains(out: &mut Vec<Case>) {
             let (radius, inner, width): (f64, f64, f64) = (3.0, 2.2, 0.5);
             let mut body = s.cylinder([0.0, 0.0, 0.0], radius, 1.0, ID)?;
             for k in 0..teeth {
-                let turn = DQuat::from_rotation_z(TAU * k as f64 / teeth as f64 + 0.1);
+                let turn = rotation_z(TAU * k as f64 / teeth as f64 + 0.1);
                 let at = turn * Point3::new(inner + 1.5, 0.0, 0.5);
                 let slot = s.cube(at.into(), [3.0, width, 2.0], turn)?;
                 body = match combine(Op::Cut, &body, &slot) {
@@ -985,7 +964,7 @@ fn chains(out: &mut Vec<Case>) {
             let h = width / 2.0;
             let lost = 2.0
                 * (h / 2.0 * (radius * radius - h * h).sqrt()
-                    + radius * radius / 2.0 * (h / radius).asin())
+                    + radius * radius / 2.0 * libm::asin(h / radius))
                 - inner * width;
             Ok(grade(
                 &body,
@@ -1028,13 +1007,9 @@ fn chains(out: &mut Vec<Case>) {
         let mut s = Scene::new();
         let mut body = s.ball([0.0; 3], 2.0, ID)?;
         let r = 0.5_f64;
-        for (k, turn) in [
-            ID,
-            DQuat::from_rotation_x(FRAC_PI_2),
-            DQuat::from_rotation_y(FRAC_PI_2),
-        ]
-        .into_iter()
-        .enumerate()
+        for (k, turn) in [ID, rotation_x(FRAC_PI_2), rotation_y(FRAC_PI_2)]
+            .into_iter()
+            .enumerate()
         {
             let start = turn * Point3::Z * -4.0;
             let drill = s.cylinder(start.into(), r, 8.0, turn)?;
@@ -1048,7 +1023,7 @@ fn chains(out: &mut Vec<Case>) {
         match sound(&body) {
             Err(why) => Ok(Grade::Wrong(why)),
             Ok((v, _)) => {
-                let once = 4.0 / 3.0 * PI * (4.0 - r * r).powf(1.5);
+                let once = 4.0 / 3.0 * PI * libm::pow(4.0 - r * r, 1.5);
                 let least = ball_volume(2.0) - 3.0 * (ball_volume(2.0) - once);
                 if v < once && v > least {
                     Ok(Grade::Pass)
@@ -1105,7 +1080,7 @@ impl Shape {
                 turn,
             } => {
                 let q = turn.inverse() * (p - base);
-                q.z >= 0.0 && q.z <= height && q.x.hypot(q.y) <= radius
+                q.z >= 0.0 && q.z <= height && libm::hypot(q.x, q.y) <= radius
             }
             Shape::Ball { at, radius, .. } => p.distance(at) <= radius,
         }
@@ -1146,7 +1121,7 @@ impl Random {
             self.between(-1.0, 1.0),
             self.between(-1.0, 1.0),
         );
-        DQuat::from_axis_angle(
+        rotation(
             axis.try_normalize().unwrap_or(Point3::Z),
             self.between(0.0, TAU),
         )

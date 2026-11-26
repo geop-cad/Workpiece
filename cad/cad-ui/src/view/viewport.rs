@@ -430,7 +430,9 @@ fn masses(
         for (i, j) in [(0, 1), (1, 2), (0, 2)] {
             let at = |k: usize| {
                 let t = std::f64::consts::TAU * k as f64 / STEPS as f64;
-                w.centre + w.axes[i] * (w.half[i] * t.cos()) + w.axes[j] * (w.half[j] * t.sin())
+                w.centre
+                    + w.axes[i] * (w.half[i] * libm::cos(t))
+                    + w.axes[j] * (w.half[j] * libm::sin(t))
             };
             strokes.extend((0..STEPS).map(|k| (place(at(k)), place(at(k + 1)))));
         }
@@ -449,7 +451,7 @@ fn masses(
         let number = |x: f64| {
             // (Of nothing the logarithm is no number: no digits.)
             let digits = 3i32
-                .saturating_sub(x.abs().log10().floor() as i32)
+                .saturating_sub(libm::log10(x.abs()).floor() as i32)
                 .clamp(0, 9) as usize;
             if x == 0.0 {
                 "0".to_owned()

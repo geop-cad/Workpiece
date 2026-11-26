@@ -2,6 +2,7 @@
 //! what a tapped hole's callout says of them.
 
 use std::f64::consts::PI;
+use workpiece_core::math::angle_to;
 
 use workpiece_core::math::Point3;
 use workpiece_core::world::{Callout, Cutting, Note};
@@ -106,7 +107,7 @@ fn around(laid: &Laid, pen: Pen, middle: Point2, r: f64) -> f64 {
         .filter(|s| {
             (s.a.distance(middle) - r).abs() < 1e-3 && (s.b.distance(middle) - r).abs() < 1e-3
         })
-        .map(|s| (s.a - middle).angle_to(s.b - middle).abs())
+        .map(|s| angle_to(s.a - middle, s.b - middle).abs())
         .sum()
 }
 
@@ -167,7 +168,10 @@ fn a_blind_tapped_hole_is_drawn_as_iso_6410_has_it() -> anyhow::Result<()> {
     assert!(across(top_y - 12.0 * s, 4.0 * s));
     // (No line across at the mouth: the thread starts there.)
     assert!(!across(top_y, 4.0 * s));
-    let tip = Point2::new(x, top_y - (16.0 + 3.4 / (59.0_f64).to_radians().tan()) * s);
+    let tip = Point2::new(
+        x,
+        top_y - (16.0 + 3.4 / libm::tan((59.0_f64).to_radians())) * s,
+    );
     assert!(
         laid.strokes
             .iter()

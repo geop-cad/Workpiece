@@ -3719,8 +3719,10 @@ dependencies = [
  "bytemuck",
  "eframe",
  "egui_extras",
+ "epaint_default_fonts",
  "glam",
  "js-sys",
+ "libm",
  "png 0.18.1",
  "serde",
  "serde_json",
@@ -3753,6 +3755,7 @@ name = "workpiece-boolean"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libm",
  "thiserror 2.0.21",
  "workpiece-core",
  "workpiece-ops-basic-shapes",
@@ -3764,6 +3767,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glam",
+ "libm",
  "serde",
  "serde_json",
  "workpiece-boolean",
@@ -3791,6 +3795,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glam",
+ "libm",
  "serde",
  "serde_json",
  "workpiece-boolean",
@@ -3809,6 +3814,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glam",
+ "libm",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
@@ -3848,6 +3854,7 @@ name = "workpiece-ops-annotate"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libm",
  "serde",
  "workpiece-boolean",
  "workpiece-core",
@@ -3898,6 +3905,7 @@ name = "workpiece-ops-bodies"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libm",
  "serde",
  "serde_json",
  "workpiece-boolean",
@@ -3926,6 +3934,7 @@ name = "workpiece-ops-drawing"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libm",
  "serde",
  "serde_json",
  "workpiece-boolean",
@@ -3947,6 +3956,7 @@ name = "workpiece-ops-faces"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libm",
  "serde",
  "serde_json",
  "workpiece-boolean",
@@ -3965,6 +3975,7 @@ name = "workpiece-ops-features"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libm",
  "serde",
  "serde_json",
  "workpiece-boolean",
@@ -3984,6 +3995,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glam",
+ "libm",
  "serde",
  "workpiece-boolean",
  "workpiece-core",
@@ -3998,6 +4010,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glam",
+ "libm",
  "serde",
  "serde_json",
  "workpiece-boolean",
@@ -4011,6 +4024,7 @@ name = "workpiece-ops-sheet-metal"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libm",
  "serde",
  "serde_json",
  "workpiece-boolean",
@@ -4029,6 +4043,7 @@ dependencies = [
  "anyhow",
  "epaint_default_fonts",
  "glam",
+ "libm",
  "serde",
  "serde_json",
  "ttf-parser",
@@ -4060,6 +4075,7 @@ name = "workpiece-ops-step"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libm",
  "miniz_oxide 0.8.9",
  "serde",
  "thiserror 2.0.21",
@@ -4074,6 +4090,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glam",
+ "libm",
  "serde",
  "serde_json",
  "workpiece-boolean",
@@ -4093,6 +4110,7 @@ name = "workpiece-ops-sweep"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libm",
  "serde",
  "serde_json",
  "workpiece-boolean",
@@ -4151,6 +4169,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glam",
+ "libm",
  "workpiece-core",
  "workpiece-ops-basic-shapes",
 ]
@@ -4160,6 +4179,7 @@ name = "workpiece-render"
 version = "0.1.0"
 dependencies = [
  "glam",
+ "libm",
 ]
 
 [[package]]
@@ -4167,6 +4187,7 @@ name = "workpiece-shape"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "libm",
  "serde",
  "workpiece-boolean",
  "workpiece-core",
@@ -4175,6 +4196,9 @@ dependencies = [
 [[package]]
 name = "workpiece-solver"
 version = "0.1.0"
+dependencies = [
+ "libm",
+]
 
 [[package]]
 name = "workpiece-ui"
@@ -4182,6 +4206,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "glam",
+ "libm",
  "png 0.18.1",
  "workpiece-boolean",
  "workpiece-core",

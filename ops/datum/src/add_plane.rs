@@ -1,6 +1,7 @@
 //! [`AddPlane`]: a datum plane, constructed in one of the common ways.
 
 use std::collections::BTreeMap;
+use workpiece_core::math::rotation;
 
 use workpiece_core::handles::{AngularHandle, LinearHandle};
 use workpiece_core::math::Point3;
@@ -208,7 +209,7 @@ impl AddPlaneArgs {
                     .reject_from_normalized(d)
                     .try_normalize()
                     .ok_or_else(degenerate)?;
-                let turn = glam::DQuat::from_axis_angle(d, a.angle.to_radians());
+                let turn = rotation(d, a.angle.to_radians());
                 DatumPlane::new(axis.origin(), turn * start, d)
             }
             PlaneMode::ThreePoints => {
@@ -303,7 +304,7 @@ impl AddPlaneArgs {
                     // the way across it in each.)
                     let d = axis.direction();
                     let start = p.normal().reject_from_normalized(d).try_normalize()?;
-                    let turn = glam::DQuat::from_axis_angle(d, self.angle.to_radians());
+                    let turn = rotation(d, self.angle.to_radians());
                     let measured = Measured::Angle {
                         at: axis.origin(),
                         first: d.cross(start),
@@ -436,6 +437,7 @@ fn mode_fields(
 mod tests {
     use super::*;
     use workpiece_core::math::Axis;
+    use workpiece_core::math::angle_between;
     use workpiece_core::world::{DatumFrame, ORIGIN};
     use workpiece_core::{Pose, Standalone, Widget};
 
@@ -514,7 +516,7 @@ mod tests {
         else {
             panic!("an angle: {said:?}");
         };
-        assert!((first.angle_between(*second).to_degrees() - 30.0).abs() < 1e-9);
+        assert!((angle_between(*first, *second).to_degrees() - 30.0).abs() < 1e-9);
         // (Nothing else is said of it.)
         assert!(
             b.world

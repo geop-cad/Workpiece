@@ -13,6 +13,7 @@
 //! or a face, along a face — is not decided here: nothing is returned,
 //! and whoever asked falls back to cutting the solid.
 
+use workpiece_core::math::angle_between;
 use workpiece_core::math::{Point2, Point3};
 
 use crate::model::{Face, Solid, Walk};
@@ -391,7 +392,7 @@ impl Walker<'_> {
                     // (It has to have gone on, about as far as meant.)
                     if length > 0.25 * h && length < 2.0 * h && chord.dot(way) > 0.0 {
                         let onward = if there.way.dot(way) < 0.0 { -1.0 } else { 1.0 };
-                        let turned = (there.way * onward).angle_between(way);
+                        let turned = angle_between(there.way * onward, way);
                         let bulge = length * turned / 8.0;
                         if bulge <= plane.sag {
                             next = Some((there, onward, bulge));

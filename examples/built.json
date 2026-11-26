@@ -1,0 +1,485 @@
+{
+ "axial_fan": {
+  "axial_fan.wpc": {
+   "steps": 12,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 83470.51581458478
+   },
+   "bodies": [
+    [
+     "hub",
+     30,
+     71
+    ]
+   ],
+   "drawing_problems": 7
+  }
+ },
+ "bearing_housing": {
+  "bearing_housing.wpc": {
+   "steps": 17,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 220717.45340007255
+   },
+   "bodies": [
+    [
+     "hub",
+     29,
+     62
+    ]
+   ],
+   "drawing_problems": 2
+  }
+ },
+ "bearing_unit": {
+  "bearing_unit.wpc": {
+   "steps": 9,
+   "failed": 0,
+   "volumes": {
+    "bearing1": 14321.515598066726,
+    "bearing2": 14321.515598066726,
+    "cover": 58452.4729126917,
+    "housing": 253794.12980730113,
+    "screw": 519.344535546563,
+    "screws/2": 519.344535546563,
+    "screws/3": 519.344535546563,
+    "screws/4": 519.344535546563,
+    "shaft": 47716.60361782419
+   },
+   "bodies": [
+    [
+     "bearing1/bearing1",
+     10,
+     24
+    ],
+    [
+     "bearing1/bearing1/inner",
+     10,
+     24
+    ],
+    [
+     "bearing2/bearing2",
+     10,
+     24
+    ],
+    [
+     "bearing2/bearing2/inner",
+     10,
+     24
+    ],
+    [
+     "cover/cover",
+     8,
+     18
+    ],
+    [
+     "housing/housing",
+     18,
+     31
+    ],
+    [
+     "screw/screw",
+     11,
+     24
+    ],
+    [
+     "screws/2/screw",
+     11,
+     24
+    ],
+    [
+     "screws/3/screw",
+     11,
+     24
+    ],
+    [
+     "screws/4/screw",
+     11,
+     24
+    ],
+    [
+     "shaft/shaft",
+     9,
+     17
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "cover.wpc": {
+   "steps": 10,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 58452.4729126917
+   },
+   "bodies": [
+    [
+     "cover",
+     8,
+     18
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "housing.wpc": {
+   "steps": 12,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 253794.12980730113
+   },
+   "bodies": [
+    [
+     "housing",
+     18,
+     31
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "shaft.wpc": {
+   "steps": 6,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 47716.60361782419
+   },
+   "bodies": [
+    [
+     "shaft",
+     9,
+     17
+    ]
+   ],
+   "drawing_problems": 1
+  }
+ },
+ "bench_vise": {
+  "bench_vise.wpc": {
+   "steps": 6,
+   "failed": 0,
+   "volumes": {
+    "body": 140369.1691514424,
+    "jaw": 40058.252295753184,
+    "screw": 17869.379013618753
+   },
+   "bodies": [
+    [
+     "body/body",
+     9,
+     21
+    ],
+    [
+     "jaw/jaw",
+     8,
+     15
+    ],
+    [
+     "screw/screw",
+     5,
+     9
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "bench_vise_closed.wpc": {
+   "steps": 4,
+   "failed": 0,
+   "volumes": {
+    "body": 140369.1691514424,
+    "jaw": 40058.252295753184,
+    "screw": 17869.379013618753
+   },
+   "bodies": [
+    [
+     "body/body",
+     9,
+     21
+    ],
+    [
+     "jaw/jaw",
+     8,
+     15
+    ],
+    [
+     "screw/screw",
+     5,
+     9
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "body.wpc": {
+   "steps": 8,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 140369.1691514424
+   },
+   "bodies": [
+    [
+     "body",
+     9,
+     21
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "jaw.wpc": {
+   "steps": 7,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 40058.252295753184
+   },
+   "bodies": [
+    [
+     "jaw",
+     8,
+     15
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "screw.wpc": {
+   "steps": 4,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 17869.379013618753
+   },
+   "bodies": [
+    [
+     "screw",
+     5,
+     9
+    ]
+   ],
+   "drawing_problems": 1
+  }
+ },
+ "butt_hinge": {
+  "butt_hinge.wpc": {
+   "steps": 5,
+   "failed": 0,
+   "volumes": {
+    "leaf1": 6994.041579514592,
+    "leaf2": 6994.041579514592,
+    "pin": 1178.0972450961726
+   },
+   "bodies": [
+    [
+     "leaf1/plate",
+     18,
+     46
+    ],
+    [
+     "leaf2/plate",
+     18,
+     46
+    ],
+    [
+     "pin/pin",
+     3,
+     3
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "leaf.wpc": {
+   "steps": 16,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 6994.041579514592
+   },
+   "bodies": [
+    [
+     "plate",
+     18,
+     46
+    ]
+   ],
+   "drawing_problems": 5
+  },
+  "pin.wpc": {
+   "steps": 4,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 1178.0972450961726
+   },
+   "bodies": [
+    [
+     "pin",
+     3,
+     3
+    ]
+   ],
+   "drawing_problems": 0
+  }
+ },
+ "cast_bracket": {
+  "cast_bracket.wpc": {
+   "steps": 20,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 171145.91339226993
+   },
+   "bodies": [
+    [
+     "bracket",
+     36,
+     102
+    ]
+   ],
+   "drawing_problems": 2
+  }
+ },
+ "caster": {
+  "caster.wpc": {
+   "steps": 5,
+   "failed": 0,
+   "volumes": {
+    "fork": 31269.424416228587,
+    "pin": 3430.619177720055,
+    "wheel": 127517.45337163158
+   },
+   "bodies": [
+    [
+     "fork/block",
+     17,
+     45
+    ],
+    [
+     "pin/pin",
+     5,
+     9
+    ],
+    [
+     "wheel/hub",
+     4,
+     8
+    ],
+    [
+     "wheel/tyre",
+     6,
+     12
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "fork.wpc": {
+   "steps": 9,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 31269.424416228587
+   },
+   "bodies": [
+    [
+     "block",
+     17,
+     45
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "pin.wpc": {
+   "steps": 4,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 3430.619177720055
+   },
+   "bodies": [
+    [
+     "pin",
+     5,
+     9
+    ]
+   ],
+   "drawing_problems": 0
+  },
+  "wheel.wpc": {
+   "steps": 8,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 127517.45337163158
+   },
+   "bodies": [
+    [
+     "hub",
+     4,
+     8
+    ],
+    [
+     "tyre",
+     6,
+     12
+    ]
+   ],
+   "drawing_problems": 0
+  }
+ },
+ "manifold_block": {
+  "manifold_block.wpc": {
+   "steps": 15,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 261854.07473737927
+   },
+   "bodies": [
+    [
+     "block",
+     28,
+     59
+    ]
+   ],
+   "drawing_problems": 1
+  }
+ },
+ "pipe_elbow": {
+  "pipe_elbow.wpc": {
+   "steps": 15,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 392362.6139426509
+   },
+   "bodies": [
+    [
+     "pipe",
+     24,
+     58
+    ]
+   ],
+   "drawing_problems": 2
+  }
+ },
+ "sheet_metal_cover": {
+  "sheet_metal_cover.wpc": {
+   "steps": 20,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 50442.80940799413
+   },
+   "bodies": [
+    [
+     "base",
+     54,
+     156
+    ]
+   ],
+   "drawing_problems": 15
+  }
+ },
+ "turned_shaft": {
+  "turned_shaft.wpc": {
+   "steps": 14,
+   "failed": 0,
+   "volumes": {
+    "(own bodies)": 50501.05152456318
+   },
+   "bodies": [
+    [
+     "shaft",
+     22,
+     41
+    ]
+   ],
+   "drawing_problems": 3
+  }
+ }
+}

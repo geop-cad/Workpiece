@@ -12,6 +12,7 @@ rust-version.workspace = true
 name = "workpiece_rasterize"
 
 [dependencies]
+libm.workspace = true
 glam.workspace = true
 workpiece-core.workspace = true
 

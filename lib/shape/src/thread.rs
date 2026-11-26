@@ -130,7 +130,7 @@ pub fn threaded(
     // The groove: a triangle with its point in the material and its
     // flanks 60° apart, open a little way off the face.
     let off = pitch * 0.1;
-    let half = (depth + off) * (TAU / 12.0).tan();
+    let half = (depth + off) * libm::tan(TAU / 12.0);
     ensure!(
         half * 2.0 < pitch * 0.98,
         "the thread is too deep for its pitch: its turns would run into each other"
@@ -146,10 +146,12 @@ pub fn threaded(
     let step = turns * TAU / pieces as f64;
     let rise = pitch / TAU;
     let at = |a: f64| {
-        origin + (e1 * a.cos() + e2 * (a.sin() * hand)) * radius + axis * (start + rise * a)
+        origin
+            + (e1 * libm::cos(a) + e2 * (libm::sin(a) * hand)) * radius
+            + axis * (start + rise * a)
     };
-    let way = |a: f64| (e2 * (a.cos() * hand) - e1 * a.sin()) * radius + axis * rise;
-    let handle = 4.0 / 3.0 * (step / 4.0).tan();
+    let way = |a: f64| (e2 * (libm::cos(a) * hand) - e1 * libm::sin(a)) * radius + axis * rise;
+    let handle = 4.0 / 3.0 * libm::tan(step / 4.0);
     let mut points = vec![at(0.0)];
     let mut knots = vec![0.0; 4];
     for k in 0..pieces {

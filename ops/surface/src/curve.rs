@@ -10,6 +10,7 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use workpiece_core::math::rotation;
 
 use anyhow::{Context, ensure};
 use workpiece_boolean::{Solid, read, read_sheet};
@@ -374,7 +375,7 @@ impl CurveEnd {
                         .context("the points run square to the face: the curve cannot lie in it")?;
                     // (Turned within the face as asked.)
                     let a = self.angle.to_radians();
-                    lying * a.cos() + normal.cross(lying) * a.sin()
+                    lying * libm::cos(a) + normal.cross(lying) * libm::sin(a)
                 };
                 EndHeld {
                     along: Some(along),
@@ -613,7 +614,7 @@ fn end_handle(
         let mut new = now.clone();
         let end = of(&mut new);
         end.magnitude = (v.length() / reach).max(1e-3);
-        let angle = normal.cross(lean).dot(v).atan2(lean.dot(v)).to_degrees();
+        let angle = libm::atan2(normal.cross(lean).dot(v), lean.dot(v)).to_degrees();
         // (Beyond square to the points it is the other way along, turned
         // back.)
         end.flip = angle.abs() > 90.0;
@@ -876,7 +877,7 @@ impl Laid {
     fn of(axis: &DatumAxis, start_degrees: f64, left: bool) -> Self {
         let (origin, axis) = (axis.origin(), axis.direction().normalize_or_zero());
         let zero = axis.any_orthonormal_vector();
-        let start = glam::DQuat::from_axis_angle(axis, start_degrees.to_radians()) * zero;
+        let start = rotation(axis, start_degrees.to_radians()) * zero;
         Self {
             origin,
             axis,
@@ -889,7 +890,7 @@ impl Laid {
     /// The direction from the axis after `turns` turns.
     fn after(&self, turns: f64) -> Point3 {
         let angle = self.sense * turns * std::f64::consts::TAU;
-        glam::DQuat::from_axis_angle(self.axis, angle) * self.start
+        rotation(self.axis, angle) * self.start
     }
 }
 

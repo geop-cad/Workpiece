@@ -1,4 +1,4 @@
-use glam::DQuat;
+use crate::math::rotation;
 
 use crate::math::{Axis, Point3};
 use crate::pose::Pose;
@@ -100,8 +100,8 @@ impl<M: 'static> Gizmo<M> {
                 let a = pose.axis(axis);
                 let arm = |ray: &Ray| ray.intersect_plane(o, a).map(|t| ray.at(t) - o);
                 let (v0, v1) = (arm(from)?, arm(to)?);
-                let angle = a.dot(v0.cross(v1)).atan2(v0.dot(v1));
-                let turn = DQuat::from_axis_angle(a, angle);
+                let angle = libm::atan2(a.dot(v0.cross(v1)), v0.dot(v1));
+                let turn = rotation(a, angle);
                 Pose::from_rotation_translation(turn * pose.rotation(), o)
             }
             GizmoPart::Scale => return None,
@@ -136,6 +136,7 @@ impl<M: 'static> Gizmo<M> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::math::rotation_z;
     use crate::ray::Projection;
     use std::f64::consts::FRAC_PI_2;
 
@@ -165,10 +166,7 @@ mod tests {
         let pose = g.drag(z, &down(1.0, 0.0), &down(0.0, 1.0));
         let pose = pose.ok_or_else(|| anyhow::anyhow!("no rotation"))?;
         assert!(pose.translation().abs_diff_eq(Point3::Z, 1e-12));
-        assert!(
-            pose.rotation()
-                .abs_diff_eq(DQuat::from_rotation_z(FRAC_PI_2), 1e-12)
-        );
+        assert!(pose.rotation().abs_diff_eq(rotation_z(FRAC_PI_2), 1e-12));
 
         // The center knob follows the pointer in the plane facing it.
         let free = g.drag(GizmoPart::Free, &down(0.0, 0.0), &down(1.0, 2.0));

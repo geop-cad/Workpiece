@@ -83,7 +83,7 @@ fn worst_seam(solid: &Solid, which: &dyn Fn(&str) -> bool) -> f64 {
         }
         if let [a, b] = &normals[..] {
             for (x, y) in a.iter().zip(b) {
-                worst = worst.max(x.dot(*y).clamp(-1.0, 1.0).acos());
+                worst = worst.max(libm::acos(x.dot(*y).clamp(-1.0, 1.0)));
             }
         }
     }

@@ -688,14 +688,14 @@ fn notes(
                 way
             };
             let angle = if way.length() > 0.5 {
-                way.y.atan2(way.x)
+                libm::atan2f(way.y, way.x)
             } else {
                 0.0
             };
             let size = (text.height / 0.7).clamp(6.0, 40.0);
             let galley =
                 painter.layout_no_wrap(text.text.clone(), egui::FontId::proportional(size), ink);
-            let (sin, cos) = angle.sin_cos();
+            let (sin, cos) = libm::sincosf(angle);
             let turned = |v: egui::Vec2| egui::vec2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
             let half = galley.size() / 2.0;
             let width = galley.size().x;
@@ -985,14 +985,14 @@ fn labels(ui: &egui::Ui, rect: egui::Rect, view: &Viewport) {
         // The baseline's direction on screen; written so it reads upright.
         let step = view.camera.distance * 0.01;
         let along = project(label.position + label.along * step) - at;
-        let mut angle = along.y.atan2(along.x);
+        let mut angle = libm::atan2f(along.y, along.x);
         if !angle.is_finite() {
             angle = 0.0;
         }
-        if angle.cos() < -1e-3 {
+        if libm::cosf(angle) < -1e-3 {
             angle += std::f32::consts::PI;
         }
-        let (sin, cos) = angle.sin_cos();
+        let (sin, cos) = libm::sincosf(angle);
         let turned = |v: egui::Vec2| egui::vec2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
         let write = |text: &str, size: f32, offset: egui::Vec2| -> f32 {
             let font = egui::FontId::proportional(size);

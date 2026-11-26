@@ -109,7 +109,7 @@ impl Trim {
 
     fn size(&self) -> f64 {
         let [u, v] = self.range;
-        (u.1 - u.0).hypot(v.1 - v.0).max(f64::MIN_POSITIVE)
+        libm::hypot(u.1 - u.0, v.1 - v.0).max(f64::MIN_POSITIVE)
     }
 
     fn crossings(&self, q: Point2, d: Point2) -> Crossings {

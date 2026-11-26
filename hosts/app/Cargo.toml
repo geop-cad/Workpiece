@@ -14,6 +14,7 @@ name = "workpiece-app"
 path = "src/main.rs"
 
 [dependencies]
+libm.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
 bytemuck = "1.25.2"
@@ -37,9 +38,11 @@ workpiece-render.workspace = true
 # Pictures are saved as PNG files.
 png = "0.18.1"
 # The glow renderer: OpenGL on desktop, WebGL in the browser.
+# (Its fonts: egui's own on the desktop; in the browser only the text
+# fonts are compiled in, and the emoji fonts fetched after the start, see
+# `src/web.rs`.)
 eframe = { workspace = true, features = [
     "glow",
-    "default_fonts",
     "accesskit",
     "wayland",
     "x11",
@@ -49,9 +52,14 @@ egui_extras = { version = "0.36.2", default-features = false, features = ["svg"]
 # `Instant` that also works in a browser (on desktop it is std's).
 web-time = "1.1.0"
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+eframe = { workspace = true, features = ["default_fonts"] }
+
 # In the browser (see `src/web.rs`): the page, its files and its storage.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 serde.workspace = true
+# egui's fonts, of which the page compiles in only the text fonts.
+epaint_default_fonts = "0.36.2"
 # What the command line does, for the assistant's scripts (`src/kernel.rs`).
 workpiece-make.workspace = true
 wasm-bindgen = "0.2.130"

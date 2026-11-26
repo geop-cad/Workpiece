@@ -17,6 +17,7 @@
 
 use anyhow::Context;
 use workpiece_core::math::Point3;
+use workpiece_core::math::rotation;
 use workpiece_core::world::topo::{
     CoedgeKind, Curve3, EdgeId, EntityId, FaceId, NurbsSurface, Orientation, Topo, VertexId,
 };
@@ -284,13 +285,17 @@ fn middle(topo: &Topo, face: FaceId) -> Option<Point3> {
             let swept: f64 = (0..PIECES)
                 .map(|k| {
                     let (a, b) = (at(k) - centre, at(k + 1) - centre);
-                    axis.dot(a.cross(b)).atan2(a.dot(b))
+                    libm::atan2(axis.dot(a.cross(b)), a.dot(b))
                 })
                 .sum();
             let half = swept.abs() / 2.0;
             let start = (at(0) - centre).normalize_or_zero();
-            let mid = glam::DQuat::from_axis_angle(axis, swept / 2.0) * start;
-            let from = if half > 1e-9 { half.sin() / half } else { 1.0 };
+            let mid = rotation(axis, swept / 2.0) * start;
+            let from = if half > 1e-9 {
+                libm::sin(half) / half
+            } else {
+                1.0
+            };
             let length = radius * swept.abs();
             sum += (centre + mid * (radius * from)) * length;
             count += length;
@@ -369,7 +374,7 @@ fn axis_of(topo: &Topo, face: FaceId) -> Option<(Point3, Point3)> {
     for (p, n) in &samples {
         let (qx, qy) = flat(*p);
         let (mx, my) = flat(*n);
-        let len = mx.hypot(my);
+        let len = libm::hypot(mx, my);
         if len <= 1e-9 {
             return None;
         }
@@ -397,7 +402,7 @@ fn axis_of(topo: &Topo, face: FaceId) -> Option<(Point3, Point3)> {
         .map(|(p, n)| {
             let (qx, qy) = flat(*p);
             let (mx, my) = flat(*n);
-            let len = mx.hypot(my);
+            let len = libm::hypot(mx, my);
             ((cx - qx) * my - (cy - qy) * mx).abs() / len
         })
         .fold(0.0, f64::max);

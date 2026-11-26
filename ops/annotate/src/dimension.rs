@@ -3,6 +3,7 @@
 
 use anyhow::{Context, ensure};
 use workpiece_core::math::Point3;
+use workpiece_core::math::angle_between;
 use workpiece_core::widgets::{Choice, NumericInput, TextInput};
 use workpiece_core::world::topo::{EdgeId, Topo};
 use workpiece_core::world::{Annotation, DatumAxis, DatumPlane, Measured, Note, Tolerance, World};
@@ -1019,7 +1020,7 @@ fn measured(world: &World, args: &DimensionArgs) -> anyhow::Result<(Measured, f6
             // (The other angle: from the first on past where they
             // meet, to the second.)
             let first = if args.supplement { -first } else { first };
-            let angle = first.angle_between(second).to_degrees();
+            let angle = angle_between(first, second).to_degrees();
             let measured = Measured::Angle { at, first, second };
             Ok((measured, angle))
         }
@@ -1313,7 +1314,7 @@ mod round_tests {
         let centre = Point3::new(1.0, 2.0, 5.0);
         let at = |s: f64| {
             let t = s * std::f64::consts::FRAC_PI_2;
-            centre + Point3::new(t.cos(), t.sin(), 0.0) * 3.0
+            centre + Point3::new(libm::cos(t), libm::sin(t), 0.0) * 3.0
         };
         let (c, axis, r) = arc_through(&at).expect("an arc");
         assert!(c.distance(centre) < 1e-12 && (r - 3.0).abs() < 1e-12);
@@ -1321,7 +1322,7 @@ mod round_tests {
         // All the way around: told by thirds of it.
         let around = |s: f64| {
             let t = s * std::f64::consts::TAU;
-            centre + Point3::new(t.cos(), t.sin(), 0.0) * 3.0
+            centre + Point3::new(libm::cos(t), libm::sin(t), 0.0) * 3.0
         };
         let (c, _, r) = arc_through(&around).expect("a circle");
         assert!(c.distance(centre) < 1e-12 && (r - 3.0).abs() < 1e-12);

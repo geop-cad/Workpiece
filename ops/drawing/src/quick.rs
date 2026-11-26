@@ -6,6 +6,7 @@
 //! file.
 
 use std::fmt::Write;
+use workpiece_core::math::{angle_between, from_angle};
 
 use workpiece_core::Unit;
 use workpiece_core::math::{Point2, Point3};
@@ -113,7 +114,7 @@ pub fn shape(world: &World, pose: workpiece_core::Pose, out: &mut Shape) {
                         if u.length() < 1e-300 || v.length() < 1e-300 {
                             0.0
                         } else {
-                            u.angle_between(v)
+                            angle_between(u, v)
                         }
                     })
                     .sum();
@@ -220,7 +221,7 @@ pub fn shape(world: &World, pose: workpiece_core::Pose, out: &mut Shape) {
                 if round {
                     let around: f64 = run
                         .windows(2)
-                        .map(|w| (w[0] - middle).angle_between(w[1] - middle))
+                        .map(|w| angle_between(w[0] - middle, w[1] - middle))
                         .sum();
                     out.circles.push((middle, axis, radius, around));
                 }
@@ -462,7 +463,7 @@ impl ThreeViews {
                         let angle = std::f64::consts::FRAC_PI_2
                             + 0.12
                             + (std::f64::consts::TAU * 0.75 - 0.24) * k as f64 / 36.0;
-                        at + Point2::from_angle(angle) * radius
+                        at + from_angle(angle) * radius
                     };
                     lines.extend((0..36).map(|k| (on(k), on(k + 1), behind)));
                 }

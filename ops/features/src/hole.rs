@@ -768,8 +768,8 @@ fn axis_field(args: &HoleArgs, context: &EditContext<'_>) -> Vec<Widget<HoleArgs
                     let centre = line.origin() + line.direction() * along;
                     let d = p - centre;
                     let (x, y) = (d.dot(on.x_dir()), d.dot(on.y_dir()));
-                    new.radius = round(x.hypot(y));
-                    new.angle = round(y.atan2(x).to_degrees());
+                    new.radius = round(libm::hypot(x, y));
+                    new.angle = round(libm::atan2(y, x).to_degrees());
                 }
             }
             new.axis = Some(axis);
@@ -905,7 +905,8 @@ fn placed(
             );
             let along = (on.origin() - axis.origin()).dot(on.normal()) / across;
             let centre = axis.origin() + axis.direction() * along;
-            let at = centre + (on.x_dir() * angle.cos() + on.y_dir() * angle.sin()) * radius;
+            let at =
+                centre + (on.x_dir() * libm::cos(angle) + on.y_dir() * libm::sin(angle)) * radius;
             Ok((vec![at], on.normal(), on))
         }
     }
@@ -1036,7 +1037,7 @@ fn chamfer_depth(wide: f64, angle: f64) -> anyhow::Result<f64> {
         half > 0.01 && half < 1.56,
         "a chamfer's cone has an angle under 180°"
     );
-    Ok(wide / half.tan())
+    Ok(wide / libm::tan(half))
 }
 
 impl HoleShape {
@@ -1092,7 +1093,7 @@ impl HoleShape {
                     half > 0.01 && half < 1.56,
                     "a countersink's cone has an angle under 180°"
                 );
-                let deep = (self.head - r) / half.tan();
+                let deep = (self.head - r) / libm::tan(half);
                 // (A countersink is its mouth's chamfer.)
                 corners.extend([(self.head, 0.0), (r, deep)]);
                 deep
@@ -1119,7 +1120,7 @@ impl HoleShape {
                 match self.point {
                     Some(angle) if angle < 3.1 => {
                         ensure!(angle > 0.02, "a drill's point has some angle");
-                        corners.push((0.0, depth + r / (angle / 2.0).tan()));
+                        corners.push((0.0, depth + r / libm::tan(angle / 2.0)));
                     }
                     _ => corners.push((0.0, depth)),
                 }
@@ -1137,7 +1138,7 @@ fn lines(place: Point3, direction: Point3, radius: f64) -> Vec<Point3> {
     let mut all = vec![place];
     for k in 0..8 {
         let turn = std::f64::consts::TAU * k as f64 / 8.0;
-        all.push(place + (a * turn.cos() + b * turn.sin()) * (radius * 0.85));
+        all.push(place + (a * libm::cos(turn) + b * libm::sin(turn)) * (radius * 0.85));
     }
     all
 }

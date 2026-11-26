@@ -19,6 +19,7 @@
 //! to be within a tolerance of the stations there ([`sweep::loft`]).
 
 use std::sync::Arc;
+use workpiece_core::math::angle_between;
 
 use anyhow::{Context, bail, ensure};
 use workpiece_boolean::Solid;
@@ -1020,7 +1021,7 @@ fn simplest(places: &[Point3], closed: bool, within: f64) -> Option<(Curve3, Vec
         }
         // On around from the last one, by less than half a turn.
         let last = *angles.last()?;
-        let turn = d.dot(y).atan2(d.dot(x));
+        let turn = libm::atan2(d.dot(y), d.dot(x));
         let on = (turn - last).rem_euclid(std::f64::consts::TAU);
         if on <= 0.0 || on >= std::f64::consts::PI {
             return None;
@@ -1966,8 +1967,8 @@ impl Rolled {
         });
         let start = brought.unwrap_or_else(|| {
             // About where it touches flat faces at this angle.
-            let turn = outs[0].angle_between(outs[1]);
-            let reach = radius * (turn / 2.0).tan().abs().min(8.0);
+            let turn = angle_between(outs[0], outs[1]);
+            let reach = radius * libm::tan(turn / 2.0).abs().min(8.0);
             [0, 1].map(|k| {
                 let side = &sides[k];
                 let uv = side.on(t, at);
@@ -2015,7 +2016,9 @@ impl Rolled {
         // (Twenty radii, where the faces meet squarely or more bluntly;
         // between faces that meet like a knife's the ball rests farther
         // from the edge, by how flat faces at this angle would have it.)
-        let sharp = (outs[0].angle_between(outs[1]) / 2.0).cos().abs().max(1e-3);
+        let sharp = libm::cos(angle_between(outs[0], outs[1]) / 2.0)
+            .abs()
+            .max(1e-3);
         let far = 20.0 * radius * (std::f64::consts::FRAC_1_SQRT_2 / sharp).max(1.0);
         let (a, n) = sides[0].past(Point2::new(x[0], x[1]));
         if (a + n * off).distance(at) > far {
@@ -2646,7 +2649,7 @@ impl Rolled {
             Section::Circular | Section::Conic => {
                 let weight = if section == Section::Circular {
                     let centre = station.centre.context("a round has a centre")?;
-                    ((a - centre).angle_between(b - centre) / 2.0).cos()
+                    libm::cos(angle_between(a - centre, b - centre) / 2.0)
                 } else {
                     ensure!(rho > 0.0 && rho < 1.0, "a conic's rho is between 0 and 1");
                     rho / (1.0 - rho)
@@ -2662,7 +2665,7 @@ impl Rolled {
                 // face has no curvature): as full as takes off what the
                 // round does, or as bends by `rho` at its middle.
                 let w = if section == Section::Curvature {
-                    crate::gn::even((a - apex).angle_between(b - apex))
+                    crate::gn::even(angle_between(a - apex, b - apex))
                 } else {
                     ensure!(rho > 0.0 && rho.is_finite(), "its middle bends by a radius");
                     crate::gn::centred(a, apex, b, rho)

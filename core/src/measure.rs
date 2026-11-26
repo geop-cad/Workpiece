@@ -383,7 +383,7 @@ impl Parser<'_> {
         }
         let base = self.atom()?;
         if self.take('^') {
-            return Ok(base.powf(self.power()?));
+            return Ok(libm::pow(base, self.power()?));
         }
         Ok(base)
     }
@@ -443,9 +443,9 @@ impl Parser<'_> {
             return match (name, arguments.len()) {
                 ("sqrt", 1) => Ok(one.sqrt()),
                 ("abs", 1) => Ok(one.abs()),
-                ("sin", 1) => Ok(one.to_radians().sin()),
-                ("cos", 1) => Ok(one.to_radians().cos()),
-                ("tan", 1) => Ok(one.to_radians().tan()),
+                ("sin", 1) => Ok(libm::sin(one.to_radians())),
+                ("cos", 1) => Ok(libm::cos(one.to_radians())),
+                ("tan", 1) => Ok(libm::tan(one.to_radians())),
                 ("min", n) if n >= 1 => Ok(arguments.into_iter().fold(f64::INFINITY, f64::min)),
                 ("max", n) if n >= 1 => Ok(arguments.into_iter().fold(f64::NEG_INFINITY, f64::max)),
                 _ => Err(FormulaError::Unknown {

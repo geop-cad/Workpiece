@@ -41,7 +41,7 @@ impl Scalar for f64 {
         f64::abs(self)
     }
     fn atan2(self, other: Self) -> Self {
-        f64::atan2(self, other)
+        libm::atan2(self, other)
     }
 }
 
@@ -137,7 +137,7 @@ impl Scalar for Dual {
         if r2 == 0.0 {
             return Self::constant(0.0);
         }
-        self.zip(x, self.v.atan2(x.v), x.v / r2, -self.v / r2)
+        self.zip(x, libm::atan2(self.v, x.v), x.v / r2, -self.v / r2)
     }
 }
 
@@ -151,7 +151,7 @@ mod tests {
         let f = |x: Dual, y: Dual| (x * x + y * y).sqrt() * y.atan2(x);
         let (x, y) = (Dual::variable(3.0, 0), Dual::variable(4.0, 1));
         let r = f(x, y);
-        let angle = 4f64.atan2(3.0);
+        let angle = libm::atan2(4f64, 3.0);
         assert!((r.v - 5.0 * angle).abs() < 1e-12);
         // ∂/∂x = x/r·θ − y/r, ∂/∂y = y/r·θ + x/r.
         assert!((r.d[0] - (0.6 * angle - 0.8)).abs() < 1e-12);

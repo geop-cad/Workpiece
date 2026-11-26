@@ -47,7 +47,7 @@ impl Gather<'_> {
             return *index;
         }
         let material = look.material.as_ref().and_then(|m| self.library.get(m));
-        let linear = |c: u8| (f32::from(c) / 255.0).powf(2.2);
+        let linear = |c: u8| libm::powf(f32::from(c) / 255.0, 2.2);
         let colour = look
             .colour
             .or(material.map(|m| m.colour))
@@ -124,7 +124,7 @@ pub fn scene(world: &World, visibility: &Visibility, library: &Library) -> Scene
 /// The light of `shot`, as the one that traces takes it.
 pub fn lighting(shot: &Shot) -> workpiece_render::Lighting {
     use workpiece_ops_appearance::Sky;
-    let linear = |c: u8| (f32::from(c) / 255.0).powf(2.2);
+    let linear = |c: u8| libm::powf(f32::from(c) / 255.0, 2.2);
     workpiece_render::Lighting {
         sky: match shot.sky {
             Sky::Studio => workpiece_render::Sky::Studio,
@@ -132,7 +132,7 @@ pub fn lighting(shot: &Shot) -> workpiece_render::Lighting {
             Sky::Dark => workpiece_render::Sky::Dark,
         },
         sun: [shot.sun_turn as f32, shot.sun_height as f32],
-        strength: 2f32.powf(shot.exposure as f32),
+        strength: libm::powf(2f32, shot.exposure as f32),
         ground: shot.ground,
         backdrop: shot.backdrop().map(linear),
     }
@@ -149,7 +149,7 @@ pub fn camera(camera: &crate::model::Camera, scene: &Scene) -> workpiece_render:
         let off = camera.distance.max(reach * 2.0);
         (camera.target + camera.back() * off, camera.view_height())
     } else {
-        (camera.eye(), 2.0 * (camera.fov_y / 2.0).tan())
+        (camera.eye(), 2.0 * libm::tanf(camera.fov_y / 2.0))
     };
     workpiece_render::Camera {
         eye,

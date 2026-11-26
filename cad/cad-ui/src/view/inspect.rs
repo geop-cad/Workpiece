@@ -3,6 +3,7 @@
 //! two things, how far apart they are and at what angle.
 
 use std::sync::{Arc, Mutex};
+use workpiece_core::math::angle_between;
 
 use workpiece_boolean::{face_area, measure, read, read_sheet};
 use workpiece_core::Source;
@@ -312,7 +313,7 @@ fn of_one(topo: &Topo, thing: Thing, density: Option<f64>) -> Vec<Reading> {
                     .triangles
                     .iter()
                     .flat_map(|t| t.1)
-                    .map(|n| n.z.clamp(-1.0, 1.0).asin().to_degrees().abs());
+                    .map(|n| libm::asin(n.z.clamp(-1.0, 1.0)).to_degrees().abs());
                 let (least, most) = leans.fold((f64::INFINITY, 0.0_f64), |(lo, hi), a| {
                     (lo.min(a), hi.max(a))
                 });
@@ -422,7 +423,7 @@ fn of_two(first: &Placed<'_>, second: &Placed<'_>) -> Vec<Reading> {
         }
     }
     if let (Some((n, flat_a)), Some((m, flat_b))) = (facing(first), facing(second)) {
-        let between = n.angle_between(m).to_degrees();
+        let between = angle_between(n, m).to_degrees();
         let folded = between.min(180.0 - between);
         // (A line and a plane: from the plane, not from its normal.)
         let angle = if flat_a == flat_b {

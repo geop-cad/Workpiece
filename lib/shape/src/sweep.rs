@@ -274,7 +274,7 @@ impl Turn {
     fn vector(&self, v: Point3, angle: f64) -> Point3 {
         let along = self.axis * v.dot(self.axis);
         let across = v - along;
-        along + across * angle.cos() + self.axis.cross(across) * angle.sin()
+        along + across * libm::cos(angle) + self.axis.cross(across) * libm::sin(angle)
     }
 
     fn point(&self, p: Point3, angle: f64) -> Point3 {

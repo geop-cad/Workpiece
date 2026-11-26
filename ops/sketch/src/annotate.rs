@@ -1,6 +1,7 @@
 //! A sketch's dimensions as annotations of the model: what a drawing
 //! made of the part shows of them.
 
+use workpiece_core::math::angle_between;
 use workpiece_core::math::{Point2, Point3};
 use workpiece_core::world::{Annotation, DatumPlane, Measured, Note};
 
@@ -190,7 +191,7 @@ pub(crate) fn annotations(
             (true, Measured::Radius { radius, .. }) => *radius,
             (true, Measured::Diameter { radius, .. }) => radius * 2.0,
             (true, Measured::Angle { first, second, .. }) => {
-                first.angle_between(*second).to_degrees()
+                angle_between(*first, *second).to_degrees()
             }
             _ => dimension.value,
         };

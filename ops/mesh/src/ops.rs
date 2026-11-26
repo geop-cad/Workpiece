@@ -1218,7 +1218,7 @@ fn around(poly: &Poly, points: &BTreeSet<usize>) -> Vec<usize> {
         .iter()
         .map(|&v| {
             let d = poly.points[v] - middle;
-            (d.dot(y).atan2(d.dot(x)), v)
+            (libm::atan2(d.dot(y), d.dot(x)), v)
         })
         .collect();
     ordered.sort_by(|a, b| a.0.total_cmp(&b.0));

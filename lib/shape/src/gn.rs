@@ -86,8 +86,8 @@ fn falling_to(f: &dyn Fn(f64) -> f64, target: f64) -> f64 {
 /// angle `alpha` takes off what the circle touching both legs where the
 /// section leaves them does.
 pub fn even(alpha: f64) -> f64 {
-    let c = 1.0 / (alpha / 2.0).tan();
-    let target = (c - (std::f64::consts::PI - alpha) / 2.0) / (c * (alpha / 2.0).cos().powi(2));
+    let c = 1.0 / libm::tan(alpha / 2.0);
+    let target = (c - (std::f64::consts::PI - alpha) / 2.0) / (c * libm::cos(alpha / 2.0).powi(2));
     falling_to(&area_share, target)
 }
 

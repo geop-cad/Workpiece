@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use workpiece_core::math::angle_to;
 
 use workpiece_core::handles::{CanvasEvent, CanvasEventKind, CanvasView, Handle};
 use workpiece_core::math::{Axis, Point2};
@@ -259,7 +260,7 @@ fn a_rotation_axis_has_three_freedoms_and_spans_the_view() {
     b.drag((grip.x, grip.y), (2.0, -4.0));
     let (a, c) = b.args.line(axis).unwrap();
     assert!(a.abs_diff_eq(Point2::new(1.0, -5.0), 1e-9), "{a}");
-    assert!(((c - a).angle_to(Point2::new(1.0, 1.0))).abs() < 1e-6);
+    assert!((angle_to(c - a, Point2::new(1.0, 1.0))).abs() < 1e-6);
 }
 
 #[test]

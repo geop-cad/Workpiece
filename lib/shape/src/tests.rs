@@ -71,7 +71,7 @@ fn a_side_turned_about_its_lower_edge_leans() -> anyhow::Result<()> {
         .find(|&f| workpiece_boolean::lies_on(&solid, f, Point3::new(4.0, 1.5, 1.0), 1e-9))
         .expect("the side");
     // About the edge along y through (4, 0, 0), its top inwards by one.
-    let (sin, cos) = (0.5_f64).atan().sin_cos();
+    let (sin, cos) = libm::sincos(libm::atan(0.5_f64));
     let turn = |p: Point3| {
         let (x, z) = (p.x - 4.0, p.z);
         Point3::new(4.0 + x * cos - z * sin, p.y, x * sin + z * cos)
@@ -139,7 +139,7 @@ fn a_round_on_one_edge_is_made_where_it_is() -> anyhow::Result<()> {
 fn faces_move_and_walls_shell_where_they_are() -> anyhow::Result<()> {
     // A 2 × 3 × 4 box, turned so that nothing of it lies along an axis.
     let turned = |p: Point3| {
-        let (s, c) = 0.7_f64.sin_cos();
+        let (s, c) = libm::sincos(0.7_f64);
         let q = Point3::new(p.x * c - p.y * s, p.x * s + p.y * c, p.z);
         Point3::new(q.x, q.y * c - q.z * s, q.y * s + q.z * c) + Point3::new(5.0, -3.0, 2.0)
     };
@@ -221,7 +221,7 @@ fn edges_that_lean_are_rounded_past_where_their_faces_end() -> anyhow::Result<()
     let leant = crate::thick::drafted(&solid, &sides, Point3::Z, Point3::ZERO, lean, false)?;
     let before = measure(&leant).volume;
     assert!(before < 12.0 * 14.0 * 2.0 - 1.0, "{before}");
-    let off = lean.tan();
+    let off = libm::tan(lean);
     let corners: Vec<usize> = [
         (off, off),
         (12.0 - off, off),

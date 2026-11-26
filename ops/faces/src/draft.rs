@@ -136,7 +136,7 @@ impl Operation for Draft {
                     let measured = Measured::Angle {
                         at,
                         first: pull,
-                        second: pull * angle.cos() - across * angle.sin(),
+                        second: pull * libm::cos(angle) - across * libm::sin(angle),
                     };
                     let reach = workpiece_shape::on::size(&solid) * 0.15;
                     let held = Annotation::held(measured, angle.to_degrees(), &args.angle, reach);

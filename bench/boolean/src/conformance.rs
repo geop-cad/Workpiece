@@ -28,6 +28,7 @@ use std::f64::consts::{PI, TAU};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
+use workpiece_core::math::{from_angle, to_angle};
 
 use serde::Deserialize;
 use workpiece_boolean::Solid;
@@ -113,7 +114,7 @@ impl Piece {
             } => (0..=N)
                 .map(|k| {
                     let a = start + sweep * f64::from(k) / f64::from(N);
-                    Point2::from_array(*center) + Point2::from_angle(a) * *radius
+                    Point2::from_array(*center) + from_angle(a) * *radius
                 })
                 .collect(),
         }
@@ -138,9 +139,9 @@ impl Piece {
             } => {
                 let (c, end) = (center[1], start + sweep);
                 let between = |f: &dyn Fn(f64) -> f64| f(end) - f(*start);
-                let sin1 = between(&|a| -a.cos());
-                let sin2 = between(&|a| a / 2.0 - (2.0 * a).sin() / 4.0);
-                let sin3 = between(&|a| -a.cos() + a.cos().powi(3) / 3.0);
+                let sin1 = between(&|a| -libm::cos(a));
+                let sin2 = between(&|a| a / 2.0 - libm::sin(2.0 * a) / 4.0);
+                let sin3 = between(&|a| -libm::cos(a) + libm::cos(a).powi(3) / 3.0);
                 (
                     -r * (c * c * sin1 + 2.0 * c * r * sin2 + r * r * sin3),
                     (r * (c * sweep + r * sin1)).abs(),
@@ -164,8 +165,8 @@ impl Piece {
                 sweep,
             } => {
                 let end = start + sweep;
-                let turn =
-                    center[0] * (end.sin() - start.sin()) - center[1] * (end.cos() - start.cos());
+                let turn = center[0] * (libm::sin(end) - libm::sin(*start))
+                    - center[1] * (libm::cos(end) - libm::cos(*start));
                 (r * turn / 2.0 + r * r * sweep / 2.0, (r * sweep).abs())
             }
         }
@@ -188,12 +189,12 @@ impl Piece {
                 let c = Point2::from_array(*center);
                 // The angle of `p` from the arc's start, the way it goes.
                 let way = sweep.signum();
-                let turned = ((p - c).to_angle() - start) * way;
+                let turned = (to_angle(p - c) - start) * way;
                 let turned = turned.rem_euclid(TAU);
                 if turned <= sweep.abs() + 1e-12 {
                     (p.distance(c) - radius).abs()
                 } else {
-                    let end = |a: f64| c + Point2::from_angle(a) * *radius;
+                    let end = |a: f64| c + from_angle(a) * *radius;
                     p.distance(end(*start)).min(p.distance(end(start + sweep)))
                 }
             }
@@ -385,7 +386,7 @@ impl Shaped {
                 } else {
                     beside(rim, q).min(beside(hole, q))
                 };
-                off.hypot(p.z - z)
+                libm::hypot(off, p.z - z)
             })
             .fold(f64::INFINITY, f64::min);
         if least <= limit {
@@ -617,7 +618,7 @@ impl Truth {
             let d = match (within, beyond > 0.0) {
                 (true, true) => beyond,
                 (true, false) => wall.min(h).min(prism.height - h),
-                (false, true) => wall.hypot(beyond),
+                (false, true) => libm::hypot(wall, beyond),
                 (false, false) => wall,
             };
             least = least.min(d);
@@ -756,7 +757,7 @@ impl Piece {
                 (0..=n)
                     .map(|k| {
                         let a = start + sweep * k as f64 / n as f64;
-                        Point2::from_array(*center) + Point2::from_angle(a) * *radius
+                        Point2::from_array(*center) + from_angle(a) * *radius
                     })
                     .collect()
             }
@@ -778,7 +779,7 @@ impl Truth {
             for q in swept.flat_map(|piece| piece.along(step)) {
                 let around = ((TAU * q.y / step).ceil() as usize).max(1);
                 for k in 0..around {
-                    let (sin, cos) = (TAU * k as f64 / around as f64).sin_cos();
+                    let (sin, cos) = libm::sincos(TAU * k as f64 / around as f64);
                     out.push(o + z * q.x + (x * cos + y * sin) * q.y);
                 }
             }

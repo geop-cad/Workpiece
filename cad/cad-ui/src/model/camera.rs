@@ -93,7 +93,9 @@ impl Camera {
         if t >= 1.0 {
             return *to;
         }
-        let height = (from.view_height().ln() * (1.0 - t) + to.view_height().ln() * t).exp();
+        let height = libm::expf(
+            libm::logf(from.view_height()) * (1.0 - t) + libm::logf(to.view_height()) * t,
+        );
         let half = |c: &Camera| {
             if c.orthographic {
                 NARROW / 2.0
@@ -107,11 +109,14 @@ impl Camera {
             ..*to
         };
         if from.orthographic != to.orthographic || (!to.orthographic && from.fov_y != to.fov_y) {
-            let tan = (half(from).tan().ln() * (1.0 - t) + half(to).tan().ln() * t).exp();
-            camera.fov_y = 2.0 * tan.atan();
+            let tan = libm::expf(
+                libm::logf(libm::tanf(half(from))) * (1.0 - t)
+                    + libm::logf(libm::tanf(half(to))) * t,
+            );
+            camera.fov_y = 2.0 * libm::atanf(tan);
             camera.orthographic = false;
         }
-        camera.distance = height / (2.0 * (camera.fov_y / 2.0).tan());
+        camera.distance = height / (2.0 * libm::tanf(camera.fov_y / 2.0));
         camera
     }
 
@@ -123,7 +128,7 @@ impl Camera {
         Camera {
             fov_y: like.fov_y,
             orthographic: like.orthographic,
-            distance: self.view_height() / (2.0 * (like.fov_y / 2.0).tan()),
+            distance: self.view_height() / (2.0 * libm::tanf(like.fov_y / 2.0)),
             ..*self
         }
     }
@@ -161,7 +166,7 @@ impl Camera {
 
     /// Height of the view at the target, in world units.
     pub fn view_height(&self) -> f32 {
-        2.0 * self.distance * (self.fov_y / 2.0).tan()
+        2.0 * self.distance * libm::tanf(self.fov_y / 2.0)
     }
 
     /// World to OpenGL clip space (depth −1..1) for a viewport of
@@ -202,7 +207,7 @@ impl Camera {
             let radius = f64::from(pixel * self.view_height());
             (near, Projection::Orthographic { radius })
         } else {
-            let slope = f64::from(pixel * 2.0 * (self.fov_y / 2.0).tan());
+            let slope = f64::from(pixel * 2.0 * libm::tanf(self.fov_y / 2.0));
             (self.eye(), Projection::Perspective { slope })
         };
         Ray::new(start.as_dvec3(), (far - near).as_dvec3(), projection)
@@ -229,7 +234,7 @@ impl Camera {
 
     /// Zooms by a scroll of `delta` (positive is closer).
     pub fn zoom(&mut self, delta: f32) {
-        self.distance = (self.distance * (-delta * 0.0015).exp()).clamp(0.05, 10_000.0);
+        self.distance = (self.distance * libm::expf(-delta * 0.0015)).clamp(0.05, 10_000.0);
     }
 
     /// The size of a pixel in model units at `at`, in a viewport `height`
@@ -242,7 +247,7 @@ impl Camera {
             let depth = (at - self.eye())
                 .dot(-self.back())
                 .max(self.distance * 0.05);
-            2.0 * depth * (self.fov_y / 2.0).tan() / height
+            2.0 * depth * libm::tanf(self.fov_y / 2.0) / height
         }
     }
 
@@ -258,7 +263,7 @@ impl Camera {
             let across = (hi - lo).length();
             if across > 0.0 {
                 self.target = (lo + hi) / 2.0;
-                self.distance = across * 0.75 / (self.fov_y / 2.0).tan();
+                self.distance = across * 0.75 / libm::tanf(self.fov_y / 2.0);
             }
         }
     }

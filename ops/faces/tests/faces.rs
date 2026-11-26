@@ -177,7 +177,7 @@ fn faces_are_drafted_about_a_plane() -> anyhow::Result<()> {
     let made = workpiece_boolean::read(&b.world.topo, body(&b, "base"))?;
     close(
         workpiece_boolean::measure(&made).volume,
-        32.0 - 4.0 * 10f64.to_radians().tan(),
+        32.0 - 4.0 * libm::tan(10f64.to_radians()),
         1e-9,
     );
     Ok(())
@@ -288,7 +288,7 @@ fn areas_are_embossed_and_engraved_following_the_face() -> anyhow::Result<()> {
     // under from the axis at each, 0.6 tall: the area between two arcs
     // and the square's sides.
     let segment = |r: f64| {
-        let half = (0.3_f64 / r).asin();
+        let half = libm::asin(0.3_f64 / r);
         r * r * half + 0.3 * (r * r - 0.09).sqrt()
     };
     let raised = (segment(1.1) - segment(1.0)) * 0.6;
@@ -405,7 +405,7 @@ fn an_area_is_raised_where_it_first_meets_a_ring_its_sides_as_asked() -> anyhow:
     assert!((normal - along).abs() > 1e-5, "{normal} {along}");
     // Along the sketch's normal: on the near side only, its sides along x.
     let segment = |r: f64| {
-        let half = (0.3_f64 / r).asin();
+        let half = libm::asin(0.3_f64 / r);
         r * r * half + 0.3 * (r * r - 0.09).sqrt()
     };
     let (along, lo, hi) = raised(&mut rod()?, thrown())?;
@@ -419,7 +419,7 @@ fn an_area_is_raised_where_it_first_meets_a_ring_its_sides_as_asked() -> anyhow:
         ..thrown()
     };
     let (normal, lo, hi) = raised(&mut rod()?, square)?;
-    close(normal, wedge(2.0 * 0.3_f64.asin()), 1e-4);
+    close(normal, wedge(2.0 * libm::asin(0.3_f64)), 1e-4);
     assert!(hi > 1.05 && lo > -1.0 - 1e-6, "{lo} {hi}");
     assert!((normal - along).abs() > 1e-3, "{normal} {along}");
     // The square projected onto the rod first: curves on both its

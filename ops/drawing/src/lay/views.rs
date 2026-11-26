@@ -2,6 +2,7 @@
 //! drawn (ISO 128).
 
 use std::sync::Arc;
+use workpiece_core::math::{angle_to, from_angle};
 
 use crate::Sheet;
 use crate::sheet::{Beside, HalfSide, Projection, SheetView, Style, TangentEdges, ViewKind};
@@ -599,7 +600,7 @@ fn round_off(lines: &mut Vec<(Point2, Point2, bool, bool)>, reach: f64) {
                     corners[1] - tip
                 };
                 let after = if forward { far - tip } else { tip - far };
-                if before.angle_to(after).abs() > 0.6 {
+                if angle_to(before, after).abs() > 0.6 {
                     break;
                 }
                 used[next] = true;
@@ -688,7 +689,10 @@ fn round_off(lines: &mut Vec<(Point2, Point2, bool, bool)>, reach: f64) {
             continue;
         };
         let (a, b, behind, smooth) = *line;
-        let (s, mut e) = ((a - c).y.atan2((a - c).x), (b - c).y.atan2((b - c).x));
+        let (s, mut e) = (
+            libm::atan2((a - c).y, (a - c).x),
+            libm::atan2((b - c).y, (b - c).x),
+        );
         while e - s > std::f64::consts::PI {
             e -= std::f64::consts::TAU;
         }
@@ -700,7 +704,7 @@ fn round_off(lines: &mut Vec<(Point2, Point2, bool, bool)>, reach: f64) {
         let at = |t: usize| match t {
             0 => a,
             t if t == n => b,
-            t => c + Point2::from_angle(s + (e - s) * t as f64 / n as f64) * r,
+            t => c + from_angle(s + (e - s) * t as f64 / n as f64) * r,
         };
         for t in 0..n {
             out.push((at(t), at(t + 1), behind, smooth));
@@ -1451,7 +1455,9 @@ fn see(
         let other = axis.cross(side);
         (0..8).any(|k| {
             let a = std::f64::consts::TAU * f64::from(k) / 8.0;
-            let p = at + (side * a.cos() + other * a.sin()) * radius + towards * (reach * 4e-3);
+            let p = at
+                + (side * libm::cos(a) + other * libm::sin(a)) * radius
+                + towards * (reach * 4e-3);
             let q = square(flat(p));
             !hidden(&grid[q.0 * SQUARES + q.1], p, towards, reach * 2e-3)
         })
@@ -1573,7 +1579,7 @@ fn alongside(
     let key = |p: Point2| ((p.x / cell).floor() as i64, (p.y / cell).floor() as i64);
     let mut grid: std::collections::HashMap<(i64, i64), Vec<usize>> = Default::default();
     let mut kept: Vec<(Point2, Point2, bool, bool)> = Vec::with_capacity(lines.len());
-    let slant = (10.0_f64).to_radians().sin();
+    let slant = libm::sin((10.0_f64).to_radians());
     for (a, b, behind, smooth) in lines {
         let length = a.distance(b);
         if length <= 1e-9 {
@@ -1802,7 +1808,7 @@ fn nearly_edge_on(run: &[Point3], towards: Point3, reach: f64) -> bool {
         return false;
     }
     let slant = normal.dot(towards).abs();
-    if !(1e-6..(3.0_f64).to_radians().sin()).contains(&slant) {
+    if !(1e-6..libm::sin((3.0_f64).to_radians())).contains(&slant) {
         return false;
     }
     // (And seen so: as thin as that across, not a line.)
@@ -2259,7 +2265,7 @@ pub(crate) fn frames<'a>(
                     let (basis, centre) = if *turn == 0.0 {
                         (basis, centre)
                     } else {
-                        let (sin, cos) = turn.to_radians().sin_cos();
+                        let (sin, cos) = libm::sincos(turn.to_radians());
                         let [r, u, t] = basis;
                         ([r * cos - u * sin, r * sin + u * cos, t], at)
                     };
@@ -2292,7 +2298,7 @@ pub(crate) fn frames<'a>(
                     // Looking along the sheet in the view it is of: up
                     // stays what was towards who looks there.
                     let [r, u, t] = from.basis;
-                    let way = Point2::from_angle(angle.to_radians());
+                    let way = from_angle(angle.to_radians());
                     let towards = -(r * way.x + u * way.y);
                     let basis = [t.cross(towards), t, towards];
                     let middle = if view.bodies.is_empty() {
@@ -2446,9 +2452,8 @@ fn in_circle(corners: [Point2; 3], centre: Point2, reach: f64) -> Vec<[Point2; 3
     const SIDES: usize = 96;
     let mut shape: Vec<Point2> = corners.to_vec();
     for k in 0..SIDES {
-        let at = |k: usize| {
-            centre + Point2::from_angle(k as f64 * std::f64::consts::TAU / SIDES as f64) * reach
-        };
+        let at =
+            |k: usize| centre + from_angle(k as f64 * std::f64::consts::TAU / SIDES as f64) * reach;
         let (p, q) = (at(k), at(k + 1));
         // (Which side of the polygon's side `p`→`q` a point is: inside
         // when positive.)
@@ -2502,7 +2507,7 @@ fn hatching(triangles: &[[Point2; 3]], (angle, gap): (f64, f64)) -> (f64, f64) {
             .iter()
             .map(|(a, b)| {
                 let d = *b - *a;
-                let off = (d.y.atan2(d.x).to_degrees() - angle).rem_euclid(180.0);
+                let off = (libm::atan2(d.y, d.x).to_degrees() - angle).rem_euclid(180.0);
                 let off = off.min(180.0 - off);
                 a.distance(*b) * (1.0 - off / 20.0).max(0.0)
             })
@@ -2612,7 +2617,7 @@ fn pieces_of(triangles: &[[Point2; 3]]) -> Vec<Vec<[Point2; 3]>> {
 /// `gap` apart) over the triangle `corners`.
 fn hatch(laid: &mut Laid, corners: [Point2; 3], (angle, gap): (f64, f64)) {
     // Lines of constant distance across them.
-    let (sin, cos) = angle.to_radians().sin_cos();
+    let (sin, cos) = libm::sincos(angle.to_radians());
     let of = |p: Point2| p.y * cos - p.x * sin;
     let (lo, hi) = corners
         .iter()
@@ -2686,7 +2691,7 @@ pub(crate) fn detail_letters(laid: &mut Laid, frames: &[Placed<'_>]) {
             .map(|k| {
                 // (Up and right first, as it is drawn by hand.)
                 let a = std::f64::consts::FRAC_PI_4 + std::f64::consts::TAU * f64::from(k) / 16.0;
-                Point2::from_angle(a)
+                from_angle(a)
             })
             .collect();
         let said = letter_at.map(|d| at + Point2::from_array(d));
@@ -3081,7 +3086,7 @@ pub(crate) fn draw(laid: &mut Laid, sheet: &Sheet, placed: &Placed<'_>, all: &[P
             // In the view it is of: an arrow the way it looks, with a
             // letter; the same letter over it (ISO 128-3).
             if let Some(from) = parent(of) {
-                let way = Point2::from_angle(angle.to_radians());
+                let way = from_angle(angle.to_radians());
                 let (flo, fhi) = from.bounds();
                 let reach = ((fhi - flo) / 2.0).length() + 8.0;
                 let tip = (flo + fhi) / 2.0 - way * reach;
@@ -3237,8 +3242,8 @@ mod tests {
         for k in 0..10 {
             let a = |k: i32| std::f64::consts::FRAC_PI_2 * f64::from(k) / 10.0;
             strokes.push(wide(
-                p(40.0 + a(k).sin(), 1.0 - a(k).cos()),
-                p(40.0 + a(k + 1).sin(), 1.0 - a(k + 1).cos()),
+                p(40.0 + libm::sin(a(k)), 1.0 - libm::cos(a(k))),
+                p(40.0 + libm::sin(a(k + 1)), 1.0 - libm::cos(a(k + 1))),
             ));
         }
         strokes.push(wide(p(41.0, 1.0), p(41.0, 5.0)));
@@ -3275,12 +3280,16 @@ mod tests {
         // sight (a bore's rim in a drafted wall, seen from above): left
         // out. Seen exactly edge on (a line), square on, or 10° off: kept.
         let circle = |tilt: f64| -> Vec<Point3> {
-            let n = Point3::new(0.0, tilt.to_radians().cos(), tilt.to_radians().sin());
+            let n = Point3::new(
+                0.0,
+                libm::cos(tilt.to_radians()),
+                libm::sin(tilt.to_radians()),
+            );
             let (u, v) = (Point3::X, n.cross(Point3::X));
             (0..=48)
                 .map(|k| {
                     let a = std::f64::consts::TAU * f64::from(k) / 48.0;
-                    (u * a.cos() + v * a.sin()) * 10.0
+                    (u * libm::cos(a) + v * libm::sin(a)) * 10.0
                 })
                 .collect()
         };
@@ -3299,7 +3308,7 @@ mod tests {
         // meeting it at a sharp turn; and a short chord near the rim
         // joined to nothing.
         let r = 120.0;
-        let at = |k: f64| Point2::from_angle(k * std::f64::consts::TAU / 40.0) * r;
+        let at = |k: f64| from_angle(k * std::f64::consts::TAU / 40.0) * r;
         let mut lines: Vec<(Point2, Point2, bool, bool)> = Vec::new();
         for k in 0..40 {
             // (Broken at corners 0, 2 and 5: a gap of a hair there.)
@@ -3447,7 +3456,7 @@ mod tests {
     fn an_outline_drawn_as_a_polygon_on_a_circle_is_drawn_round() {
         // A circle of 10 as 40 straight pieces (the outline of a ring's
         // flat triangles), and a square beside it, which stays.
-        let at = |k: usize| Point2::from_angle(std::f64::consts::TAU * k as f64 / 40.0) * 10.0;
+        let at = |k: usize| from_angle(std::f64::consts::TAU * k as f64 / 40.0) * 10.0;
         let mut lines: Vec<_> = (0..40).map(|k| (at(k), at(k + 1), false, false)).collect();
         let p = |x: f64, y: f64| Point2::new(x + 30.0, y);
         lines.extend([

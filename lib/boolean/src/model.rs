@@ -430,7 +430,7 @@ impl Solid {
                 let leaving = face.surface.point_at(q.x, q.y) - p;
                 let out = du.cross(dv) * if face.outward { 1.0 } else { -1.0 };
                 around.push((
-                    leaving.dot(e2).atan2(leaving.dot(e1)),
+                    libm::atan2(leaving.dot(e2), leaving.dot(e1)),
                     -out.dot(along.cross(leaving)) > 0.0,
                     reversed == face.outward,
                     [f, l, s],

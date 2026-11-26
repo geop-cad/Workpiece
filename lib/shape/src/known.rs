@@ -169,7 +169,7 @@ pub fn known(surface: &NurbsSurface) -> Option<Known> {
     Some(Known::Cone {
         apex: on + axis * (apex_along * widening.signum()),
         axis,
-        half_angle: widening.abs().atan(),
+        half_angle: libm::atan(widening.abs()),
     })
 }
 
@@ -185,7 +185,7 @@ mod tests {
         let mut points = Vec::new();
         let mut weights = Vec::new();
         for k in 0..9 {
-            let (sin, cos) = (f64::from(k) * std::f64::consts::FRAC_PI_4).sin_cos();
+            let (sin, cos) = libm::sincos(f64::from(k) * std::f64::consts::FRAC_PI_4);
             let (out, weight) = if k % 2 == 1 { (1.0 / w, w) } else { (1.0, 1.0) };
             for p in [from, to] {
                 let (x, y) = (p.x * out, p.y * out);

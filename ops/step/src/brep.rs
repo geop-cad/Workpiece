@@ -552,7 +552,7 @@ impl<'r, 'a> Builder<'r, 'a> {
                     let (mut lo, mut hi) = ([f64::INFINITY; 2], [f64::NEG_INFINITY; 2]);
                     for p in lp.iter().flatten() {
                         let (around, rho, h) = frame.around(*p);
-                        let raw = [around, h.atan2(rho - major)];
+                        let raw = [around, libm::atan2(h, rho - major)];
                         let last = seen.unwrap_or(raw);
                         let at = [unwrap(raw[0], last[0]), unwrap(raw[1], last[1])];
                         seen = Some(at);
@@ -587,7 +587,7 @@ impl<'r, 'a> Builder<'r, 'a> {
                 let (mut lo, mut hi) = (f64::INFINITY, f64::NEG_INFINITY);
                 let mut last: Option<f64> = None;
                 for p in points.iter().flatten().flatten() {
-                    let raw = (frame.around(*p).2).atan2(frame.around(*p).1 - major);
+                    let raw = libm::atan2(frame.around(*p).2, frame.around(*p).1 - major);
                     let at = unwrap(raw, last.unwrap_or(raw));
                     last = Some(at);
                     (lo, hi) = (lo.min(at), hi.max(at));
@@ -1295,7 +1295,10 @@ impl<'r, 'a> Builder<'r, 'a> {
                 let here = step.pcurve.point_at(if r0 { a.range.0 } else { a.range.1 });
                 let there = next.pcurve.point_at(if r1 { b.range.1 } else { b.range.0 });
                 let ((u0, u1), (v0, v1)) = surface.domain();
-                let apart = ((here.x - there.x) / (u1 - u0)).hypot((here.y - there.y) / (v1 - v0));
+                let apart = libm::hypot(
+                    (here.x - there.x) / (u1 - u0),
+                    (here.y - there.y) / (v1 - v0),
+                );
                 if apart <= 1e-9 {
                     continue;
                 }
@@ -1408,7 +1411,10 @@ impl<'r, 'a> Builder<'r, 'a> {
                     .point_at(here.x, here.y)
                     .distance(surface.point_at(there.x, there.y));
                 let ((u0, u1), (v0, v1)) = surface.domain();
-                let apart = ((here.x - there.x) / (u1 - u0)).hypot((here.y - there.y) / (v1 - v0));
+                let apart = libm::hypot(
+                    (here.x - there.x) / (u1 - u0),
+                    (here.y - there.y) / (v1 - v0),
+                );
                 ensure!(
                     // (A small face of a file whose edges are off
                     // its surface is a good part of its surface
@@ -1771,7 +1777,7 @@ fn faces_of(r: &Reader<'_>, root: u32) -> anyhow::Result<Solid> {
                         Ok(CurveKind::Ellipse { frame, a, b }) => {
                             // Points of it, all around.
                             for k in 0..16 {
-                                let (y, x) = (f64::from(k) * TAU / 16.0).sin_cos();
+                                let (y, x) = libm::sincos(f64::from(k) * TAU / 16.0);
                                 beyond.push(frame.o + frame.x * (a * x) + frame.y * (b * y));
                             }
                         }

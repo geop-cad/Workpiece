@@ -914,7 +914,7 @@ fn simplest(places: &[Point3], within: f64) -> Option<(Curve3, Vec<f64>)> {
         }
         // On around from the last one, by less than half a turn.
         let last = *angles.last()?;
-        let turn = d.dot(y).atan2(d.dot(x));
+        let turn = libm::atan2(d.dot(y), d.dot(x));
         let on = (turn - last).rem_euclid(std::f64::consts::TAU);
         if on <= 0.0 || on >= std::f64::consts::PI {
             return None;
@@ -932,8 +932,8 @@ fn simplest(places: &[Point3], within: f64) -> Option<(Curve3, Vec<f64>)> {
     // In pieces of a quarter turn at most, each a rational quadratic.
     let pieces = (all / std::f64::consts::FRAC_PI_2 - 1e-9).ceil().max(1.0) as usize;
     let each = all / pieces as f64;
-    let on = |angle: f64, far: f64| centre + (x * angle.cos() + y * angle.sin()) * far;
-    let w = (each / 2.0).cos();
+    let on = |angle: f64, far: f64| centre + (x * libm::cos(angle) + y * libm::sin(angle)) * far;
+    let w = libm::cos(each / 2.0);
     let mut points = vec![on(0.0, radius)];
     let mut weights = vec![1.0];
     let mut knots = vec![0.0; 3];
@@ -953,14 +953,14 @@ fn simplest(places: &[Point3], within: f64) -> Option<(Curve3, Vec<f64>)> {
     // Where the arc is at an angle: within its piece, the tangent of
     // half the angle from the piece's middle runs evenly with the
     // parameter (the piece is a circle seen from a point on it).
-    let half = (each / 4.0).tan();
+    let half = libm::tan(each / 4.0);
     let mut at: Vec<f64> = angles
         .iter()
         .map(|&angle| {
             let angle = angle.min(all);
             let piece = ((angle / each).floor() as usize).min(pieces - 1);
             let from_middle = angle - each * piece as f64 - each / 2.0;
-            let within = (1.0 + (from_middle / 2.0).tan() / half) / 2.0;
+            let within = (1.0 + libm::tan(from_middle / 2.0) / half) / 2.0;
             piece as f64 + within.clamp(0.0, 1.0)
         })
         .collect::<Vec<f64>>();

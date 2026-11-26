@@ -10,6 +10,7 @@
 use workpiece_core::Edit;
 use workpiece_core::handles::{CanvasEvent, CanvasEventKind, CanvasView};
 use workpiece_core::math::Point2;
+use workpiece_core::math::from_angle;
 use workpiece_core::world::topo::nurbs::recognize::circumcenter;
 
 use crate::geometry::{nearest_on_segment, sweep};
@@ -837,7 +838,7 @@ pub(crate) fn text_size(height: f64) -> f64 {
     if half <= 0.0 || !half.is_finite() {
         return 1.0;
     }
-    let ten = 10f64.powf(half.log10().floor() - 1.0);
+    let ten = libm::pow(10f64, libm::log10(half).floor() - 1.0);
     (half / ten).round() * ten
 }
 
@@ -1052,7 +1053,7 @@ fn build(args: &mut SketchArgs, state: &SketchState) -> Option<Vec<Item>> {
             args.entities.get_mut(&circle)?.construction = true;
             let step = std::f64::consts::TAU / n as f64;
             let corners: Vec<Id> = (0..n)
-                .map(|k| args.add_point(c + Point2::from_angle(step * k as f64).rotate(v - c)))
+                .map(|k| args.add_point(c + from_angle(step * k as f64).rotate(v - c)))
                 .collect();
             attach(args, corners[0], &clicks[1]);
             let mut lines = Vec::new();

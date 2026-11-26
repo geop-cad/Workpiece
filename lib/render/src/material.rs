@@ -235,8 +235,8 @@ impl Bsdf {
         } else {
             let r = random[1].sqrt();
             let turn = 2.0 * PI * random[2];
-            self.along[0] * (r * turn.cos())
-                + self.along[1] * (r * turn.sin())
+            self.along[0] * (r * libm::cosf(turn))
+                + self.along[1] * (r * libm::sinf(turn))
                 + self.normal * (1.0 - random[1]).max(0.0).sqrt()
         };
         let dir = above(dir, flat);
@@ -265,9 +265,9 @@ impl Bsdf {
         let t2 = v.cross(t1);
         let r = u1.sqrt();
         let turn = 2.0 * PI * u2;
-        let p1 = r * turn.cos();
+        let p1 = r * libm::cosf(turn);
         let s = 0.5 * (1.0 + v.z);
-        let p2 = (1.0 - s) * (1.0 - p1 * p1).max(0.0).sqrt() + s * r * turn.sin();
+        let p2 = (1.0 - s) * (1.0 - p1 * p1).max(0.0).sqrt() + s * r * libm::sinf(turn);
         let n = t1 * p1 + t2 * p2 + v * (1.0 - p1 * p1 - p2 * p2).max(0.0).sqrt();
         let local = Vec3A::new(a * n.x, a * n.y, n.z.max(1e-6)).normalize();
         tx * local.x + ty * local.y + self.normal * local.z

@@ -13,6 +13,7 @@
 //! solve without it went past.
 
 use std::collections::BTreeMap;
+use workpiece_core::math::{angle_between, rotation};
 
 use glam::DQuat;
 use workpiece_core::math::Point3;
@@ -175,7 +176,7 @@ enum Equation {
 /// How far a joint has turned since it was at the angle `from`, between
 /// minus and plus half a turn.
 fn turned<S: Scalar>(a: &Frame<S>, b: &Frame<S>, from: f64) -> S {
-    let (s0, c0) = from.sin_cos();
+    let (s0, c0) = libm::sincos(from);
     let (c, s) = (b.x.dot(a.x), b.x.dot(a.y));
     (s * S::constant(c0) - c * S::constant(s0)).atan2(c * S::constant(c0) + s * S::constant(s0))
 }
@@ -302,7 +303,7 @@ impl System for Assembly<'_> {
                     match *held {
                         // The second's x at that angle from the first's.
                         Held::Angle(angle) => {
-                            let (s, c) = angle.sin_cos();
+                            let (s, c) = libm::sincos(angle);
                             out.push(
                                 fb.x.dot(fa.y) * S::constant(c) - fb.x.dot(fa.x) * S::constant(s),
                             );
@@ -575,9 +576,9 @@ pub fn solve(world: &World, drag: Option<&Drag>) -> Solved {
             };
             let around = from.cross(to);
             let rotation = if around.length() < 1e-9 {
-                glam::DQuat::from_axis_angle(about, std::f64::consts::PI)
+                rotation(about, std::f64::consts::PI)
             } else {
-                glam::DQuat::from_axis_angle(around.normalize(), from.angle_between(to))
+                rotation(around.normalize(), angle_between(from, to))
             };
             let turn = Pose::from_translation(through)
                 * Pose::from_rotation(rotation)
@@ -687,12 +688,12 @@ pub fn solve(world: &World, drag: Option<&Drag>) -> Solved {
                 let (ra, bx) = (fa.rotation(), fb.rotation() * Point3::X);
                 let (ax, ay, az) = (ra * Point3::X, ra * Point3::Y, ra * Point3::Z);
                 let (turn, shift) = match *held {
-                    Held::Angle(to) => (to - bx.dot(ay).atan2(bx.dot(ax)), 0.0),
+                    Held::Angle(to) => (to - libm::atan2(bx.dot(ay), bx.dot(ax)), 0.0),
                     Held::Distance(to) => (0.0, to - (fb.translation() - fa.translation()).dot(az)),
                 };
                 let through = fa.translation();
                 let moved = Pose::from_translation(az * shift + through)
-                    * Pose::from_rotation(glam::DQuat::from_axis_angle(az, turn))
+                    * Pose::from_rotation(rotation(az, turn))
                     * Pose::from_translation(-through);
                 match (a, b) {
                     (_, Body::Free(i)) => {
@@ -782,6 +783,7 @@ pub fn solve(world: &World, drag: Option<&Drag>) -> Solved {
 mod tests {
     use super::*;
     use std::sync::Arc;
+    use workpiece_core::math::{rotation_x, rotation_y, rotation_z};
     use workpiece_core::world::{Connector, Instance, Limits};
 
     fn world(parts: &[(&str, Pose, bool)]) -> World {
@@ -830,7 +832,7 @@ mod tests {
                 ("base", at(0.0, 0.0, 0.0), true),
                 ("peg", at(0.0, 0.0, 0.0), false),
             ]);
-            let over = Pose::from_rotation(glam::DQuat::from_rotation_x(std::f64::consts::PI));
+            let over = Pose::from_rotation(rotation_x(std::f64::consts::PI));
             w.joints.push(joint(
                 kind,
                 ("base", at(0.0, 0.0, 1.0)),
@@ -849,7 +851,7 @@ mod tests {
             // x = 2), from where that left it: it sticks out of it.
             w.instances.get_mut("peg").expect("the peg").pose = peg;
             w.joints[0].a.frame = Pose::from_rotation_translation(
-                glam::DQuat::from_rotation_y(std::f64::consts::FRAC_PI_2),
+                rotation_y(std::f64::consts::FRAC_PI_2),
                 Point3::new(2.0, 0.0, 0.0),
             );
             let solved = solve(&w, None);
@@ -928,7 +930,7 @@ mod tests {
             w.instances.get_mut("arm").expect("arm").pose = solved.poses["arm"];
         }
         let reached = w.instances["arm"].pose.transform_point(tip);
-        let angle = reached.y.atan2(reached.x);
+        let angle = libm::atan2(reached.y, reached.x);
         assert!((angle - limit).abs() < 1e-6, "{}", angle.to_degrees());
     }
 
@@ -941,7 +943,7 @@ mod tests {
                 ("base", Pose::IDENTITY, true),
                 (
                     "arm",
-                    Pose::from_rotation(glam::DQuat::from_rotation_z(start.to_radians())),
+                    Pose::from_rotation(rotation_z(start.to_radians())),
                     false,
                 ),
             ]);
@@ -1030,7 +1032,7 @@ mod tests {
                 Some(&Drag {
                     instance: "big".into(),
                     local: rim,
-                    target: Point3::new(2.0 * target.cos(), 2.0 * target.sin(), 0.0),
+                    target: Point3::new(2.0 * libm::cos(target), 2.0 * libm::sin(target), 0.0),
                 }),
             );
             assert!(solved.converged && solved.unsolved.is_empty());
@@ -1040,7 +1042,7 @@ mod tests {
         }
         let angle = |name: &str| {
             let x = w.instances[name].pose.axis(Axis::X);
-            x.y.atan2(x.x)
+            libm::atan2(x.y, x.x)
         };
         assert!((angle("big") - 1.2).abs() < 1e-3, "{}", angle("big"));
         // Twice as far, the other way: 2.4 radians back.
@@ -1092,7 +1094,7 @@ mod tests {
         }
         let pose = w.instances["bolt"].pose;
         let x = pose.axis(Axis::X);
-        let turned = x.y.atan2(x.x);
+        let turned = libm::atan2(x.y, x.x);
         // A quarter of the lead up, a quarter turn round.
         assert!((pose.translation().z - 0.5).abs() < 1e-3, "{pose:?}");
         assert!(

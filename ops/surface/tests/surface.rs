@@ -1168,7 +1168,7 @@ fn a_five_sided_hole_is_filled_running_on_from_its_walls() -> anyhow::Result<()>
             let a = std::f64::consts::TAU * f64::from(k) / 5.0;
             sketch
                 .args
-                .add_point(Point2::new(2.0 * a.cos(), 2.0 * a.sin()))
+                .add_point(Point2::new(2.0 * libm::cos(a), 2.0 * libm::sin(a)))
         })
         .collect();
     for k in 0..5 {
@@ -1240,7 +1240,7 @@ fn a_five_sided_hole_is_filled_running_on_from_its_walls() -> anyhow::Result<()>
                 .find(|&f| workpiece_boolean::lies_on(&cup, f, p - Point3::Z * 0.01, 1e-6))
                 .expect("the wall below");
             let (_, out) = workpiece_shape::on::middle(&cup, wall);
-            worst = worst.max(normal.dot(out).abs().min(1.0).acos().to_degrees());
+            worst = worst.max(libm::acos(normal.dot(out).abs().min(1.0)).to_degrees());
         }
     }
     assert!(worst < 1.5, "{worst}°");

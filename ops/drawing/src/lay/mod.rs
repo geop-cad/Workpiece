@@ -16,6 +16,7 @@ mod views;
 
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
+use workpiece_core::math::from_angle;
 
 use crate::Sheet;
 use crate::sheet::ViewKind;
@@ -506,8 +507,7 @@ impl Laid {
     /// short lines.
     fn arc(&mut self, centre: Point2, radius: f64, from: f64, sweep: f64, pen: Pen) {
         let steps = ((sweep.abs() * radius / 1.5).ceil() as usize).clamp(8, 180);
-        let at =
-            |k: usize| centre + Point2::from_angle(from + sweep * k as f64 / steps as f64) * radius;
+        let at = |k: usize| centre + from_angle(from + sweep * k as f64 / steps as f64) * radius;
         for k in 0..steps {
             self.line(at(k), at(k + 1), pen);
         }
@@ -517,7 +517,7 @@ impl Laid {
     /// sides 30° apart) with its tip at `tip`, pointing along `way`.
     fn arrow(&mut self, tip: Point2, way: Point2, length: f64) {
         let way = way.normalize_or_zero();
-        let across = way.perp() * (length * (15.0_f64).to_radians().tan());
+        let across = way.perp() * (length * libm::tan((15.0_f64).to_radians()));
         let back = tip - way * length;
         self.fills.push(Fill {
             corners: [tip, back + across, back - across],

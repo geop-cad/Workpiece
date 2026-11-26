@@ -33,7 +33,11 @@ pub(crate) struct Light {
 
 fn direction(azimuth: f32, elevation: f32) -> Vec3A {
     let (a, e) = (azimuth.to_radians(), elevation.to_radians());
-    Vec3A::new(e.cos() * a.cos(), e.cos() * a.sin(), e.sin())
+    Vec3A::new(
+        libm::cosf(e) * libm::cosf(a),
+        libm::cosf(e) * libm::sinf(a),
+        libm::sinf(e),
+    )
 }
 
 impl Light {
@@ -47,7 +51,7 @@ impl Light {
             Sky::Outdoor => (2.0, Vec3A::new(1.0, 0.94, 0.84), 3.0),
             Sky::Dark => (5.0, Vec3A::new(1.0, 0.97, 0.93), 3.4),
         };
-        let key_cos = radius.to_radians().cos();
+        let key_cos = libm::cosf(radius.to_radians());
         let angle = 2.0 * PI * (1.0 - key_cos);
         let band = |turn: f32| {
             let d = direction(azimuth + turn, 0.0);
@@ -79,7 +83,7 @@ impl Light {
             let r = (1.0 - z * z).sqrt();
             for j in 0..TURNS {
                 let turn = 2.0 * PI * (j as f32 + 0.5) / TURNS as f32;
-                sum += self.sky(Vec3A::new(r * turn.cos(), r * turn.sin(), z)) * z;
+                sum += self.sky(Vec3A::new(r * libm::cosf(turn), r * libm::sinf(turn), z)) * z;
             }
         }
         let sky = sum * (2.0 / (RINGS * TURNS) as f32);
@@ -149,8 +153,8 @@ impl Light {
         let cos = 1.0 - u1 * (1.0 - self.key_cos);
         let sin = (1.0 - cos * cos).max(0.0).sqrt();
         let turn = 2.0 * PI * u2;
-        self.key_along[0] * (sin * turn.cos())
-            + self.key_along[1] * (sin * turn.sin())
+        self.key_along[0] * (sin * libm::cosf(turn))
+            + self.key_along[1] * (sin * libm::sinf(turn))
             + self.key * cos
     }
 }

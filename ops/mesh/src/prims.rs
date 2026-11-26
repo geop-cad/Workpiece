@@ -158,7 +158,7 @@ fn cylinder(n: usize, half: f64, cone: bool) -> Poly {
     let mut made = Poly::default();
     let around = |k: usize, z: f64| {
         let a = TAU * k as f64 / n as f64;
-        Point3::new(half * a.cos(), half * a.sin(), z)
+        Point3::new(half * libm::cos(a), half * libm::sin(a), z)
     };
     made.points.extend((0..n).map(|k| around(k, -half)));
     made.faces.push((0..n).rev().collect());
@@ -188,9 +188,12 @@ fn torus(n: usize, half: f64) -> Poly {
         let a = TAU * i as f64 / n as f64;
         for j in 0..m {
             let b = TAU * j as f64 / m as f64;
-            let r = ring + tube * b.cos();
-            made.points
-                .push(Point3::new(r * a.cos(), r * a.sin(), tube * b.sin()));
+            let r = ring + tube * libm::cos(b);
+            made.points.push(Point3::new(
+                r * libm::cos(a),
+                r * libm::sin(a),
+                tube * libm::sin(b),
+            ));
         }
     }
     let index = |i: usize, j: usize| (i % n) * m + j % m;

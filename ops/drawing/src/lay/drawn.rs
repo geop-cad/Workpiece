@@ -51,7 +51,7 @@ pub(crate) fn draw(laid: &mut Laid, sheet: &Sheet) {
                 badge: false,
                 ..
             } => {
-                let angle = along.y.atan2(along.x);
+                let angle = libm::atan2(along.y, along.x);
                 let small = lettering() * 0.7;
                 let over = width(&upper, small).max(width(&lower, small));
                 let start = at - along * ((width(&text, lettering()) + over) / 2.0);

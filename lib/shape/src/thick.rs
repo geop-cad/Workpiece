@@ -1928,7 +1928,7 @@ pub fn opening(solid: &Solid, edge: usize) -> Option<f64> {
         return None;
     };
     let lean = out_b.dot(into_a);
-    let between = into_a.dot(into_b).clamp(-1.0, 1.0).acos();
+    let between = libm::acos(into_a.dot(into_b).clamp(-1.0, 1.0));
     if lean.abs() < 1e-6 && between > std::f64::consts::PI - 1e-6 {
         return None;
     }
@@ -2211,7 +2211,7 @@ fn thickened_reaching(
         };
         let gap = if grows { half - angle } else { angle - half };
         if walls == 2 && gap > 1e-9 {
-            parting.push((e, d * (gap / 2.0).tan()));
+            parting.push((e, d * libm::tan(gap / 2.0)));
             if !meet {
                 tubed.push(e);
             }
@@ -2270,7 +2270,7 @@ fn thickened_reaching(
                 // (As far as what is within the wall's thickness of
                 // it lies past the edge, and half as much again.)
                 let past = opening(solid, e)? - half / 2.0;
-                (past > 1e-9).then(|| (e, size.min(1.5 * d * past.tan())))
+                (past > 1e-9).then(|| (e, size.min(1.5 * d * libm::tan(past))))
             })
             .collect();
         if meet {
@@ -2376,7 +2376,7 @@ fn thickened_reaching(
         let axis = Point3::new(1.0, 2.0, 3.0).normalize();
         let turned = |p: Point3| {
             let r = p - centre;
-            let (sin, cos) = 1.0_f64.sin_cos();
+            let (sin, cos) = libm::sincos(1.0_f64);
             let r = r * cos + axis.cross(r) * sin + axis * (axis.dot(r) * (1.0 - cos));
             centre + x * r.x + y * r.y + z * r.z
         };
@@ -3607,7 +3607,7 @@ pub fn faces_offset(solid: &Solid, faces: &[usize], distance: f64) -> anyhow::Re
         } else {
             angle - half
         };
-        (gap > 1e-9 && moved_at(edge)).then(|| distance.abs() * (gap / 2.0).tan())
+        (gap > 1e-9 && moved_at(edge)).then(|| distance.abs() * libm::tan(gap / 2.0))
     };
     let size = {
         let (lo, hi) = solid.extent();
@@ -3698,7 +3698,7 @@ pub fn thicken(
                 } else {
                     angle - half
                 };
-                (gap > 1e-9).then(|| (e, d * (gap / 2.0).tan()))
+                (gap > 1e-9).then(|| (e, d * libm::tan(gap / 2.0)))
             })
             .collect();
         for &f in faces {
@@ -3798,7 +3798,7 @@ pub fn thicken(
             let axis = Point3::new(1.0, 2.0, 3.0).normalize();
             let turned = |p: Point3| {
                 let r = p - centre;
-                let (sin, cos) = 1.0_f64.sin_cos();
+                let (sin, cos) = libm::sincos(1.0_f64);
                 centre + r * cos + axis.cross(r) * sin + axis * (axis.dot(r) * (1.0 - cos))
             };
             let whole = crate::blend::ball(&id, centre, d)?.moved(&turned)?;
@@ -3890,7 +3890,7 @@ pub fn drafted(
         (hi - lo).length()
     };
     let height = |p: Point3| (p - neutral).dot(pull);
-    let lean = angle.tan();
+    let lean = libm::tan(angle);
     // Out of the body by this much (into it, where it is less than
     // nothing).
     // (With `both`, the same way on either side of the neutral plane:
@@ -4183,7 +4183,7 @@ impl<'a> Network<'a> {
                 let t = a + (b - a) * f64::from(k) / 6.0;
                 let mine = normal_out(&solid.faces[at[0].0], at[0].2.point_at(t));
                 let theirs = normal_out(&solid.faces[*g], other.point_at(t));
-                if mine.dot(theirs).clamp(-1.0, 1.0).acos() > SEAM {
+                if libm::acos(mine.dot(theirs).clamp(-1.0, 1.0)) > SEAM {
                     return None;
                 }
             }
@@ -4760,7 +4760,7 @@ mod tests {
         let more = run_on_surface(&more, true, true, -1.0)?;
         for (u, v) in [(0.3, 0.2), (0.9, 1.0), (1.4, -0.7), (1.2, 0.5)] {
             let p = more.point_at(u, v);
-            assert!((p.x.hypot(p.y) - 2.0).abs() < 1e-12, "{p:?}");
+            assert!((libm::hypot(p.x, p.y) - 2.0).abs() < 1e-12, "{p:?}");
             assert!((p.z - 3.0 * v).abs() < 1e-12, "{p:?}");
             if (0.0..=1.0).contains(&u) && (0.0..=1.0).contains(&v) {
                 assert!(p.distance(quarter.point_at(u, v)) < 1e-12);

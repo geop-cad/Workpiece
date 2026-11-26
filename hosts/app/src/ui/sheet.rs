@@ -760,7 +760,7 @@ impl SheetPanel {
         if let Some(pointer) = response.hover_pos() {
             let scroll = ui.input(|i| i.smooth_scroll_delta.y);
             if scroll != 0.0 {
-                let factor = (scroll * 0.004).exp();
+                let factor = libm::expf(scroll * 0.004);
                 let new = (zoom * factor).clamp(0.2, 60.0);
                 let at = pointer - rect.min;
                 self.pan = at - (at - self.pan) * (new / zoom);
@@ -2545,7 +2545,7 @@ fn hand_shapes(
             } => {
                 let tip = to_screen(*tip);
                 let way = egui::vec2(direction.x as f32, -(direction.y as f32)).normalized();
-                let across = way.rot90() * (11.0 * 7.5_f32.to_radians().tan());
+                let across = way.rot90() * (11.0 * libm::tanf(7.5_f32.to_radians()));
                 let back = tip - way * 11.0;
                 painter.add(egui::Shape::convex_polygon(
                     vec![tip, back + across, back - across],
@@ -2563,8 +2563,8 @@ fn hand_shapes(
                 badge,
             } => {
                 let ink = tone_colour(*tone);
-                let angle = -(along.y.atan2(along.x) as f32);
-                let (sin, cos) = angle.sin_cos();
+                let angle = -(libm::atan2(along.y, along.x) as f32);
+                let (sin, cos) = libm::sincosf(angle);
                 let turned =
                     |v: egui::Vec2| egui::vec2(v.x * cos - v.y * sin, v.x * sin + v.y * cos);
                 let size = if *badge { 10.0 } else { 12.5 };
@@ -2730,7 +2730,7 @@ fn paint(
         // Where its upper left corner is, turned about the point it is
         // set by: on the screen up is down, and a turn the other way.
         let angle = -(text.angle as f32);
-        let (sin, cos) = angle.sin_cos();
+        let (sin, cos) = libm::sincosf(angle);
         let baseline = galley.size().y * 0.80;
         let dx = -(text.anchor[0] as f32) * galley.size().x;
         let dy = -(baseline - text.anchor[1] as f32 * cap);

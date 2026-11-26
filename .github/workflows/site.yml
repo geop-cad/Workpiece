@@ -79,7 +79,8 @@ jobs:
           version=$(sed -n '/^name = "wasm-bindgen"$/{n;s/^version = "\(.*\)"$/\1/p;}' Cargo.lock)
           echo "WASM_BINDGEN_VERSION=$version" >> "$GITHUB_ENV"
           # Pinned by its sha256 (computed from the release download, which matches the
-          # release's own .sha256 file): a new version is a new hash here.
+          # release's own .sha256 file): a new version is a new hash here, and a new
+          # BINARYEN in website/app/build.sh (which takes no other version).
           binaryen=version_131
           binaryen_sha256=b5bf1f0eaf17c63ee588ff7a5954dc8f6ce2c26989051c66f24dfe9ece3e46db
           curl -sSfL -o "$RUNNER_TEMP/binaryen.tar.gz" "https://github.com/WebAssembly/binaryen/releases/download/$binaryen/binaryen-$binaryen-x86_64-linux.tar.gz"
@@ -94,6 +95,11 @@ jobs:
           node-version: 24
       - name: Build the application for the browser
         run: website/app/build.sh
+      # Every example's part files build in the browser's kernel as the command line built them
+      # on the desktop (examples/built.json, which examples/build_all.py writes): the same steps,
+      # volumes, faces and edges. One that does not stops the deploy.
+      - name: The examples build in the browser as on the desktop
+        run: node examples/wasm_check.mjs website/app/dist
       # The assistant's Pages Functions and budget worker (cloud/, docs/assistant.md), once there.
       - name: Check the functions in cloud/
         if: hashFiles('cloud/package-lock.json') != ''

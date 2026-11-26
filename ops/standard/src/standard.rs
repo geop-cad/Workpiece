@@ -4,6 +4,7 @@
 //! it goes onto is left to pick.
 
 use std::f64::consts::TAU;
+use workpiece_core::math::from_angle;
 
 use anyhow::Context;
 use workpiece_boolean::{Op, Solid, combine};
@@ -282,7 +283,7 @@ fn column(id: &str, outline: &(Sides, Weighted), from: f64, to: f64) -> anyhow::
 fn hexagon(flats: f64) -> (Sides, Weighted) {
     let radius = flats / 3.0_f64.sqrt();
     let corners: Vec<Point2> = (0..6)
-        .map(|k| Point2::from_angle(TAU * f64::from(k) / 6.0) * radius)
+        .map(|k| from_angle(TAU * f64::from(k) / 6.0) * radius)
         .collect();
     polygon(&corners)
 }

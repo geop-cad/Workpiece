@@ -2778,7 +2778,7 @@ fn a_plate_with_a_hole_is_cut_hole_first() -> anyhow::Result<()> {
         } else if line.starts_with("G1 ")
             && let (Some(from), Some(to), Some(last)) = (at, xy(), long.last_mut())
         {
-            *last += (to.0 - from.0).hypot(to.1 - from.1);
+            *last += libm::hypot(to.0 - from.0, to.1 - from.1);
             at = Some(to);
         }
     }
@@ -2839,7 +2839,7 @@ fn a_joint_is_run_along_its_travel() -> anyhow::Result<()> {
         };
         display.of(&world).instances["lid"].pose.axis(Axis::X)
     };
-    let turned = lid_at(0.0).dot(lid_at(1.0)).clamp(-1.0, 1.0).acos();
+    let turned = libm::acos(lid_at(0.0).dot(lid_at(1.0)).clamp(-1.0, 1.0));
     assert!((turned - 1.0).abs() < 1e-6, "{turned}");
     Ok(())
 }

@@ -4,6 +4,7 @@
 
 use workpiece_core::handles::CanvasView;
 use workpiece_core::math::Point2;
+use workpiece_core::math::from_angle;
 
 use crate::model::{Id, Item, Kind, Shape, SketchArgs, SketchAxis};
 use crate::solve::Overdefined;
@@ -507,7 +508,7 @@ pub(crate) fn apply(
         Plan::Turn(chosen, about, scale) => {
             // Their points, each once; a circle's radius with them.
             let centre = new.at(about);
-            let turn = Point2::from_angle(state.angle.to_radians());
+            let turn = from_angle(state.angle.to_radians());
             let factor = if scale { state.factor } else { 1.0 };
             let mut moved = std::collections::BTreeSet::new();
             for &e in &chosen {
@@ -563,7 +564,7 @@ pub(crate) fn apply(
             let n = state.copies.clamp(2, 200);
             let mut all = Vec::new();
             for k in 1..n {
-                let turn = Point2::from_angle(std::f64::consts::TAU * k as f64 / n as f64);
+                let turn = from_angle(std::f64::consts::TAU * k as f64 / n as f64);
                 let to = |p: Point2| about + turn.rotate(p - about);
                 all.extend(crate::copy::copied(&mut new, &chosen, &to, 1.0));
             }
@@ -700,7 +701,7 @@ pub(crate) fn dimension_for(
         (0, 2, 0, 0) => {
             let ((a1, b1), (a2, b2)) = (args.line(p.lines[0])?, args.line(p.lines[1])?);
             let (d1, d2) = ((b1 - a1).try_normalize()?, (b2 - a2).try_normalize()?);
-            let angle = d1.perp_dot(d2).atan2(d1.dot(d2)).to_degrees();
+            let angle = libm::atan2(d1.perp_dot(d2), d1.dot(d2)).to_degrees();
             if d1.perp_dot(d2).abs() < 1e-9 {
                 // An endless one (a rotation axis, an axis of the plane)
                 // is what is measured to.

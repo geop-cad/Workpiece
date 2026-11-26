@@ -50,7 +50,12 @@ missing_docs = "warn"
 
 [workspace.dependencies]
 anyhow = "1.0.104"
+# (Its "libm": its sines and the like are the libm crate's, as ours are.)
 glam = { version = "0.34.3", features = ["serde"] }
+# The sines, logarithms and powers, on every target the same: std's
+# follow the platform's C library, and so would a part's build (see
+# clippy.toml).
+libm = "0.2.16"
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
 thiserror = "2.0.21"

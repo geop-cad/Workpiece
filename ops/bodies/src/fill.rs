@@ -124,8 +124,8 @@ pub fn places(
     // is in it.
     let far = points.iter().map(|p| p.distance(seed)).fold(0.0, f64::max);
     let (u, v) = (
-        Point2::new(angle.cos(), angle.sin()),
-        Point2::new(-angle.sin(), angle.cos()),
+        Point2::new(libm::cos(angle), libm::sin(angle)),
+        Point2::new(-libm::sin(angle), libm::cos(angle)),
     );
     let mut all = Vec::new();
     let mut add = |p: Point2| -> anyhow::Result<()> {
@@ -159,7 +159,7 @@ pub fn places(
                 let n = ((std::f64::consts::TAU * r / spacing).floor() as usize).max(1);
                 for i in 0..n {
                     let a = angle + std::f64::consts::TAU * i as f64 / n as f64;
-                    add(seed + Point2::new(a.cos(), a.sin()) * r)?;
+                    add(seed + Point2::new(libm::cos(a), libm::sin(a)) * r)?;
                 }
             }
         }
@@ -168,7 +168,7 @@ pub fn places(
             let rings = (far / across).ceil() as usize + 1;
             let corner = |r: f64, c: usize| {
                 let a = angle + std::f64::consts::TAU * c as f64 / sides as f64;
-                seed + Point2::new(a.cos(), a.sin()) * r
+                seed + Point2::new(libm::cos(a), libm::sin(a)) * r
             };
             for k in 1..=rings {
                 // (Its corners `across` further out each ring.)

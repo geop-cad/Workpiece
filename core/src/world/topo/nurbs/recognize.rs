@@ -94,7 +94,7 @@ pub fn recognize(curve: &Curve2, t0: f64, t1: f64, tolerance: f64) -> Option<(Re
         let mut one_way = true;
         for pair in samples.windows(2) {
             let (u, v) = (pair[0] - center, pair[1] - center);
-            let step = u.perp_dot(v).atan2(u.dot(v));
+            let step = libm::atan2(u.perp_dot(v), u.dot(v));
             one_way &= sweep * step >= 0.0;
             sweep += step;
         }

@@ -89,11 +89,11 @@ fn drags_pull_and_the_constraints_have_the_final_say() {
     let pull = Pull::none(&x).hold(2, 3.0).hold(3, 30.0);
     let report = solve(&system, &mut x, &pull, TOLERANCE);
     assert!(report.converged, "{report:?}");
-    let radius = x[2].hypot(x[3]);
+    let radius = libm::hypot(x[2], x[3]);
     assert!((radius - 2.0).abs() < 1e-9);
     let nearest = (
-        3.0f64.atan2(30.0).sin() * 2.0,
-        3.0f64.atan2(30.0).cos() * 2.0,
+        libm::sin(libm::atan2(3.0f64, 30.0)) * 2.0,
+        libm::cos(libm::atan2(3.0f64, 30.0)) * 2.0,
     );
     assert!(
         (x[2] - nearest.0).abs() < 1e-3 && (x[3] - nearest.1).abs() < 1e-3,

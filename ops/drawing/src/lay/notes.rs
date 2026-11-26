@@ -4,6 +4,7 @@
 
 use crate::Sheet;
 use workpiece_core::math::Point2;
+use workpiece_core::math::from_angle;
 use workpiece_core::world::annotation::number;
 use workpiece_core::world::{Annotation, Callout, Characteristic, Measured, Note, Tolerance};
 
@@ -654,7 +655,7 @@ impl Taken {
 
 /// The box a text takes on the sheet.
 pub(crate) fn text_corners(text: &super::Text, shrink: f64) -> [Point2; 4] {
-    let along = Point2::from_angle(text.angle);
+    let along = from_angle(text.angle);
     let up = along.perp();
     let (w, h) = (width(&text.text, text.height), text.height);
     let foot = text.at - along * (w * text.anchor[0]) - up * (h * text.anchor[1]);
@@ -692,7 +693,7 @@ pub(crate) fn overlap(a: &[Point2; 4], b: &[Point2; 4]) -> bool {
 }
 
 pub(crate) fn text_box(text: &super::Text) -> [Point2; 2] {
-    let along = Point2::from_angle(text.angle);
+    let along = from_angle(text.angle);
     let up = along.perp();
     let (w, h) = (width(&text.text, text.height), text.height);
     let foot = text.at - along * (w * text.anchor[0]) - up * (h * text.anchor[1]);
@@ -990,7 +991,7 @@ fn text_along(laid: &mut Laid, at: Point2, along: Point2, text: &str, height: f6
         text: text.to_owned(),
         height,
         anchor: [0.5, 0.0],
-        angle: along.y.atan2(along.x),
+        angle: libm::atan2(along.y, along.x),
         preview: false,
     });
     let half = along * (width(text, height) / 2.0);
@@ -1159,7 +1160,7 @@ fn dimension_text(laid: &mut Laid, at: Point2, along: Point2, said: &Said) -> [P
             text: text.clone(),
             height: small,
             anchor: [0.0, 0.0],
-            angle: along.y.atan2(along.x),
+            angle: libm::atan2(along.y, along.x),
             preview: false,
         });
     }
@@ -1511,7 +1512,7 @@ fn round_dimension(
                 // that circle may be no edge at all.)
                 let reach = if hidden { 2.0 * ARROW } else { 12.0 };
                 let half = (reach / r.max(1e-9)).min(std::f64::consts::PI);
-                laid.arc(c, r, way.y.atan2(way.x) - half, 2.0 * half, pen);
+                laid.arc(c, r, libm::atan2(way.y, way.x) - half, 2.0 * half, pen);
             }
         }
     }
@@ -1741,7 +1742,7 @@ fn words_leader(laid: &mut Laid, rect: [Point2; 2], tip: Point2, lines: &[(Point
         // (A dot about five times as wide as the line.)
         let r = 0.6;
         let corners: Vec<Point2> = (0..12)
-            .map(|k| tip + Point2::from_angle(f64::from(k) * std::f64::consts::TAU / 12.0) * r)
+            .map(|k| tip + from_angle(f64::from(k) * std::f64::consts::TAU / 12.0) * r)
             .collect();
         for k in 1..11 {
             laid.fills.push(super::Fill {
@@ -1933,7 +1934,7 @@ pub(crate) fn texture_symbol(
 ) -> [Point2; 2] {
     use workpiece_core::world::Removal;
     let (h1, h2) = (1.4 * h, 3.0 * h);
-    let lean = (30.0_f64).to_radians().tan();
+    let lean = libm::tan((30.0_f64).to_radians());
     let short = apex + Point2::new(-h1 * lean, h1);
     let long = apex + Point2::new(h2 * lean, h2);
     laid.line(apex, short, Pen::Narrow);
@@ -1943,8 +1944,7 @@ pub(crate) fn texture_symbol(
         Removal::Required => laid.line(short, apex + Point2::new(h1 * lean, h1), Pen::Narrow),
         Removal::Prohibited => {
             let (c, r) = (apex + Point2::new(0.0, h1 / 1.5), h1 / 3.0);
-            let at =
-                |k: u32| c + Point2::from_angle(std::f64::consts::TAU * f64::from(k) / 32.0) * r;
+            let at = |k: u32| c + from_angle(std::f64::consts::TAU * f64::from(k) / 32.0) * r;
             for k in 0..32 {
                 laid.line(at(k), at(k + 1), Pen::Narrow);
             }
@@ -2185,7 +2185,7 @@ pub(crate) fn draw_note(
                     let tip = (0..720)
                         .map(|k| {
                             let a = f64::from(k) * std::f64::consts::TAU / 720.0;
-                            placed.place(*centre + (u * a.cos() + v * a.sin()) * *radius)
+                            placed.place(*centre + (u * libm::cos(a) + v * libm::sin(a)) * *radius)
                         })
                         .max_by(|p, q| {
                             let d = |x: &Point2| (*x - c).normalize_or_zero().dot(wanted);
@@ -2220,7 +2220,7 @@ pub(crate) fn draw_note(
                 let u = (at - v)
                     .try_normalize()
                     .unwrap_or((d1 + d2).try_normalize().unwrap_or(d1.perp()));
-                let between = |a: Point2, b: Point2| a.dot(b).clamp(-1.0, 1.0).acos();
+                let between = |a: Point2, b: Point2| libm::acos(a.dot(b).clamp(-1.0, 1.0));
                 let geometric = between(d1, d2).to_degrees();
                 let as_is = (geometric - value).abs() <= (geometric - (180.0 - value)).abs();
                 // (An angle says its value — what a sketch or a step
@@ -2248,7 +2248,7 @@ pub(crate) fn draw_note(
                 // The arc through where the text is put, about the
                 // vertex, from the one arm to the other.
                 let radius = at.distance(v).max(ARROW * 3.0);
-                let (a1, a2) = (e1.y.atan2(e1.x), e2.y.atan2(e2.x));
+                let (a1, a2) = (libm::atan2(e1.y, e1.x), libm::atan2(e2.y, e2.x));
                 let mut sweep = a2 - a1;
                 while sweep > std::f64::consts::PI {
                     sweep -= std::f64::consts::TAU;
@@ -2261,7 +2261,7 @@ pub(crate) fn draw_note(
                 // (How far round from the first arm, the way to the
                 // second, a direction is: between -π and π.)
                 let round = |d: Point2| {
-                    let mut t = (d.y.atan2(d.x) - a1) * turn;
+                    let mut t = (libm::atan2(d.y, d.x) - a1) * turn;
                     while t > std::f64::consts::PI {
                         t -= std::f64::consts::TAU;
                     }
@@ -2346,7 +2346,7 @@ pub(crate) fn draw_note(
                 let sign = if inside { 1.0 } else { -1.0 };
                 laid.arrow(v + e1 * radius, -e1.perp() * (turn * sign), ARROW);
                 laid.arrow(v + e2 * radius, e2.perp() * (turn * sign), ARROW);
-                let u = Point2::from_angle(a1 + put * turn);
+                let u = from_angle(a1 + put * turn);
                 // (Over the middle, its foot outside the arc: where it
                 // would read standing inwards, moved out by its height.)
                 let lift = if over_middle {
@@ -3102,7 +3102,7 @@ pub(crate) fn draw(
                     // that stand as its value does — a callout's
                     // head under its bore.)
                     let value = laid.texts.get(k.start)?;
-                    let up = Point2::from_angle(value.angle).perp();
+                    let up = from_angle(value.angle).perp();
                     laid.texts[k.clone()]
                         .iter()
                         .filter(|t| {
@@ -3117,7 +3117,7 @@ pub(crate) fn draw(
                     ));
                     continue;
                 };
-                let along = Point2::from_angle(value.angle);
+                let along = from_angle(value.angle);
                 let up = along.perp();
                 // (Their lines: as wide as the widest, one under the
                 // other.)
@@ -3261,7 +3261,7 @@ pub(crate) fn draw(
                 text: (*row).to_owned(),
                 height: words.height,
                 anchor,
-                angle: along.y.atan2(along.x),
+                angle: libm::atan2(along.y, along.x),
                 preview: false,
             });
         }
@@ -3707,7 +3707,7 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
             [0.0_f64, 20.0, -20.0, 40.0, -40.0, 60.0, -60.0]
                 .into_iter()
                 .map(|turn| {
-                    let (sin, cos) = turn.to_radians().sin_cos();
+                    let (sin, cos) = libm::sincos(turn.to_radians());
                     let way = Point2::new(way.x * cos - way.y * sin, way.x * sin + way.y * cos);
                     (about + way * (radius * placed.scale + 12.0), way * 8.0)
                 })
@@ -3738,7 +3738,7 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
             [0.0_f64, 20.0, -20.0, 40.0, -40.0, 90.0, -90.0, 180.0]
                 .into_iter()
                 .map(|turn| {
-                    let (sin, cos) = turn.to_radians().sin_cos();
+                    let (sin, cos) = libm::sincos(turn.to_radians());
                     let way = Point2::new(way.x * cos - way.y * sin, way.x * sin + way.y * cos);
                     // (Out of the view, as far as it reaches that way.)
                     let reach = [lo, hi, Point2::new(lo.x, hi.y), Point2::new(hi.x, lo.y)]
@@ -3766,7 +3766,7 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
             [0.0_f64, 20.0, -20.0, 40.0, -40.0, 90.0, -90.0, 180.0]
                 .into_iter()
                 .map(|turn| {
-                    let (sin, cos) = turn.to_radians().sin_cos();
+                    let (sin, cos) = libm::sincos(turn.to_radians());
                     let way = Point2::new(way.x * cos - way.y * sin, way.x * sin + way.y * cos);
                     let reach = [lo, hi, Point2::new(lo.x, hi.y), Point2::new(hi.x, lo.y)]
                         .iter()
@@ -3898,7 +3898,7 @@ fn leader_across(placed: &Placed<'_>, lines: &[(Point2, Point2)], a: Point2, b: 
 /// them (ISO 129-1, ISO 1101, ISO 5459; on a model, ISO 16792).
 pub mod on_model {
     use super::{Frame, Laid, draw_note, width};
-    use workpiece_core::math::{Point2, Point3};
+    use workpiece_core::math::{Point2, Point3, from_angle};
     use workpiece_core::world::{Annotation, Measured, Note};
 
     /// A line of lettering on the model.
@@ -4062,7 +4062,7 @@ pub mod on_model {
                 .texts
                 .iter()
                 .map(|t| {
-                    let along = Point2::from_angle(t.angle);
+                    let along = from_angle(t.angle);
                     let size = Point2::new(width(&t.text, t.height), t.height);
                     let off = (Point2::new(0.5, 0.5) - Point2::from_array(t.anchor)) * size;
                     let middle = t.at + along * off.x + along.perp() * off.y;

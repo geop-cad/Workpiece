@@ -168,7 +168,7 @@ impl Writer {
                 let id = if slope == 0.0 {
                     self.add(&format!("CYLINDRICAL_SURFACE('',#{placed},{radius})"))
                 } else {
-                    let angle = real(slope.atan());
+                    let angle = real(libm::atan(slope));
                     self.add(&format!("CONICAL_SURFACE('',#{placed},{radius},{angle})"))
                 };
                 (id, inward)
@@ -590,7 +590,7 @@ fn ring(surface: &NurbsSurface, seen: &[(Point3, Point3)], within: f64) -> Optio
         let minor = -t;
         let fits = flat.iter().all(|((far, high), (n_out, n_high))| {
             let (x, y) = (far - major - n_out * minor, high - height - n_high * minor);
-            x.hypot(y) <= within
+            libm::hypot(x, y) <= within
         });
         // (A ring with a hole in its middle: not one that runs through
         // its own axis.)
@@ -760,7 +760,7 @@ fn known(surface: &NurbsSurface) -> Option<Known> {
                 surface.point_at((u0 + u1) / 2.0, v0 + (v1 - v0) * f)
             };
             let d = out(p);
-            d.dot(e2).atan2(d.dot(e1))
+            libm::atan2(d.dot(e2), d.dot(e1))
         };
         let mut sum = 0.0;
         let mut before = at(0);

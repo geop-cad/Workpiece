@@ -144,7 +144,7 @@ impl Operation for Thread {
                 let size = if hole {
                     // (The size whose tap's drill is nearest.)
                     let off = |s: &&norm::Size| {
-                        (norm::tap_drill(s.diameter, s.coarse) / across).ln().abs()
+                        libm::log(norm::tap_drill(s.diameter, s.coarse) / across).abs()
                     };
                     norm::SIZES.iter().min_by(|a, b| off(a).total_cmp(&off(b)))
                 } else {

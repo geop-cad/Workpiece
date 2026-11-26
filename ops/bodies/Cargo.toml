@@ -12,6 +12,7 @@ rust-version.workspace = true
 name = "workpiece_ops_bodies"
 
 [dependencies]
+libm.workspace = true
 anyhow.workspace = true
 workpiece-boolean.workspace = true
 workpiece-core.workspace = true

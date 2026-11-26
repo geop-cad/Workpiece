@@ -327,7 +327,7 @@ pub fn filled_over(sides: &[Side<'_>], id: &str) -> anyhow::Result<Solid> {
             .map(|k| {
                 let a = -std::f64::consts::FRAC_PI_2 - std::f64::consts::PI / n as f64
                     + std::f64::consts::TAU * k as f64 / n as f64;
-                Point2::new(0.5 + 0.5 * a.cos(), 0.5 + 0.5 * a.sin())
+                Point2::new(0.5 + 0.5 * libm::cos(a), 0.5 + 0.5 * libm::sin(a))
             })
             .collect()
     };

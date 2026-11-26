@@ -1,7 +1,7 @@
 //! The [`Mate`] operation: a joint between two connectors.
 
 use anyhow::Context;
-use glam::DQuat;
+use workpiece_core::math::rotation_x;
 use workpiece_core::widgets::{
     Choice, ConnectorInput, HBox, Label, Mood, NumericInput, Picked, Scope,
 };
@@ -400,7 +400,7 @@ impl MateArgs {
     /// if that is asked for.
     pub fn facing(&self, frame: Pose) -> Pose {
         if self.flip {
-            frame * Pose::from_rotation(DQuat::from_rotation_x(std::f64::consts::PI))
+            frame * Pose::from_rotation(rotation_x(std::f64::consts::PI))
         } else {
             frame
         }
@@ -496,7 +496,7 @@ mod tests {
         b.world.joints[0].limits.angle = Some((back, back));
         assembly::settle(&mut b.world, &mut b.cache);
         let other = b.world.instances["lid"].pose.axis(Axis::X);
-        let between = one.dot(other).clamp(-1.0, 1.0).acos().to_degrees();
+        let between = libm::acos(one.dot(other).clamp(-1.0, 1.0)).to_degrees();
         assert!((between - 40.0).abs() < 1e-5, "{between}");
         Ok(())
     }

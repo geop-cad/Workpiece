@@ -554,7 +554,7 @@ fn held_at<'a>(
                 // (Square across the section in the face, turned within
                 // it as asked.)
                 let square = n.cross(along).normalize_or_zero();
-                let way = square * angle.cos() + n.cross(square) * angle.sin();
+                let way = square * libm::cos(angle) + n.cross(square) * libm::sin(angle);
                 let bend = bends.then(|| n * bend_along(&surface, uv, way));
                 (way, bend)
             }))
@@ -1111,7 +1111,7 @@ fn leaving_handle(
         square
     };
     let a = section.angle.to_radians();
-    let way = square * a.cos() + normal.cross(square) * a.sin();
+    let way = square * libm::cos(a) + normal.cross(square) * libm::sin(a);
     let way = if way.dot(onward) < 0.0 { -way } else { way };
     let way = if section.flip { -way } else { way };
     let reach = middle.distance(there).max(1e-9) / 4.0;
@@ -1123,11 +1123,7 @@ fn leaving_handle(
         let mut new = was.clone();
         let section = &mut new.sections[k];
         section.magnitude = (v.length() / reach).max(1e-3);
-        let angle = normal
-            .cross(square)
-            .dot(v)
-            .atan2(square.dot(v))
-            .to_degrees();
+        let angle = libm::atan2(normal.cross(square).dot(v), square.dot(v)).to_degrees();
         // (Beyond square across the section it leaves the other way,
         // turned back.)
         section.flip = angle.abs() > 90.0;

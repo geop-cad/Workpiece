@@ -2,7 +2,7 @@
 
 use std::ops::Mul;
 
-use glam::{DMat3, DQuat, EulerRot};
+use glam::{DMat3, DQuat};
 
 use crate::math::{Axis, Point3};
 
@@ -102,17 +102,14 @@ impl Pose {
     /// The rotation as Euler angles in degrees, `[x, y, z]`: turning about
     /// the fixed x axis, then the fixed y axis, then the fixed z axis.
     pub fn euler_degrees(&self) -> [f64; 3] {
-        // Fixed x, y, z is moving z, y, x.
-        let (z, y, x) = self.real.to_euler(EulerRot::ZYX);
-        [x, y, z].map(f64::to_degrees)
+        crate::math::to_euler_xyz(self.real).map(f64::to_degrees)
     }
 
     /// The pose with the same translation and the rotation of Euler angles
     /// `[x, y, z]` in degrees (see [`euler_degrees`](Self::euler_degrees)).
     pub fn with_euler_degrees(&self, [x, y, z]: [f64; 3]) -> Self {
-        let [x, y, z] = [x, y, z].map(f64::to_radians);
         Self::from_rotation_translation(
-            DQuat::from_euler(EulerRot::ZYX, z, y, x),
+            crate::math::from_euler_xyz([x, y, z].map(f64::to_radians)),
             self.translation(),
         )
     }
@@ -166,11 +163,12 @@ impl Mul for Pose {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::math::rotation_z;
     use std::f64::consts::FRAC_PI_2;
 
     #[test]
     fn parts_round_trip_and_points_move() {
-        let r = DQuat::from_rotation_z(FRAC_PI_2);
+        let r = rotation_z(FRAC_PI_2);
         let t = Point3::new(1.0, 2.0, 3.0);
         let pose = Pose::from_rotation_translation(r, t);
         assert!(pose.translation().abs_diff_eq(t, 1e-12));
@@ -184,7 +182,7 @@ mod tests {
     #[test]
     fn composition_applies_right_first_and_inverse_undoes() {
         let a = Pose::from_translation(Point3::X);
-        let b = Pose::from_rotation(DQuat::from_rotation_z(FRAC_PI_2));
+        let b = Pose::from_rotation(rotation_z(FRAC_PI_2));
         let p = Point3::new(1.0, 0.0, 5.0);
         let ab = a * b;
         assert!(

@@ -7,6 +7,7 @@
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use workpiece_core::math::angle_between;
 
 use workpiece_core::math::{Point2, Point3};
 use workpiece_core::world::topo::nurbs::SEGMENTS_PER_SPAN;
@@ -73,7 +74,7 @@ fn samples(surface: &NurbsSurface, along_v: bool) -> Vec<f64> {
             let along = |at: &dyn Fn(f64) -> Point3| -> f64 {
                 let ways =
                     [0.001, 0.25, 0.5, 0.75, 0.999].map(|f| at(pair[0] + (pair[1] - pair[0]) * f));
-                ways.windows(2).map(|w| w[0].angle_between(w[1])).sum()
+                ways.windows(2).map(|w| angle_between(w[0], w[1])).sum()
             };
             let bent = if degree <= 1 {
                 0.0
@@ -910,7 +911,7 @@ mod tests {
         // patch: its lines both ways run straight) is sampled across and
         // along as its normal turns — not at its corners only, as if
         // flat, which drew its outline wrong (the axial fan's blades).
-        let (c, s) = (40f64.to_radians().cos(), 40f64.to_radians().sin());
+        let (c, s) = (libm::cos(40f64.to_radians()), libm::sin(40f64.to_radians()));
         let twisted = NurbsSurface::new(
             1,
             1,

@@ -7,6 +7,7 @@
 //! unsettled there, with no answer to grade it by.
 
 use std::f64::consts::FRAC_PI_2;
+use workpiece_core::math::{from_angle, rotation, rotation_x, rotation_y, rotation_z};
 
 use glam::DQuat;
 use workpiece_boolean::{Op, Solid, combine};
@@ -51,11 +52,11 @@ fn rod(
     seam: f64,
 ) -> Built {
     let (turn, base) = match axis {
-        0 => (DQuat::from_rotation_y(FRAC_PI_2), [from, at[0], at[1]]),
-        1 => (DQuat::from_rotation_x(-FRAC_PI_2), [at[0], from, at[1]]),
+        0 => (rotation_y(FRAC_PI_2), [from, at[0], at[1]]),
+        1 => (rotation_x(-FRAC_PI_2), [at[0], from, at[1]]),
         _ => (ID, [at[0], at[1], from]),
     };
-    setup(s.cylinder(base, radius, to - from, turn * DQuat::from_rotation_z(seam)))
+    setup(s.cylinder(base, radius, to - from, turn * rotation_z(seam)))
 }
 
 fn ball(s: &mut Scene, at: [f64; 3], radius: f64, turn: DQuat) -> Built {
@@ -64,14 +65,14 @@ fn ball(s: &mut Scene, at: [f64; 3], radius: f64, turn: DQuat) -> Built {
 
 /// What turns the y axis solids are turned about into the z axis.
 fn upright() -> DQuat {
-    DQuat::from_rotation_x(FRAC_PI_2)
+    rotation_x(FRAC_PI_2)
 }
 
 /// The torus about z around the origin, turned about z by `seam`.
 fn torus(s: &mut Scene, major: f64, minor: f64, seam: f64) -> Built {
     setup(s.turned(
         [0.0; 3],
-        DQuat::from_rotation_z(seam) * upright(),
+        rotation_z(seam) * upright(),
         &[],
         Some(([major, 0.0], minor)),
         None,
@@ -265,7 +266,7 @@ pub fn build(id: &str) -> Built {
         "boolean/indexed-pattern" => {
             let mut disk = rod(s, 2, [0.0, 0.0], -5.0, 0.0, 20.0, 0.0)?;
             for k in 0..6 {
-                let (sin, cos) = (f64::from(k) * 60.0_f64).to_radians().sin_cos();
+                let (sin, cos) = libm::sincos((f64::from(k) * 60.0_f64).to_radians());
                 let drill = rod(s, 2, [12.0 * cos, 12.0 * sin], -6.0, 1.0, 2.0, 0.0)?;
                 disk = apply(Op::Cut, &disk, &drill)?;
             }
@@ -347,7 +348,7 @@ pub fn build(id: &str) -> Built {
             let b = setup(s.cube(
                 [0.0, 0.0, 5.0],
                 [10.0; 3],
-                DQuat::from_rotation_z(0.001_f64.to_radians()),
+                rotation_z(0.001_f64.to_radians()),
             ))?;
             apply(Op::Union, &a, &b)
         }
@@ -365,7 +366,7 @@ pub fn build(id: &str) -> Built {
             let first = ball(s, [0.0; 3], 5.0, ID)?;
             let below = block(s, [-far, -far, -far], [far, far, 0.0])?;
             let first = apply(Op::Cut, &first, &below)?;
-            let second = ball(s, [0.0; 3], 5.0, DQuat::from_rotation_y(FRAC_PI_2))?;
+            let second = ball(s, [0.0; 3], 5.0, rotation_y(FRAC_PI_2))?;
             let behind = block(s, [-far, -far, -far], [0.0, far, far])?;
             let second = apply(Op::Cut, &second, &behind)?;
             apply(Op::Union, &first, &second)
@@ -444,7 +445,7 @@ pub fn build(id: &str) -> Built {
             let a = torus(s, 5.0, 3.0, 0.0)?;
             // The half space above 3x − 4z = 0: a block whose bottom
             // is that plane.
-            let tilt = DQuat::from_rotation_y(-(0.75_f64).atan());
+            let tilt = rotation_y(-libm::atan(0.75_f64));
             let up = tilt * Point3::Z;
             let b = setup(s.cube((up * 50.0).into(), [200.0, 200.0, 100.0], tilt))?;
             apply(Op::Cut, &a, &b)
@@ -464,7 +465,7 @@ pub fn build(id: &str) -> Built {
         "tangent/wedge-a-millionth-steep" => {
             let a = block(s, [-5.0, -5.0, -10.0], [5.0, 5.0, 0.0])?;
             // The half space above z = y·10⁻⁶.
-            let tilt = DQuat::from_rotation_x(1e-6_f64.atan());
+            let tilt = rotation_x(libm::atan(1e-6_f64));
             let up = tilt * Point3::Z;
             let b = setup(s.cube((up * 50.0).into(), [200.0, 200.0, 100.0], tilt))?;
             apply(Op::Intersect, &a, &b)
@@ -508,7 +509,7 @@ pub fn build(id: &str) -> Built {
         "fillet/cylinder-rim" | "fillet/cylinder-rim-to-dome" | "chamfer/cylinder-rim-to-point" => {
             let post = rod(s, 2, [0.0, 0.0], 0.0, 10.0, 5.0, 0.0)?;
             let rim = pick(&post, |_, m, _| {
-                near(m.z, 10.0) && near(m.x.hypot(m.y), 5.0)
+                near(m.z, 10.0) && near(libm::hypot(m.x, m.y), 5.0)
             });
             let shape = match id {
                 "fillet/cylinder-rim" => round(1.0),
@@ -529,7 +530,7 @@ pub fn build(id: &str) -> Built {
             let boss = rod(s, 2, [0.0, 0.0], 4.0, 8.0, 5.0, 0.0)?;
             let both = apply(Op::Union, &plate, &boss)?;
             let rings = pick(&both, |_, m, _| {
-                (near(m.z, 8.0) || near(m.z, 4.0)) && near(m.x.hypot(m.y), 5.0)
+                (near(m.z, 8.0) || near(m.z, 4.0)) && near(libm::hypot(m.x, m.y), 5.0)
             });
             blended(&both, &rings, &round(2.0), true)
         }
@@ -538,7 +539,7 @@ pub fn build(id: &str) -> Built {
             let hole = rod(s, 2, [0.0, 0.0], -1.0, 3.0, 3.0, 0.0)?;
             let holed = apply(Op::Cut, &plate, &hole)?;
             let rims = pick(&holed, |_, m, _| {
-                near(m.x.hypot(m.y), 3.0) && (near(m.z, 0.0) || near(m.z, 2.0))
+                near(libm::hypot(m.x, m.y), 3.0) && (near(m.z, 0.0) || near(m.z, 2.0))
             });
             blended(&holed, &rims, &round(1.0), true)
         }
@@ -836,7 +837,7 @@ fn thick(s: &mut Scene, id: &str) -> Built {
             done(thickened(&solid, -1.0, Some(&open), false))
         }
         "shell/drilled-block-open-at-its-bore" => shell(&drilled(s, 10.0)?, 1.0, &|p| {
-            near((p.x - 10.0).hypot(p.y - 10.0), 3.0)
+            near(libm::hypot(p.x - 10.0, p.y - 10.0), 3.0)
         }),
         "shell/drilled-block-open-top" => shell(&drilled(s, 10.0)?, 1.0, &level(10.0)),
         "shell/hole-skin-merging-wall" => shell(&drilled(s, 15.5)?, 1.0, &level(10.0)),
@@ -904,7 +905,7 @@ fn swept_bodies(s: &mut Scene, id: &str) -> Built {
             size,
         ))
     };
-    let skew = DQuat::from_axis_angle(Point3::new(1.0, 2.0, 3.0).normalize(), 1.0);
+    let skew = rotation(Point3::new(1.0, 2.0, 3.0).normalize(), 1.0);
     // A block less the tube along `path` and the ball at each of its ends.
     let grooved = |s: &mut Scene, lo: [f64; 3], hi: [f64; 3], path: &Curve3, radius: f64| {
         let (a, b) = path.domain();
@@ -999,19 +1000,19 @@ fn swept_bodies(s: &mut Scene, id: &str) -> Built {
             let step = turns * std::f64::consts::TAU / pieces as f64;
             let at = |a: f64| {
                 Point3::new(
-                    radius * a.cos(),
-                    radius * a.sin(),
+                    radius * libm::cos(a),
+                    radius * libm::sin(a),
                     rise * a / std::f64::consts::TAU - 2.0,
                 )
             };
             let way = |a: f64| {
                 Point3::new(
-                    -radius * a.sin(),
-                    radius * a.cos(),
+                    -radius * libm::sin(a),
+                    radius * libm::cos(a),
                     rise / std::f64::consts::TAU,
                 )
             };
-            let handle = 4.0 / 3.0 * (step / 4.0).tan();
+            let handle = 4.0 / 3.0 * libm::tan(step / 4.0);
             let mut points = vec![at(0.0)];
             let mut knots = vec![0.0; 4];
             for k in 0..pieces {
@@ -1162,7 +1163,7 @@ fn singular(s: &mut Scene, id: &str) -> Built {
         "singular/sectors-sharing-an-apex" => {
             // A cone from the origin up, wide and tall enough to reach
             // out of the ball; and the same, leant 60° about y.
-            let ball = ball(s, [0.0; 3], 10.0, DQuat::from_rotation_x(0.7))?;
+            let ball = ball(s, [0.0; 3], 10.0, rotation_x(0.7))?;
             let up = setup(s.turned(
                 [0.0; 3],
                 upright(),
@@ -1170,7 +1171,7 @@ fn singular(s: &mut Scene, id: &str) -> Built {
                 None,
                 None,
             ))?;
-            let lean = DQuat::from_rotation_y(60.0_f64.to_radians());
+            let lean = rotation_y(60.0_f64.to_radians());
             let leant = up
                 .moved(&|p| lean * p)
                 .map_err(|why| Grade::Crashed(format!("setup: {why}")))?;
@@ -1201,7 +1202,7 @@ fn edits(s: &mut Scene, id: &str) -> Built {
         }
         "edit/hole-widened" => {
             let plate = drilled(s, 8.0)?;
-            let wall = faces_at(&plate, |p| near((p.x - 20.0).hypot(p.y - 15.0), 5.0));
+            let wall = faces_at(&plate, |p| near(libm::hypot(p.x - 20.0, p.y - 15.0), 5.0));
             done(faces_offset(&plate, &wall, -2.0))
         }
         "edit/l-block-riser-moved" => {
@@ -1220,7 +1221,7 @@ fn edits(s: &mut Scene, id: &str) -> Built {
             // The top, and the round with it.
             let mut carried = faces_at(&rounded, |p| near(p.z, 10.0));
             carried.extend(faces_at(&rounded, |p| {
-                near((p.y - 27.0).hypot(p.z - 7.0), 3.0)
+                near(libm::hypot(p.y - 27.0, p.z - 7.0), 3.0)
             }));
             done(faces_moved(&rounded, &carried, up))
         }
@@ -1259,7 +1260,7 @@ fn features(s: &mut Scene, id: &str) -> Built {
         )
         .map_err(|why| Grade::Refused(format!("{why:#}")))
     };
-    let ray = |degrees: f64, far: f64| Point2::from_angle(degrees.to_radians()) * far;
+    let ray = |degrees: f64, far: f64| from_angle(degrees.to_radians()) * far;
     match id {
         "feature/hole-through-the-upper-arm" => {
             let lower = block(s, [0.0, -10.0, 0.0], [40.0, 10.0, 6.0])?;
@@ -1350,7 +1351,7 @@ fn lofts(id: &str) -> Built {
     let lines = |n: usize| vec![(1, vec![0.0, 0.0, 1.0, 1.0], 2); n];
     // A rectangle of half sides `a` and `b`, turned by `angle`.
     let turned = |a: f64, b: f64, angle: f64| {
-        let turn = |p: Point2| Point2::from_angle(angle).rotate(p);
+        let turn = |p: Point2| from_angle(angle).rotate(p);
         polygon(&[
             turn(Point2::new(-a, -b)),
             turn(Point2::new(a, -b)),
@@ -1543,19 +1544,19 @@ fn sweeps(s: &mut Scene, id: &str) -> Built {
             let step = turns * std::f64::consts::TAU / pieces as f64;
             let at = |a: f64| {
                 Point3::new(
-                    radius * a.cos(),
-                    radius * a.sin(),
+                    radius * libm::cos(a),
+                    radius * libm::sin(a),
                     rise * a / std::f64::consts::TAU,
                 )
             };
             let way = |a: f64| {
                 Point3::new(
-                    -radius * a.sin(),
-                    radius * a.cos(),
+                    -radius * libm::sin(a),
+                    radius * libm::cos(a),
                     rise / std::f64::consts::TAU,
                 )
             };
-            let handle = 4.0 / 3.0 * (step / 4.0).tan();
+            let handle = 4.0 / 3.0 * libm::tan(step / 4.0);
             let mut points = vec![at(0.0)];
             let mut knots = vec![0.0; 4];
             for k in 0..pieces {
@@ -1581,7 +1582,7 @@ fn sweeps(s: &mut Scene, id: &str) -> Built {
                 return Ok(pipe);
             }
             // A ball at each end, turned to no plane of the pipe's.
-            let skew = DQuat::from_axis_angle(Point3::new(1.0, 2.0, 3.0).normalize(), 1.0);
+            let skew = rotation(Point3::new(1.0, 2.0, 3.0).normalize(), 1.0);
             let (first, last) = (path.point_at(range.0), path.point_at(range.1));
             let one = apply(Op::Union, &pipe, &ball(s, first.to_array(), 1.0, skew)?)?;
             apply(Op::Union, &one, &ball(s, last.to_array(), 1.0, skew)?)
@@ -1600,7 +1601,7 @@ fn sweeps(s: &mut Scene, id: &str) -> Built {
             };
             let first = run(Point3::new(-30.0, 0.0, 0.0), Point3::ZERO, "first")?;
             let second = run(Point3::ZERO, Point3::new(0.0, 30.0, 0.0), "second")?;
-            let skew = DQuat::from_axis_angle(Point3::new(1.0, 2.0, 3.0).normalize(), 1.0);
+            let skew = rotation(Point3::new(1.0, 2.0, 3.0).normalize(), 1.0);
             let corner = ball(s, [0.0; 3], 3.0, skew)?;
             let one = apply(Op::Union, &first, &corner)?;
             apply(Op::Union, &one, &second)
@@ -1778,18 +1779,30 @@ fn drafts(s: &mut Scene, id: &str) -> Built {
             let plate = block(s, [-20.0, -20.0, 0.0], [20.0, 20.0, 5.0])?;
             let boss = rod(s, 2, [0.0, 0.0], 5.0, 17.0, 8.0, 0.0)?;
             let both = apply(Op::Union, &plate, &boss)?;
-            draft(&both, &|p| near(p.x.hypot(p.y), 8.0), 5.0, 4.0, false)
+            draft(
+                &both,
+                &|p| near(libm::hypot(p.x, p.y), 8.0),
+                5.0,
+                4.0,
+                false,
+            )
         }
         "draft/cylinder-parted-both-ways" => {
             let solid = rod(s, 2, [0.0, 0.0], 0.0, 20.0, 10.0, 0.0)?;
-            draft(&solid, &|p| near(p.x.hypot(p.y), 10.0), 10.0, 3.0, true)
+            draft(
+                &solid,
+                &|p| near(libm::hypot(p.x, p.y), 10.0),
+                10.0,
+                3.0,
+                true,
+            )
         }
         "draft/hole-tapered" => {
             let whole = block(s, [-15.0, -15.0, 0.0], [15.0, 15.0, 20.0])?;
             let bore = rod(s, 2, [0.0, 0.0], -1.0, 21.0, 6.0, 0.0)?;
             draft(
                 &apply(Op::Cut, &whole, &bore)?,
-                &|p| near(p.x.hypot(p.y), 6.0),
+                &|p| near(libm::hypot(p.x, p.y), 6.0),
                 0.0,
                 3.0,
                 false,
@@ -1830,7 +1843,7 @@ fn sheets(s: &mut Scene, id: &str) -> Built {
         done(thicken(solid, &faces, d, both, sharp))
     };
     let on_ball = |r: f64| move |p: Point3| near(p.length(), r);
-    let around = |r: f64| move |p: Point3| near(p.x.hypot(p.y), r);
+    let around = |r: f64| move |p: Point3| near(libm::hypot(p.x, p.y), r);
     match id {
         "thicken/angle-bracket-inward"
         | "thicken/angle-bracket-rounded"
@@ -1850,12 +1863,14 @@ fn sheets(s: &mut Scene, id: &str) -> Built {
             let sheet = |p: Point3| {
                 near(p.z, 0.0)
                     || near(p.x, 2.0)
-                    || near((p.x - 0.0).hypot(p.z - 2.0), 2.0) && p.x >= -1e-9 && p.z <= 2.0 + 1e-9
+                    || near(libm::hypot(p.x - 0.0, p.z - 2.0), 2.0)
+                        && p.x >= -1e-9
+                        && p.z <= 2.0 + 1e-9
             };
             let mut faces = faces_at(&bent, |p| near(p.z, 0.0));
             faces.extend(faces_at(&bent, |p| near(p.x, 2.0)));
             faces.extend(faces_at(&bent, |p| {
-                near(p.x.hypot(p.z - 2.0), 2.0) && !near(p.z, 0.0) | !near(p.x, 2.0)
+                near(libm::hypot(p.x, p.z - 2.0), 2.0) && !near(p.z, 0.0) | !near(p.x, 2.0)
             }));
             let _ = sheet;
             faces.sort_unstable();
@@ -1873,7 +1888,7 @@ fn sheets(s: &mut Scene, id: &str) -> Built {
             ))?;
             make(
                 &solid,
-                &|p| near(p.x.hypot(p.y), 6.0 - 0.75 * p.z) && p.x.hypot(p.y) > 2.9,
+                &|p| near(libm::hypot(p.x, p.y), 6.0 - 0.75 * p.z) && libm::hypot(p.x, p.y) > 2.9,
                 1.0,
                 false,
                 false,
@@ -1977,7 +1992,7 @@ fn sheets(s: &mut Scene, id: &str) -> Built {
             let inner = apply(Op::Intersect, &whole, &core)?;
             make(
                 &inner,
-                &|p| p.x.hypot(p.y) < 6.0 - 1e-6 || near(p.z.abs(), 2.0),
+                &|p| libm::hypot(p.x, p.y) < 6.0 - 1e-6 || near(p.z.abs(), 2.0),
                 1.0,
                 false,
                 false,
@@ -2728,7 +2743,7 @@ fn parts(s: &mut Scene, id: &str) -> Built {
             let bore = rod(s, 2, [0.0, 0.0], -1.0, 17.0, 8.0, 0.0)?;
             let mut flange = apply(Op::Cut, &apply(Op::Union, &plate, &hub)?, &bore)?;
             for k in 0..6 {
-                let (sin, cos) = (f64::from(k) * 60.0_f64).to_radians().sin_cos();
+                let (sin, cos) = libm::sincos((f64::from(k) * 60.0_f64).to_radians());
                 let drill = rod(s, 2, [24.0 * cos, 24.0 * sin], -1.0, 7.0, 3.0, 0.0)?;
                 flange = apply(Op::Cut, &flange, &drill)?;
             }
@@ -2776,14 +2791,14 @@ fn parts(s: &mut Scene, id: &str) -> Built {
         "parts/star-handle" => {
             let (tip, fillet) = (4.0, 3.0);
             let (reach, waist) = (33.1, 15.9);
-            let (height, lean) = (12.0, 2f64.to_radians().tan());
+            let (height, lean) = (12.0, libm::tan(2f64.to_radians()));
             // Across a side of the first arm, from its tip's circle to
             // the fillet's: the line touches both, between them.
             let first = Point2::new(reach, 0.0);
-            let beside = Point2::from_angle(std::f64::consts::FRAC_PI_4) * waist;
+            let beside = from_angle(std::f64::consts::FRAC_PI_4) * waist;
             let apart = first.distance(beside);
-            let across = Point2::from_angle(-((tip + fillet) / apart).acos())
-                .rotate((beside - first) / apart);
+            let across =
+                from_angle(-libm::acos((tip + fillet) / apart)).rotate((beside - first) / apart);
             let mirrored = Point2::new(across.y, across.x);
             let mut sides = hand::Sided::default();
             // The outline moved `d` inward: the tips' circles that much
@@ -2792,7 +2807,7 @@ fn parts(s: &mut Scene, id: &str) -> Built {
             let outline = |d: f64| {
                 let mut all = hand::Sided::default();
                 for k in 0..4 {
-                    let turn = Point2::from_angle(f64::from(k) * std::f64::consts::FRAC_PI_2);
+                    let turn = from_angle(f64::from(k) * std::f64::consts::FRAC_PI_2);
                     let (n, m) = (turn.rotate(across), turn.rotate(mirrored));
                     let (center, corner) = (turn.rotate(first), turn.rotate(beside));
                     let next = turn.rotate(first).perp();
