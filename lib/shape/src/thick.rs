@@ -2060,6 +2060,20 @@ pub fn thickened(
     open: Option<&[usize]>,
     sharp: bool,
 ) -> anyhow::Result<Solid> {
+    // (A smooth network of patches as one: see [`shelled`].)
+    let walls: Vec<usize> = (0..solid.faces.len())
+        .filter(|f| open.is_none_or(|o| !o.contains(f)))
+        .collect();
+    let layers = match open {
+        None => vec![distance],
+        Some(_) if distance < 0.0 => vec![distance, 0.0],
+        Some(_) => vec![0.0, distance],
+    };
+    if distance != 0.0
+        && let Some(made) = smooth_walls(solid, &walls, &layers, open.is_some(), "thick")
+    {
+        return made;
+    }
     thickened_once(solid, distance, open, sharp, false, true)
 }
 
@@ -2070,6 +2084,15 @@ pub fn thickened(
 /// where [`thickened`] leaves the round that keeps every point of the
 /// wall within the thickness of the faces.
 pub fn shelled(solid: &Solid, thickness: f64, open: &[usize]) -> anyhow::Result<Solid> {
+    // A smooth network of patches (a subdivision surface), opened where
+    // it runs on smoothly into the opening: its inside moved in as one,
+    // the wall ending square to itself at the opening.
+    let walls: Vec<usize> = (0..solid.faces.len())
+        .filter(|f| !open.contains(f))
+        .collect();
+    if let Some(made) = smooth_walls(solid, &walls, &[-thickness, 0.0], true, "thick") {
+        return made;
+    }
     let sharp = match thickened_once(solid, -thickness, Some(open), false, true, true) {
         Ok(made) => return Ok(made),
         Err(sharp) => sharp,
@@ -3557,6 +3580,13 @@ pub fn faces_offset(solid: &Solid, faces: &[usize], distance: f64) -> anyhow::Re
     use workpiece_boolean::{Op, combine};
     ensure!(!faces.is_empty(), "pick the faces to offset");
     ensure!(distance != 0.0 && distance.is_finite(), "by some distance");
+    // All the faces of a smooth network of patches: the body that far
+    // off it, moved as one.
+    if (0..solid.faces.len()).all(|f| faces.contains(&f))
+        && let Some(made) = smooth_walls(solid, faces, &[distance], false, "offset")
+    {
+        return made;
+    }
     for &face in faces {
         stays_within(solid, face, distance)?;
     }
@@ -3627,6 +3657,16 @@ pub fn thicken(
     use workpiece_boolean::{Op, combine};
     ensure!(distance != 0.0 && distance.is_finite(), "by some distance");
     ensure!(!faces.is_empty(), "pick the faces to thicken");
+    // A smooth network of patches: moved as one, the wall ending square
+    // to it along its open edges.
+    let layers = if both {
+        vec![-distance.abs(), distance.abs()]
+    } else {
+        vec![distance.min(0.0), distance.max(0.0)]
+    };
+    if let Some(made) = smooth_walls(solid, faces, &layers, false, "thick") {
+        return made;
+    }
     let d = distance.abs();
     let mut faces_of: Vec<Vec<usize>> = vec![Vec::new(); solid.edges.len()];
     for &f in faces {
@@ -3986,6 +4026,706 @@ pub fn drafted(
         });
     }
     whole.context("nothing to draft")
+}
+
+/// How far apart the normals of two faces beside an edge may be for the
+/// edge to be a seam of one smooth surface (radians): the patches of a
+/// subdivision surface meet only that nearly, not exactly, about the
+/// points where not four of them meet.
+const SEAM: f64 = 0.1;
+
+/// A side of a whole patch: a stretch of the rim of its (u, v) that one
+/// of its edges runs along.
+struct Side {
+    /// Where along the side it is, from and to (in u for a side of
+    /// lowest or highest v, else in v).
+    lo: f64,
+    hi: f64,
+    edge: usize,
+    pcurve: Arc<Curve2>,
+}
+
+/// Faces of a solid that are one smooth network of patches — each a
+/// whole patch, bounded by the rim of its (u, v), the patches meeting
+/// at seams where their normals part by less than [`SEAM`] — with the
+/// way each point of them is moved off them: at a seam along the normal
+/// the two faces share, at a corner along that of all the faces there,
+/// and in between along the face's own normal bent over to those, so
+/// that the faces moved off the patches meet at their edges again, and
+/// run on into each other as smoothly as the patches do.
+///
+/// Moved by `d`, a point goes `d` along that way, and a little further
+/// at a seam that is not quite smooth: as far as it takes to be `d` off
+/// both faces there.
+struct Network<'a> {
+    solid: &'a Solid,
+    walls: Vec<usize>,
+    /// For each edge, the walls along it: the face, whether it walks the
+    /// edge against the edge's curve, and its curve in the face's (u, v).
+    beside: Vec<Vec<(usize, bool, Arc<Curve2>)>>,
+    /// The way each corner of the walls is moved (a length less than
+    /// one where the faces there are not quite one plane).
+    corner: BTreeMap<usize, Point3>,
+    /// For each wall, its four sides: lowest v, highest v, lowest u,
+    /// highest u.
+    sides: BTreeMap<usize, [Vec<Side>; 4]>,
+    /// For each edge along the walls, how far the ways its ends are
+    /// moved are from the mean of its faces' normals there.
+    ends: BTreeMap<usize, [Point3; 2]>,
+    /// For each wall, how far the ways its corners are moved are from
+    /// its normal there: at lowest u and v, highest u, highest v, both.
+    corners: BTreeMap<usize, [Point3; 4]>,
+    within: f64,
+}
+
+impl<'a> Network<'a> {
+    /// The network of faces `walls` of `solid`, if they are one: and,
+    /// with `tangent_rims`, meeting the faces of the solid that are not
+    /// walls smoothly too (where the wall is to end square to itself).
+    fn of(solid: &'a Solid, walls: &[usize], tangent_rims: bool) -> Option<Self> {
+        if walls.len() < 2 {
+            return None;
+        }
+        let size = {
+            let (lo, hi) = solid.extent();
+            (hi - lo).length()
+        };
+        let mut beside: Vec<Vec<(usize, bool, Arc<Curve2>)>> = vec![Vec::new(); solid.edges.len()];
+        let mut sides = BTreeMap::new();
+        for &f in walls {
+            let face = &solid.faces[f];
+            let [walk] = &face.loops[..] else {
+                return None;
+            };
+            let ((u0, u1), (v0, v1)) = face.surface.domain();
+            let near = 1e-9 * ((u1 - u0) + (v1 - v0));
+            let mut four: [Vec<Side>; 4] = Default::default();
+            for step in walk {
+                let Walk::Edge { edge, reversed } = step.walk else {
+                    return None;
+                };
+                if beside[edge].iter().any(|(g, _, _)| *g == f) {
+                    return None;
+                }
+                beside[edge].push((f, reversed, step.pcurve.clone()));
+                let (a, b) = solid.edges[edge].range;
+                let at = [a, (a + b) / 2.0, b].map(|t| step.pcurve.point_at(t));
+                let on = |k: usize| match k {
+                    0 => at.iter().all(|p| (p.y - v0).abs() <= near),
+                    1 => at.iter().all(|p| (p.y - v1).abs() <= near),
+                    2 => at.iter().all(|p| (p.x - u0).abs() <= near),
+                    _ => at.iter().all(|p| (p.x - u1).abs() <= near),
+                };
+                let k = (0..4).find(|&k| on(k))?;
+                let (x0, x1) = if k < 2 {
+                    (at[0].x, at[2].x)
+                } else {
+                    (at[0].y, at[2].y)
+                };
+                four[k].push(Side {
+                    lo: x0.min(x1),
+                    hi: x0.max(x1),
+                    edge,
+                    pcurve: step.pcurve.clone(),
+                });
+            }
+            // (All of each side: a whole patch.)
+            for (k, side) in four.iter().enumerate() {
+                let span = if k < 2 { u1 - u0 } else { v1 - v0 };
+                let covered: f64 = side.iter().map(|s| s.hi - s.lo).sum();
+                if (covered - span).abs() > 1e-6 * span {
+                    return None;
+                }
+            }
+            sides.insert(f, four);
+        }
+        let mut net = Self {
+            solid,
+            walls: walls.to_vec(),
+            beside,
+            corner: BTreeMap::new(),
+            sides,
+            ends: BTreeMap::new(),
+            corners: BTreeMap::new(),
+            within: size * 1e-7,
+        };
+        // Every edge between two walls a seam, and (with
+        // `tangent_rims`) every edge between a wall and the rest.
+        let mut seams = 0;
+        for (e, at) in net.beside.iter().enumerate() {
+            let others: Vec<(usize, Arc<Curve2>)> = match at.len() {
+                0 => continue,
+                1 if !tangent_rims => continue,
+                1 => solid
+                    .faces
+                    .iter()
+                    .enumerate()
+                    .filter(|(g, _)| !walls.contains(g))
+                    .flat_map(|(g, face)| {
+                        face.loops
+                            .iter()
+                            .flatten()
+                            .filter(move |s| matches!(s.walk, Walk::Edge { edge, .. } if edge == e))
+                            .map(move |s| (g, s.pcurve.clone()))
+                    })
+                    .collect(),
+                2 => {
+                    seams += 1;
+                    vec![(at[1].0, at[1].2.clone())]
+                }
+                _ => return None,
+            };
+            let [(g, other)] = &others[..] else {
+                return None;
+            };
+            let (a, b) = solid.edges[e].range;
+            for k in 0..=6 {
+                let t = a + (b - a) * f64::from(k) / 6.0;
+                let mine = normal_out(&solid.faces[at[0].0], at[0].2.point_at(t));
+                let theirs = normal_out(&solid.faces[*g], other.point_at(t));
+                if mine.dot(theirs).clamp(-1.0, 1.0).acos() > SEAM {
+                    return None;
+                }
+            }
+        }
+        if seams == 0 {
+            return None;
+        }
+        // The corners: along the normal of all the faces there, and as
+        // much less than one as those lean from it.
+        let mut normals: BTreeMap<usize, Vec<Point3>> = BTreeMap::new();
+        for &f in walls {
+            let face = &solid.faces[f];
+            for step in face.loops.iter().flatten() {
+                let (v, _) = solid.ends(step);
+                normals
+                    .entry(v)
+                    .or_default()
+                    .push(normal_out(face, solid.start(step)));
+            }
+        }
+        for (v, all) in normals {
+            let way = all.iter().copied().sum::<Point3>().try_normalize()?;
+            let lean = all.iter().map(|n| n.dot(way)).sum::<f64>() / all.len() as f64;
+            net.corner.insert(v, way * lean);
+        }
+        for (e, at) in net.beside.iter().enumerate() {
+            if at.is_empty() {
+                continue;
+            }
+            let edge = &solid.edges[e];
+            let off = |v: usize, t: f64| net.corner[&v] - net.mean(e, t);
+            let ends = [
+                off(edge.ends[0], edge.range.0),
+                off(edge.ends[1], edge.range.1),
+            ];
+            net.ends.insert(e, ends);
+        }
+        for &f in walls {
+            let ((u0, u1), _) = solid.faces[f].surface.domain();
+            let corners = [
+                net.side_off(f, 0, u0),
+                net.side_off(f, 0, u1),
+                net.side_off(f, 1, u0),
+                net.side_off(f, 1, u1),
+            ];
+            net.corners.insert(f, corners);
+        }
+        Some(net)
+    }
+
+    /// The mean of the normals of the walls along edge `e` at its `t`.
+    fn mean(&self, e: usize, t: f64) -> Point3 {
+        let at = &self.beside[e];
+        at.iter()
+            .map(|(f, _, pc)| normal_out(&self.solid.faces[*f], pc.point_at(t)))
+            .sum::<Point3>()
+            / at.len() as f64
+    }
+
+    /// The way the point at `t` of edge `e` is moved.
+    fn along_edge(&self, e: usize, t: f64) -> Point3 {
+        let (t0, t1) = self.solid.edges[e].range;
+        let l = (t - t0) / (t1 - t0);
+        let [a, b] = self.ends[&e];
+        self.mean(e, t) + a * (1.0 - l) + b * l
+    }
+
+    /// The way the point at `uv` of wall `f` is moved: its own normal,
+    /// bent over to the ways its sides are moved by as much as they
+    /// differ from it there — each side's difference carried straight in
+    /// from it, weighed by how near the side is (as the inverse square
+    /// of the way to it). Across a side that difference then does not
+    /// change, so that the faces moved off two patches meet at the slope
+    /// the patches do. (About a corner, where that would not be smooth,
+    /// it is faded over to a Coons patch of the sides' differences.)
+    fn along_face(&self, f: usize, uv: Point2) -> Point3 {
+        let face = &self.solid.faces[f];
+        let ((u0, u1), (v0, v1)) = face.surface.domain();
+        let x = ((uv.x - u0) / (u1 - u0)).clamp(0.0, 1.0);
+        let y = ((uv.y - v0) / (v1 - v0)).clamp(0.0, 1.0);
+        // The sides: lowest v, highest v, lowest u, highest u.
+        let sides: [Point3; 4] =
+            std::array::from_fn(|k| self.side_off(f, k, if k < 2 { uv.x } else { uv.y }));
+        let fade = |t: f64| t * t * (3.0 - 2.0 * t);
+        let coons = {
+            let (fx, fy) = (fade(x), fade(y));
+            let [c00, c10, c01, c11] = self.corners[&f];
+            sides[0] * (1.0 - fy) + sides[1] * fy + sides[2] * (1.0 - fx) + sides[3] * fx
+                - (c00 * ((1.0 - fx) * (1.0 - fy))
+                    + c10 * (fx * (1.0 - fy))
+                    + c01 * ((1.0 - fx) * fy)
+                    + c11 * (fx * fy))
+        };
+        let away = [y, 1.0 - y, x, 1.0 - x].map(|a| a * a);
+        let weights: [f64; 4] =
+            std::array::from_fn(|k| (0..4).filter(|j| *j != k).map(|j| away[j]).product());
+        let total: f64 = weights.iter().sum();
+        let corner = (x.min(1.0 - x).powi(2) + y.min(1.0 - y).powi(2)).sqrt();
+        // (Faded as smoothly as a fit wants it: not to bend more
+        // sharply where the fade ends.)
+        let smooth = |t: f64| t * t * t * (10.0 + t * (6.0 * t - 15.0));
+        let near = 1.0 - smooth((corner / 0.3).min(1.0));
+        let blend = if total > 0.0 && near < 1.0 {
+            let carried = (0..4).map(|k| sides[k] * weights[k]).sum::<Point3>() / total;
+            coons * near + carried * (1.0 - near)
+        } else {
+            coons
+        };
+        normal_out(face, uv) + blend
+    }
+
+    /// How far the way side `k` of wall `f` (see [`Network::sides`]) is
+    /// moved at `x` along it is from the wall's own normal there.
+    fn side_off(&self, f: usize, k: usize, x: f64) -> Point3 {
+        let face = &self.solid.faces[f];
+        let ((u0, u1), (v0, v1)) = face.surface.domain();
+        let on = match k {
+            0 => Point2::new(x, v0),
+            1 => Point2::new(x, v1),
+            2 => Point2::new(u0, x),
+            _ => Point2::new(u1, x),
+        };
+        let coordinate = |p: Point2| if k < 2 { p.x } else { p.y };
+        let side = self.sides[&f][k]
+            .iter()
+            .min_by(|a, b| {
+                let miss = |s: &Side| (s.lo - x).max(x - s.hi).max(0.0);
+                miss(a).total_cmp(&miss(b))
+            })
+            .expect("a whole patch has four sides");
+        // Where on the edge that is: its curve in (u, v) runs one way
+        // along the side — a line, mostly, read straight off.
+        let (a, b) = self.solid.edges[side.edge].range;
+        let pc = &side.pcurve;
+        let (ca, cb) = (coordinate(pc.point_at(a)), coordinate(pc.point_at(b)));
+        let t = if pc.degree() == 1 && pc.control_points().len() == 2 {
+            a + (b - a) * ((x - ca) / (cb - ca)).clamp(0.0, 1.0)
+        } else {
+            let (mut a, mut b) = (a, b);
+            for _ in 0..60 {
+                let m = (a + b) / 2.0;
+                if (coordinate(pc.point_at(m)) < x) == (cb > ca) {
+                    a = m;
+                } else {
+                    b = m;
+                }
+            }
+            (a + b) / 2.0
+        };
+        self.along_edge(side.edge, t) - normal_out(face, on)
+    }
+
+    /// `way` lengthened to move a point by `d`: as far as it takes to
+    /// be `d` off the faces it is the mean of.
+    fn by(way: Point3, d: f64) -> Point3 {
+        way * (d / way.length_squared())
+    }
+
+    /// Where moving the walls by `d` (out of the body, or into it for
+    /// less than nothing) would turn a face's moved surface inside out
+    /// — where it bends more tightly than that — said in words, with
+    /// how far they can be moved.
+    fn folds(&self, d: f64) -> Option<String> {
+        let mut worst: Option<(f64, usize, Point3, f64)> = None;
+        let mut room = f64::INFINITY;
+        for &f in &self.walls {
+            let face = &self.solid.faces[f];
+            let ((u0, u1), (v0, v1)) = face.surface.domain();
+            // (Along the surface's own normal.)
+            let along = if face.outward { d } else { -d };
+            for i in 0..=10 {
+                for j in 0..=10 {
+                    let uv = Point2::new(
+                        u0 + (u1 - u0) * f64::from(i) / 10.0,
+                        v0 + (v1 - v0) * f64::from(j) / 10.0,
+                    );
+                    let Some(bends) = bends(&face.surface, uv) else {
+                        continue;
+                    };
+                    for (bend, _) in bends {
+                        if along * bend <= 0.0 {
+                            continue;
+                        }
+                        let radius = 1.0 / bend.abs();
+                        room = room.min(radius);
+                        let left = 1.0 - along * bend;
+                        if left < 0.05 && worst.is_none_or(|w| left < w.0) {
+                            worst = Some((left, f, face.surface.point_at(uv.x, uv.y), radius));
+                        }
+                    }
+                }
+            }
+        }
+        let (_, f, at, radius) = worst?;
+        Some(format!(
+            "the face {:?} is bent more tightly than the wall is thick: at ({:.3}, {:.3}, \
+             {:.3}) it is round to a radius of {radius:.3}, and moved {:.3} its moved \
+             surface would fold over itself there — trimming it where it crosses itself is \
+             not made yet; walls up to {:.3} thick fold nowhere",
+            self.solid.faces[f].name.as_deref().unwrap_or("of the body"),
+            at.x,
+            at.y,
+            at.z,
+            d.abs(),
+            room * 0.95,
+        ))
+    }
+
+    /// Where moving the walls by `d` would take a point of them nearer
+    /// than that to another part of them — through a part of the body
+    /// thinner than the wall (or, out of it, across a gap narrower) —
+    /// said in words. (Looked for at as many places of each as it
+    /// takes to tell, not everywhere.)
+    fn crowds(&self, d: f64) -> Option<String> {
+        let reach = d.abs();
+        let key = |p: Point3| (p / reach).floor().as_ivec3();
+        let mut cells: BTreeMap<(i32, i32, i32), Vec<(Point3, usize)>> = BTreeMap::new();
+        let grid = |f: usize, n: u32| {
+            let ((u0, u1), (v0, v1)) = self.solid.faces[f].surface.domain();
+            (0..=n).flat_map(move |i| {
+                (0..=n).map(move |j| {
+                    Point2::new(
+                        u0 + (u1 - u0) * f64::from(i) / f64::from(n),
+                        v0 + (v1 - v0) * f64::from(j) / f64::from(n),
+                    )
+                })
+            })
+        };
+        for &f in &self.walls {
+            let surface = &self.solid.faces[f].surface;
+            for uv in grid(f, 16) {
+                let p = surface.point_at(uv.x, uv.y);
+                let k = key(p);
+                cells.entry((k.x, k.y, k.z)).or_default().push((p, f));
+            }
+        }
+        for &f in &self.walls {
+            let face = &self.solid.faces[f];
+            for uv in grid(f, 8) {
+                let moved = face.surface.point_at(uv.x, uv.y) + Self::by(self.along_face(f, uv), d);
+                let k = key(moved);
+                for dx in -1..=1 {
+                    for dy in -1..=1 {
+                        for dz in -1..=1 {
+                            let Some(near) = cells.get(&(k.x + dx, k.y + dy, k.z + dz)) else {
+                                continue;
+                            };
+                            if let Some((p, g)) =
+                                near.iter().find(|(p, _)| p.distance(moved) < reach * 0.95)
+                            {
+                                return Some(format!(
+                                    "the wall {reach:.3} thick would run into the body's other \
+                                     side: moved off the face {:?} it comes within {:.3} of the \
+                                     face {:?} at ({:.3}, {:.3}, {:.3}), where the body is \
+                                     thinner than that",
+                                    face.name.as_deref().unwrap_or("of the body"),
+                                    p.distance(moved),
+                                    self.solid.faces[*g]
+                                        .name
+                                        .as_deref()
+                                        .unwrap_or("of the body"),
+                                    p.x,
+                                    p.y,
+                                    p.z,
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    /// The walls moved by `distance` each of `layers` (nothing: the
+    /// walls themselves), as one solid: one layer, the closed body that
+    /// far off; two, the wall between them, closed by faces square to
+    /// the walls along their open edges. Moved faces are called
+    /// `{id}/f{f}/far`, those at the open edges `{id}/f{f}/side{k}`.
+    fn made(&self, layers: &[f64], id: &str) -> anyhow::Result<Solid> {
+        let solid = self.solid;
+        let within = self.within;
+        let mut out = Solid::default();
+        // For each layer, the edges and vertices it has: by those of
+        // the solid.
+        let mut edges_of: Vec<BTreeMap<usize, usize>> = Vec::new();
+        let mut vertices_of: Vec<BTreeMap<usize, usize>> = Vec::new();
+        for (l, &d) in layers.iter().enumerate() {
+            let mut vertices = BTreeMap::new();
+            for &v in self.corner.keys() {
+                let at = &solid.vertices[v];
+                out.vertices.push(if d == 0.0 {
+                    at.clone()
+                } else {
+                    Vertex {
+                        point: at.point + Self::by(self.corner[&v], d),
+                        tolerance: at.tolerance.max(within * 4.0),
+                        name: None,
+                    }
+                });
+                vertices.insert(v, out.vertices.len() - 1);
+            }
+            let mut edges = BTreeMap::new();
+            for (e, at) in self.beside.iter().enumerate() {
+                if at.is_empty() {
+                    continue;
+                }
+                let edge = &solid.edges[e];
+                let ends = edge.ends.map(|v| vertices[&v]);
+                out.edges.push(if d == 0.0 {
+                    Edge {
+                        ends,
+                        ..edge.clone()
+                    }
+                } else {
+                    let moved = |t: f64| edge.point(t) + Self::by(self.along_edge(e, t), d);
+                    let (_, curve) = pair(&edge.curve, edge.range, &moved, within)?;
+                    Edge {
+                        curve: Arc::new(curve),
+                        range: edge.range,
+                        ends,
+                        tolerance: edge.tolerance.max(within * 2.0),
+                        name: Some(format!("{id}/far/e{e}")),
+                        also: Vec::new(),
+                    }
+                });
+                edges.insert(e, out.edges.len() - 1);
+            }
+            for &f in &self.walls {
+                let face = &solid.faces[f];
+                let surface = if d == 0.0 {
+                    face.surface.clone()
+                } else {
+                    let moved = |u: f64, v: f64| {
+                        let uv = Point2::new(u, v);
+                        face.surface.point_at(u, v) + Self::by(self.along_face(f, uv), d)
+                    };
+                    let far = refit(&face.surface, &moved, within)
+                        .with_context(|| format!("moving the face {:?}", face.name))?;
+                    // (Not turned over anywhere: the patch bends less
+                    // tightly than that everywhere — see `folds`.)
+                    let ((u0, u1), (v0, v1)) = far.domain();
+                    for i in 0..=8 {
+                        for j in 0..=8 {
+                            let uv = Point2::new(
+                                u0 + (u1 - u0) * f64::from(i) / 8.0,
+                                v0 + (v1 - v0) * f64::from(j) / 8.0,
+                            );
+                            ensure!(
+                                normal(&far, uv).dot(normal(&face.surface, uv)) > 0.0,
+                                "the face {:?} moved by {} turns over itself: it is bent more \
+                                 tightly than that",
+                                face.name,
+                                d.abs()
+                            );
+                        }
+                    }
+                    Arc::new(far)
+                };
+                let loops = face
+                    .loops
+                    .iter()
+                    .map(|walk| {
+                        walk.iter()
+                            .map(|step| {
+                                let Walk::Edge { edge, reversed } = step.walk else {
+                                    unreachable!("a whole patch has edges all around")
+                                };
+                                Use {
+                                    walk: Walk::Edge {
+                                        edge: edges[&edge],
+                                        reversed,
+                                    },
+                                    pcurve: step.pcurve.clone(),
+                                }
+                            })
+                            .collect()
+                    })
+                    .collect();
+                // Out of the body where the solid is on the far side of
+                // it: the lower of two layers.
+                let outward = if layers.len() == 2 && l == 0 {
+                    !face.outward
+                } else {
+                    face.outward
+                };
+                let (name, also) = if d == 0.0 {
+                    (face.name.clone(), face.also.clone())
+                } else {
+                    (Some(format!("{id}/f{f}/far")), Vec::new())
+                };
+                out.faces.push(Face {
+                    surface,
+                    outward,
+                    loops,
+                    tolerance: face.tolerance.max(within),
+                    name,
+                    also,
+                    smooth: Vec::new(),
+                });
+            }
+            edges_of.push(edges);
+            vertices_of.push(vertices);
+        }
+        if layers.len() == 2 {
+            // Along each open edge, the face square to the walls from
+            // the one layer to the other.
+            let mut up: BTreeMap<usize, usize> = BTreeMap::new();
+            let mut count: BTreeMap<usize, usize> = BTreeMap::new();
+            for (e, at) in self.beside.iter().enumerate() {
+                let [(f, reversed, pcurve)] = &at[..] else {
+                    continue;
+                };
+                let edge = &solid.edges[e];
+                for v in edge.ends {
+                    if up.contains_key(&v) {
+                        continue;
+                    }
+                    let (lower, upper) = (vertices_of[0][&v], vertices_of[1][&v]);
+                    out.edges.push(Edge {
+                        curve: Arc::new(Curve3::line(
+                            out.vertices[lower].point,
+                            out.vertices[upper].point,
+                        )?),
+                        range: (0.0, 1.0),
+                        ends: [lower, upper],
+                        tolerance: within * 4.0,
+                        name: Some(format!("{id}/up/v{v}")),
+                        also: Vec::new(),
+                    });
+                    up.insert(v, out.edges.len() - 1);
+                }
+                let (lower, upper) = (edges_of[0][&e], edges_of[1][&e]);
+                let high = out.edges[upper].curve.clone();
+                let (own, beside) = pair(
+                    &out.edges[lower].curve.clone(),
+                    edge.range,
+                    &|t| high.point_at(t),
+                    within,
+                )?;
+                let (mut points, mut weights) = (Vec::new(), Vec::new());
+                for k in 0..own.control_points().len() {
+                    for curve in [&own, &beside] {
+                        points.push(curve.control_points()[k]);
+                        weights.push(curve.weights()[k]);
+                    }
+                }
+                let ruled = NurbsSurface::new(
+                    own.degree(),
+                    1,
+                    own.knots().to_vec(),
+                    vec![0.0, 0.0, 1.0, 1.0],
+                    own.control_points().len(),
+                    2,
+                    points,
+                    Some(weights),
+                )?;
+                let (t0, t1) = edge.range;
+                let line = |from: Point2, to: Point2, range: (f64, f64)| -> anyhow::Result<_> {
+                    Ok(Arc::new(Curve2::new(
+                        1,
+                        vec![range.0, range.0, range.1, range.1],
+                        vec![from, to],
+                        None,
+                    )?))
+                };
+                let uv = Point2::new;
+                let walk = vec![
+                    Use {
+                        walk: Walk::Edge {
+                            edge: lower,
+                            reversed: false,
+                        },
+                        pcurve: line(uv(t0, 0.0), uv(t1, 0.0), edge.range)?,
+                    },
+                    Use {
+                        walk: Walk::Edge {
+                            edge: up[&edge.ends[1]],
+                            reversed: false,
+                        },
+                        pcurve: line(uv(t1, 0.0), uv(t1, 1.0), (0.0, 1.0))?,
+                    },
+                    Use {
+                        walk: Walk::Edge {
+                            edge: upper,
+                            reversed: true,
+                        },
+                        pcurve: line(uv(t0, 1.0), uv(t1, 1.0), edge.range)?,
+                    },
+                    Use {
+                        walk: Walk::Edge {
+                            edge: up[&edge.ends[0]],
+                            reversed: true,
+                        },
+                        pcurve: line(uv(t0, 0.0), uv(t0, 1.0), (0.0, 1.0))?,
+                    },
+                ];
+                // Out of the wall: away from the face it ends.
+                let t = edge.middle();
+                let (_, dt, dw) = ruled.derivatives_at(t, 0.5);
+                let face = &solid.faces[*f];
+                let ahead = edge.curve.derivative_at(t).1 * if *reversed { -1.0 } else { 1.0 };
+                let away = -normal(&face.surface, pcurve.point_at(t)).cross(ahead);
+                let k = count.entry(*f).or_default();
+                out.faces.push(Face {
+                    surface: Arc::new(ruled),
+                    outward: dt.cross(dw).dot(away) > 0.0,
+                    loops: vec![walk],
+                    tolerance: within,
+                    name: Some(format!("{id}/f{f}/side{k}")),
+                    also: Vec::new(),
+                    smooth: Vec::new(),
+                });
+                *k += 1;
+            }
+        }
+        out.settle();
+        Ok(out)
+    }
+}
+
+/// The walls `walls` of `solid` moved by each of `layers` (see
+/// [`Network::made`]) where they are one smooth network of patches
+/// (rims square to them only where they meet the rest smoothly, with
+/// `tangent_rims`); `None` where they are not, and the walls are made
+/// face by face.
+fn smooth_walls(
+    solid: &Solid,
+    walls: &[usize],
+    layers: &[f64],
+    tangent_rims: bool,
+    id: &str,
+) -> Option<anyhow::Result<Solid>> {
+    let net = Network::of(solid, walls, tangent_rims)?;
+    let refused = layers
+        .iter()
+        .filter(|d| **d != 0.0)
+        .find_map(|d| net.folds(*d).or_else(|| net.crowds(*d)));
+    if let Some(why) = refused {
+        return Some(Err(anyhow::anyhow!(why)));
+    }
+    Some(net.made(layers, id))
 }
 
 #[cfg(test)]
