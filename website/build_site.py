@@ -72,6 +72,9 @@ def pretty(path):
 # The community's chat (the invite does not expire).
 DISCORD = "https://discord.gg/btRDgrcwJ5"
 
+# The demonstration video on YouTube.
+VIDEO = "YkeahgvrS-c"
+
 def page(title, description, body, root="", path="", extra_head="", script="", base=False, statistics=True):
     """One page. `root` is the way back to the site's top ('' or '../'); `path` its place under SITE_URL."""
     canonical = SITE_URL + pretty(path)
@@ -671,6 +674,20 @@ def home():
   </div>
 </section>
 
+<section id="video" aria-labelledby="video-h">
+  <div class="wrap">
+    <h2 id="video-h">See it work</h2>
+    <p class="lead">A minute and a quarter of the program itself: a part's history, an edit, its drawing, an assembly, a part written in Python.</p>
+    <div class="video" id="demo-video">
+      <a href="https://youtu.be/{VIDEO}" aria-label="Play the demonstration video (loads it from YouTube)">
+        <img src="assets/video-poster.webp" alt="The Workpiece app with a bearing unit pulled apart into its parts" width="1280" height="720" loading="lazy">
+        <span class="play" aria-hidden="true"></span>
+      </a>
+    </div>
+    <p class="small">The video is on YouTube; nothing is loaded from there until you press play (<a href="privacy.html#video">privacy</a>).</p>
+  </div>
+</section>
+
 {drawing_feature()}
 
 <section id="examples" aria-labelledby="ex-h">
@@ -727,6 +744,25 @@ LIGHTBOX = """<dialog id="lightbox" aria-labelledby="lb-title">
   </div>
   <div class="lb-body"><img id="lb-img" alt="The drawing sheet"></div>
 </dialog>
+<script>
+(function () {
+  // The video: its player comes from YouTube's no-cookie address, and only on the click.
+  var v = document.getElementById('demo-video');
+  if (!v) return;
+  var link = v.querySelector('a'), id = link.href.split('/').pop();
+  link.addEventListener('click', function (ev) {
+    ev.preventDefault();
+    var f = document.createElement('iframe');
+    f.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&rel=0';
+    f.title = 'Workpiece demonstration video';
+    f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
+    f.allowFullscreen = true;
+    f.referrerPolicy = 'strict-origin-when-cross-origin';
+    v.replaceChildren(f);
+    if (window.workpieceTrack) window.workpieceTrack('video_play');
+  });
+})();
+</script>
 <script>
 (function () {
   // A sheet (.sheet-open) opens full size here; a thumbnail (.sheet-thumb) puts its sheet in the
@@ -836,7 +872,8 @@ def privacy():
     if your browser sends Do Not Track or Global Privacy Control.</li>
     <li>No advertising, no tracking across sites, no session recordings, no selling of data. Every script,
     font and picture is served from this site; no page loads anything from someone else's server, except the
-    human check of the assistant (Cloudflare Turnstile, below), and only once you write to the assistant.</li>
+    human check of the assistant (Cloudflare Turnstile, below), and only once you write to the assistant, and
+    the video on the home page (YouTube, below), and only once you press play.</li>
   </ul>
 
   <h2>Hosting</h2>
@@ -845,6 +882,15 @@ def privacy():
   page, browser identification) and may keep them in short-lived logs for security and to keep the service running.
   Legal basis: Art. 6(1)(f) GDPR, our legitimate interest in serving the site securely. Cloudflare is certified under
   the EU-US Data Privacy Framework and processes this data on our behalf under a data processing agreement.</p>
+
+  <h2 id="video">The video on the home page</h2>
+  <p>The home page shows a still picture of the demonstration video, served from this site. Only when you press
+  play does your browser load the player from <code>www.youtube-nocookie.com</code> (YouTube, a service of Google
+  Ireland Limited, Gordon House, Barrow Street, Dublin 4, Ireland). YouTube then receives your IP address, the
+  technical data of the request and that the player was opened from this site, and may set its own storage once
+  the video plays; if you are signed in to Google, it can connect the view with your account. Legal basis: Art.
+  6(1)(a) GDPR, your consent by pressing play. <a href="https://policies.google.com/privacy">Google's privacy
+  policy</a>.</p>
 
   <h2 id="statistics">Anonymous usage statistics</h2>
   <p>To learn which pages are read, which examples are opened and which features of the application are used or
@@ -943,7 +989,8 @@ def licenses():
 
   <h2>Fonts in the application</h2>
   <p>The application draws its text with the fonts of the crate <code>epaint_default_fonts</code> (part of egui),
-  compiled into the application's WebAssembly module (<code>app/workpiece_bg-*.wasm</code>):</p>
+  Ubuntu Light and Hack compiled into the application's WebAssembly module (<code>app/workpiece_bg-*.wasm</code>), the two
+  emoji fonts served beside it (<code>app/fonts/</code>):</p>
   <ul>
     <li><strong>Ubuntu Light</strong>, © 2011 Canonical Ltd., under the Ubuntu Font Licence, Version 1.0.</li>
     <li><strong>Noto Emoji</strong>, © 2013 Google Inc., under the SIL Open Font License, Version 1.1 (OFL-1.1).</li>
