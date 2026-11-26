@@ -18,7 +18,8 @@ pub mod visibility;
 use std::collections::BTreeMap;
 
 pub use annotation::{
-    Annotation, Callout, Characteristic, Measured, Note, Numbers, Opaque, SketchOf, Tolerance,
+    Annotation, Callout, Characteristic, FeatureAxis, Measured, Note, Numbers, Opaque, Removal,
+    SketchOf, Tolerance,
 };
 pub use datum::{Datum, DatumAxis, DatumFrame, DatumPlane};
 pub use instance::Instance;

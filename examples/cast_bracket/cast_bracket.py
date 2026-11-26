@@ -26,7 +26,7 @@ s.point_on(A, "v")
 s.symmetric(A, B, "u")
 s.distance_v(A, B, 70)
 s.distance_u(B, C, 12)
-s.distance_v(F, E, 10, at=(30, 46))
+s.distance_v(F, E, 10, at=(30, 58))
 s.distance_u(A, F, 80)
 p.extrude(s, 100, symmetric=True, combine="NewBody", id="bracket")
 rep = p.build(OUT)
@@ -66,7 +66,7 @@ sl = t.slot("s", 10, 22, 14, 9)
 c0, c1 = sl.points[0], sl.points[1]
 t.horizontal(c0, c1)
 t.distance_u(t.origin, c0, 10)
-t.distance_v(t.origin, c0, 22)
+t.distance_v(t.origin, c0, 22, tol=0.3)   # slot offset from the centre locates the bolts: ±0,3
 p.cut(t, through=True, id="slot")
 rep = p.build(OUT)
 slot_wall = rep.faces(where=lambda f: f["name"].startswith("slot/") and not f["flat"])[0]
@@ -100,13 +100,22 @@ p.fillet(ends, 10, id="base_corners")
 
 # The sheet: the inside of the wall from the front, the plan above it, the L profile to the right
 # (where the draft and the rib show), and a pictorial; the small rounds said once in a note.
+# Tolerances (the casting's own sizes stay under DCTG 9): the base's underside is datum A and the
+# mounting face (flat to 0,1); the shaft's bore stays parallel to it (the slots' offset from the middle is
+# toleranced by its dimension, ±0,3).
+rep = p.build(OUT)
+base_face = rep.faces(where=lambda f: f["flat"] and f["normal"][2] < -0.99 and abs(f["middle"][2]) < 1e-6)[0]
+p.datum_feature("A", on=topo(base_face), show_in="front", at=(20, -45))
+p.geometric_tolerance("Flatness", 0.1, on=topo(base_face), show_in="front", at=(-30, -45))
+bore_wall = rep.faces(where=lambda f: f["name"].startswith("bore/") and not f["flat"])[0]
+p.geometric_tolerance("Parallelism", 0.1, on=topo(bore_wall), datums=["A"], diametral=True, show_in="front", at=(18, -14))
 p.on_sheet("rib_roots", on_drawing=False)
 p.on_sheet("rib_crests", on_drawing=False)
 p.on_sheet("base_corners", at=(-50, -42))
-p.on_sheet("draft", at=(10, 56))
+p.on_sheet("draft", at=(0, 70))
 p.drawing(views=[view("front", "Front", (85, 120)), projected("top", "front", "Above", 115),
                  projected("right", "front", "Right", 120), view("iso", "Isometric", (330, 205))],
-          scale=(1, 1), format="A3", id="drawing",
+          scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 8062-3 DCTG 9",
           notes=[note("right", (95, -45), "UNSPECIFIED FILLETS R3, RIB EDGES R2")])
 rep = p.build(OUT, render=True, pictures=True, picture=os.path.join(HERE, "render.png"))
 rep.show()

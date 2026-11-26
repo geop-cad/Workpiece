@@ -779,6 +779,7 @@ mod tests {
                 decimals: None,
                 starts: [None; 2],
                 count: None,
+                to: None,
             }],
             ..Sheet::default()
         };
@@ -814,6 +815,8 @@ mod tests {
                 path: vec![p(100.0, 90.0), p(100.0, 110.0)],
                 drawn: vec![p(100.0, 72.0), p(100.0, 128.0)],
                 arrows: vec![p(100.0, 72.0), p(100.0, 128.0)],
+                looking: Point2::X,
+                letter: "A".into(),
             }],
             ..Laid::default()
         };

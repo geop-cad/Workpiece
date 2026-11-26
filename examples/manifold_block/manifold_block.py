@@ -21,7 +21,7 @@ r = b.rect("b", -30, -45, 60, 90)
 b.symmetric(r.points[0], r.points[1], "v")
 b.symmetric(r.points[1], r.points[2], "u")
 b.distance_u(r.points[0], r.points[1], 60)
-b.distance_v(r.points[1], r.points[2], 90)
+b.distance_v(r.points[1], r.points[2], 90, at=(0, -64))
 p.extrude(b, 50, combine="NewBody", id="block")
 
 # The pressure port P from the top: Ø10, 32 deep, with a Ø18 spot face.
@@ -52,8 +52,8 @@ p.hole(e, 8, depth=45, kind="Countersink", head=14, head_angle=90, point=180, id
 v = p.sketch(topo("block/end"), id="valve_holes", show_in="top")
 d1, d2, d3, d4 = v.dot(16, 30, "v1"), v.dot(-16, 30, "v2"), v.dot(-16, -30, "v3"), v.dot(16, -30, "v4")
 v.symmetric(d1, d2, "v"); v.symmetric(d2, d3, "u"); v.symmetric(d3, d4, "v")
-v.distance_u(v.origin, d1, 16)
-v.distance_v(v.origin, d1, 30)
+v.distance_u(v.origin, d1, 16, tol=0.1, at=(66, -8))
+v.distance_v(v.origin, d1, 30, tol=0.1, at=(15, -52))
 p.hole(v, 6, depth=12, thread_depth=9, kind="Tapped", size="M6", id="M6")
 
 # The top's outer edges chamfered.
@@ -62,20 +62,26 @@ top = rep.edges(where=lambda e: e["straight"] and abs(e["from"][2] - 50) < 1e-6 
                 and (abs(abs(e["middle"][0]) - 30) < 1e-6 or abs(abs(e["middle"][1]) - 45) < 1e-6))
 p.chamfer(top, 1, id="top_chamfer")
 
+# Tolerances: the valve sits on the top face (flat, a seal) and its four screws locate on the pitch (± on it).
+rep = p.build(OUT)
+top_face = rep.faces(where=lambda f: f["flat"] and f["normal"][2] > 0.99)[0]
+p.geometric_tolerance("Flatness", 0.05, on=topo(top_face), show_in="front", at=(25, 45))   # it seals
+
 
 # The sheet: the plan with two cutting lines, the section through P and B in line under it, the section
 # through P and A beside that, an outside view of the front face with port A, and a pictorial.
 p.on_sheet("top_chamfer", on_drawing=False)
-p.on_sheet("A/callout", show_in="secA")
+p.on_sheet("A/callout", show_in="secA", at=(-40, 14))
 p.on_sheet("P/callout", at=(-20, 45))
+p.on_sheet("M6/callout", at=(62, -46))
 p.on_sheet("B/callout", show_in="secB")
 p.op("Section", id="cut_b", along="Plane", plane=axis("X"), offset=0.0)
 p.op("Section", id="cut_a", along="Plane", plane=axis("Y"), offset=0.0)
 p.drawing(views=[view("top", "Top", (100, 220)),
                  section_view("secB", "cut_b", (100, 110), of="top", letter="B"),
                  section_view("secA", "cut_a", (215, 110), of="top", letter="A"),
-                 view("front", "Front", (215, 220)),
-                 view("iso", "Isometric", (335, 200))], scale=(1, 1), format="A3", id="drawing",
+                 view("front", "Front", (225, 220)),
+                 view("iso", "Isometric", (345, 200))], scale=(1, 1), format="A3", id="drawing",
           # (The valve holes' centre lines only where the holes are drawn: in the plan.)
           centre_lines=["all"] + [{"of": "M6", "view": v, "hide": True} for v in ("front", "secA", "secB")],
           notes=[note("top", (58, 40), "1×45°", to=(-29.5, 45, 50))])

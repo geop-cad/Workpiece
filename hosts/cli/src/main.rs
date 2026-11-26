@@ -1013,6 +1013,7 @@ fn said(
             let mut decimals: Vec<Option<u8>> = Vec::new();
             // (And of a hole's callout, how many holes it says it is of.)
             let mut counts: Vec<Option<u32>> = Vec::new();
+            let mut tos: Vec<Option<[f64; 2]>> = Vec::new();
             // (What the recipe says of a dimension by its own name — a
             // step's `bore/callout` — has to name one; a step, one of
             // the part's steps.)
@@ -1021,6 +1022,7 @@ fn said(
                 "dimension_at",
                 "dimension_decimals",
                 "dimension_count",
+                "dimension_to",
             ] {
                 for asked_of in asked[key].as_object().into_iter().flatten().map(|(k, _)| k) {
                     let known = match asked_of.contains('/') {
@@ -1096,6 +1098,12 @@ fn said(
                         .and_then(Value::as_u64)
                         .map(|d| d as u8),
                 );
+                // (Of a datum or a tolerance, where its leader ends.)
+                tos.push(
+                    asked["dimension_to"]
+                        .get(&said)
+                        .and_then(|to| Some([to.get(0)?.as_f64()?, to.get(1)?.as_f64()?])),
+                );
                 counts.push(
                     own.and_then(|o| o.get("count"))
                         .or_else(|| asked["dimension_count"].get(&said))
@@ -1113,8 +1121,12 @@ fn said(
             // (in a view that was not asked for where the one asked for
             // does not see it true).
             let places = workpiece_ops_drawing::lay::place_all(&sheet, &subject, &kept, &wanted);
-            for (((want, place), decimals), count) in
-                wanted.into_iter().zip(places).zip(decimals).zip(counts)
+            for ((((want, place), decimals), count), to) in wanted
+                .into_iter()
+                .zip(places)
+                .zip(decimals)
+                .zip(counts)
+                .zip(tos)
             {
                 // (In no view: named as missing below.)
                 let Some((view, at, as_asked)) = place else {
@@ -1138,6 +1150,7 @@ fn said(
                     at,
                     starts: [None; 2],
                     count,
+                    to,
                 });
             }
             // What stands off the sheet's frame by itself is brought

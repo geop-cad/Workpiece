@@ -165,6 +165,23 @@ impl Characteristic {
                 | Characteristic::Cylindricity
         )
     }
+
+    /// Whether, of a round feature (a bore, a shaft), it tolerances the
+    /// axis rather than the surface (ISO 1101): position and
+    /// concentricity always; straightness and an orientation
+    /// (parallelism, perpendicularity, angularity) where its zone is
+    /// round (`diametral`). Roundness, cylindricity, profiles and runout
+    /// are of the surface.
+    pub fn of_axis(self, diametral: bool) -> bool {
+        match self {
+            Characteristic::Position | Characteristic::Concentricity => true,
+            Characteristic::Straightness
+            | Characteristic::Parallelism
+            | Characteristic::Perpendicularity
+            | Characteristic::Angularity => diametral,
+            _ => false,
+        }
+    }
 }
 
 /// A piece of a hole's callout (ISO 129-1).
@@ -283,6 +300,10 @@ pub enum Note {
         on: Point3,
         /// The way out of the body there (a unit vector).
         out: Point3,
+        /// Of a round feature (a bore, a shaft), its axis: the datum is
+        /// the axis (ISO 5459), and its triangle stands on the
+        /// extension of the feature's size dimension line.
+        axis: Option<FeatureAxis>,
     },
     /// A geometric tolerance (ISO 1101).
     Geometric {
@@ -298,7 +319,75 @@ pub enum Note {
         on: Point3,
         /// The way out of the body there (a unit vector).
         out: Point3,
+        /// Where what is toleranced is the axis of a round feature (a
+        /// derived feature, ISO 1101: the position or the squareness of
+        /// a bore), that axis: the leader's arrow stands on the
+        /// extension of the feature's size dimension line, in line with
+        /// its arrow — not on the surface.
+        axis: Option<FeatureAxis>,
     },
+    /// A surface texture requirement (ISO 21920-1, as ISO 1302 drew
+    /// it): the graphical symbol on the face's outline (or on a leader
+    /// to it) with its parameter and limit, `Ra 1,6`.
+    Texture {
+        /// The requirement, as written: `Ra 1,6`, `Rz 6,3`.
+        text: String,
+        /// Whether material is to be removed.
+        removal: Removal,
+        /// A point of the face.
+        on: Point3,
+        /// The way out of the body there (a unit vector).
+        out: Point3,
+    },
+}
+
+/// Whether making a surface has to take material off it (ISO 21920-1,
+/// ISO 1302): the graphical symbol of its texture.
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, Default, serde::Serialize, serde::Deserialize,
+)]
+pub enum Removal {
+    /// Any process: the basic symbol, two legs.
+    #[default]
+    Any,
+    /// Material is to be removed (machined): a bar closes the legs.
+    Required,
+    /// Material is not to be removed: a circle in the legs.
+    Prohibited,
+}
+
+/// The axis of a round feature — a bore, a shaft — that a datum or a
+/// geometric tolerance is of (ISO 1101 / ISO 5459 derived feature).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct FeatureAxis {
+    /// A point of the axis: the middle of the feature.
+    pub centre: Point3,
+    /// The axis (a unit vector).
+    pub axis: Point3,
+    /// The feature's radius.
+    pub radius: f64,
+}
+
+impl FeatureAxis {
+    /// It where a part is placed by `pose`.
+    #[must_use]
+    pub fn placed(&self, pose: crate::Pose) -> Self {
+        Self {
+            centre: pose.transform_point(self.centre),
+            axis: pose.transform_vector(self.axis),
+            radius: self.radius,
+        }
+    }
+
+    /// Whether the diameter `centre`, `axis`, `radius` measures this
+    /// feature: the same radius about the same line.
+    #[must_use]
+    pub fn sized_by(&self, centre: Point3, axis: Point3, radius: f64) -> bool {
+        let tol = 1e-6 * (1.0 + self.radius);
+        (radius - self.radius).abs() <= tol
+            && axis.cross(self.axis).length() <= 1e-6
+            && (centre - self.centre).cross(self.axis).length() <= tol
+    }
 }
 
 /// Something said of the model, where the model is. It shows on the
@@ -388,10 +477,16 @@ impl Annotation {
                 tolerance: tolerance.clone(),
                 elsewhere: elsewhere.iter().map(measured).collect(),
             },
-            Note::Datum { letter, on, out } => Note::Datum {
+            Note::Datum {
+                letter,
+                on,
+                out,
+                axis,
+            } => Note::Datum {
                 letter: letter.clone(),
                 on: p(*on),
                 out: v(*out),
+                axis: axis.map(|a| a.placed(pose)),
             },
             Note::Geometric {
                 characteristic,
@@ -400,11 +495,24 @@ impl Annotation {
                 datums,
                 on,
                 out,
+                axis,
             } => Note::Geometric {
                 characteristic: *characteristic,
                 value: *value,
                 diametral: *diametral,
                 datums: datums.clone(),
+                on: p(*on),
+                out: v(*out),
+                axis: axis.map(|a| a.placed(pose)),
+            },
+            Note::Texture {
+                text,
+                removal,
+                on,
+                out,
+            } => Note::Texture {
+                text: text.clone(),
+                removal: *removal,
                 on: p(*on),
                 out: v(*out),
             },
@@ -798,6 +906,7 @@ impl Annotation {
                 }
                 text
             }
+            Note::Texture { text, .. } => format!("√ {text}"),
         }
     }
 
@@ -813,7 +922,9 @@ impl Annotation {
                 }
                 Measured::Angle { at, .. } => vec![*at],
             },
-            Note::Datum { on, .. } | Note::Geometric { on, .. } => vec![*on],
+            Note::Datum { on, .. } | Note::Geometric { on, .. } | Note::Texture { on, .. } => {
+                vec![*on]
+            }
             Note::Hole { centre, .. } => vec![*centre],
         }
     }

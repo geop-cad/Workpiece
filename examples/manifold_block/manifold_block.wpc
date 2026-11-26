@@ -852,7 +852,9 @@
                   8.0,
                   15.0
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Symmetric": 0.1
+                },
                 "value": 16.0
               },
               "kind": {
@@ -872,7 +874,9 @@
                   8.0,
                   15.0
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Symmetric": 0.1
+                },
                 "value": 30.0
               },
               "kind": {
@@ -1111,6 +1115,20 @@
           "two": false
         },
         "id": "top_chamfer"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Flatness",
+          "datums": "",
+          "diametral": false,
+          "feature": {
+            "Topology": "block/end"
+          },
+          "value": 0.05
+        },
+        "id": "geometrictolerance1"
       }
     },
     {
@@ -1473,24 +1491,24 @@
           "notes": [
             {
               "at": [
-                -46.826017835280425,
-                7.846100972843857
+                -40.0,
+                14.0
               ],
               "note": "A/callout",
               "view": "secA"
             },
             {
               "at": [
-                55.27534608199639,
-                -29.03555078347206
+                56.95433637710096,
+                -8.045868912971898
               ],
               "note": "B/callout",
               "view": "secB"
             },
             {
               "at": [
-                41.422350123109396,
-                -40.49530888749132
+                62.0,
+                -46.0
               ],
               "note": "M6/callout",
               "view": "top"
@@ -1522,10 +1540,18 @@
             {
               "at": [
                 0.0,
-                -61.0
+                -64.0
               ],
               "note": "block_outline/d22",
               "view": "top"
+            },
+            {
+              "at": [
+                25.0,
+                45.0
+              ],
+              "note": "geometrictolerance1",
+              "view": "front"
             },
             {
               "at": [
@@ -1545,7 +1571,7 @@
             },
             {
               "at": [
-                62.0,
+                66.0,
                 -8.0
               ],
               "note": "valve_holes/d18",
@@ -1554,7 +1580,7 @@
             {
               "at": [
                 15.0,
-                -54.0
+                -52.0
               ],
               "note": "valve_holes/d19",
               "view": "top"
@@ -1627,7 +1653,7 @@
             },
             {
               "at": [
-                215.0,
+                225.0,
                 220.0
               ],
               "id": "front",
@@ -1640,7 +1666,7 @@
             },
             {
               "at": [
-                335.0,
+                345.0,
                 200.0
               ],
               "id": "iso",

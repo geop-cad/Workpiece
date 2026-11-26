@@ -412,4 +412,37 @@ pub(crate) fn title_block(laid: &mut Laid, sheet: &Sheet, subject: &Subject<'_>)
     for k in 0..4 {
         laid.line(corners[k], corners[(k + 1) % 4], Pen::Wide);
     }
+    // The surface texture of the faces that say none of their own, over
+    // the title block at its right: its symbol, then the basic symbol in
+    // brackets (ISO 1302, ISO 21920-1: "the others as this").
+    if let Some(text) = sheet
+        .surface_texture
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+    {
+        let h = super::lettering();
+        let wide = super::notes::width(text, h);
+        // (From the right: `(`, the basic symbol, `)`; the symbol with
+        // its text before them.)
+        let foot = lo.y + height + 4.0;
+        let close = Point2::new(hi.x - 2.0, foot);
+        laid.text(close, ")", h * 1.4, [1.0, 0.0]);
+        let basic = close - Point2::new(h * 1.4 * 0.45 + h * 0.9, -0.3);
+        super::notes::texture_symbol(
+            laid,
+            basic,
+            h * 0.55,
+            "",
+            workpiece_core::world::Removal::Any,
+        );
+        laid.text(
+            basic - Point2::new(h * 0.8 * 0.9 + 0.4, 0.3),
+            "(",
+            h * 1.4,
+            [1.0, 0.0],
+        );
+        let apex = basic - Point2::new(h * 0.8 * 0.9 + 0.4 + h * 1.4 * 0.45 + wide + h * 2.6, 0.0);
+        super::notes::texture_symbol(laid, apex, h, text, workpiece_core::world::Removal::Any);
+    }
 }

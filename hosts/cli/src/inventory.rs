@@ -352,6 +352,10 @@ pub fn of_sheet(
                                 dim_kind = "tolerance".into();
                                 measures = characteristic.label().to_owned();
                             }
+                            Note::Texture { text, .. } => {
+                                dim_kind = "texture".into();
+                                measures = text.clone();
+                            }
                         }
                     }
                     if let Some((sketch, what, is_ref)) = said_by.get(name) {

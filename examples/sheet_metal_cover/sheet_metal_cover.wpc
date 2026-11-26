@@ -731,7 +731,10 @@
                   60.0,
                   30.0
                 ],
-                "tolerance": "General",
+                "name": "inset_x",
+                "tolerance": {
+                  "Symmetric": 0.2
+                },
                 "value": 20.0
               },
               "kind": {
@@ -750,7 +753,9 @@
                   60.0,
                   30.0
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Symmetric": 0.2
+                },
                 "value": 20.0
               },
               "kind": {
@@ -1474,12 +1479,12 @@
             "wide": null
           },
           "format": "A3",
-          "general_tolerance": "ISO 2768-mK",
+          "general_tolerance": "ISO 2768-m",
           "name": "drawing",
           "notes": [
             {
               "at": [
-                -70.5,
+                -63.5,
                 -22.750000000000007
               ],
               "note": "base/distance",
@@ -1511,18 +1516,18 @@
             },
             {
               "at": [
-                63.5,
-                -70.0
-              ],
-              "note": "holes/d24",
-              "view": "top"
-            },
-            {
-              "at": [
                 40.0,
                 -90.00000000000001
               ],
               "note": "holes/d25",
+              "view": "top"
+            },
+            {
+              "at": [
+                60.0,
+                -88.0
+              ],
+              "note": "holes/inset_x",
               "view": "top"
             },
             {
@@ -1535,15 +1540,15 @@
             },
             {
               "at": [
-                57.40685424949237,
-                -87.40685424949238
+                78.0,
+                -50.0
               ],
               "note": "mount/callout",
               "view": "top"
             },
             {
               "at": [
-                -64.0,
+                -76.0,
                 0.0
               ],
               "note": "overall_height",
@@ -1567,8 +1572,8 @@
             },
             {
               "at": [
-                -23.792706703574396,
-                62.44226122802567
+                -14.0,
+                40.0
               ],
               "note": "vent/d25",
               "view": "top"
@@ -1992,7 +1997,7 @@
             "wide": null
           },
           "format": "A3",
-          "general_tolerance": "ISO 2768-mK",
+          "general_tolerance": "ISO 2768-m",
           "lines": [
             {
               "label": "UP 90° R2",

@@ -257,8 +257,10 @@ impl Placed<'_> {
     pub(crate) fn round_about(&self, p: Point2) -> Option<f64> {
         use crate::sheet::{Style, TangentEdges};
         let style = self.view.style;
-        // (Of each radius, how far around the pieces at it go.)
-        let mut radii: Vec<(f64, f64)> = Vec::new();
+        // (Of each radius, how far around the pieces at it go, the way
+        // the first of them runs, and whether another turns from it: a
+        // straight line by itself, its ends as far from `p`, is no arc.)
+        let mut radii: Vec<(f64, f64, Point2, bool)> = Vec::new();
         for (a, b, behind, smooth) in &self.seen.lines {
             let drawn = (!behind || matches!(style, Style::HiddenDashed | Style::Wireframe))
                 && !(*smooth && (*behind || self.tangent == TangentEdges::Hidden));
@@ -269,25 +271,36 @@ impl Placed<'_> {
             let (ra, rb) = (a.distance(p), b.distance(p));
             let r = (ra + rb) / 2.0;
             let length = a.distance(b);
-            // (A short piece, both its ends as far from `p`, its middle
-            // within its sag of that: a chord of the circle.)
-            if r < 0.2 || length < 1e-9 || length > r * 0.6 || (ra - rb).abs() > r * 2e-3 {
+            // (A short piece, both its ends as far from `p` — square to
+            // the way to `p` within a degree or so, not a piece of
+            // another curve that merely passes near — its middle within
+            // its sag of that: a chord of the circle.)
+            if r < 0.2
+                || length < 1e-9
+                || length > r * 0.6
+                || (ra - rb).abs() > (r * 2e-3).min(length * 0.02)
+            {
                 continue;
             }
             let sag = r - (r * r - length * length / 4.0).max(0.0).sqrt();
             if (a.lerp(b, 0.5).distance(p) - (r - sag)).abs() > r * 2e-3 + 1e-6 {
                 continue;
             }
-            match radii.iter_mut().find(|(x, _)| (*x - r).abs() <= r * 2e-3) {
-                Some(at) => at.1 += length / r,
-                None => radii.push((r, length / r)),
+            let way = (b - a) / length;
+            match radii.iter_mut().find(|(x, ..)| (*x - r).abs() <= r * 2e-3) {
+                Some(at) => {
+                    at.1 += length / r;
+                    at.3 |= at.2.perp_dot(way).abs() > 1e-3;
+                }
+                None => radii.push((r, length / r, way, false)),
             }
         }
-        // (Round enough to be an arc: some tens of degrees of it.)
+        // (Round enough to be an arc: some tens of degrees of it, of
+        // pieces that turn.)
         radii
             .into_iter()
-            .filter(|(_, around)| *around >= 0.35)
-            .map(|(r, _)| r)
+            .filter(|(_, around, _, turns)| *around >= 0.35 && *turns)
+            .map(|(r, ..)| r)
             .reduce(f64::max)
     }
 
@@ -1008,6 +1021,10 @@ fn see(
     let mut shape_of = Shape::default();
     let said = &world.threads;
     let opened;
+    // (What is round is told of the model whole, uncut: a section's
+    // world is a copy with the same stamp, which the kept rounds are
+    // known by.)
+    let uncut = world;
     let world = match cut {
         Some(cut) => {
             let far = world_reach(world) * 4.0 + cut.origin.length() + 1.0;
@@ -1035,6 +1052,10 @@ fn see(
     // (Of the edges, which are smooth: those first in `pieces`.)
     let mut smooth_pieces: Vec<bool> = Vec::new();
     for (k, run) in shape_of.runs.iter().enumerate() {
+        if nearly_edge_on(run, towards, reach) {
+            smooth_pieces.resize(pieces.len(), false);
+            continue;
+        }
         // (Each looked at for what hides it from a little out of the
         // body, off the faces it is the edge of: from on it, those faces
         // — seen edge on, or nearly — would hide it from itself.)
@@ -1453,6 +1474,27 @@ fn see(
             }
         }
     }
+    // (Each as long as what is round about it reaches: a bore whose far
+    // end runs into another has a circle only at its mouth — its axis
+    // all along it, not only along the countersink there.)
+    if !along.is_empty() {
+        let rounds = super::lines::rounds(uncut);
+        for (foot, axis, from, to) in &mut along {
+            for r in rounds.iter() {
+                let d = r.foot - *foot;
+                if r.axis.cross(*axis).length() > 1e-7
+                    || (d - *axis * d.dot(*axis)).length() > reach * 1e-6
+                {
+                    continue;
+                }
+                for p in [r.foot + r.axis * r.from, r.foot + r.axis * r.to] {
+                    let s = (p - middle).dot(*axis);
+                    *from = from.min(s);
+                    *to = to.max(s);
+                }
+            }
+        }
+    }
     for (foot, axis, from, to) in along {
         if to - from > reach * 1e-7 {
             seen.axes
@@ -1470,6 +1512,259 @@ fn see(
         seen.lines.retain(|(a, b, ..)| !threads.leaves_out(*a, *b));
     }
     seen
+}
+
+/// `lines`, each stretch of a line that runs within `near` of one
+/// before it (nearly along it: within 10°) left out.
+fn alongside(
+    lines: Vec<(Point2, Point2, bool, bool)>,
+    near: f64,
+) -> Vec<(Point2, Point2, bool, bool)> {
+    let cell = (near * 8.0).max(1e-6);
+    let key = |p: Point2| ((p.x / cell).floor() as i64, (p.y / cell).floor() as i64);
+    let mut grid: std::collections::HashMap<(i64, i64), Vec<usize>> = Default::default();
+    let mut kept: Vec<(Point2, Point2, bool, bool)> = Vec::with_capacity(lines.len());
+    let slant = (10.0_f64).to_radians().sin();
+    for (a, b, behind, smooth) in lines {
+        let length = a.distance(b);
+        if length <= 1e-9 {
+            continue;
+        }
+        let way = (b - a) / length;
+        let (lo, hi) = (
+            key(a.min(b) - Point2::splat(near)),
+            key(a.max(b) + Point2::splat(near)),
+        );
+        let mut over: Vec<(f64, f64)> = Vec::new();
+        let mut looked = std::collections::BTreeSet::new();
+        if (hi.0 - lo.0 + 1) * (hi.1 - lo.1 + 1) <= 1 << 16 {
+            for i in lo.0..=hi.0 {
+                for j in lo.1..=hi.1 {
+                    for &k in grid.get(&(i, j)).into_iter().flatten() {
+                        if !looked.insert(k) {
+                            continue;
+                        }
+                        let (p, q, ..) = kept[k];
+                        // (Only beside a line of some length: the short
+                        // pieces of one curve are not beside each other.)
+                        if p.distance(q) <= near * 3.0 {
+                            continue;
+                        }
+                        let Some(other) = (q - p).try_normalize() else {
+                            continue;
+                        };
+                        if other.perp_dot(way).abs() > slant {
+                            continue;
+                        }
+                        // (Where along this line the other lies beside it,
+                        // and how far off it this line is there: within
+                        // `near` from where to where.)
+                        let (s0, s1) = ((p - a).dot(way), (q - a).dot(way));
+                        let (s0, s1) = (s0.min(s1).max(0.0), s0.max(s1).min(length));
+                        if s1 - s0 <= 1e-9 {
+                            continue;
+                        }
+                        let off = |s: f64| (a + way * s - p).perp_dot(other);
+                        let (f0, f1) = (off(s0), off(s1));
+                        // (|f| ≤ near along s0..s1, f linear in s.)
+                        let at = |f: f64| s0 + (s1 - s0) * (f - f0) / (f1 - f0);
+                        let (t0, t1) = if (f1 - f0).abs() < 1e-12 {
+                            if f0.abs() <= near { (s0, s1) } else { continue }
+                        } else {
+                            let (x, y) = (at(-near), at(near));
+                            (x.min(y).max(s0), x.max(y).min(s1))
+                        };
+                        // (Side by side for a stretch, not where two lines
+                        // of one curve meet, nor its short pieces beside
+                        // each other.)
+                        if t1 - t0 > (near * 3.0).min(length * 0.9) {
+                            over.push((t0, t1));
+                        }
+                    }
+                }
+            }
+        }
+        over.sort_by(|x, y| x.0.total_cmp(&y.0));
+        let mut left = Vec::new();
+        if over.is_empty() {
+            left.push((0.0, length));
+        } else {
+            let mut from = 0.0;
+            for (s, t) in over {
+                if s - from > near {
+                    left.push((from, s));
+                }
+                from = f64::max(from, t);
+            }
+            if length - from > near {
+                left.push((from, length));
+            }
+        }
+        for (s, t) in left {
+            let (p, q) = (a + way * s, a + way * t);
+            let k = kept.len();
+            kept.push((p, q, behind, smooth));
+            let (lo, hi) = (key(p.min(q)), key(p.max(q)));
+            if (hi.0 - lo.0 + 1) * (hi.1 - lo.1 + 1) > 1 << 16 {
+                continue;
+            }
+            for i in lo.0..=hi.0 {
+                for j in lo.1..=hi.1 {
+                    grid.entry((i, j)).or_default().push(k);
+                }
+            }
+        }
+    }
+    kept
+}
+
+/// The wide lines of a view (`strokes` from `from` on) as the pen
+/// draws them, `wide` millimetres wide: where two run along each other
+/// nearer than that (four fifths of it) — an edge behind lying all but on one in front
+/// (a fan's blade behind another's edge) — the later is left out where
+/// it is so, which else reads as one line drawn thick; and a spur left
+/// of that, shorter than two pen widths with one end on nothing (a
+/// burr where an edge pinches), is taken off.
+fn one_outline(strokes: &mut Vec<super::Stroke>, from: usize, wide: f64) {
+    let from = from.min(strokes.len());
+    let ours: Vec<super::Stroke> = strokes.split_off(from);
+    let (wides, others): (Vec<super::Stroke>, Vec<super::Stroke>) =
+        ours.into_iter().partition(|s| s.pen == Pen::Wide);
+    // (The longer first: an edge's straight run is kept, the pieces of
+    // a curve along it go.)
+    let mut lines: Vec<(Point2, Point2, bool, bool)> =
+        wides.iter().map(|s| (s.a, s.b, false, false)).collect();
+    lines.sort_by(|x, y| y.0.distance(y.1).total_cmp(&x.0.distance(x.1)));
+    let mut kept = alongside(lines, wide * 0.8);
+    // (The spurs: short, one end touching no other line's end or line.)
+    let near = 0.05;
+    let cell = 2.0;
+    let key = |p: Point2| ((p.x / cell).floor() as i64, (p.y / cell).floor() as i64);
+    let mut grid: std::collections::HashMap<(i64, i64), Vec<usize>> = Default::default();
+    // (Touching a line of any pen: a wide outline goes on as a thin
+    // tangent edge.)
+    let all: Vec<(Point2, Point2)> = kept
+        .iter()
+        .map(|(a, b, ..)| (*a, *b))
+        .chain(others.iter().map(|s| (s.a, s.b)))
+        .collect();
+    for (k, (a, b)) in all.iter().enumerate() {
+        let (lo, hi) = (
+            key(a.min(*b) - Point2::splat(near)),
+            key(a.max(*b) + Point2::splat(near)),
+        );
+        if (hi.0 - lo.0 + 1) * (hi.1 - lo.1 + 1) > 4096 {
+            continue;
+        }
+        for i in lo.0..=hi.0 {
+            for j in lo.1..=hi.1 {
+                grid.entry((i, j)).or_default().push(k);
+            }
+        }
+    }
+    // (The lines at `p`, but `k`.)
+    let at = |p: Point2, k: usize| -> Vec<usize> {
+        grid.get(&key(p))
+            .into_iter()
+            .flatten()
+            .copied()
+            .filter(|&j| {
+                j != k && {
+                    let (a, b) = all[j];
+                    let d = b - a;
+                    let t = ((p - a).dot(d) / d.length_squared().max(1e-300)).clamp(0.0, 1.0);
+                    (a + d * t).distance(p) <= near
+                }
+            })
+            .collect()
+    };
+    // From each end on nothing, back along the line it ends (pieces end
+    // to end, nothing else at their joints) to where it meets another:
+    // a spur shorter than six pen widths, taken off.
+    let mut gone = vec![false; kept.len()];
+    for k in 0..kept.len() {
+        let (a, b, ..) = kept[k];
+        let free = match (at(a, k).is_empty(), at(b, k).is_empty()) {
+            (true, false) => a,
+            (false, true) => b,
+            _ => continue,
+        };
+        let (mut piece, mut from) = (k, free);
+        let mut walked = vec![k];
+        let mut length = 0.0;
+        loop {
+            let (p, q, ..) = kept[piece];
+            let to = if p.distance(from) <= near { q } else { p };
+            length += p.distance(q);
+            if length >= wide * 6.0 {
+                walked.clear();
+                break;
+            }
+            let there = at(to, piece);
+            match there[..] {
+                [j] if j < kept.len() && !walked.contains(&j) && {
+                    let (c, d, ..) = kept[j];
+                    c.distance(to) <= near || d.distance(to) <= near
+                } =>
+                {
+                    walked.push(j);
+                    piece = j;
+                    from = to;
+                }
+                _ => break,
+            }
+        }
+        for j in walked {
+            gone[j] = true;
+        }
+    }
+    let mut j = 0;
+    kept.retain(|_| {
+        j += 1;
+        !gone[j - 1]
+    });
+    strokes.extend(kept.into_iter().map(|(a, b, ..)| super::Stroke {
+        a,
+        b,
+        pen: Pen::Wide,
+        preview: false,
+    }));
+    strokes.extend(others);
+}
+
+/// Whether the edge `run` is a flat curve seen nearly, not quite, edge
+/// on from `towards` (its plane within 3° of the line of sight): the
+/// rim of a bore in a drafted wall, seen from above as an ellipse a
+/// fraction of a millimetre across, which the pen draws as a black
+/// blob. Such an edge is left out, as a draftsman leaves it (drawn as
+/// if the face were not inclined, the rim lies on the face's own
+/// edge). `reach`: how large the model is.
+fn nearly_edge_on(run: &[Point3], towards: Point3, reach: f64) -> bool {
+    let n = run.len();
+    if n < 4 {
+        return false;
+    }
+    let (a, b, c) = (run[0], run[n / 3], run[2 * n / 3]);
+    let Some(normal) = (b - a).cross(c - a).try_normalize() else {
+        return false;
+    };
+    let size = run.iter().fold(0.0_f64, |m, p| m.max(p.distance(a)));
+    if size <= reach * 1e-6 || run.iter().any(|p| (*p - a).dot(normal).abs() > size * 1e-6) {
+        return false;
+    }
+    let slant = normal.dot(towards).abs();
+    if !(1e-6..(3.0_f64).to_radians().sin()).contains(&slant) {
+        return false;
+    }
+    // (And seen so: as thin as that across, not a line.)
+    let across = normal.cross(towards).cross(towards).normalize_or_zero();
+    let (lo, hi) = run
+        .iter()
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| {
+            let s = (*p - a).dot(across);
+            (lo.min(s), hi.max(s))
+        });
+    hi - lo > reach * 1e-6
 }
 
 /// `world` with only what `names` names: its bodies by their names, the
@@ -2490,6 +2785,7 @@ pub(crate) fn draw(laid: &mut Laid, sheet: &Sheet, placed: &Placed<'_>, all: &[P
         .iter()
         .map(|l| (l, false))
         .chain(uncut.iter().map(|l| (l, true)));
+    let first_line = laid.strokes.len();
     for ((a, b, behind, smooth), whole) in every.filter(|_| !only_cut) {
         let (a, b) = match half {
             Some(half) => match in_half(*a - divide, *b - divide, half.cut, !whole)
@@ -2523,6 +2819,8 @@ pub(crate) fn draw(laid: &mut Laid, sheet: &Sheet, placed: &Placed<'_>, all: &[P
             lines.push((a, b));
         }
     }
+    let wide = laid.wide;
+    one_outline(&mut laid.strokes, first_line, wide);
     super::threads::draw(
         laid,
         &seen.threads,
@@ -2709,6 +3007,8 @@ pub(crate) fn draw(laid: &mut Laid, sheet: &Sheet, placed: &Placed<'_>, all: &[P
                     path: gone_along,
                     drawn: path,
                     arrows,
+                    looking: -from.way(placed.basis[2]).normalize_or_zero(),
+                    letter: letter.clone(),
                 });
             }
         }
@@ -2849,6 +3149,82 @@ fn cut_shows_in(sheet: &Sheet, placed: &Placed<'_>, all: &[Placed<'_>]) -> Vec<S
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_edge_all_but_on_another_is_drawn_once_and_a_burr_goes() {
+        let p = Point2::new;
+        let wide = |a, b| crate::lay::Stroke {
+            a,
+            b,
+            pen: Pen::Wide,
+            preview: false,
+        };
+        // An edge 40 long; another behind it 0,2 off along 20 of it, in
+        // pieces of 1, then turning away; an arc of short pieces on from
+        // its end on to another line, a burr 0,6 long sticking out of
+        // it, a line 2 off it.
+        let mut strokes = vec![wide(p(0.0, 0.0), p(40.0, 0.0))];
+        for k in 0..20 {
+            let x = f64::from(k);
+            strokes.push(wide(p(x, 0.2), p(x + 1.0, 0.2)));
+        }
+        strokes.push(wide(p(20.0, 0.2), p(25.0, 5.0)));
+        for k in 0..10 {
+            let a = |k: i32| std::f64::consts::FRAC_PI_2 * f64::from(k) / 10.0;
+            strokes.push(wide(
+                p(40.0 + a(k).sin(), 1.0 - a(k).cos()),
+                p(40.0 + a(k + 1).sin(), 1.0 - a(k + 1).cos()),
+            ));
+        }
+        strokes.push(wide(p(41.0, 1.0), p(41.0, 5.0)));
+        strokes.push(wide(p(10.0, 0.0), p(10.0, -0.6)));
+        strokes.push(wide(p(0.0, 2.0), p(40.0, 2.0)));
+        one_outline(&mut strokes, 0, 0.5);
+        let along_y = |y: f64| {
+            strokes
+                .iter()
+                .filter(|s| (s.a.y - y).abs() < 1e-9 && (s.b.y - y).abs() < 1e-9)
+                .map(|s| s.a.distance(s.b))
+                .sum::<f64>()
+        };
+        assert!(along_y(0.2) < 1e-9, "the edge behind is gone");
+        assert!((along_y(0.0) - 40.0).abs() < 1e-9 && (along_y(2.0) - 40.0).abs() < 1e-9);
+        assert!(
+            strokes.iter().any(|s| s.b == p(25.0, 5.0)),
+            "where it turns away, kept"
+        );
+        let arc = strokes
+            .iter()
+            .filter(|s| s.a.x >= 40.0 - 1e-9 && s.a.x < 41.0 - 1e-9)
+            .count();
+        assert_eq!(arc, 10, "the arc whole");
+        assert!(
+            !strokes.iter().any(|s| s.b == p(10.0, -0.6)),
+            "the burr gone"
+        );
+    }
+
+    #[test]
+    fn a_rim_seen_nearly_edge_on_is_left_out() {
+        // A circle of radius 10 in a plane tilted 2° from the line of
+        // sight (a bore's rim in a drafted wall, seen from above): left
+        // out. Seen exactly edge on (a line), square on, or 10° off: kept.
+        let circle = |tilt: f64| -> Vec<Point3> {
+            let n = Point3::new(0.0, tilt.to_radians().cos(), tilt.to_radians().sin());
+            let (u, v) = (Point3::X, n.cross(Point3::X));
+            (0..=48)
+                .map(|k| {
+                    let a = std::f64::consts::TAU * f64::from(k) / 48.0;
+                    (u * a.cos() + v * a.sin()) * 10.0
+                })
+                .collect()
+        };
+        let towards = Point3::Z;
+        assert!(nearly_edge_on(&circle(2.0), towards, 50.0));
+        assert!(!nearly_edge_on(&circle(0.0), towards, 50.0));
+        assert!(!nearly_edge_on(&circle(10.0), towards, 50.0));
+        assert!(!nearly_edge_on(&circle(90.0), towards, 50.0));
+    }
 
     #[test]
     fn a_polygon_of_a_circle_is_drawn_round_and_its_chords_are_not() {

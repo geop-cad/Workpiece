@@ -667,6 +667,7 @@ class Part:
         self._dimension_at: dict = {}
         self._dimension_decimals: dict = {}
         self._dimension_count: dict = {}
+        self._dimension_to: dict = {}
         self._off_sheet: list = []
         self._expect = None
         self._built = None
@@ -995,7 +996,7 @@ class Part:
                 lettering: float = 3.5, thru: bool | None = None, trim_zeros: bool = False,
                 aligned_leaders: bool = False, places: bool = False,
                 reference_depths: bool = False, general_tolerance: str | None = "ISO 2768-mK",
-                fits: str = "class") -> str:
+                fits: str = "class", surface_texture: str | None = None) -> str:
         """A drawing sheet of the model as the steps before it leave it. `views` is a list made
         with `view(...)`, `projected(...)`, `section_view(...)` (default: front, a view to its
         right, one above it, and an isometric one). With `dimensions`, every driving dimension
@@ -1047,7 +1048,9 @@ class Part:
         general_tolerance: what the title block says holds where a size has no tolerance of its
         own — "ISO 2768-mK" (default, machined), "ISO 8062-3 DCTG 9" (a casting), any words, or
         None. fits: "class" writes a fit as "Ø20 H7", "deviations" as "Ø20 H7 (+0,021/0)", its ISO
-        286 deviations small in brackets."""
+        286 deviations small in brackets. surface_texture="Ra 6,3": the surface texture of every face
+        that has none of its own (`p.surface_texture`), over the title block at its right with the
+        basic symbol in brackets after it (ISO 21920-1)."""
         if fits not in ("class", "deviations"):
             raise ValueError('fits= is "class" or "deviations"')
         inch = self.unit == "Inch"
@@ -1132,6 +1135,7 @@ class Part:
                             "dimension_at": dict(self._dimension_at),
                             "dimension_decimals": dict(self._dimension_decimals),
                             "dimension_count": dict(self._dimension_count),
+                            "dimension_to": dict(self._dimension_to),
                             "dimension_views": shown, "args": {
             "name": id, "format": format, "upright": upright, "scale": list(scale),
             "projection": projection, "views": views, "notes": [], "own": [], "numbers": numbers,
@@ -1143,7 +1147,7 @@ class Part:
             "balloons": [b for b in (balloons if isinstance(balloons, list) else []) if b != "auto"],
             "thru": inch if thru is None else bool(thru), "aligned_leaders": bool(aligned_leaders),
             "places": bool(places), "reference_depths": bool(reference_depths),
-            "general_tolerance": general_tolerance}})
+            "general_tolerance": general_tolerance, "surface_texture": surface_texture}})
         return id
 
     def dimension(self, *of: str, show_in: str | None = None, id: str | None = None, kind: str = "Auto",
@@ -1200,18 +1204,29 @@ class Part:
             self._dimension_at[made] = list(at)
         return made
 
-    def datum_feature(self, letter: str, on, show_in: str | None = None, at=None, id: str | None = None) -> str:
+    def datum_feature(self, letter: str, on, show_in: str | None = None, at=None, to=None,
+                      id: str | None = None) -> str:
         """Names the face `on` (`topo(name)`) the datum feature `letter` (ISO 5459: "A", "B", ...;
         never I, O, Q). The sheet draws its letter in a square on a leader that ends in a filled
-        triangle on the face's outline (or its extension line). Placed as a dimension: `show_in`
-        names the view, `at=(x, y)` where its square stands in mm from the view's middle."""
+        triangle on the face's outline as the view draws it (never in a hole of the face). A round
+        face (a bore, a shaft) is a datum axis: its triangle stands on the extension of the
+        face's diameter dimension line where that is in the view, on its circle where the view
+        sees it end on. Placed as a dimension: `show_in` names the view, `at=(x, y)` where its
+        square stands in mm from the view's middle; `to=(x, y)` (also mm from the view's middle)
+        where its triangle goes: the point of the face's drawn outline nearest that."""
         if not (isinstance(letter, str) and re.fullmatch(r"[A-HJ-NPR-Z]{1,2}", letter)):
             raise ValueError(f"datum_feature({letter!r}): a datum is a capital letter or two, not I, O or Q")
         ref = on if isinstance(on, dict) else topo(on)
-        return self._placed_on_sheet(self.op("DatumFeature", id, feature=ref, letter=letter), show_in, at)
+        made = self._placed_on_sheet(self.op("DatumFeature", id, feature=ref, letter=letter), show_in, at)
+        return self._leader_to(made, to)
+
+    def _leader_to(self, made: str, to) -> str:
+        if to is not None:
+            self._dimension_to[made] = [float(to[0]), float(to[1])]
+        return made
 
     def geometric_tolerance(self, kind: str, value: float, on, datums=(), diametral: bool = False,
-                            show_in: str | None = None, at=None, id: str | None = None) -> str:
+                            show_in: str | None = None, at=None, to=None, id: str | None = None) -> str:
         """A geometric tolerance (ISO 1101) of the face `on` (`topo(name)`): kind one of
         "Straightness", "Flatness", "Circularity", "Cylindricity", "LineProfile",
         "SurfaceProfile" (of form: no datums), "Parallelism", "Perpendicularity", "Angularity",
@@ -1219,7 +1234,13 @@ class Part:
         `datums=["A", "B"]`, in order, each named by `datum_feature` before); `value` the zone's
         width, `diametral=True` a round zone (Ø before it: a position of a bore's axis). The sheet
         draws the tolerance frame — symbol, zone, datums — on a leader ending in an arrow on the
-        face's outline. Placed as a dimension: `show_in`, `at=(x, y)`."""
+        face's outline as the view draws it. Of a round face, position and concentricity — and
+        straightness, parallelism, perpendicularity, angularity with a round zone — are of its
+        axis (ISO 1101): the arrow stands on the extension of the face's diameter dimension line,
+        in line with its arrow, where that is in the view; on the nearest circle of it (of a
+        pattern's holes, the nearest) where the view sees it end on. Placed as a dimension:
+        `show_in`, `at=(x, y)`; `to=(x, y)` (mm from the view's middle) where the arrow goes:
+        the point of the face's drawn outline nearest that."""
         if kind not in _CHARACTERISTICS:
             raise ValueError(f"geometric_tolerance({kind!r}): the kind is one of {', '.join(_CHARACTERISTICS)}")
         if isinstance(datums, str):
@@ -1231,7 +1252,25 @@ class Part:
         ref = on if isinstance(on, dict) else topo(on)
         made = self.op("GeometricTolerance", id, feature=ref, characteristic=kind, value=float(value),
                        diametral=bool(diametral), datums=" ".join(datums))
-        return self._placed_on_sheet(made, show_in, at)
+        return self._leader_to(self._placed_on_sheet(made, show_in, at), to)
+
+    def surface_texture(self, text: str, on, removal: bool | None = True, show_in: str | None = None,
+                        at=None, to=None, id: str | None = None) -> str:
+        """The surface texture of the face `on` (`topo(name)`; ISO 21920-1, drawn as ISO 1302 has
+        it): `text` its parameter and limit, "Ra 1,6", "Rz 6,3". removal=True (default) material is
+        to be removed (machined: a bar across the symbol's legs), False it is not (a circle in
+        them), None any process (the bare legs). The sheet draws the symbol on the face's outline
+        where the face looks up in the view and `at` stands right over it, else on a leader ending
+        in an arrow on the outline. Placed as a dimension: `show_in`, `at=(x, y)` (where the
+        symbol's apex stands, mm from the view's middle), `to=(x, y)` where the arrow goes."""
+        if not isinstance(text, str) or not text.strip():
+            raise ValueError("surface_texture: say the requirement, as \"Ra 1,6\"")
+        if removal not in (True, False, None):
+            raise ValueError("surface_texture: removal is True, False or None")
+        ref = on if isinstance(on, dict) else topo(on)
+        process = {True: "Required", False: "Prohibited", None: "Any"}[removal]
+        made = self.op("SurfaceTexture", id, feature=ref, text=text, removal=process)
+        return self._leader_to(self._placed_on_sheet(made, show_in, at), to)
 
     def add_part(self, part, mates=None, fixed: bool | None = None, at=None, euler=None, bodies=None,
                  variant: str | None = None, id: str | None = None) -> str:

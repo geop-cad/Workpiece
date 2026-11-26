@@ -132,7 +132,7 @@ fn feature_points(note: &workpiece_core::world::Note) -> Vec<Point3> {
     };
     match note {
         Note::Dimension { measured, .. } => of(measured),
-        Note::Datum { on, .. } | Note::Geometric { on, .. } => vec![*on],
+        Note::Datum { on, .. } | Note::Geometric { on, .. } | Note::Texture { on, .. } => vec![*on],
         Note::Hole { centre, .. } => vec![*centre],
     }
 }

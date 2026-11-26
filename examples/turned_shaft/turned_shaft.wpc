@@ -190,7 +190,9 @@
                   20.0,
                   10.0
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Fit": "k6"
+                },
                 "value": 20.0
               },
               "kind": {
@@ -228,7 +230,9 @@
                   55.0,
                   11.0
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Fit": "k6"
+                },
                 "value": 22.0
               },
               "kind": {
@@ -247,7 +251,9 @@
                   115.0,
                   10.0
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Fit": "k6"
+                },
                 "value": 20.0
               },
               "kind": {
@@ -266,7 +272,9 @@
                   135.0,
                   8.0
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Fit": "k6"
+                },
                 "value": 16.0
               },
               "kind": {
@@ -958,7 +966,9 @@
                   68.0
                 ],
                 "name": "width",
-                "tolerance": "General",
+                "tolerance": {
+                  "Fit": "N9"
+                },
                 "value": 6.0
               },
               "kind": {
@@ -1684,11 +1694,11 @@
             },
             {
               "at": [
-                60.0,
-                0.0
+                0.0,
+                22.0
               ],
               "note": "keyway/width",
-              "view": "top"
+              "view": "secB"
             },
             {
               "at": [

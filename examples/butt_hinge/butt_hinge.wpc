@@ -456,6 +456,17 @@
               ],
               "style": "HiddenRemoved"
             }
+          ],
+          "words": [
+            {
+              "at": [
+                0.0,
+                -62.0
+              ],
+              "height": 3.5,
+              "text": "PIN IN LEAVES: Ø5 H7/f7",
+              "view": "top"
+            }
           ]
         },
         "id": "drawing"

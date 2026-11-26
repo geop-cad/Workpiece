@@ -1,18 +1,36 @@
 //! What is said of the model on it, for those who make and measure it:
 //! which faces it is measured from ([`DatumFeature`], ISO 5459), how
-//! large it is and how exactly ([`Dimension`], ISO 129-1), and how true
-//! its faces are ([`GeometricTolerance`], ISO 1101). Nothing of the
+//! large it is and how exactly ([`Dimension`], ISO 129-1), how true
+//! its faces are ([`GeometricTolerance`], ISO 1101) and how rough
+//! ([`SurfaceTexture`], ISO 21920-1). Nothing of the
 //! geometry follows from them: a drawing of the part shows them.
 
 mod datum;
 mod dimension;
 mod geometric;
 mod mass;
+mod texture;
 
 pub use datum::{DatumFeature, DatumFeatureArgs};
 pub use dimension::{Bend, Dimension, DimensionArgs, DimensionKind};
 pub use geometric::{GeometricTolerance, GeometricToleranceArgs, Of};
 pub use mass::{MassProperties, MassPropertiesArgs};
+pub use texture::{Process, SurfaceTexture, SurfaceTextureArgs};
+
+/// The axis of the face `face` of `solid` where it is round (part of a
+/// cylinder: a bore, a shaft); nothing for any other face.
+pub(crate) fn axis_of(
+    solid: &workpiece_boolean::Solid,
+    face: usize,
+) -> Option<workpiece_core::world::FeatureAxis> {
+    let round = workpiece_shape::thread::cylinder(solid, face).ok()?;
+    let middle = (round.reach.0 + round.reach.1) / 2.0;
+    Some(workpiece_core::world::FeatureAxis {
+        centre: round.origin + round.axis * middle,
+        axis: round.axis,
+        radius: round.radius.abs(),
+    })
+}
 
 /// The fields of `args`, for a note that a click on nothing places:
 /// with what it is about known (`about`: the middle of it), the click
@@ -87,6 +105,23 @@ pub fn register(r: &mut workpiece_core::Registry) {
             .into()
         },
     });
+    r.kind::<SurfaceTexture>("surfacetexture");
+    r.tool(Tool {
+        tab: "Annotate",
+        group: "Define",
+        label: "Surface",
+        icon: "surfacetexture",
+        key: '\0',
+        hint: "How rough a face may be (ISO 21920-1): its parameter and limit, Ra 1,6, and whether it is machined — the surface texture symbol on the drawing",
+        small: true,
+        make: |cx| {
+            SurfaceTexture {
+                id: (cx.fresh_id)("surface"),
+                args: Default::default(),
+            }
+            .into()
+        },
+    });
     r.kind::<MassProperties>("mass");
     r.tool(Tool {
         tab: "Properties",
@@ -108,6 +143,10 @@ pub fn register(r: &mut workpiece_core::Registry) {
     r.icon("datumfeature", include_str!("../icons/datumfeature.svg"));
     r.icon("dimension3", include_str!("../icons/dimension3.svg"));
     r.icon("tolerance", include_str!("../icons/tolerance.svg"));
+    r.icon(
+        "surfacetexture",
+        include_str!("../icons/surfacetexture.svg"),
+    );
     for (name, svg) in OPTION_ICONS {
         r.icon(name, svg);
     }
@@ -142,6 +181,9 @@ const OPTION_ICONS: &[(&str, &str)] = icons!(
     "tol-general",
     "tol-limits",
     "tol-reference",
+    "texture-any",
+    "texture-machined",
+    "texture-unmachined",
     "tol-symmetric",
     "zone-planes",
     "zone-round",

@@ -176,16 +176,18 @@
                 "driven": false,
                 "formula": null,
                 "label": [
-                  0.0,
+                  60.0,
                   23.5
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Fit": "H7"
+                },
                 "value": 47.0
               },
               "kind": {
                 "PointLine": {
                   "line": 27,
-                  "point": 7
+                  "point": 12
                 }
               }
             },
@@ -839,6 +841,70 @@
       }
     },
     {
+      "DatumFeature": {
+        "args": {
+          "feature": {
+            "Topology": "housing/side/e19"
+          },
+          "letter": "A"
+        },
+        "id": "datumfeature1"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Flatness",
+          "datums": "",
+          "diametral": false,
+          "feature": {
+            "Topology": "housing/side/e19"
+          },
+          "value": 0.05
+        },
+        "id": "geometrictolerance1"
+      }
+    },
+    {
+      "DatumFeature": {
+        "args": {
+          "feature": {
+            "Topology": "housing/side/e18"
+          },
+          "letter": "B"
+        },
+        "id": "datumfeature2"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Perpendicularity",
+          "datums": "A",
+          "diametral": true,
+          "feature": {
+            "Topology": "housing/side/e24"
+          },
+          "value": 0.05
+        },
+        "id": "geometrictolerance2"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Position",
+          "datums": "A B",
+          "diametral": true,
+          "feature": {
+            "Topology": "tap/side/e1"
+          },
+          "value": 0.2
+        },
+        "id": "geometrictolerance3"
+      }
+    },
+    {
       "Section": {
         "args": {
           "along": "Plane",
@@ -1153,7 +1219,7 @@
             "wide": null
           },
           "format": "A3",
-          "general_tolerance": "ISO 2768-mK",
+          "general_tolerance": "ISO 8062-3 DCTG 9",
           "lines": [
             {
               "of": {
@@ -1172,24 +1238,64 @@
           "notes": [
             {
               "at": [
-                -40.00000000000003,
-                -0.0032129572399810513
+                -40.0,
+                -17.0
               ],
-              "note": "housing_profile/d41",
+              "note": "datumfeature1",
               "view": "secA"
             },
             {
               "at": [
-                -47.00000000000003,
-                -0.0032129572399810513
+                -4.0,
+                11.0
+              ],
+              "note": "datumfeature2",
+              "view": "secA"
+            },
+            {
+              "at": [
+                -52.0,
+                11.0
+              ],
+              "note": "geometrictolerance1",
+              "view": "secA"
+            },
+            {
+              "at": [
+                0.0,
+                -11.0
+              ],
+              "note": "geometrictolerance2",
+              "view": "secA"
+            },
+            {
+              "at": [
+                14.60910319066548,
+                75.32610993758041
+              ],
+              "note": "geometrictolerance3",
+              "view": "left"
+            },
+            {
+              "at": [
+                -42.0,
+                -50.0
+              ],
+              "note": "housing_profile/d41",
+              "view": "left"
+            },
+            {
+              "at": [
+                62.0,
+                0.0
               ],
               "note": "housing_profile/d42",
               "view": "secA"
             },
             {
               "at": [
-                -54.00000000000003,
-                -0.0032129572399810513
+                50.0,
+                0.0
               ],
               "note": "housing_profile/d43",
               "view": "secA"
@@ -1213,7 +1319,7 @@
             {
               "at": [
                 0.0,
-                73.99678704276002
+                66.99678704276002
               ],
               "note": "housing_profile/d46",
               "view": "secA"
@@ -1221,23 +1327,15 @@
             {
               "at": [
                 -23.0,
-                66.99678704276002
+                -60.0
               ],
               "note": "housing_profile/d47",
               "view": "secA"
             },
             {
               "at": [
-                23.0,
-                59.99678704276002
-              ],
-              "note": "housing_profile/d48",
-              "view": "secA"
-            },
-            {
-              "at": [
-                -33.6560536320969,
-                77.65284067485692
+                -28.0,
+                62.0
               ],
               "note": "tap/callout",
               "view": "left"
@@ -1291,7 +1389,7 @@
               ],
               "caption_at": [
                 0.0,
-                -66.0
+                -68.0
               ],
               "id": "secA",
               "kind": {
@@ -1306,7 +1404,7 @@
             },
             {
               "at": [
-                330.0,
+                360.0,
                 205.0
               ],
               "id": "iso",
@@ -1315,6 +1413,10 @@
                   "side": "IsometricFrontLeft"
                 }
               },
+              "scale": [
+                1,
+                2
+              ],
               "style": "HiddenRemoved"
             }
           ]

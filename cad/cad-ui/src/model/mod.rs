@@ -411,6 +411,7 @@ impl Model {
                     decimals: None,
                     starts: [None; 2],
                     count: None,
+                    to: None,
                 });
                 let op = workpiece_ops_drawing::Drawing {
                     id: drawing.id,

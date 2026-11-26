@@ -273,6 +273,7 @@ fn dimensions_stand_where_a_view_sees_them_and_nowhere_else() -> anyhow::Result<
         decimals: None,
         starts: [None; 2],
         count: None,
+        to: None,
     };
     let notes = vec![
         note("r", "front"),
@@ -813,6 +814,7 @@ fn a_length_between_the_middles_of_drawn_arcs_ends_on_what_the_view_draws() -> a
         decimals: None,
         starts: [None; 2],
         count: None,
+        to: None,
     };
     let laid = laid(&b, vec![top], vec![note]);
     assert!(
@@ -891,6 +893,7 @@ fn a_radius_of_a_round_off_the_text_s_side_is_one_straight_leader_through_its_ce
                 decimals: None,
                 starts: [None; 2],
                 count: None,
+                to: None,
             }],
         )
     };
@@ -1080,5 +1083,57 @@ fn a_section_s_cutting_line_is_put_into_a_view_that_sees_it_edge_on() -> anyhow:
     }
     let letters = |laid: &Laid| laid.texts.iter().filter(|t| t.text == "A").count();
     assert_eq!(letters(&there), letters(&alone) + 2);
+    // A dimension's text put where a letter stands: the letter (and its
+    // arrow) moves out along the line, off it.
+    let letter = there
+        .texts
+        .iter()
+        .find(|t| t.text == "A" && t.at.distance(there.cuts[0].arrows[0]) < 15.0)
+        .expect("a letter by an arrow")
+        .at;
+    let mut b = b;
+    b.world.annotations.insert(
+        "wide".into(),
+        workpiece_core::world::Annotation {
+            note: workpiece_core::world::Note::Dimension {
+                measured: workpiece_core::world::Measured::Length {
+                    from: workpiece_core::math::Point3::new(-2.0, -2.0, 2.0),
+                    to: workpiece_core::math::Point3::new(2.0, -2.0, 2.0),
+                    along: None,
+                },
+                value: 4.0,
+                tolerance: workpiece_core::world::Tolerance::General,
+                elsewhere: Vec::new(),
+            },
+            at: workpiece_core::math::Point3::ZERO,
+            sketch: None,
+        },
+    );
+    let top = there.views.iter().find(|v| v.id == "top").expect("top");
+    let at = letter - top.anchor;
+    let note = PlacedNote {
+        note: "wide".into(),
+        view: "top".into(),
+        at: [at.x, at.y],
+        decimals: None,
+        starts: [None; 2],
+        count: None,
+        to: None,
+    };
+    let moved = laid(&b, views(Some("top")), vec![note]);
+    assert!(
+        !moved.problems.iter().any(|p| p.contains("over each other")),
+        "{:?}",
+        moved.problems
+    );
+    let four = moved
+        .texts
+        .iter()
+        .filter(|t| t.text == "4")
+        .min_by(|a, b| a.at.distance(letter).total_cmp(&b.at.distance(letter)))
+        .expect("the dimension");
+    for t in moved.texts.iter().filter(|t| t.text == "A") {
+        assert!(t.at.distance(four.at) > 3.0, "{:?} on {:?}", t.at, four.at);
+    }
     Ok(())
 }

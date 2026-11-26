@@ -236,7 +236,7 @@
             },
             {
               "at": [
-                -30.0,
+                -20.0,
                 64.0
               ],
               "part": "bearing1",
@@ -252,18 +252,26 @@
             },
             {
               "at": [
-                80.0,
-                30.0
+                -52.0,
+                40.0
               ],
               "part": "shaft",
+              "to": [
+                -52.0,
+                5.0
+              ],
               "view": "secA"
             },
             {
               "at": [
-                -62.0,
-                -64.0
+                -60.0,
+                -35.0
               ],
               "part": "cover",
+              "to": [
+                -34.0,
+                -30.0
+              ],
               "view": "secA"
             }
           ],
@@ -643,6 +651,26 @@
                 2
               ],
               "style": "HiddenRemoved"
+            }
+          ],
+          "words": [
+            {
+              "at": [
+                100.0,
+                62.0
+              ],
+              "height": 3.5,
+              "text": "FITS  Ø47 H7 HOUSING SEAT / BEARING OUTER RING (LOCATING)",
+              "view": null
+            },
+            {
+              "at": [
+                100.0,
+                55.0
+              ],
+              "height": 3.5,
+              "text": "          Ø20 k6 SHAFT JOURNAL / BEARING INNER RING (LIGHT PRESS)",
+              "view": null
             }
           ]
         },

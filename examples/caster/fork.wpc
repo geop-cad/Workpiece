@@ -345,7 +345,9 @@
                   10.0,
                   0.0
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Symmetric": 0.1
+                },
                 "value": 20.0
               },
               "kind": {
@@ -365,7 +367,9 @@
                   23.2,
                   3.2
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Fit": "H7"
+                },
                 "value": 8.0
               },
               "kind": {
@@ -960,7 +964,7 @@
             "wide": null
           },
           "format": "A3",
-          "general_tolerance": "ISO 2768-mK",
+          "general_tolerance": "ISO 2768-m",
           "name": "drawing",
           "notes": [
             {
@@ -973,16 +977,16 @@
             },
             {
               "at": [
-                35.0,
-                -15.000000000000014
+                11.313708498984766,
+                -26.313708498984766
               ],
               "note": "axle_hole/d11",
-              "view": "front"
+              "view": "right"
             },
             {
               "at": [
-                -42.0,
-                0.0
+                -52.0,
+                5.0
               ],
               "note": "block/distance",
               "view": "front"
@@ -1013,8 +1017,8 @@
             },
             {
               "at": [
-                33.1568542494924,
-                33.156854249492426
+                19.33676761962853,
+                41.467831980578524
               ],
               "note": "king/callout",
               "view": "top"

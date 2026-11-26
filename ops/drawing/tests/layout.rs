@@ -92,6 +92,7 @@ fn note(note: &str, view: &str, at: [f64; 2]) -> PlacedNote {
         decimals: None,
         starts: [None; 2],
         count: None,
+        to: None,
     }
 }
 

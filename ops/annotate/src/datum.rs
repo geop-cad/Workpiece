@@ -107,6 +107,8 @@ impl Operation for DatumFeature {
                 letter: letter.to_owned(),
                 on,
                 out,
+                // (A round face's datum is its axis: ISO 5459.)
+                axis: crate::axis_of(&solid, face),
             },
             at: match args.at {
                 Some(at) => workpiece_core::math::Point3::from_array(at),

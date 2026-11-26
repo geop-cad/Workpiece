@@ -83,6 +83,7 @@ fn note(note: &str, view: &str, at: [f64; 2]) -> PlacedNote {
         decimals: None,
         starts: [None; 2],
         count: None,
+        to: None,
     }
 }
 
@@ -225,6 +226,7 @@ fn a_tolerance_frame_has_its_compartments_and_its_datum_a_triangle() -> anyhow::
             letter: "A".into(),
             on: Point3::new(0.0, -1.0, -2.0),
             out: -Point3::Z,
+            axis: None,
         },
     );
     say(
@@ -237,6 +239,7 @@ fn a_tolerance_frame_has_its_compartments_and_its_datum_a_triangle() -> anyhow::
             datums: vec!["A".into()],
             on: top,
             out: Point3::Z,
+            axis: None,
         },
     );
     let laid = lay(
@@ -411,5 +414,382 @@ fn hatching_is_broken_where_text_stands_on_it() -> anyhow::Result<()> {
             );
         }
     }
+    Ok(())
+}
+
+#[test]
+fn a_tolerance_of_an_axis_points_at_its_diameters_dimension_line() -> anyhow::Result<()> {
+    // A round feature of radius 1,8 about the z axis, its diameter shown
+    // from the front below the block: the perpendicularity of its axis
+    // and the datum that is its axis stand on the extension of that
+    // dimension line (ISO 1101, ISO 5459), not on its wall.
+    use workpiece_core::world::FeatureAxis;
+    let mut b = block()?;
+    let of = FeatureAxis {
+        centre: Point3::ZERO,
+        axis: Point3::Z,
+        radius: 1.8,
+    };
+    say(
+        &mut b,
+        "seat",
+        Note::Dimension {
+            measured: Measured::Diameter {
+                centre: of.centre,
+                axis: of.axis,
+                radius: of.radius,
+            },
+            value: 3.6,
+            tolerance: Tolerance::General,
+            elsewhere: Vec::new(),
+        },
+    );
+    say(
+        &mut b,
+        "square",
+        Note::Geometric {
+            characteristic: Characteristic::Perpendicularity,
+            value: 0.02,
+            diametral: true,
+            datums: vec!["B".into()],
+            on: Point3::new(1.0, 0.0, 1.0),
+            out: Point3::X,
+            axis: Some(of),
+        },
+    );
+    say(
+        &mut b,
+        "datum",
+        Note::Datum {
+            letter: "B".into(),
+            on: Point3::new(-1.0, 0.0, 1.0),
+            out: -Point3::X,
+            axis: Some(of),
+        },
+    );
+    let mut s = sheet(
+        vec![front([150.0, 150.0])],
+        // (The geometric notes first: they are drawn after the
+        // dimension all the same.)
+        vec![
+            note("square", "front", [60.0, -50.0]),
+            note("datum", "front", [-60.0, -50.0]),
+            note("seat", "front", [0.0, -35.0]),
+        ],
+    );
+    // (Large enough for the diameter's text between its arrows.)
+    s.scale = [10, 1];
+    let laid = lay(&b, &s);
+    let seat = laid
+        .notes
+        .iter()
+        .find(|n| n.index == 2)
+        .and_then(|n| n.linear)
+        .expect("the diameter as a length");
+    let [l0, l1] = seat.line;
+    assert!((l0.y - l1.y).abs() < 1e-9, "the dimension line is level");
+    // The frame's arrow: its tip on an end of the dimension line,
+    // pointing along it, inwards (from the frame's side, the right).
+    let right = if l0.x > l1.x { l0 } else { l1 };
+    let left = if l0.x > l1.x { l1 } else { l0 };
+    let arrow_at = |tip: Point2, way: f64| {
+        laid.fills.iter().any(|f| {
+            f.corners[0].distance(tip) < 1e-6
+                && ((f.corners[1] + f.corners[2]) / 2.0 - tip).x * way > 1.0
+                && ((f.corners[1] + f.corners[2]) / 2.0 - tip).y.abs() < 1e-6
+        })
+    };
+    assert!(
+        arrow_at(right, 1.0),
+        "the tolerance's arrow from outside, on the right"
+    );
+    // The datum's triangle: its base on the left extension line at the
+    // dimension line's height, its apex out to the left.
+    let triangle = laid.fills.iter().any(|f| {
+        f.corners
+            .iter()
+            .filter(|c| (c.x - left.x).abs() < 1e-6)
+            .count()
+            == 2
+            && f.corners
+                .iter()
+                .any(|c| c.x < left.x - 1.0 && (c.y - left.y).abs() < 1e-6)
+    });
+    assert!(triangle, "the datum's triangle on the left, in line");
+    Ok(())
+}
+
+#[test]
+fn a_straight_edge_is_no_arc_to_centre_mark() -> anyhow::Result<()> {
+    // A length that ends below the block, as far from both ends of its
+    // top edge: that edge is a chord of a circle about the end, but no
+    // arc — no centre mark as large as that circle is drawn there.
+    let mut b = block()?;
+    say(
+        &mut b,
+        "below",
+        Note::Dimension {
+            measured: Measured::Length {
+                from: Point3::new(0.0, -2.0, -5.0),
+                to: Point3::new(2.0, -2.0, -5.0),
+                along: None,
+            },
+            value: 2.0,
+            tolerance: Tolerance::General,
+            elsewhere: Vec::new(),
+        },
+    );
+    let laid = lay(
+        &b,
+        &sheet(
+            vec![front([150.0, 150.0])],
+            vec![note("below", "front", [5.0, -35.0])],
+        ),
+    );
+    let long = laid
+        .strokes
+        .iter()
+        .filter(|s| s.pen == Pen::Chain && s.a.distance(s.b) > 15.0)
+        .count();
+    assert_eq!(long, 0, "no centre mark about the length's end");
+    Ok(())
+}
+
+#[test]
+fn leaders_of_datums_and_tolerances_end_apart_where_asked_and_reach_their_frames()
+-> anyhow::Result<()> {
+    // The block's bottom (y 140 on the sheet, x 140 to 160): a datum and
+    // a flatness on it, their boxes side by side below; a third, put
+    // above the block (behind the face, as seen from it), steered with
+    // `to` to the bottom's left end.
+    let mut b = block()?;
+    say(
+        &mut b,
+        "datum",
+        Note::Datum {
+            letter: "A".into(),
+            on: Point3::new(0.0, -1.0, -2.0),
+            out: -Point3::Z,
+            axis: None,
+        },
+    );
+    say(
+        &mut b,
+        "flat",
+        Note::Geometric {
+            characteristic: Characteristic::Flatness,
+            value: 0.05,
+            diametral: false,
+            datums: Vec::new(),
+            on: Point3::new(0.0, -1.0, -2.0),
+            out: -Point3::Z,
+            axis: None,
+        },
+    );
+    say(
+        &mut b,
+        "behind",
+        Note::Geometric {
+            characteristic: Characteristic::Flatness,
+            value: 0.1,
+            diametral: false,
+            datums: Vec::new(),
+            on: Point3::new(0.0, -1.0, -2.0),
+            out: -Point3::Z,
+            axis: None,
+        },
+    );
+    let mut behind = note("behind", "front", [30.0, 20.0]);
+    behind.to = Some([-7.0, -10.0]);
+    let laid = lay(
+        &b,
+        &sheet(
+            vec![front([150.0, 150.0])],
+            vec![
+                note("datum", "front", [0.0, -20.0]),
+                note("flat", "front", [0.0, -20.0]),
+                behind,
+            ],
+        ),
+    );
+    // Where each leader ends on the bottom: the datum's triangle (two
+    // corners on it), the arrows' tips.
+    let on_bottom: Vec<f64> = laid
+        .fills
+        .iter()
+        .filter_map(|f| {
+            let on: Vec<&Point2> = f
+                .corners
+                .iter()
+                .filter(|c| (c.y - 140.0).abs() < 1e-6)
+                .collect();
+            match on[..] {
+                [a, b] => Some((a.x + b.x) / 2.0),
+                [a] if f.corners[0] == *a => Some(a.x),
+                _ => None,
+            }
+        })
+        .collect();
+    assert_eq!(on_bottom.len(), 3, "{on_bottom:?}");
+    for (k, x) in on_bottom.iter().enumerate() {
+        assert!((140.0..=160.0).contains(x), "on the bottom: {x}");
+        for y in &on_bottom[k + 1..] {
+            assert!((x - y).abs() > 4.0, "apart: {on_bottom:?}");
+        }
+    }
+    // Steered: the one put above ends at the bottom's left, as `to` asks.
+    assert!(
+        on_bottom.iter().any(|x| (x - 143.0).abs() < 0.5),
+        "{on_bottom:?}"
+    );
+    // And its leader reaches its frame: a line of it ends on the frame's
+    // nearer end, half way up.
+    let frame = laid
+        .notes
+        .iter()
+        .find(|n| n.index == 2)
+        .expect("its frame")
+        .rect;
+    let middle = (frame[0].y + frame[1].y) / 2.0;
+    assert!(
+        laid.strokes
+            .iter()
+            .any(|s| [s.a, s.b].iter().any(|p| (p.y - middle).abs() < 1e-6
+                && ((p.x - frame[0].x).abs() < 1e-6 || (p.x - frame[1].x).abs() < 1e-6))),
+        "the leader reaches the frame"
+    );
+    Ok(())
+}
+
+#[test]
+fn a_surface_texture_is_its_symbol_on_the_outline_and_the_sheet_says_the_others()
+-> anyhow::Result<()> {
+    // Ra 1,6 machined on the block's top, its symbol put right over it;
+    // the sheet's own Ra 6,3 by the title block.
+    use workpiece_core::world::Removal;
+    let mut b = block()?;
+    say(
+        &mut b,
+        "rough",
+        Note::Texture {
+            text: "Ra 1,6".into(),
+            removal: Removal::Required,
+            on: Point3::new(0.0, -2.0, 2.0),
+            out: Point3::Z,
+        },
+    );
+    let mut s = sheet(
+        vec![front([150.0, 150.0])],
+        vec![note("rough", "front", [0.0, 10.0])],
+    );
+    s.surface_texture = Some("Ra 6,3".into());
+    let laid = lay(&b, &s);
+    assert!(laid.problems.is_empty(), "{:?}", laid.problems);
+    let written = texts(&laid);
+    for text in ["Ra 1,6", "Ra 6,3", "(", ")"] {
+        assert!(written.iter().any(|t| t == text), "{text} in {written:?}");
+    }
+    // Its apex on the top outline (y 160), its legs 60° off it: the
+    // shorter 1,4 h high, the longer 3 h; a bar closes them at 1,4 h.
+    let h = workpiece_ops_drawing::lay::lettering();
+    let apex = Point2::new(150.0, 160.0);
+    let leg = |height: f64, way: f64| {
+        let top = apex + Point2::new(way * height * 30f64.to_radians().tan(), height);
+        laid.strokes.iter().any(|s| {
+            s.pen == Pen::Narrow
+                && ((s.a - apex).length() < 1e-6 && (s.b - top).length() < 1e-6
+                    || (s.b - apex).length() < 1e-6 && (s.a - top).length() < 1e-6)
+        })
+    };
+    assert!(leg(1.4 * h, -1.0), "the shorter leg");
+    assert!(leg(3.0 * h, 1.0), "the longer leg");
+    let bar = laid.strokes.iter().any(|s| {
+        (s.a.y - (apex.y + 1.4 * h)).abs() < 1e-6
+            && (s.b.y - s.a.y).abs() < 1e-9
+            && (s.b.x - s.a.x).abs() > 1.0
+            && s.a.x.min(s.b.x) < apex.x
+    });
+    assert!(bar, "machined: the bar");
+    Ok(())
+}
+
+#[test]
+fn a_text_with_no_room_between_its_arrows_goes_past_the_end_it_is_put_by() -> anyhow::Result<()> {
+    // A height of 1 at 1:1, upright in the front view: its text "1 ±0,1"
+    // does not fit between the arrows; put a little above the middle, it
+    // goes past the upper arrow; a little below, past the lower.
+    let mut b = block()?;
+    say(
+        &mut b,
+        "short",
+        Note::Dimension {
+            measured: Measured::Length {
+                from: Point3::new(2.0, -2.0, 0.0),
+                to: Point3::new(2.0, -2.0, 1.0),
+                along: None,
+            },
+            value: 1.0,
+            tolerance: Tolerance::Symmetric(0.1),
+            elsewhere: Vec::new(),
+        },
+    );
+    for (dy, above) in [(1.0, true), (-0.5, false)] {
+        let mut s = sheet(
+            vec![front([150.0, 150.0])],
+            vec![note("short", "front", [12.0, 0.5 + dy])],
+        );
+        s.scale = [1, 1];
+        let laid = lay(&b, &s);
+        let text = laid
+            .texts
+            .iter()
+            .find(|t| t.text.starts_with("1 "))
+            .expect("its text");
+        // (The height runs from 150 to 151 on the sheet.)
+        if above {
+            assert!(text.at.y > 151.0, "above: {:?}", text.at);
+        } else {
+            assert!(text.at.y < 150.0, "below: {:?}", text.at);
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn an_angle_too_long_for_its_arc_stands_over_its_middle_not_past_an_arm() -> anyhow::Result<()> {
+    // The block's corner, 90° between its bottom and its side, with a
+    // tolerance; its text put inside the corner's sector near the apex,
+    // where the arc is too short for it: it stands over the arc's
+    // middle, between the arms (not out past one, over what runs on).
+    let mut b = block()?;
+    say(
+        &mut b,
+        "corner",
+        Note::Dimension {
+            measured: Measured::Angle {
+                at: Point3::new(-2.0, -2.0, -2.0),
+                first: Point3::Y,
+                second: Point3::Z,
+            },
+            value: 90.0,
+            tolerance: Tolerance::Symmetric(0.5),
+            elsewhere: Vec::new(),
+        },
+    );
+    let laid = lay(
+        &b,
+        &sheet(
+            vec![front([150.0, 150.0])],
+            vec![note("corner", "front", [-6.5, -6.5])],
+        ),
+    );
+    let text = laid
+        .texts
+        .iter()
+        .find(|t| t.text.starts_with("90°"))
+        .unwrap_or_else(|| panic!("{:?} {:?}", texts(&laid), laid.problems));
+    // (The apex at 140, 140 on the sheet; the sector up and right of it.)
+    let d = text.at - Point2::new(140.0, 140.0);
+    assert!(d.x > 0.0 && d.y > 0.0, "within the sector: {:?}", text.at);
     Ok(())
 }

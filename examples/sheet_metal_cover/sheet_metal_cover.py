@@ -57,8 +57,8 @@ dots = [h.dot(sx * (LENGTH / 2 - HOLE_INSET), sy * (WIDTH / 2 - HOLE_INSET), f"h
 h.symmetric(dots[0], dots[1], "v"); h.symmetric(dots[1], dots[2], "u"); h.symmetric(dots[2], dots[3], "v")
 h.project("end", top_edge(x=LENGTH / 2))
 h.project("side", top_edge(y=WIDTH / 2))
-h.point_line(dots[0], "end", HOLE_INSET)
-h.point_line(dots[0], "side", HOLE_INSET)
+h.point_line(dots[0], "end", HOLE_INSET, tol=0.2, id="inset_x", at=(60, -88))   # locating holes: inset +-0,2 (mounting pitch)
+h.point_line(dots[0], "side", HOLE_INSET, tol=0.2)
 p.hole(h, HOLE, id="mount")
 
 # The flanges, bent up along both long edges, and a lip bent inwards at the top of each.
@@ -79,13 +79,15 @@ for k in (1, 2):
 # sizes and bend radius, and a pictorial.
 rep = p.build(OUT)
 face = lambda name: rep.faces(where=lambda f: f["name"] == name)[0]
-p.dimension("base/start/e11", "lip1/side/e2", show_in="front", id="overall_height", at=(-64, 0))
+p.dimension("base/start/e11", "lip1/side/e2", show_in="front", id="overall_height", at=(-76, 0))
 p.dimension("side1/side/e2", "side2/side/e2", show_in="front", id="overall_width")
 p.dimension("lip2/side/e3", "side2/side/e2", show_in="front", id="lip_width")
 p.dimension("side2/side/e5", kind="Radius", show_in="front", id="bend")
 p.on_sheet("base", show_in="front")
+p.on_sheet("mount/callout", at=(78, -50))
+p.on_sheet("vent/d25", at=(-14, 40))
 p.drawing(views=[view("top", "Top", (125, 190)), projected("front", "top", "Below", 140),
-                 view("iso", "Isometric", (320, 200), scale=(1, 2))], scale=(1, 1), format="A3", id="drawing")
+                 view("iso", "Isometric", (320, 200), scale=(1, 2))], scale=(1, 1), format="A3", id="drawing", general_tolerance="ISO 2768-m")
 
 # The flat pattern: the sheet laid out in the base's plane, a body of its own, on a sheet of its own
 # with its developed width; then taken away again, so that the part weighs as the cover alone.
@@ -100,7 +102,7 @@ for done in ("overall_height", "overall_width", "lip_width", "bend", "base", "ve
 # (Their words above the pattern: each line runs the way its bend was found.)
 bends = [{"of": f"flat/bend{k}", "view": "top", "label": f"UP 90° R{BEND_RADIUS:g}", "label_at": at}
          for k, at in ((1, "start"), (2, "end"), (3, "start"), (4, "end"))]
-p.drawing(views=[view("top", "Top", (150, 165), bodies=["flat"])], scale=(1, 1), format="A3", id="flat_pattern",
+p.drawing(views=[view("top", "Top", (150, 165), bodies=["flat"])], scale=(1, 1), format="A3", id="flat_pattern", general_tolerance="ISO 2768-m",
           centre_lines=["all"] + bends,
           notes=[note("top", (0, -125), f"FLAT PATTERN  K = 0,44  SHEET {THICKNESS:g} THICK".replace(".", ","))])
 p.op("DeleteBody", id="flat_gone", bodies=[topo("flat")])

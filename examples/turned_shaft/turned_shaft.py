@@ -29,8 +29,10 @@ s.coincident(pts[0], s.origin)
 # Each step's diameter, and its length chained from the threaded end.
 # (Each diameter's text over the middle of its own step, mm on the sheet from the view's middle.)
 # The threaded end's Ø16 is kept off the sheet: the thread's callout says M16 there.
+# Fits (ISO 286): k6 on both bearing seats and the coupling seat, the hub seat under the key (a light press).
+fits = {3: "k6", 7: "k6", 9: "k6", 11: "k6"}
 for i, dia, x in ((1, 16, -140), (3, 20, -95), (5, 26, -60), (7, 22, -20), (9, 20, 90), (11, 16, 135)):
-    s.diameter_about(pts[i], ax, dia, at=(x, 0), on_drawing=i != 1)
+    s.diameter_about(pts[i], ax, dia, at=(x, 0), on_drawing=i != 1, **({"tol": fits[i]} if i in fits else {}))
 for i, length in ((1, 20), (3, 25), (5, 10), (7, 60), (9, 20), (11, 25)):
     s.distance_u(pts[i], pts[i + 1], length)
 p.revolve(s, combine="NewBody", id="shaft")
@@ -50,7 +52,7 @@ for line in (la, lb):
 k.equal(arc0, arc1)
 k.point_on(c0, "v"); k.point_on(c1, "v")
 k.point_on(e0, arc0); k.point_on(e1, arc1); k.point_on(e0, "v"); k.point_on(e1, "v")
-k.point_line(a0, lb, 6, id="width", at=(60, 0))
+k.point_line(a0, lb, 6, id="width", at=(0, 22), show_in="secB", tol="N9")  # key width, a normal fit for the key
 k.distance_v(e0, e1, 40, id="length")
 k.distance_v(k.origin, e0, 65, id="from_end")
 p.cut(k, through=True, id="keyway_cut")

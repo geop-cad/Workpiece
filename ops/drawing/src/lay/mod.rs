@@ -428,6 +428,10 @@ pub struct LaidCut {
     /// Where its arrows point at it: the ends of the drawn line that
     /// have one.
     pub arrows: Vec<Point2>,
+    /// The way its arrows point (a unit vector on the sheet).
+    pub looking: Point2,
+    /// The letter at its arrows.
+    pub letter: String,
 }
 
 /// A cell of the title block as it is laid out: what the user points
@@ -755,12 +759,225 @@ fn laid_out(
     drawn::draw(&mut laid, sheet);
     lines::draw(&mut laid, sheet, subject.world, &frames, previews);
     notes::draw(&mut laid, sheet, subject, &frames, previews);
+    one_centre_line(&mut laid, own_strokes);
+    clear_cut_letters(&mut laid, sheet, own_texts, own_strokes);
     clear_captions(&mut laid, own_texts, own_strokes);
     lines::labels(&mut laid);
     views::detail_letters(&mut laid, &frames);
     parts::draw(&mut laid, sheet, subject, &frames);
     overlaps(&mut laid, own_texts);
     laid
+}
+
+/// The arrows and letters of the cutting lines (ISO 128-3) moved off
+/// what is drawn over them — a dimension's extension or dimension line,
+/// its text, the sheet's frame: each arrow with its letter on out along
+/// its cutting line (the line run on to it), a millimetre at a time,
+/// its letter behind the arrow or beside it, as little as it takes.
+fn clear_cut_letters(laid: &mut Laid, sheet: &Sheet, from_text: usize, from_stroke: usize) {
+    let (space_lo, space_hi) = frame::space(sheet);
+    for c in 0..laid.cuts.len() {
+        let cut = laid.cuts[c].clone();
+        let (Some(&first), Some(&last)) = (cut.drawn.first(), cut.drawn.last()) else {
+            continue;
+        };
+        for (n, end) in cut.arrows.iter().copied().enumerate() {
+            // (The way the line runs on out at this end.)
+            let along = if end == first {
+                cut.drawn.get(1).map(|q| (end - *q).normalize_or_zero())
+            } else if end == last {
+                cut.drawn
+                    .get(cut.drawn.len().wrapping_sub(2))
+                    .map(|q| (end - *q).normalize_or_zero())
+            } else {
+                None
+            };
+            let Some(along) = along.filter(|a| *a != Point2::ZERO) else {
+                continue;
+            };
+            let looking = cut.looking;
+            let tail = (end - looking * 9.0, end - looking * 4.0);
+            let letter_at = end - looking * 12.5;
+            // (Its tail: in pieces, where a text written over it broke it.)
+            let on_tail = |p: Point2| {
+                let r = tail.1 - tail.0;
+                let t = (p - tail.0).dot(r) / r.length_squared();
+                (-1e-9..=1.0 + 1e-9).contains(&t) && (tail.0 + r * t).distance(p) < 1e-9
+            };
+            let pieces: Vec<usize> = (0..laid.strokes.len())
+                .filter(|&k| {
+                    let s = &laid.strokes[k];
+                    s.pen == Pen::Narrow && on_tail(s.a) && on_tail(s.b)
+                })
+                .collect();
+            if pieces.is_empty() {
+                continue;
+            }
+            let Some(fill) = laid
+                .fills
+                .iter()
+                .position(|f| f.corners[0].distance(end) < 1e-9)
+            else {
+                continue;
+            };
+
+            let Some(text) = laid
+                .texts
+                .iter()
+                .position(|t| t.text == cut.letter && t.at.distance(letter_at) < 1e-9)
+            else {
+                continue;
+            };
+            // (Where the letter stands: behind the arrow, or beside its
+            // tail out along the line.)
+            let beside = (tail.0 + tail.1) / 2.0 + along * 4.5;
+            let clear = |laid: &Laid, shift: f64, at: Point2| -> bool {
+                let d = along * shift;
+                let mut t = laid.texts[text].clone();
+                t.at = at + d;
+                let [lo, hi] = notes::text_box(&t);
+                let (lo, hi) = (lo - Point2::splat(0.75), hi + Point2::splat(0.75));
+                let quad = [lo, Point2::new(hi.x, lo.y), hi, Point2::new(lo.x, hi.y)];
+                let (a, b) = (tail.0 + d, end + d);
+                let crosses = |s: &Stroke| {
+                    let (p, r) = (s.a, s.b - s.a);
+                    let q = b - a;
+                    let den = r.perp_dot(q);
+                    if den.abs() < 1e-12 {
+                        return false;
+                    }
+                    let u = (a - p).perp_dot(q) / den;
+                    let v = (a - p).perp_dot(r) / den;
+                    if (0.0..=1.0).contains(&u) && (-0.1..=1.1).contains(&v) {
+                        return true;
+                    }
+                    // (Or running close beside it: a dimension line along it.)
+                    let near = |x: Point2, p: Point2, r: Point2| {
+                        let t = ((x - p).dot(r) / r.length_squared().max(1e-300)).clamp(0.0, 1.0);
+                        (p + r * t).distance(x) < 2.0
+                    };
+                    (0..=4).any(|k| near(a.lerp(b, f64::from(k) / 4.0), p, r))
+                };
+                let (a, b) = (tail.0 + d, end + d);
+                let others = laid.fills.iter().enumerate().any(|(k, f)| {
+                    k != fill
+                        && f.corners.iter().any(|c| {
+                            let r = b - a;
+                            let t = ((*c - a).dot(r) / r.length_squared()).clamp(0.0, 1.0);
+                            (a + r * t).distance(*c) < 2.0
+                        })
+                });
+                !others
+                    && lo.cmpge(space_lo + Point2::splat(1.0)).all()
+                    && hi.cmple(space_hi - Point2::splat(1.0)).all()
+                    && laid.strokes[from_stroke.min(laid.strokes.len())..]
+                        .iter()
+                        .enumerate()
+                        .all(|(k, s)| {
+                            pieces.contains(&(from_stroke + k))
+                                || s.preview
+                                || matches!(s.pen, Pen::Chain | Pen::ChainWide)
+                                || (inside(s.a, s.b, &quad).is_none()
+                                    && !(s.pen == Pen::Narrow && crosses(s)))
+                        })
+                    && laid.texts[from_text.min(laid.texts.len())..]
+                        .iter()
+                        .enumerate()
+                        .all(|(k, o)| {
+                            from_text + k == text
+                                || o.preview
+                                || o.text.trim().is_empty()
+                                || !notes::overlap(&quad, &notes::text_corners(o, 0.0))
+                        })
+            };
+            if clear(laid, 0.0, letter_at) {
+                continue;
+            }
+
+            let Some((shift, at)) = (0..=16)
+                .map(f64::from)
+                .flat_map(|s| [(s, letter_at), (s, beside)])
+                .find(|(s, at)| clear(laid, *s, *at))
+            else {
+                continue;
+            };
+            let d = along * shift;
+            // (The tail whole again, where it was broken.)
+            for k in pieces.iter().rev() {
+                laid.strokes.remove(*k);
+            }
+            laid.line(tail.0 + d, tail.1 + d, Pen::Narrow);
+            for corner in &mut laid.fills[fill].corners {
+                *corner += d;
+            }
+            laid.texts[text].at = at + d;
+            if shift > 0.0 {
+                // (The line run on out to the arrow, its wide end with it.)
+                for s in &mut laid.strokes {
+                    if s.pen == Pen::ChainWide && s.a.distance(end) < 1e-9 {
+                        s.a += d;
+                        s.b += d;
+                    }
+                }
+                laid.line(end, end + d, Pen::Chain);
+                let cut = &mut laid.cuts[c];
+                cut.arrows[n] = end + d;
+                if end == first {
+                    cut.drawn[0] = end + d;
+                } else {
+                    let k = cut.drawn.len() - 1;
+                    cut.drawn[k] = end + d;
+                }
+            }
+        }
+    }
+}
+
+/// Centre lines drawn over each other — an axis seen from its side by
+/// two of what lie along it, a trace over an axis — made one: two
+/// chain lines overlapping, their dashes out of step, read as a
+/// continuous line.
+fn one_centre_line(laid: &mut Laid, from: usize) {
+    let mut k = from;
+    while k < laid.strokes.len() {
+        let s = laid.strokes[k];
+        let Some(way) = (s.b - s.a).try_normalize() else {
+            k += 1;
+            continue;
+        };
+        if s.pen != Pen::Chain || s.preview {
+            k += 1;
+            continue;
+        }
+        let at = |p: Point2| (p - s.a).dot(way);
+        let (mut lo, mut hi) = (0.0, s.a.distance(s.b));
+        let mut merged = false;
+        let mut j = k + 1;
+        while j < laid.strokes.len() {
+            let o = laid.strokes[j];
+            let on = |p: Point2| (p - s.a).perp_dot(way).abs() <= 0.02;
+            let (p, q) = (at(o.a).min(at(o.b)), at(o.a).max(at(o.b)));
+            if o.pen == Pen::Chain
+                && !o.preview
+                && on(o.a)
+                && on(o.b)
+                && q.min(hi) - p.max(lo) > 0.05
+            {
+                (lo, hi) = (lo.min(p), hi.max(q));
+                laid.strokes.remove(j);
+                merged = true;
+            } else {
+                j += 1;
+            }
+        }
+        if merged {
+            laid.strokes[k].a = s.a + way * lo;
+            laid.strokes[k].b = s.a + way * hi;
+            // (Again: the longer line may overlap one passed over.)
+            continue;
+        }
+        k += 1;
+    }
 }
 
 /// The captions of the views moved up off what is drawn over them — a
@@ -935,9 +1152,9 @@ pub fn place(
             .find(|placed| placed.view.id == id && notes::sees(said, *placed))?,
         None => {
             let edge_on = |placed: &&views::Placed<'_>| match &said.note {
-                Note::Datum { out, .. } | Note::Geometric { out, .. } => {
-                    placed.way(*out).length() > 0.5
-                }
+                Note::Datum { out, .. }
+                | Note::Geometric { out, .. }
+                | Note::Texture { out, .. } => placed.way(*out).length() > 0.5,
                 Note::Hole { axis, outside, .. } => (placed.way(*axis).length() < 1e-6) != *outside,
                 Note::Dimension { .. } => true,
             };
@@ -1045,6 +1262,35 @@ mod tests {
             line: [p(0.0, 12.0), p(40.0, 12.0)],
             room: 6.0,
         }
+    }
+
+    #[test]
+    fn centre_lines_over_each_other_are_one() {
+        let p = Point2::new;
+        let chain = |a, b| Stroke {
+            a,
+            b,
+            pen: Pen::Chain,
+            preview: false,
+        };
+        let mut laid = Laid {
+            strokes: vec![
+                // (An axis, and another along it overlapping, the other
+                // way round; an arm of a centre mark beside it that
+                // only touches; a parallel line apart.)
+                chain(p(0.0, 0.0), p(10.0, 0.0)),
+                chain(p(25.0, 0.0), p(6.0, 0.0)),
+                chain(p(25.001, 0.0), p(30.0, 0.0)),
+                chain(p(0.0, 1.0), p(10.0, 1.0)),
+            ],
+            ..Laid::default()
+        };
+        one_centre_line(&mut laid, 0);
+        assert_eq!(laid.strokes.len(), 3, "{:?}", laid.strokes);
+        assert_eq!(
+            (laid.strokes[0].a, laid.strokes[0].b),
+            (p(0.0, 0.0), p(25.0, 0.0))
+        );
     }
 
     #[test]

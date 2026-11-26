@@ -125,10 +125,57 @@ const INTERFERENCE: [(char, [f64; 13]); 4] = [
     ),
 ];
 
+/// The upper ends of the finer ranges of nominal sizes that the
+/// fundamental deviations of shafts r and s (and holes R and S) are
+/// tabled by above 50 mm (ISO 286-1, table 3).
+const FINE: [f64; 22] = [
+    3.0, 6.0, 10.0, 18.0, 30.0, 50.0, 65.0, 80.0, 100.0, 120.0, 140.0, 160.0, 180.0, 200.0, 225.0,
+    250.0, 280.0, 315.0, 355.0, 400.0, 450.0, 500.0,
+];
+
+/// The fundamental deviations of shafts r and s, by the finer ranges:
+/// how far above the nominal size their lower limit is, in micrometres
+/// (ISO 286-1, table 3).
+const PRESS: [(char, [f64; 22]); 2] = [
+    (
+        'r',
+        [
+            10., 15., 19., 23., 28., 34., 41., 43., 51., 54., 63., 65., 68., 77., 80., 84., 94.,
+            98., 108., 114., 126., 132.,
+        ],
+    ),
+    (
+        's',
+        [
+            14., 19., 23., 28., 35., 43., 53., 59., 71., 79., 92., 100., 108., 122., 130., 140.,
+            158., 170., 190., 208., 232., 252.,
+        ],
+    ),
+];
+
+/// The upper deviations of holes J6, J7 and J8 by range, in
+/// micrometres (ISO 286-2, table 7): not from a fundamental deviation.
+const J: [(u32, [f64; 13]); 3] = [
+    (
+        6,
+        [2., 5., 5., 6., 8., 10., 13., 16., 18., 22., 25., 29., 33.],
+    ),
+    (
+        7,
+        [4., 6., 8., 10., 12., 14., 18., 22., 26., 30., 36., 39., 43.],
+    ),
+    (
+        8,
+        [
+            6., 10., 12., 15., 20., 24., 28., 34., 41., 47., 55., 60., 66.,
+        ],
+    ),
+];
+
 /// The tolerance classes a table has, holes first: what a dialog
 /// offers and an error names.
-pub const CLASSES: &str = "holes D E F G H JS K M N P, shafts d e f g h js k m n p; grades 5 to 14 \
-                           (4 for shafts and H); sizes to 500 mm";
+pub const CLASSES: &str = "holes D E F G H J (6 to 8) JS K M N P R S, shafts d e f g h js k m n p r s; \
+                           grades 5 to 14 (4 for shafts and H); sizes to 500 mm";
 
 /// The upper and the lower deviation, in millimetres, of the nominal
 /// size `size` in the ISO 286 tolerance class `class`: a hole's in upper
@@ -140,8 +187,8 @@ pub fn limits(class: &str, size: f64) -> Result<(f64, f64), String> {
     let unknown = || format!("there is no ISO 286 class {class:?} ({CLASSES})");
     let grade: u32 = class[letters.len()..].parse().map_err(|_| unknown())?;
     let hole = match letters {
-        "D" | "E" | "F" | "G" | "H" | "JS" | "K" | "M" | "N" | "P" => true,
-        "d" | "e" | "f" | "g" | "h" | "js" | "k" | "m" | "n" | "p" => false,
+        "D" | "E" | "F" | "G" | "H" | "J" | "JS" | "K" | "M" | "N" | "P" | "R" | "S" => true,
+        "d" | "e" | "f" | "g" | "h" | "js" | "k" | "m" | "n" | "p" | "r" | "s" => false,
         _ => return Err(unknown()),
     };
     let range = RANGES
@@ -152,6 +199,17 @@ pub fn limits(class: &str, size: f64) -> Result<(f64, f64), String> {
     let it = |grade: u32| GRADES.iter().find(|g| g.0 == grade).map(|g| g.1[range]);
     let width = it(grade).ok_or_else(unknown)?;
     let lowest = letters.to_ascii_lowercase();
+    let fine = FINE
+        .iter()
+        .position(|r| size <= *r + 1e-9)
+        .unwrap_or(FINE.len() - 1);
+    // (Of r and s, by the finer ranges.)
+    let press = || {
+        PRESS
+            .iter()
+            .find(|row| lowest.starts_with(row.0))
+            .map(|row| row.1[fine])
+    };
     let table = |of: &[(char, [f64; 13])]| {
         of.iter()
             .find(|row| lowest.starts_with(row.0))
@@ -172,6 +230,10 @@ pub fn limits(class: &str, size: f64) -> Result<(f64, f64), String> {
             }
             "m" | "n" | "p" => {
                 let ei = table(&INTERFERENCE).unwrap_or(0.0);
+                (ei + width, ei)
+            }
+            "r" | "s" => {
+                let ei = press().unwrap_or(0.0);
                 (ei + width, ei)
             }
             _ => {
@@ -195,6 +257,13 @@ pub fn limits(class: &str, size: f64) -> Result<(f64, f64), String> {
         let ei = || table(&INTERFERENCE).unwrap_or(0.0);
         let upper = match letters {
             "H" => width,
+            "J" => J
+                .iter()
+                .find(|j| j.0 == grade)
+                .map(|j| j.1[range])
+                .ok_or_else(unknown)?,
+            "R" | "S" if grade <= 7 => -press().unwrap_or(0.0) + delta()?,
+            "R" | "S" => -press().unwrap_or(0.0),
             "JS" => width / 2.0,
             "K" if grade <= 8 && range > 0 => -ei() + delta()?,
             "K" => 0.0,
@@ -259,6 +328,23 @@ mod tests {
         assert_eq!(um("K6", 52.0), (4, -15));
         assert_eq!(um("H7", 52.0), (30, 0));
         assert_eq!(um("k6", 3.0), (6, 0));
+        // r and s by the finer ranges, R and S from them with Δ, J as
+        // tabled (checked against published ISO 286-2 rows: r6, R7, J7
+        // and J8 throughout; s6 at 80 to 100).
+        assert_eq!(um("r6", 20.0), (41, 28));
+        assert_eq!(um("r6", 60.0), (60, 41));
+        assert_eq!(um("r6", 70.0), (62, 43));
+        assert_eq!(um("r6", 450.0), (166, 126));
+        assert_eq!(um("s6", 20.0), (48, 35));
+        assert_eq!(um("s6", 90.0), (93, 71));
+        assert_eq!(um("R7", 5.0), (-11, -23));
+        assert_eq!(um("R7", 70.0), (-32, -62));
+        assert_eq!(um("R7", 470.0), (-109, -172));
+        assert_eq!(um("S7", 20.0), (-27, -48));
+        assert_eq!(um("J7", 20.0), (12, -9));
+        assert_eq!(um("J8", 8.0), (12, -10));
+        assert_eq!(um("J6", 60.0), (13, -6));
+        assert!(limits("J9", 20.0).is_err());
         // Not in the tables: an error, not a guess.
         assert!(limits("Q3", 10.0).is_err());
         assert!(limits("h7", 600.0).is_err());

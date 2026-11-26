@@ -856,7 +856,9 @@
                   5.0,
                   11.0
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Symmetric": 0.3
+                },
                 "value": 22.0
               },
               "kind": {
@@ -1394,6 +1396,45 @@
       }
     },
     {
+      "DatumFeature": {
+        "args": {
+          "feature": {
+            "Topology": "bracket/side/e13"
+          },
+          "letter": "A"
+        },
+        "id": "datumfeature1"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Flatness",
+          "datums": "",
+          "diametral": false,
+          "feature": {
+            "Topology": "bracket/side/e13"
+          },
+          "value": 0.1
+        },
+        "id": "geometrictolerance1"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Parallelism",
+          "datums": "A",
+          "diametral": true,
+          "feature": {
+            "Topology": "bore/side/e1"
+          },
+          "value": 0.1
+        },
+        "id": "geometrictolerance2"
+      }
+    },
+    {
       "Drawing": {
         "args": {
           "block": [
@@ -1691,7 +1732,7 @@
             "wide": null
           },
           "format": "A3",
-          "general_tolerance": "ISO 2768-mK",
+          "general_tolerance": "ISO 8062-3 DCTG 9",
           "name": "drawing",
           "notes": [
             {
@@ -1736,11 +1777,35 @@
             },
             {
               "at": [
-                10.0,
-                56.0
+                20.0,
+                -45.0
+              ],
+              "note": "datumfeature1",
+              "view": "front"
+            },
+            {
+              "at": [
+                0.0,
+                70.0
               ],
               "note": "draft/angle",
               "view": "right"
+            },
+            {
+              "at": [
+                -30.0,
+                -45.0
+              ],
+              "note": "geometrictolerance1",
+              "view": "front"
+            },
+            {
+              "at": [
+                18.0,
+                -14.0
+              ],
+              "note": "geometrictolerance2",
+              "view": "front"
             },
             {
               "at": [
@@ -1761,7 +1826,7 @@
             {
               "at": [
                 30.0,
-                46.0
+                58.0
               ],
               "note": "l_profile/d29",
               "view": "right"

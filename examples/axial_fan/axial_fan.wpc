@@ -1168,7 +1168,9 @@
           "plain": false,
           "same_side": false,
           "supplement": false,
-          "tolerance": "General"
+          "tolerance": {
+            "Fit": "H7"
+          }
         },
         "id": "bore"
       }
@@ -1493,8 +1495,8 @@
           "notes": [
             {
               "at": [
-                30.0,
-                30.0
+                -32.0,
+                -36.0
               ],
               "note": "bore",
               "view": "top"
@@ -1549,8 +1551,8 @@
             },
             {
               "at": [
-                -11.891707386315943,
-                -8.920444268613906
+                36.0,
+                12.0
               ],
               "note": "tip/d29",
               "view": "sec_tip"

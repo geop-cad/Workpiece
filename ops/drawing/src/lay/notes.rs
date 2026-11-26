@@ -69,6 +69,20 @@ pub(crate) trait Frame {
     fn along(&self, _p: Point2, _way: Point2) -> Option<(f64, f64)> {
         None
     }
+    /// The stretches of the line through `p` along `way` (a unit
+    /// vector) that the view draws lines along — how far from `p`, each
+    /// from and to, in order: where a face seen edge on is drawn, and
+    /// not where a hole in it leaves a gap. Nothing where none is drawn,
+    /// or nothing is known of what is drawn.
+    fn drawn_along(&self, _p: Point2, _way: Point2) -> Vec<(f64, f64)> {
+        Vec::new()
+    }
+    /// The circles the view draws of what it sees round and square on
+    /// (the bores and shafts it looks along): middle and radius, on the
+    /// sheet.
+    fn circles(&self) -> Vec<(Point2, f64)> {
+        Vec::new()
+    }
     /// Of the lines the view draws, the point nearest to lying `r` from
     /// `c` the way `way` (a unit vector) points, within half of `r` of
     /// that: where a radius of a round the view does not draw as a
@@ -296,6 +310,37 @@ impl Frame for Placed<'_> {
         best.map(|(off, q)| if off < near { want } else { q })
     }
 
+    fn drawn_along(&self, p: Point2, way: Point2) -> Vec<(f64, f64)> {
+        let near = 0.05;
+        let mut spans: Vec<(f64, f64)> = drawn_lines(self)
+            .into_iter()
+            .filter(|(a, b)| {
+                (*a - p).perp_dot(way).abs() <= near && (*b - p).perp_dot(way).abs() <= near
+            })
+            .map(|(a, b)| {
+                let (s, t) = ((a - p).dot(way), (b - p).dot(way));
+                (s.min(t), s.max(t))
+            })
+            .collect();
+        spans.sort_by(|x, y| x.0.total_cmp(&y.0));
+        let mut joined: Vec<(f64, f64)> = Vec::new();
+        for (s, t) in spans {
+            match joined.last_mut() {
+                Some(last) if s <= last.1 + near => last.1 = last.1.max(t),
+                _ => joined.push((s, t)),
+            }
+        }
+        joined
+    }
+
+    fn circles(&self) -> Vec<(Point2, f64)> {
+        self.seen
+            .rounds
+            .iter()
+            .map(|(at, r)| (self.sheet(*at), r * self.scale))
+            .collect()
+    }
+
     fn along(&self, p: Point2, way: Point2) -> Option<(f64, f64)> {
         let near = 0.05;
         let mut reach: Option<(f64, f64)> = None;
@@ -356,6 +401,177 @@ impl Drawn {
             ..Self::of(text)
         }
     }
+}
+
+/// A diameter drawn from the side as a length, in a view: what a datum
+/// or a geometric tolerance of that round feature's axis attaches to
+/// (ISO 1101, ISO 5459: on the extension of its dimension line).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct SizeLine {
+    /// The round feature: a point of its axis, the axis, its radius.
+    pub(crate) centre: Point3,
+    pub(crate) axis: Point3,
+    pub(crate) radius: f64,
+    /// Its dimension line as drawn.
+    pub(crate) linear: super::LaidLinear,
+    /// The box of its text.
+    pub(crate) text: [Point2; 2],
+}
+
+/// What a datum's or a geometric tolerance's leader may end on besides
+/// its feature, in the view it is drawn in: the diameters drawn there
+/// (of an axis, it ends on the extension of its dimension line), the
+/// ends of the leaders of others drawn there already (two on one face
+/// stand apart), and where the sheet says it is to end.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct Attach {
+    pub(crate) sizes: Vec<SizeLine>,
+    pub(crate) taken: Vec<Point2>,
+    pub(crate) to: Option<Point2>,
+}
+
+/// Where the leader of a datum or a geometric tolerance with its frame
+/// (or square) about `at` ends in the view `placed`, and the way out
+/// from there it leaves: of the axis of a round feature, on the
+/// extension of its diameter's dimension line, else on the circle of it
+/// — of what is alike, the nearest — where the view looks along it; of
+/// a face (`on`, `out`) seen edge on, on the outline the view draws of
+/// it, near the frame (never in a hole's gap), apart from the leaders
+/// that end there already; of a face seen square on, on it.
+fn feature_tip(
+    placed: &dyn Frame,
+    on: Point3,
+    out: Point3,
+    axis: Option<&workpiece_core::world::FeatureAxis>,
+    rect: [Point2; 2],
+    attach: &Attach,
+) -> (Point2, Point2) {
+    let at = (rect[0] + rect[1]) / 2.0;
+    let wanted = attach.to.unwrap_or(at);
+    if let Some(of) = axis {
+        if let Some(found) = on_size_line(of, &attach.sizes, at) {
+            return found;
+        }
+        if of.axis.dot(placed.towards()).abs() > 1.0 - 1e-6 {
+            let r = of.radius * placed.scale();
+            let own = placed.place(of.centre);
+            let near = r * 1e-3 + 1e-6;
+            let c = placed
+                .circles()
+                .into_iter()
+                .filter(|(_, q)| (q - r).abs() <= near)
+                .map(|(c, _)| c)
+                .chain(std::iter::once(own))
+                .min_by(|a, b| a.distance(wanted).total_cmp(&b.distance(wanted)))
+                .unwrap_or(own);
+            let way = (wanted - c)
+                .try_normalize()
+                .unwrap_or(Point2::new(1.0, 1.0).normalize());
+            return (c + way * r, way);
+        }
+    }
+    let p = placed.place(on);
+    let way = placed.way(out);
+    if way.length() <= 0.5 {
+        // Seen square on: a dot on it.
+        return (attach.to.unwrap_or(p), way);
+    }
+    let along = way.normalize().perp();
+    let spans = placed.drawn_along(p, along);
+    if spans.is_empty() {
+        return (p, way);
+    }
+    // (A frame close in front of the outline — nearer than a leader
+    // needs to come square off it — is reached from its end: the leader
+    // ends a little past that end.)
+    let out_way = way.normalize();
+    let corners = [
+        rect[0],
+        rect[1],
+        Point2::new(rect[0].x, rect[1].y),
+        Point2::new(rect[1].x, rect[0].y),
+    ];
+    let off = corners
+        .iter()
+        .map(|c| (*c - p).dot(out_way))
+        .fold(f64::INFINITY, f64::min);
+    let (lo, hi) = corners
+        .iter()
+        .map(|c| (*c - p).dot(along))
+        .fold((f64::INFINITY, f64::NEG_INFINITY), |(l, h), x| {
+            (l.min(x), h.max(x))
+        });
+    let wanted = match attach.to {
+        None if off > 0.0 && off < ARROW * 2.0 + lettering() => {
+            let t = (wanted - p).dot(along);
+            let ends = [lo - ARROW * 2.0, hi + ARROW * 2.0];
+            let t = if (ends[0] - t).abs() <= (ends[1] - t).abs() {
+                ends[0]
+            } else {
+                ends[1]
+            };
+            p + along * t
+        }
+        _ => wanted,
+    };
+    // (Within what is drawn, a little in from its ends where that is
+    // long enough.)
+    let inside = |t: f64| -> f64 {
+        spans
+            .iter()
+            .map(|&(s, e)| {
+                let margin = ((e - s) / 4.0).min(3.0);
+                t.clamp(s + margin, e - margin)
+            })
+            .min_by(|x, y| (x - t).abs().total_cmp(&(y - t).abs()))
+            .unwrap_or(t)
+    };
+    let t = inside((wanted - p).dot(along));
+    // (Apart from the leaders that end on it already: on along it.)
+    let free = |t: f64| {
+        attach
+            .taken
+            .iter()
+            .all(|q| q.distance(p + along * t) > ARROW * 1.5)
+    };
+    let t = (0..12_u32)
+        .map(|k| {
+            let step = f64::from(k.div_ceil(2)) * ARROW * 2.0;
+            if k % 2 == 1 { t + step } else { t - step }
+        })
+        .map(inside)
+        .find(|t| free(*t))
+        .unwrap_or(t);
+    (p + along * t, way)
+}
+
+/// Where the leader of a note of the axis `of` ends, of the frame (or
+/// datum square) about `middle`: on an extension line of the diameter
+/// of that feature drawn among `sizes`, in line with its dimension line
+/// and from outside it (ISO 1101 fig. 6, ISO 5459) — the end its text
+/// does not stand past, the nearer the frame. The tip and the way out
+/// from it (along the dimension line).
+fn on_size_line(
+    of: &workpiece_core::world::FeatureAxis,
+    sizes: &[SizeLine],
+    middle: Point2,
+) -> Option<(Point2, Point2)> {
+    let size = sizes
+        .iter()
+        .find(|s| of.sized_by(s.centre, s.axis, s.radius))?;
+    let [a, b] = size.linear.line;
+    let text = (size.text[0] + size.text[1]) / 2.0;
+    (0..2)
+        .filter_map(|k| {
+            let (end, other) = if k == 0 { (a, b) } else { (b, a) };
+            let out = (end - other).try_normalize()?;
+            // (Its text put out past this end: the leader would run
+            // into it.)
+            let past = (text - end).dot(out) > 0.0;
+            Some((past, middle.distance(end), end, out))
+        })
+        .min_by(|x, y| x.0.cmp(&y.0).then(x.1.total_cmp(&y.1)))
+        .map(|(_, _, end, out)| (end, out))
 }
 
 /// What stands on a sheet already, which what is put by itself keeps
@@ -566,7 +782,7 @@ fn shows(note: &Annotation, placed: &dyn Frame, from_a_corner: bool) -> bool {
             .any(|m| shows_measured(m, placed, from_a_corner)),
         // (Best where the face is seen edge on; but it can be pointed
         // at anywhere.)
-        Note::Datum { .. } | Note::Geometric { .. } => true,
+        Note::Datum { .. } | Note::Geometric { .. } | Note::Texture { .. } => true,
         // A hole: seen as a circle, or from the side.
         Note::Hole { axis, .. } => {
             let facing = axis.dot(placed.towards()).abs();
@@ -959,10 +1175,15 @@ fn linear(
     let (sa, sb, st) = (a.dot(along), b.dot(along), at.dot(along));
     let (lo, hi) = (sa.min(sb), sa.max(sb));
     // A text with no room between the extension lines stands outside
-    // them, past the second.
+    // them, past the end on the side it is put (`at`): past the second
+    // where it is put in the middle.
     let room = said.room();
     let st = if hi - lo < room && st > lo - room / 2.0 && st < hi + room / 2.0 {
-        hi + 2.0 * ARROW + room / 2.0
+        if st < (lo + hi) / 2.0 - 1e-9 {
+            lo - 2.0 * ARROW - room / 2.0
+        } else {
+            hi + 2.0 * ARROW + room / 2.0
+        }
     } else {
         st
     };
@@ -1586,12 +1807,34 @@ fn leader(laid: &mut Laid, rect: [Point2; 2], on: Point2, out: Point2, triangle:
     let reach = |to: f64| ((to - on_a) / way).max(ARROW * 2.0);
     let side = if way > 0.0 { a0 } else { a1 };
     let straight = on + out * reach(side);
-    let (knee, to) = if (b0..=b1).contains(&ab(straight).1) {
+    // (How far out the frame's near side and its middle are: where the
+    // frame stands behind the feature, or beside it no farther out than
+    // a short way, the leader goes a short way out square off the
+    // outline and on to the middle of the frame's nearer end — of a
+    // datum's square, of its nearer side.)
+    let out_to = |to: f64| (to - on_a) / way;
+    let (knee, to) = if out_to(side) >= ARROW * 2.0 - 1e-9 && (b0..=b1).contains(&ab(straight).1) {
         (straight, straight)
-    } else {
-        let knee = on + out * reach((a0 + a1) / 2.0);
+    } else if out_to(side) > 0.0 && (b0..=b1).contains(&ab(on).1) {
+        // (Right across from it, nearer than that: straight on to it.)
+        let there = on + out * out_to(side);
+        (there, there)
+    } else if out_to((a0 + a1) / 2.0) >= ARROW + 1.0 {
+        let knee = on + out * out_to((a0 + a1) / 2.0);
         let (ka, kb) = ab(knee);
         (knee, point(ka, if kb < b0 { b0 } else { b1 }))
+    } else {
+        let knee = on + out * (ARROW * 2.0);
+        let mid = (rect[0] + rect[1]) / 2.0;
+        let mut ends = vec![Point2::new(rect[0].x, mid.y), Point2::new(rect[1].x, mid.y)];
+        if triangle {
+            ends.extend([Point2::new(mid.x, rect[0].y), Point2::new(mid.x, rect[1].y)]);
+        }
+        let to = ends
+            .into_iter()
+            .min_by(|p, q| p.distance(knee).total_cmp(&q.distance(knee)))
+            .unwrap_or(mid);
+        (knee, to)
     };
     if triangle {
         // A datum's triangle on the outline, its line from the apex.
@@ -1612,6 +1855,51 @@ fn leader(laid: &mut Laid, rect: [Point2; 2], on: Point2, out: Point2, triangle:
     knee
 }
 
+/// The graphical symbol of a surface texture (ISO 21920-1, ISO 1302
+/// annex A) with its apex at `apex`, for lettering `h` high: two legs
+/// 60° off the surface, the shorter 1,4 h high, the longer 3 h with a
+/// line on from its top over the requirement `text` (position a); a
+/// bar across the legs where material is to be removed, a circle in
+/// them where it is not. The box it takes.
+pub(crate) fn texture_symbol(
+    laid: &mut Laid,
+    apex: Point2,
+    h: f64,
+    text: &str,
+    removal: workpiece_core::world::Removal,
+) -> [Point2; 2] {
+    use workpiece_core::world::Removal;
+    let (h1, h2) = (1.4 * h, 3.0 * h);
+    let lean = (30.0_f64).to_radians().tan();
+    let short = apex + Point2::new(-h1 * lean, h1);
+    let long = apex + Point2::new(h2 * lean, h2);
+    laid.line(apex, short, Pen::Narrow);
+    laid.line(apex, long, Pen::Narrow);
+    match removal {
+        Removal::Any => {}
+        Removal::Required => laid.line(short, apex + Point2::new(h1 * lean, h1), Pen::Narrow),
+        Removal::Prohibited => {
+            let (c, r) = (apex + Point2::new(0.0, h1 / 1.5), h1 / 3.0);
+            let at =
+                |k: u32| c + Point2::from_angle(std::f64::consts::TAU * f64::from(k) / 32.0) * r;
+            for k in 0..32 {
+                laid.line(at(k), at(k + 1), Pen::Narrow);
+            }
+        }
+    }
+    let mut hi = long;
+    if !text.is_empty() {
+        // (Under the line on from the longer leg, clear of it.)
+        let base = apex.y + h2 - h - 1.0;
+        let x = apex.x + (base - apex.y + h) * lean + 0.6;
+        let wide = width(text, h);
+        laid.line(long, Point2::new(x + wide + 0.6, long.y), Pen::Narrow);
+        laid.text(Point2::new(x, base), text.to_owned(), h, [0.0, 0.0]);
+        hi = Point2::new(x + wide + 0.6, long.y);
+    }
+    [Point2::new(short.x, apex.y), hi]
+}
+
 /// A box with lines of the narrow pen.
 fn boxed(laid: &mut Laid, lo: Point2, hi: Point2) {
     let c = [lo, Point2::new(hi.x, lo.y), hi, Point2::new(lo.x, hi.y)];
@@ -1629,12 +1917,66 @@ pub(crate) fn draw_note(
     placed: &dyn Frame,
     at: Point2,
     starts: [f64; 2],
+    attach: &Attach,
 ) -> Option<Drawn> {
     // (Measured where this view sees it true.)
     let note = &*as_seen(note, placed, Some(at))?;
     let towards = placed.towards();
     let scale = placed.scale();
     match &note.note {
+        Note::Texture {
+            text,
+            removal,
+            on,
+            out,
+        } => {
+            // On the outline where the face looks up and the symbol is
+            // put right over it; else on a leader to it, ending in an
+            // arrow on the outline (ISO 1302, ISO 21920-1).
+            let rect = [at - Point2::splat(1.0), at + Point2::splat(1.0)];
+            let (tip, way) = feature_tip(placed, *on, *out, None, rect, attach);
+            let up = way.try_normalize().is_some_and(|w| w.y > 0.95);
+            if up && (at.x - tip.x).abs() < 1.0 && at.y >= tip.y - 1e-6 {
+                let body = texture_symbol(laid, tip, lettering(), text, *removal);
+                return Some(Drawn {
+                    leader: Some((tip, tip)),
+                    ..Drawn::of(body)
+                });
+            }
+            let body = texture_symbol(laid, at, lettering(), text, *removal);
+            let h = lettering();
+            // (Its reference line under the symbol, the leader from
+            // its nearer end.)
+            let (left, right) = (
+                at - Point2::new(h * 0.9, 0.0),
+                at + Point2::new(h * 1.9, 0.0),
+            );
+            laid.line(left, right, Pen::Narrow);
+            let from = if (tip - left).length() < (tip - right).length() {
+                left
+            } else {
+                right
+            };
+            laid.line(from, tip, Pen::Narrow);
+            if way.length() > 0.5 {
+                laid.arrow(tip, tip - from, ARROW);
+            } else {
+                // (On the face, seen square on: a dot.)
+                laid.circle(tip, 0.5, Pen::Narrow);
+                laid.fills.push(super::Fill {
+                    corners: [
+                        tip + Point2::new(0.5, 0.0),
+                        tip + Point2::new(-0.25, 0.43),
+                        tip + Point2::new(-0.25, -0.43),
+                    ],
+                    colour: [0, 0, 0],
+                });
+            }
+            Some(Drawn {
+                body: [body[0].min(tip), body[1].max(tip)],
+                ..Drawn::led(body, (tip, from))
+            })
+        }
         Note::Dimension {
             measured,
             value,
@@ -1877,7 +2219,14 @@ pub(crate) fn draw_note(
                 // sector, clear of the arrows, where there is room;
                 // else out past the arm nearer, on the arc run on.
                 let put = round(u);
-                let put = if (0.0..=wide).contains(&put) {
+                // (Too long to stand along the arc between its arrows —
+                // a value with its tolerance — but put within the
+                // sector: over the arc's middle, outside it, clear of
+                // the arms and of what runs on past them.)
+                let over_middle = !fits && inside && (0.0..=wide).contains(&put);
+                let put = if over_middle {
+                    wide / 2.0
+                } else if (0.0..=wide).contains(&put) {
                     if fits {
                         put.clamp(half + arrow, (wide - half - arrow).max(half + arrow))
                     } else if put < wide / 2.0 {
@@ -1928,9 +2277,26 @@ pub(crate) fn draw_note(
                 laid.arrow(v + e1 * radius, -e1.perp() * (turn * sign), ARROW);
                 laid.arrow(v + e2 * radius, e2.perp() * (turn * sign), ARROW);
                 let u = Point2::from_angle(a1 + put * turn);
+                // (Over the middle, its foot outside the arc: where it
+                // would read standing inwards, moved out by its height.)
+                let lift = if over_middle {
+                    let along =
+                        if u.perp().x < -1e-9 || (u.perp().x.abs() <= 1e-9 && u.perp().y < 0.0) {
+                            -u.perp()
+                        } else {
+                            u.perp()
+                        };
+                    if along.perp().dot(u) < 0.0 {
+                        text.high.max(lettering()) + 2.0 * OFF
+                    } else {
+                        0.0
+                    }
+                } else {
+                    0.0
+                };
                 Some(Drawn::of(dimension_text(
                     laid,
-                    v + u * radius,
+                    v + u * (radius + lift),
                     u.perp(),
                     &text,
                 )))
@@ -1991,16 +2357,22 @@ pub(crate) fn draw_note(
             };
             Some(callout(laid, tip, at, lines))
         }
-        Note::Datum { letter, on, out } => {
-            // Its letter in a square, its triangle on the feature.
+        Note::Datum {
+            letter,
+            on,
+            out,
+            axis,
+        } => {
+            // Its letter in a square, its triangle on the feature — of
+            // an axis, on the extension of its diameter's dimension line.
             let side = lettering() * 2.0;
             let half = Point2::splat(side / 2.0)
                 .max(Point2::new(width(letter, lettering()) / 2.0 + 1.0, 0.0));
             let rect = [at - half, at + half];
             boxed(laid, rect[0], rect[1]);
             laid.text(at, letter.clone(), lettering(), [0.5, 0.5]);
-            let tip = placed.place(*on);
-            let knee = leader(laid, rect, tip, placed.way(*out), true);
+            let (tip, way) = feature_tip(placed, *on, *out, axis.as_ref(), rect, attach);
+            let knee = leader(laid, rect, tip, way, true);
             Some(Drawn::led(rect, (tip, knee)))
         }
         Note::Geometric {
@@ -2010,6 +2382,7 @@ pub(crate) fn draw_note(
             datums,
             on,
             out,
+            axis,
         } => {
             // The frame: the symbol, the tolerance, each datum, in
             // compartments twice as high as the lettering.
@@ -2038,8 +2411,10 @@ pub(crate) fn draw_note(
                 }
                 x += wide;
             }
-            let tip = placed.place(*on);
-            let knee = leader(laid, rect, tip, placed.way(*out), false);
+            // (Of an axis, the arrow on the extension of its diameter's
+            // dimension line, in line with it.)
+            let (tip, way) = feature_tip(placed, *on, *out, axis.as_ref(), rect, attach);
+            let knee = leader(laid, rect, tip, way, false);
             Some(Drawn::led(rect, (tip, knee)))
         }
     }
@@ -2242,7 +2617,23 @@ pub(crate) fn draw(
     let mut values: Vec<(&str, std::ops::Range<usize>, std::ops::Range<usize>)> = Vec::new();
     let mut texts: Vec<([Point2; 2], std::ops::Range<usize>)> = Vec::new();
     let mut taken: std::collections::BTreeMap<&str, Taken> = Default::default();
-    for (index, placed_note) in sheet.notes.iter().enumerate() {
+    // (The diameters drawn from the side, by view: what a datum or a
+    // tolerance of an axis attaches to — those are drawn after them.)
+    let mut sizes: Vec<(String, SizeLine)> = Vec::new();
+    // (Where the leaders of datums and tolerances end, by view.)
+    let mut tips: Vec<(String, Point2)> = Vec::new();
+    let mut order: Vec<usize> = (0..sheet.notes.len()).collect();
+    order.sort_by_key(|&k| {
+        subject.world.said(&sheet.notes[k].note).is_some_and(|n| {
+            matches!(
+                n.note,
+                workpiece_core::world::Note::Datum { .. }
+                    | workpiece_core::world::Note::Geometric { .. }
+            )
+        })
+    });
+    for index in order {
+        let placed_note = &sheet.notes[index];
         let Some(placed) = frames.iter().find(|p| p.view.id == placed_note.view) else {
             continue;
         };
@@ -2281,9 +2672,63 @@ pub(crate) fn draw(
             }
             _ => note,
         };
+        let attach = Attach {
+            sizes: sizes
+                .iter()
+                .filter(|(view, _)| *view == placed.view.id)
+                .map(|(_, s)| *s)
+                .collect(),
+            taken: tips
+                .iter()
+                .filter(|(view, _)| *view == placed.view.id)
+                .map(|(_, p)| *p)
+                .collect(),
+            to: placed_note
+                .to
+                .map(|to| placed.centre + Point2::from_array(to)),
+        };
         let drawn = workpiece_core::world::annotation::written(how, || {
-            draw_note(laid, note, placed, at, starts)
+            draw_note(laid, note, placed, at, starts, &attach)
         });
+        if let (
+            Some(Drawn {
+                leader: Some((tip, _)),
+                ..
+            }),
+            workpiece_core::world::Note::Datum { .. }
+            | workpiece_core::world::Note::Geometric { .. },
+        ) = (&drawn, &note.note)
+        {
+            tips.push((placed.view.id.clone(), *tip));
+        }
+        if let (
+            Some(Drawn {
+                linear: Some(linear),
+                text,
+                ..
+            }),
+            workpiece_core::world::Note::Dimension {
+                measured:
+                    workpiece_core::world::Measured::Diameter {
+                        centre,
+                        axis,
+                        radius,
+                    },
+                ..
+            },
+        ) = (&drawn, &note.note)
+        {
+            sizes.push((
+                placed.view.id.clone(),
+                SizeLine {
+                    centre: *centre,
+                    axis: *axis,
+                    radius: *radius,
+                    linear: *linear,
+                    text: *text,
+                },
+            ));
+        }
         values.push((
             placed_note.note.as_str(),
             lettering..laid.texts.len(),
@@ -2844,7 +3289,14 @@ pub(crate) fn draw(
             let (strokes, lettering, fills) =
                 (laid.strokes.len(), laid.texts.len(), laid.fills.len());
             let gap = [sheet.spacing.gap; 2];
-            let Some(drawn) = draw_note(laid, note, placed, placed.centre + at, gap) else {
+            let Some(drawn) = draw_note(
+                laid,
+                note,
+                placed,
+                placed.centre + at,
+                gap,
+                &Attach::default(),
+            ) else {
                 continue;
             };
             for stroke in &mut laid.strokes[strokes..] {
@@ -2907,9 +3359,9 @@ fn suits(note: &Annotation, placed: &Placed<'_>, edge_on: bool) -> bool {
     fits(note, placed)
         && (!edge_on
             || match &note.note {
-                Note::Datum { out, .. } | Note::Geometric { out, .. } => {
-                    placed.way(*out).length() > 0.5
-                }
+                Note::Datum { out, .. }
+                | Note::Geometric { out, .. }
+                | Note::Texture { out, .. } => placed.way(*out).length() > 0.5,
                 // (A hole where it is seen as a circle; a rod's thread
                 // from the side.)
                 Note::Hole { axis, outside, .. } => square_on(*axis, placed.towards()) != *outside,
@@ -3017,7 +3469,14 @@ pub(crate) fn place_all(
                 place_by_itself(note, placed, &here)
             }
         };
-        if let Some(drawn) = draw_note(&mut scratch, note, placed, placed.centre + at, gap) {
+        if let Some(drawn) = draw_note(
+            &mut scratch,
+            note,
+            placed,
+            placed.centre + at,
+            gap,
+            &Attach::default(),
+        ) {
             taken.push(&drawn);
         }
         out[k] = Some((placed.view.id.clone(), at.to_array(), as_asked));
@@ -3197,7 +3656,34 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
                 })
                 .collect()
         }
-        Note::Datum { out, .. } | Note::Geometric { out, .. } => {
+        // (Of an axis the view looks along: off its circle slantwise, out
+        // from the view's middle, as a hole's callout.)
+        Note::Datum { axis: Some(a), .. } | Note::Geometric { axis: Some(a), .. }
+            if square_on(a.axis, placed.towards()) =>
+        {
+            let c = placed.place(a.centre);
+            let way = (c - middle)
+                .try_normalize()
+                .unwrap_or(Point2::new(1.0, 1.0).normalize());
+            let way = Point2::new(
+                if way.x < 0.0 { -1.0 } else { 1.0 },
+                if way.y < 0.0 { -1.0 } else { 1.0 },
+            )
+            .normalize();
+            [0.0_f64, 20.0, -20.0, 40.0, -40.0, 90.0, -90.0, 180.0]
+                .into_iter()
+                .map(|turn| {
+                    let (sin, cos) = turn.to_radians().sin_cos();
+                    let way = Point2::new(way.x * cos - way.y * sin, way.x * sin + way.y * cos);
+                    let reach = [lo, hi, Point2::new(lo.x, hi.y), Point2::new(hi.x, lo.y)]
+                        .iter()
+                        .map(|q| (*q - c).dot(way))
+                        .fold(a.radius * placed.scale, f64::max);
+                    (c + way * (reach + 8.0), way * 8.0)
+                })
+                .collect()
+        }
+        Note::Datum { out, .. } | Note::Geometric { out, .. } | Note::Texture { out, .. } => {
             let out = placed.way(*out);
             if out.length() > 0.5 {
                 let out = out.normalize();
@@ -3231,12 +3717,14 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
     // (Its text keeps off the view's own lines: a stack of limits is
     // higher than one line, a radius's text not on the round.)
     let own_lines = drawn_lines(placed);
+    let mut fallback: Option<(usize, Point2)> = None;
     for (ray, at) in tries {
         if given_up[ray] {
             continue;
         }
         let mut scratch = Laid::default();
-        let Some(drawn) = draw_note(&mut scratch, note, placed, at, [0.0; 2]) else {
+        let Some(drawn) = draw_note(&mut scratch, note, placed, at, [0.0; 2], &Attach::default())
+        else {
             break;
         };
         // (Not over another view, nor past it.)
@@ -3252,10 +3740,64 @@ pub(crate) fn place_by_itself(note: &Annotation, placed: &Placed<'_>, taken: &Ta
             continue;
         }
         if !taken.blocks(&drawn) {
-            return at - placed.centre;
+            // (Of those clear, the first whose leader runs across
+            // nothing the view draws — not over the part, nor over a
+            // section's hatching — where there is one: outside.)
+            let across = drawn
+                .leader
+                .map_or(0, |(a, b)| leader_across(placed, &own_lines, a, b));
+            if across == 0 {
+                return at - placed.centre;
+            }
+            // (Else of those, the one that runs across least.)
+            if fallback.is_none_or(|(least, _)| across < least) {
+                fallback = Some((across, at));
+            }
         }
     }
-    start - placed.centre
+    fallback.map_or(start, |(_, at)| at) - placed.centre
+}
+
+/// How much a leader from `a` to `b` (on the sheet) runs across what
+/// the view `placed` draws: how many of `lines` (its lines) it crosses,
+/// and in how many eighths of its length it lies over what its section
+/// cuts (its hatching) — but at its ends, where it meets what it points
+/// at.
+fn leader_across(placed: &Placed<'_>, lines: &[(Point2, Point2)], a: Point2, b: Point2) -> usize {
+    let Some(way) = (b - a).try_normalize() else {
+        return 0;
+    };
+    if a.distance(b) < 2.5 {
+        return 0;
+    }
+    let (a, b) = (a + way * 1.0, b - way * 1.0);
+    let crosses = |p: Point2, q: Point2| {
+        let (r, s) = (b - a, q - p);
+        let den = r.perp_dot(s);
+        if den.abs() < 1e-12 {
+            return false;
+        }
+        let t = (p - a).perp_dot(s) / den;
+        let u = (p - a).perp_dot(r) / den;
+        (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u)
+    };
+    let crossed = lines.iter().filter(|(p, q)| crosses(*p, *q)).count();
+    let inside = |p: Point2, [x, y, z]: [Point2; 3]| {
+        let d = |u: Point2, v: Point2| (v - u).perp_dot(p - u);
+        let (e, f, g) = (d(x, y), d(y, z), d(z, x));
+        (e >= 0.0 && f >= 0.0 && g >= 0.0) || (e <= 0.0 && f <= 0.0 && g <= 0.0)
+    };
+    let hatched = (1..8)
+        .filter(|k| {
+            let p = a.lerp(b, f64::from(*k) / 8.0);
+            placed
+                .seen
+                .cut
+                .iter()
+                .any(|(t, _)| inside(p, t.map(|c| placed.sheet(c))))
+        })
+        .count();
+    crossed + hatched
 }
 
 /// What is said on the model itself, drawn in the plane it lies in: the
@@ -3359,7 +3901,9 @@ pub mod on_model {
                 | Measured::Radial { axis, .. } => *axis,
                 Measured::Angle { first, second, .. } => first.cross(*second).normalize_or_zero(),
             },
-            Note::Datum { .. } | Note::Geometric { .. } => right.cross(up).normalize_or_zero(),
+            Note::Datum { .. } | Note::Geometric { .. } | Note::Texture { .. } => {
+                right.cross(up).normalize_or_zero()
+            }
             Note::Hole { axis, .. } => *axis,
         }
     }
@@ -3381,7 +3925,9 @@ pub mod on_model {
         // (A frame's plane goes through the face it points at: its
         // leader ends on the face.)
         let at = match &note.note {
-            Note::Datum { on, .. } | Note::Geometric { on, .. } => at + n * (*on - at).dot(n),
+            Note::Datum { on, .. } | Note::Geometric { on, .. } | Note::Texture { on, .. } => {
+                at + n * (*on - at).dot(n)
+            }
             Note::Dimension { .. } | Note::Hole { .. } => at,
         };
         // Read from where it is looked at: across as the eye's right is,
@@ -3402,7 +3948,14 @@ pub mod on_model {
         };
         let plane = Plane { at, x, y, per_mm };
         let mut laid = Laid::default();
-        let drawn = draw_note(&mut laid, note, &plane, Point2::ZERO, [0.0; 2])?;
+        let drawn = draw_note(
+            &mut laid,
+            note,
+            &plane,
+            Point2::ZERO,
+            [0.0; 2],
+            &super::Attach::default(),
+        )?;
         let back = |p: Point2| at + (x * p.x + y * p.y) * per_mm;
         let [lo, hi] = drawn.text;
         Some(OnModel {

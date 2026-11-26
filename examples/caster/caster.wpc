@@ -467,6 +467,17 @@
               },
               "style": "HiddenRemoved"
             }
+          ],
+          "words": [
+            {
+              "at": [
+                0.0,
+                -52.0
+              ],
+              "height": 3.5,
+              "text": "AXLE FIT: Ø8 H7/f7",
+              "view": "secA"
+            }
           ]
         },
         "id": "drawing"

@@ -34,6 +34,7 @@ top_rim = rep.edges(where=lambda e: not e["straight"] and abs(e["middle"][2] - 3
 p.fillet(top_rim, 5, id="hub_round")
 
 
+AT = (36, 12)
 def blade_section(id, offset, length, pitch):
     """A blade section on a plane square to x, `offset` out from the axis: a 3 thick rounded
     strip `length` long between its ends' centres, its middle at the hub's half height, pitched
@@ -46,7 +47,7 @@ def blade_section(id, offset, length, pitch):
     s.midpoint(mid, s.line(c0, c1, "chord", construction=True))
     s.point_on(mid, "v")
     s.distance_v(s.origin, mid, 15)
-    s.angle("u", "chord", pitch)
+    s.angle("u", "chord", pitch, at=AT)
     return s
 
 
@@ -63,7 +64,7 @@ p.feature_pattern([side], 5, about=axis("Z"), id="blades")
 p.on_sheet("root", on_drawing=False)
 bore = rep.faces(where=lambda f: not f["flat"] and f["name"].startswith("hub/") and abs(f["middle"][2] - 15) < 1
                  and abs(f["middle"][0]) + abs(f["middle"][1]) < 5)[0]
-p.dimension(bore, kind="Diameter", show_in="top", id="bore", at=(30, 30))
+p.dimension(bore, kind="Diameter", show_in="top", id="bore", at=(-32, -36), tol="H7")   # H7: locating fit on the motor shaft
 p.on_sheet("root_plane", on_drawing=False)
 p.op("Section", id="T", along="Plane", plane=axis("X"), offset=80.0)
 p.drawing(views=[view("top", "Top", (125, 190)), projected("front", "top", "Below", 125),

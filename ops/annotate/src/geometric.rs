@@ -181,6 +181,11 @@ impl Operation for GeometricTolerance {
                 datums,
                 on,
                 out,
+                axis: if of.of_axis(args.diametral) {
+                    crate::axis_of(&solid, face)
+                } else {
+                    None
+                },
             },
             at: match args.at {
                 Some(at) => workpiece_core::math::Point3::from_array(at),

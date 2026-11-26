@@ -294,7 +294,9 @@
                   0.0,
                   9.5
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Symmetric": 0.1
+                },
                 "value": 19.0
               },
               "kind": {
@@ -458,6 +460,31 @@
           "up_to": null
         },
         "id": "seat"
+      }
+    },
+    {
+      "DatumFeature": {
+        "args": {
+          "feature": {
+            "Topology": "jaw/side/e11"
+          },
+          "letter": "A"
+        },
+        "id": "datumfeature1"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Perpendicularity",
+          "datums": "A",
+          "diametral": false,
+          "feature": {
+            "Topology": "jaw/side/e14"
+          },
+          "value": 0.05
+        },
+        "id": "geometrictolerance1"
       }
     },
     {
@@ -758,32 +785,48 @@
             "wide": null
           },
           "format": "A3",
-          "general_tolerance": "ISO 2768-mK",
+          "general_tolerance": "ISO 8062-3 DCTG 9",
           "name": "drawing",
           "notes": [
             {
               "at": [
                 0.0,
-                69.0
+                -56.0
               ],
-              "note": "jaw/distance",
-              "view": "front"
+              "note": "datumfeature1",
+              "view": "left"
+            },
+            {
+              "at": [
+                14.0,
+                50.0
+              ],
+              "note": "geometrictolerance1",
+              "view": "left"
             },
             {
               "at": [
                 0.0,
                 -48.0
               ],
+              "note": "jaw/distance",
+              "view": "back"
+            },
+            {
+              "at": [
+                0.0,
+                -69.0
+              ],
               "note": "jaw_profile/d20",
               "view": "left"
             },
             {
               "at": [
-                70.0,
+                77.0,
                 0.0
               ],
               "note": "jaw_profile/d21",
-              "view": "front"
+              "view": "back"
             },
             {
               "at": [
@@ -791,15 +834,15 @@
                 61.444760173906786
               ],
               "note": "seat/callout",
-              "view": "front"
+              "view": "back"
             },
             {
               "at": [
-                -28.0,
+                70.0,
                 -19.0
               ],
               "note": "seat_place/d10",
-              "view": "left"
+              "view": "back"
             }
           ],
           "numbers": {
@@ -824,27 +867,27 @@
           "views": [
             {
               "at": [
-                120.0,
+                150.0,
                 160.0
               ],
-              "id": "front",
+              "id": "back",
               "kind": {
                 "Base": {
-                  "side": "Front"
+                  "side": "Back"
                 }
               },
               "style": "HiddenRemoved"
             },
             {
               "at": [
-                50.0,
+                60.0,
                 160.0
               ],
               "id": "left",
               "kind": {
                 "Projected": {
                   "beside": "Left",
-                  "of": "front"
+                  "of": "back"
                 }
               },
               "style": "HiddenRemoved"
@@ -857,7 +900,7 @@
               "id": "iso",
               "kind": {
                 "Base": {
-                  "side": "Isometric"
+                  "side": "IsometricBackLeft"
                 }
               },
               "style": "HiddenRemoved"

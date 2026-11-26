@@ -426,6 +426,12 @@ pub struct PlacedNote {
     /// no count.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub count: Option<u32>,
+    /// Of a datum feature or a geometric tolerance, where its leader is
+    /// to end, in millimetres from the view's middle: the point of the
+    /// feature's outline as the view draws it nearest this. Nothing:
+    /// where it reads best, near its frame.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub to: Option<[f64; 2]>,
 }
 
 fn no_starts(starts: &[Option<f64>; 2]) -> bool {
@@ -575,6 +581,12 @@ pub struct Sheet {
     /// (`ISO 8062-3 DCTG 9`) for a casting, or words of its own;
     /// nothing for none.
     pub general_tolerance: Option<String>,
+    /// The surface texture that holds of every face it says no other of
+    /// (ISO 21920-1, ISO 1302): `Ra 6,3`, written beside the title block
+    /// with its symbol, and the basic symbol in brackets after it — the
+    /// faces with one of their own have theirs. Nothing: none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub surface_texture: Option<String>,
 }
 
 /// The general tolerances a sheet is offered (ISO 2768-1/-2 classes,
@@ -912,6 +924,7 @@ impl Default for Sheet {
             places: false,
             reference_depths: false,
             general_tolerance: Some(GENERAL_TOLERANCE.to_owned()),
+            surface_texture: None,
         }
     }
 }

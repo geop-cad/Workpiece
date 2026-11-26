@@ -377,6 +377,56 @@
       }
     },
     {
+      "DatumFeature": {
+        "args": {
+          "feature": {
+            "Topology": "cover/start"
+          },
+          "letter": "A"
+        },
+        "id": "datumfeature1"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Flatness",
+          "datums": "",
+          "diametral": false,
+          "feature": {
+            "Topology": "cover/start"
+          },
+          "value": 0.05
+        },
+        "id": "geometrictolerance1"
+      }
+    },
+    {
+      "DatumFeature": {
+        "args": {
+          "feature": {
+            "Topology": "cover/side/e7"
+          },
+          "letter": "B"
+        },
+        "id": "datumfeature2"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Position",
+          "datums": "A B",
+          "diametral": true,
+          "feature": {
+            "Topology": "screw_hole/side/e1"
+          },
+          "value": 0.3
+        },
+        "id": "geometrictolerance2"
+      }
+    },
+    {
       "Section": {
         "args": {
           "along": "Plane",
@@ -734,6 +784,38 @@
             },
             {
               "at": [
+                22.0,
+                -16.0
+              ],
+              "note": "datumfeature1",
+              "view": "secA"
+            },
+            {
+              "at": [
+                0.0,
+                5.996787042760019
+              ],
+              "note": "datumfeature2",
+              "view": "secA"
+            },
+            {
+              "at": [
+                30.0,
+                12.0
+              ],
+              "note": "geometrictolerance1",
+              "view": "secA"
+            },
+            {
+              "at": [
+                14.60910319066548,
+                75.32610993758041
+              ],
+              "note": "geometrictolerance2",
+              "view": "left"
+            },
+            {
+              "at": [
                 66.99839876520906,
                 -0.003212957240009473
               ],
@@ -742,7 +824,7 @@
             },
             {
               "at": [
-                -33.65605363209691,
+                33.65605363209693,
                 77.65284067485692
               ],
               "note": "screw_hole/callout",
@@ -789,7 +871,7 @@
               ],
               "caption_at": [
                 0.0,
-                -66.0
+                -70.0
               ],
               "id": "secA",
               "kind": {

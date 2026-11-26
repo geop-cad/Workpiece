@@ -64,7 +64,9 @@ normal_to_face=)` (the sketch's areas thrown along its normal; only the first fa
 sides along the sketch's normal, or square to the face), or `outline="Curves", curves=[topo(curve_body) | topo(edge)]`: closed
 curves already on the face (a projection; rings inside others are holes), raised square to it.
 Pick faces/edges after a build: `rep.faces(where=lambda f: f["flat"] and f["normal"][2] > .99)`,
-`rep.edges(near=(x,y,z), count=1)`. Every wrapper takes `id=`.
+`rep.edges(near=(x,y,z), count=1)` — both return *names* (strings: pass them as `topo(name)`), the
+`where=` filter sees each as a dict (name, area, middle, normal, flat, surface). Every wrapper takes
+`id=`.
 
 **Assembly**: parts `Part(file="a.wpc")`; `asm = Part(); asm.add_part(a, id="a", at=(x,y,z), euler=(..)
 | mates=[mate(anchor(topo(face),"FaceCentre",instance="a"), anchor(...), "Fastened", flip_with=True)])`;
@@ -351,6 +353,14 @@ goes with the other.
 - Every dimension call takes `at=(x, y)`: where its text stands, in mm on the sheet from the
   middle of its view (`s.distance(a, b, 10, show_in="top", at=(0, -40))`,
   `p.dimension(f1, f2, at=(55, 10))`, `p.on_sheet("fillet1", show_in="front", at=(30, 25))`).
+  This holds for a sketch's dimensions too: `at=` is *never* in the sketch's or the model's
+  coordinates, always sheet millimetres from the middle of the view that shows it (x to the
+  right, y up), whatever the view's scale. A text that does not fit between its arrows goes
+  past the arrow on the side `at=` is on.
+- A sketch dimension's name is `<sketch>/d<n>` by default (`axle_hole/d10`); give it one with
+  `id="width"` (then `axle_hole/width`). Every sheet lists what it shows in
+  `<file>.wpc.views/sheet.txt`, one line per dimension: its name, text, kind, what it measures and
+  `@x,y` (where its text stands now) — the names to use in `p.on_sheet(name, at=...)`.
   Without it the text is put clear of the view by itself and brought onto the sheet if it
   would fall off it. An angle's text near its apex, a radius off its arc: say `at`. An angle's
   arc is drawn about its apex through where its text stands (and on to it, if it stands past
@@ -407,8 +417,9 @@ One way everywhere: `tol=` on a sketch dimension (`s.distance`, `s.diameter`, `s
 | `"H7"`, `"N9"` (a hole, upper case), `"k6"`, `"f7"` (a shaft, lower case) | `Ø20 H7`; with `p.drawing(..., fits="deviations")` `Ø20 H7 (+0,021/0)` |
 | `reference=True` (instead of `tol=`) | `(60)` |
 
-A fit's limits come from the ISO 286 tables (`workpiece_core::world::fits`): holes D E F G H JS K
-M N P, shafts d e f g h js k m n p, grades 5 to 14, sizes to 500 mm. A class or size not in them
+A fit's limits come from the ISO 286 tables (`workpiece_core::world::fits`): holes D E F G H J
+(J6 to J8 only) JS K M N P R S, shafts d e f g h js k m n p r s (r and s by the finer size ranges
+above 50 mm: 50–65, 65–80, …), grades 5 to 14, sizes to 500 mm. A class or size not in them
 fails the step (no guess); so do `tol=` together with `reference=True` and an upper deviation
 below the lower one.
 
@@ -429,10 +440,41 @@ Datum features (`p.datum_feature`, ISO 5459) draw their letter in a square on a 
 in a filled triangle on the face's outline; geometric tolerances (ISO 1101) a frame of
 compartments — symbol, zone (`Ø` with `diametral=True`), datums in order — on a leader ending in
 an arrow on the face's outline. Both are placed like dimensions (`show_in=`, `at=(x, y)` in mm
-from the view's middle, or `p.on_sheet(id, ...)`). A datum letter is a capital, never I, O or Q;
+from the view's middle, or `p.on_sheet(id, ...)`).
+
+Where the leader ends: on the outline the view draws of the face (never in a hole's gap of a
+ring face), near the frame; a frame close in front of the outline is reached from its end; two
+on one face end apart. `to=(x, y)` (mm from the view's middle, like `at=`) steers it: the point
+of the face's drawn outline nearest that. A round face (bore, shaft) is an *axis*: a datum on it
+always (ISO 5459), a tolerance for position and concentricity, and straightness, parallelism,
+perpendicularity, angularity with `diametral=True` (ISO 1101 derived feature). Its leader ends on
+the extension of that face's diameter dimension line, in line with the dimension's arrow, where
+the view shows that diameter (put a `p.dimension(face, kind="Diameter")` or a sketch diameter in
+the same view); where the view looks along the axis, on its circle (of a pattern's holes, the
+nearest to the frame), the square or frame put off the circle by itself. A datum letter is a capital, never I, O or Q;
 a characteristic of form (straightness, flatness, roundness, cylindricity) takes no datum, the
 others need the datums named before them. The title block's "General tolerances" cell says the
 sheet's `general_tolerance=` (default "ISO 2768-mK"; the app: the sheet's properties).
+
+### Surface texture
+
+`p.surface_texture("Ra 1,6", on=topo(face), removal=True, show_in="front", at=(x, y))` says how
+rough a face may be (ISO 21920-1, drawn with the ISO 1302 graphical symbol): two legs 60° off the
+surface, the shorter 1,4 × the lettering high, the longer 3 ×, a line on from its top over the
+requirement. `removal=True` (default) material is to be removed — a bar closes the legs;
+`False` it must not be — a circle in them; `None` any process — the bare legs. The symbol stands
+on the face's outline where the face looks up in the view and `at` is right over its edge (its
+apex there); else on a reference line at `at` with a leader ending in an arrow on the outline (a
+dot where the view sees the face square on); `to=(x, y)` steers where the leader ends, as for
+tolerances. `p.drawing(..., surface_texture="Ra 6,3")` writes the requirement of every other face
+over the title block at its right, its symbol followed by the basic symbol in brackets
+(`√Ra 6,3 (√)`: "all others as this"). In the app: Annotate → Surface.
+
+```python
+p.surface_texture("Ra 0,8", on=topo(seat), show_in="secA", at=(30, 12))      # ground seat
+p.surface_texture("Rz 25", on=topo(flange_back), removal=False, show_in="front", at=(-40, 20))
+p.drawing(..., surface_texture="Ra 6,3")
+```
 
 ### Views of some bodies
 

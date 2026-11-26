@@ -398,7 +398,9 @@
                   0.0,
                   15.5
                 ],
-                "tolerance": "General",
+                "tolerance": {
+                  "Symmetric": 0.1
+                },
                 "value": 31.0
               },
               "kind": {
@@ -524,7 +526,7 @@
           "axis": null,
           "chamfer": 0.5,
           "chamfer_angle": 90.0,
-          "class": null,
+          "class": "H12",
           "clearance": "Medium",
           "deburr": "None",
           "depth": 10.0,
@@ -562,6 +564,45 @@
           "up_to": null
         },
         "id": "bore"
+      }
+    },
+    {
+      "DatumFeature": {
+        "args": {
+          "feature": {
+            "Topology": "body/side/e13"
+          },
+          "letter": "A"
+        },
+        "id": "datumfeature1"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Parallelism",
+          "datums": "A",
+          "diametral": false,
+          "feature": {
+            "Topology": "body/side/e15"
+          },
+          "value": 0.05
+        },
+        "id": "geometrictolerance1"
+      }
+    },
+    {
+      "GeometricTolerance": {
+        "args": {
+          "characteristic": "Perpendicularity",
+          "datums": "A",
+          "diametral": false,
+          "feature": {
+            "Topology": "body/side/e16"
+          },
+          "value": 0.05
+        },
+        "id": "geometrictolerance2"
       }
     },
     {
@@ -862,7 +903,7 @@
             "wide": null
           },
           "format": "A3",
-          "general_tolerance": "ISO 2768-mK",
+          "general_tolerance": "ISO 8062-3 DCTG 9",
           "name": "drawing",
           "notes": [
             {
@@ -875,7 +916,7 @@
             },
             {
               "at": [
-                -47.0,
+                47.0,
                 0.0
               ],
               "note": "body_profile/d26",
@@ -883,15 +924,15 @@
             },
             {
               "at": [
-                -40.0,
+                80.0,
                 -19.0
               ],
               "note": "body_profile/d27",
-              "view": "front"
+              "view": "left"
             },
             {
               "at": [
-                -40.0,
+                40.0,
                 61.0
               ],
               "note": "body_profile/d28",
@@ -907,8 +948,8 @@
             },
             {
               "at": [
-                30.15685424949237,
-                36.15685424949237
+                -45.0,
+                38.0
               ],
               "note": "bore/callout",
               "view": "front"
@@ -919,6 +960,30 @@
                 -9.5
               ],
               "note": "bore_place/d10",
+              "view": "left"
+            },
+            {
+              "at": [
+                0.0,
+                -40.0
+              ],
+              "note": "datumfeature1",
+              "view": "left"
+            },
+            {
+              "at": [
+                35.0,
+                2.0
+              ],
+              "note": "geometrictolerance1",
+              "view": "left"
+            },
+            {
+              "at": [
+                -22.0,
+                8.0
+              ],
+              "note": "geometrictolerance2",
               "view": "left"
             }
           ],
@@ -985,8 +1050,8 @@
             },
             {
               "at": [
-                338.0,
-                205.0
+                345.0,
+                215.0
               ],
               "id": "iso",
               "kind": {
@@ -994,6 +1059,10 @@
                   "side": "Isometric"
                 }
               },
+              "scale": [
+                1,
+                2
+              ],
               "style": "HiddenRemoved"
             }
           ]

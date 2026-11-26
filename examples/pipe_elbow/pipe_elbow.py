@@ -48,7 +48,7 @@ rep = p.build(OUT)
 back = rep.faces(where=lambda f: f["flat"] and f["normal"][2] < -0.99)[0]
 b = p.sketch(topo(back), id="bolt_place", show_in="bottom")
 pitch = b.circle(b.origin, 50, "pitch", construction=True)
-b.diameter(pitch, 100)
+b.diameter(pitch, 100, tol=0.3, at=(62, -92))  # the bolt circle locates the mating flange
 dot = b.dot(35, 35, "bolt")
 b.point_on(dot, pitch)
 b.angle("u", b.line(b.origin, dot, "to_bolt", construction=True), 45)
@@ -70,13 +70,18 @@ p.feature_mirror([flange_rim] + holes, datum("bisector"), id="flange2")
 for helper in ("end_plane", "bisector", "flange2"):
     p.on_sheet(helper, on_drawing=False)
 # (The tube's outside and inside: the faces the section's outer and inner circles swept.)
-p.dimension("pipe/l1/run0/side/e1", kind="Diameter", show_in="secA", id="outside", at=(-20, 80))
-p.dimension("pipe/run0/side/e1", kind="Diameter", show_in="secA", id="inside", at=(-20, 40))
-p.on_sheet("bend", at=(-30, -40))
+p.dimension("pipe/l1/run0/side/e1", kind="Diameter", show_in="secA", id="outside", at=(-8, 38))
+p.dimension("pipe/run0/side/e1", kind="Diameter", show_in="secA", id="inside", at=(8, 8))
+p.on_sheet("bend", at=(10, -42))
+# Tolerances (a cast fitting, its flange faces and bolt holes finished): the faces seal against the
+# mating flange (flat) and the bolt circle (± on its diameter, below).
+rep = p.build(OUT)
+face_a = "flange2/flange/end"
+p.geometric_tolerance("Flatness", 0.1, on=topo(face_a), show_in="secA", at=(23, -108))
 p.op("Section", id="A", along="Plane", plane=axis("Y"), offset=0.0)
-p.drawing(views=[view("bottom", "Bottom", (210, 105)), section_view("secA", "A", (210, 305), of="bottom"),
-                 view("iso", "IsometricFrontLeft", (460, 290))],
-          scale=(1, 1), format="A2", id="drawing")
+p.drawing(views=[view("bottom", "Bottom", (170, 125)), section_view("secA", "A", (410, 270), of="bottom"),
+                 view("iso", "IsometricFrontLeft", (165, 335))],
+          scale=(1, 1), format="A2", id="drawing", general_tolerance="ISO 8062-3 DCTG 10")
 rep = p.build(OUT, render=True, pictures=True, picture=os.path.join(HERE, "render.png"))
 rep.show()
 
